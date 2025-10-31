@@ -1,0 +1,220 @@
+/* AI思政智慧课堂登录界面样式表 */
+
+/* ===== 1. 全局样式和字体 ===== */
+* {
+    font-family: "Lexend", "Arial", sans-serif;
+    color: #424242;
+}
+
+QMainWindow {
+    background-color: #f6f6f8;
+}
+
+/* Material Icons字体 */
+.MaterialIcon {
+    font-family: "Material Symbols Outlined";
+    font-weight: normal;
+    font-style: normal;
+    font-size: 18px;
+    display: inline-block;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: normal;
+    word-wrap: normal;
+    white-space: nowrap;
+    direction: ltr;
+}
+
+/* ===== 2. 主容器 ===== */
+#mainContainer {
+    background-color: #f6f6f8;
+}
+
+#loginCard {
+    background-color: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(229, 231, 235, 1);
+    border-radius: 12px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* ===== 3. 左侧红色面板 ===== */
+#leftPanel {
+    background-color: #C62828;
+    border-top-left-radius: 12px;
+    border-bottom-left-radius: 12px;
+}
+
+.mottoLabel {
+    color: #fef08a; /* yellow-300 */
+    font-size: 32px;
+    font-weight: 900;
+}
+
+.mottoEnglish {
+    color: #fef3c7; /* yellow-200 */
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.quoteLabel {
+    color: #fef08a; /* yellow-300 */
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.authorLabel {
+    color: #fef3c7; /* yellow-200 */
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.translationLabel {
+    color: #fef9c3; /* yellow-100 */
+    font-size: 14px;
+}
+
+/* ===== 4. 右侧登录面板 ===== */
+#rightPanel {
+    background-color: transparent;
+}
+
+.titleLabel {
+    color: #C62828;
+    font-size: 32px;
+    font-weight: bold;
+}
+
+.subtitleLabel {
+    color: #6b7280;
+    font-size: 18px;
+}
+
+.welcomeLabel {
+    color: #0d121b;
+    font-size: 36px;
+    font-weight: 900;
+    letter-spacing: -0.033em;
+}
+
+.descLabel {
+    color: #6b7280;
+    font-size: 16px;
+}
+
+/* ===== 5. 表单元素 ===== */
+.formLabel {
+    color: #0d121b;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+QLineEdit {
+    background-color: #f6f6f8;
+    border: 1px solid #cfd7e7;
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 16px;
+    height: 56px;
+    color: #0d121b;
+}
+
+QLineEdit:focus {
+    border: 2px solid rgba(198, 40, 40, 0.5);
+    outline: none;
+}
+
+QLineEdit::placeholder {
+    color: #9ca3af;
+    font-style: normal;
+}
+
+/* ===== 6. 复选框 ===== */
+QCheckBox {
+    color: #0d121b;
+    font-size: 14px;
+    font-weight: normal;
+}
+
+QCheckBox::indicator {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #d1d5db;
+    border-radius: 4px;
+    background-color: white;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #C62828;
+    border-color: #C62828;
+    image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEwLjUgMy41TDQuNSA5LjVMMS41IDYuNSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPC9zdmc+);
+}
+
+/* ===== 7. 按钮 ===== */
+QPushButton {
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    padding: 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* 主要按钮 */
+.primaryButton {
+    background-color: #C62828;
+    color: white;
+    font-weight: bold;
+}
+
+.primaryButton:hover {
+    background-color: #b71c1c;
+}
+
+.primaryButton:pressed {
+    background-color: #991b1b;
+}
+
+/* 链接按钮 */
+.linkButton {
+    background-color: transparent;
+    color: #C62828;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 0;
+}
+
+.linkButton:hover {
+    color: #991b1b;
+    text-decoration: underline;
+}
+
+/* 密码显示按钮 */
+.togglePasswordBtn {
+    background-color: transparent;
+    border: none;
+    color: #9ca3af;
+    font-size: 20px;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+}
+
+.togglePasswordBtn:hover {
+    color: #6b7280;
+}
+
+/* ===== 8. 图标 ===== */
+.leftIcon {
+    color: #9ca3af;
+    font-size: 20px;
+}
+
+/* ===== 9. 分隔线 ===== */
+.separator {
+    background-color: rgba(254, 240, 138, 0.3); /* yellow-300/30 */
+    height: 1px;
+    border: none;
+    margin: 2rem 0;
+}
