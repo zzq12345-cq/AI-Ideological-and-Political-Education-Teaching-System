@@ -3,6 +3,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QIcon>
+#include <QEvent>
 
 SimpleLoginWindow::SimpleLoginWindow(QWidget *parent)
     : QDialog(parent)
@@ -13,6 +14,15 @@ SimpleLoginWindow::SimpleLoginWindow(QWidget *parent)
 
 SimpleLoginWindow::~SimpleLoginWindow()
 {
+}
+
+bool SimpleLoginWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == passwordEdit && event->type() == QEvent::Resize) {
+        // 重新定位眼睛按钮到右侧
+        togglePasswordBtn->move(passwordEdit->width() - 40, (passwordEdit->height() - 30) / 2);
+    }
+    return QDialog::eventFilter(watched, event);
 }
 
 void SimpleLoginWindow::setupUI()
@@ -106,11 +116,12 @@ void SimpleLoginWindow::setupUI()
     usernameEdit = new QLineEdit();
     usernameEdit->setPlaceholderText("请输入您的用户名或邮箱");
     usernameEdit->setFixedHeight(56);
+    usernameEdit->setAlignment(Qt::AlignLeft);  // 使用Qt内置对齐方法
     usernameEdit->setStyleSheet(
         "QLineEdit {"
         "  border: 1px solid #CFD7E7;"
         "  border-radius: 8px;"
-        "  padding: 16px 16px;"  // 与密码输入框左侧padding保持一致
+        "  padding: 16px 16px;"  // 明确设置左右padding
         "  font-size: 16px;"
         "  background-color: #F6F6F8;"
         "}"
@@ -124,16 +135,32 @@ void SimpleLoginWindow::setupUI()
     passwordLabel = new QLabel("密码");
     passwordLabel->setStyleSheet("color: #0F172A; font-size: 16px; font-weight: 500;");
 
-    // 密码输入框 - 使用内部按钮
+    // 密码输入框 - 添加右侧眼睛按钮
     passwordEdit = new QLineEdit();
     passwordEdit->setEchoMode(QLineEdit::Password);
     passwordEdit->setPlaceholderText("请输入您的密码");
     passwordEdit->setFixedHeight(56);
+    passwordEdit->setAlignment(Qt::AlignLeft);  // 使用Qt内置对齐方法
+    // 为右侧按钮预留空间，调整右侧padding
+    passwordEdit->setStyleSheet(
+        "QLineEdit {"
+        "  border: 1px solid #CFD7E7;"
+        "  border-radius: 8px;"
+        "  padding: 16px 50px 16px 16px;"  // 右侧留出50px给眼睛按钮
+        "  font-size: 16px;"
+        "  background-color: #F6F6F8;"
+        "}"
+        "QLineEdit:focus {"
+        "  border: 2px solid #C62828;"
+        "  outline: none;"
+        "}"
+    );
 
-    // 创建密码显示/隐藏按钮
-    togglePasswordBtn = new QPushButton("👁");
-    togglePasswordBtn->setFixedSize(24, 24);
+    // 创建眼睛按钮，放在密码框内部右侧
+    togglePasswordBtn = new QPushButton("👁", passwordEdit);  // 设置父对象为passwordEdit
+    togglePasswordBtn->setFixedSize(30, 30);
     togglePasswordBtn->setCursor(Qt::PointingHandCursor);
+    togglePasswordBtn->move(passwordEdit->width() - 40, (passwordEdit->height() - 30) / 2);  // 定位到右侧
     togglePasswordBtn->setStyleSheet(
         "QPushButton {"
         "  border: none;"
@@ -144,29 +171,6 @@ void SimpleLoginWindow::setupUI()
         "}"
         "QPushButton:hover {"
         "  color: #C62828;"
-        "}"
-    );
-
-    // 将按钮放在输入框右侧
-    QHBoxLayout *passwordLayout = new QHBoxLayout(passwordEdit);
-    passwordLayout->setContentsMargins(16, 0, 16, 0);
-    passwordLayout->setSpacing(8);
-    passwordLayout->addStretch();
-    passwordLayout->addWidget(togglePasswordBtn);
-
-    // 设置输入框样式，为右侧按钮留出空间
-    passwordEdit->setStyleSheet(
-        "QLineEdit {"
-        "  border: 1px solid #CFD7E7;"
-        "  border-radius: 8px;"
-        "  padding: 16px 16px;"  // 与用户名输入框完全一致的padding
-        "  font-size: 16px;"
-        "  background-color: #F6F6F8;"
-        "  text-align: left;"  // 确保文本左对齐
-        "}"
-        "QLineEdit:focus {"
-        "  border: 2px solid #C62828;"
-        "  outline: none;"
         "}"
     );
 
@@ -280,7 +284,9 @@ void SimpleLoginWindow::setupUI()
     rightLayout->addWidget(usernameEdit);
     rightLayout->addSpacing(16);
     rightLayout->addWidget(passwordLabel);
-    rightLayout->addWidget(passwordEdit);  // 直接添加密码输入框，已包含内部按钮
+
+    // 密码输入区域 - 直接添加密码框，眼睛按钮已在内部
+    rightLayout->addWidget(passwordEdit);
     rightLayout->addSpacing(16); // 减少选项区域间距
 
     // 选项区域 - 记住我/忘记密码
@@ -307,6 +313,9 @@ void SimpleLoginWindow::setupUI()
             togglePasswordBtn->setText("👁");
         }
     });
+
+    // 使用事件过滤器来监听密码框大小改变事件
+    passwordEdit->installEventFilter(this);
 }
 
 void SimpleLoginWindow::setupStyle()

@@ -21,6 +21,9 @@ public:
 private slots:
     void onLoginClicked();
 
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
     void setupUI();
     void setupStyle();
