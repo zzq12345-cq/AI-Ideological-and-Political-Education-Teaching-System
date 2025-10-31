@@ -20,7 +20,6 @@ public:
 
 private slots:
     void onLoginClicked();
-    void onCloseClicked();
 
 private:
     void setupUI();
@@ -53,7 +52,6 @@ private:
     QPushButton *loginButton;
     QLabel *signupLabel;
     QPushButton *signupBtn;
-    QPushButton *closeButton;
-};
+  };
 
 #endif // SIMPLELOGINWINDOW_H

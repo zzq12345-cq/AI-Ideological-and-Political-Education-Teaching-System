@@ -18,8 +18,19 @@ SimpleLoginWindow::~SimpleLoginWindow()
 void SimpleLoginWindow::setupUI()
 {
     setWindowTitle("思想政治智慧课堂");
-    setFixedSize(1200, 700);
-    // 使用默认窗口标志，确保显示系统标题栏和关闭按钮
+    resize(1200, 700);  // 使用resize而不是setFixedSize，允许窗口调整大小
+    setMinimumSize(800, 600);  // 设置最小尺寸限制
+
+    // 设置窗口标志以显示完整的窗口控制按钮（关闭、最小化、最大化）
+    // 使用Qt::Window确保所有原生控件都显示，并启用最大化
+    setWindowFlags(Qt::Window | Qt::WindowMaximizeButtonHint);
+
+    // 启用窗口最大化功能
+    setWindowModality(Qt::NonModal);
+
+    // 确保窗口具有完整的窗口控件
+    setAttribute(Qt::WA_DeleteOnClose);
+    setAttribute(Qt::WA_QuitOnClose, false);
 
     // 主布局 - 60%左侧 + 40%右侧布局，使右侧登录模块更聚焦
     mainLayout = new QHBoxLayout(this);
@@ -73,23 +84,7 @@ void SimpleLoginWindow::setupUI()
     rightLayout = new QVBoxLayout(rightPanel);
     rightLayout->setContentsMargins(50, 50, 50, 50); // 稍微减少边距使界面更紧凑
 
-    // 关闭按钮 - 使用柔化红色
-    closeButton = new QPushButton("✕");
-    closeButton->setFixedSize(30, 30);
-    closeButton->setStyleSheet(
-        "QPushButton {"
-        "  background-color: #C62828;"
-        "  color: white;"
-        "  border: none;"
-        "  border-radius: 15px;"
-        "  font-size: 16px;"
-        "  font-weight: bold;"
-        "}"
-        "QPushButton:hover {"
-        "  background-color: #B71C1C;"
-        "}"
-    );
-
+  
     // 品牌标题区域 - 【修改1】使用品牌红色
     titleLabel = new QLabel("思想政治智慧课堂");
     titleLabel->setStyleSheet("color: #C62828; font-size: 42px; font-weight: 900; text-align: center; margin: 10px 0; text-shadow: 1px 1px 3px rgba(0,0,0,0.4);");
@@ -129,17 +124,42 @@ void SimpleLoginWindow::setupUI()
     passwordLabel = new QLabel("密码");
     passwordLabel->setStyleSheet("color: #0F172A; font-size: 16px; font-weight: 500;");
 
-    // 密码输入框容器
-    QHBoxLayout *passwordLayout = new QHBoxLayout();
+    // 密码输入框 - 使用内部按钮
     passwordEdit = new QLineEdit();
     passwordEdit->setEchoMode(QLineEdit::Password);
     passwordEdit->setPlaceholderText("请输入您的密码");
     passwordEdit->setFixedHeight(56);
+
+    // 创建密码显示/隐藏按钮
+    togglePasswordBtn = new QPushButton("👁");
+    togglePasswordBtn->setFixedSize(24, 24);
+    togglePasswordBtn->setCursor(Qt::PointingHandCursor);
+    togglePasswordBtn->setStyleSheet(
+        "QPushButton {"
+        "  border: none;"
+        "  background: transparent;"
+        "  color: #6B7280;"
+        "  font-size: 16px;"
+        "  padding: 0px;"
+        "}"
+        "QPushButton:hover {"
+        "  color: #C62828;"
+        "}"
+    );
+
+    // 将按钮放在输入框右侧
+    QHBoxLayout *passwordLayout = new QHBoxLayout(passwordEdit);
+    passwordLayout->setContentsMargins(16, 0, 16, 0);
+    passwordLayout->setSpacing(8);
+    passwordLayout->addStretch();
+    passwordLayout->addWidget(togglePasswordBtn);
+
+    // 设置输入框样式，为右侧按钮留出空间
     passwordEdit->setStyleSheet(
         "QLineEdit {"
         "  border: 1px solid #CFD7E7;"
         "  border-radius: 8px;"
-        "  padding: 16px 44px;"
+        "  padding: 16px 50px 16px 16px;"  // 右侧留更多空间给按钮
         "  font-size: 16px;"
         "  background-color: #F6F6F8;"
         "}"
@@ -148,19 +168,6 @@ void SimpleLoginWindow::setupUI()
         "  outline: none;"
         "}"
     );
-
-    togglePasswordBtn = new QPushButton("👁");
-    togglePasswordBtn->setFixedSize(40, 40);
-    togglePasswordBtn->setStyleSheet(
-        "QPushButton {"
-        "  border: none;"
-        "  background: transparent;"
-        "  font-size: 18px;"
-        "}"
-    );
-
-    passwordLayout->addWidget(passwordEdit);
-    passwordLayout->addWidget(togglePasswordBtn);
 
     // 记住我和忘记密码 - 重新设计平衡布局
     QHBoxLayout *optionsLayout = new QHBoxLayout();
@@ -272,7 +279,7 @@ void SimpleLoginWindow::setupUI()
     rightLayout->addWidget(usernameEdit);
     rightLayout->addSpacing(16);
     rightLayout->addWidget(passwordLabel);
-    rightLayout->addLayout(passwordLayout);
+    rightLayout->addWidget(passwordEdit);  // 直接添加密码输入框，已包含内部按钮
     rightLayout->addSpacing(16); // 减少选项区域间距
 
     // 选项区域 - 记住我/忘记密码
@@ -341,7 +348,3 @@ void SimpleLoginWindow::onLoginClicked()
     }
 }
 
-void SimpleLoginWindow::onCloseClicked()
-{
-    close();
-}
