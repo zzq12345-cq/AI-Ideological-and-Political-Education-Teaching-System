@@ -159,9 +159,10 @@ void SimpleLoginWindow::setupUI()
         "QLineEdit {"
         "  border: 1px solid #CFD7E7;"
         "  border-radius: 8px;"
-        "  padding: 16px 50px 16px 16px;"  // 右侧留更多空间给按钮
+        "  padding: 16px 16px;"  // 与用户名输入框完全一致的padding
         "  font-size: 16px;"
         "  background-color: #F6F6F8;"
+        "  text-align: left;"  // 确保文本左对齐
         "}"
         "QLineEdit:focus {"
         "  border: 2px solid #C62828;"
