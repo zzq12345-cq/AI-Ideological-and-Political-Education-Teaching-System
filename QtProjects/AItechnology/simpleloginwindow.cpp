@@ -110,7 +110,7 @@ void SimpleLoginWindow::setupUI()
         "QLineEdit {"
         "  border: 1px solid #CFD7E7;"
         "  border-radius: 8px;"
-        "  padding: 16px 44px;"
+        "  padding: 16px 16px;"  // 与密码输入框左侧padding保持一致
         "  font-size: 16px;"
         "  background-color: #F6F6F8;"
         "}"
