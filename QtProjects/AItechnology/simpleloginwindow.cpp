@@ -19,7 +19,7 @@ void SimpleLoginWindow::setupUI()
 {
     setWindowTitle("思想政治智慧课堂");
     setFixedSize(1200, 700);
-    setWindowFlags(Qt::Window | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
+    // 使用默认窗口标志，确保显示系统标题栏和关闭按钮
 
     // 主布局 - 60%左侧 + 40%右侧布局，使右侧登录模块更聚焦
     mainLayout = new QHBoxLayout(this);
@@ -31,30 +31,30 @@ void SimpleLoginWindow::setupUI()
     leftPanel->setFixedWidth(720); // 60% of 1200
     leftLayout = new QVBoxLayout(leftPanel);
 
-    // 口号标签 - 使用更柔和的颜色搭配
+    // 口号标签 - 使用暗金色点缀，体现庄重与典雅
     mottoLabel = new QLabel("\"不忘初心，牢记使命\"");
-    mottoLabel->setStyleSheet("color: #FFF8F0; font-size: 32px; font-weight: 900; text-align: center;");
+    mottoLabel->setStyleSheet("color: #C9A64E; font-size: 32px; font-weight: 900; text-align: center; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);");
 
-    // 英文翻译
+    // 英文翻译 - 使用浅色调搭配暗金色标题
     QLabel *mottoEnglish = new QLabel("\"Remain true to our original aspiration and keep our mission firmly in mind.\"");
-    mottoEnglish->setStyleSheet("color: #FFE8E0; font-size: 18px; font-weight: 500; text-align: center;");
+    mottoEnglish->setStyleSheet("color: #E8D5B5; font-size: 18px; font-weight: 500; text-align: center;");
 
-    // 分隔线 - 使用更柔和的透明度
+    // 分隔线 - 使用暗金色边框体现典雅
     QFrame *separator = new QFrame();
     separator->setFrameShape(QFrame::HLine);
-    separator->setStyleSheet("background-color: rgba(255, 248, 240, 0.4);");
+    separator->setStyleSheet("background-color: #C9A64E; height: 1px; border: none;");
 
-    // 引言 - 调整颜色使视觉更柔和
+    // 引言 - 使用暗金色标题，突出主题
     quoteLabel = new QLabel("\"为中华之崛起而读书\"");
-    quoteLabel->setStyleSheet("color: #FFF8F0; font-size: 28px; font-weight: bold; text-align: center;");
+    quoteLabel->setStyleSheet("color: #C9A64E; font-size: 28px; font-weight: bold; text-align: center; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);");
 
-    // 作者
+    // 作者 - 使用浅色调
     authorLabel = new QLabel("—— 周恩来 (Zhou Enlai)");
-    authorLabel->setStyleSheet("color: #FFE8E0; font-size: 16px; font-weight: 500; font-style: italic;");
+    authorLabel->setStyleSheet("color: #E8D5B5; font-size: 16px; font-weight: 500; font-style: italic;");
 
-    // 英文翻译
+    // 英文翻译 - 使用淡雅色调
     translationLabel = new QLabel("\"Study for the rise of China.\"");
-    translationLabel->setStyleSheet("color: rgba(255, 232, 224, 0.9); font-size: 14px;");
+    translationLabel->setStyleSheet("color: #D4C5A0; font-size: 14px;");
 
     // 左侧布局
     leftLayout->addStretch();
@@ -90,9 +90,9 @@ void SimpleLoginWindow::setupUI()
         "}"
     );
 
-    // 品牌标题区域 - 建立清晰的层级
+    // 品牌标题区域 - 【修改1】使用品牌红色
     titleLabel = new QLabel("思想政治智慧课堂");
-    titleLabel->setStyleSheet("color: #C62828; font-size: 28px; font-weight: bold; text-align: center;");
+    titleLabel->setStyleSheet("color: #C62828; font-size: 42px; font-weight: 900; text-align: center; margin: 10px 0; text-shadow: 1px 1px 3px rgba(0,0,0,0.4);");
 
     subtitleLabel = new QLabel("Ideological & Political Smart Classroom");
     subtitleLabel->setStyleSheet("color: #6B7280; font-size: 14px; text-align: center;");
@@ -203,23 +203,26 @@ void SimpleLoginWindow::setupUI()
     optionsLayout->addStretch();
     optionsLayout->addWidget(forgotPasswordBtn);
 
-    // 登录按钮 - 使用柔化红色系
+    // 【修改2】登录按钮 - 彻底修改为红色主题
     loginButton = new QPushButton("登 录");
     loginButton->setFixedHeight(56);
     loginButton->setStyleSheet(
         "QPushButton {"
         "  background-color: #C62828;"
         "  color: white;"
-        "  border: none;"
+        "  border: 2px solid #C62828;"
         "  border-radius: 8px;"
         "  font-size: 16px;"
         "  font-weight: bold;"
         "}"
         "QPushButton:hover {"
-        "  background-color: #8E0000;"
+        "  background-color: #D32F2F;"
+        "  border-color: #D32F2F;"
+        "  color: white;"
         "}"
         "QPushButton:pressed {"
         "  background-color: #B71C1C;"
+        "  border-color: #B71C1C;"
         "}"
     );
 
@@ -251,18 +254,17 @@ void SimpleLoginWindow::setupUI()
     signupLayout->addWidget(signupBtn);
     signupLayout->addStretch();
 
-    // 右侧布局组装 - 优化间距和层级
-    rightLayout->addWidget(closeButton);
+    // 右侧布局组装 - 【修改4】使用Qt::AlignCenter显式居中对齐
     rightLayout->addStretch();
 
-    // 品牌区域 - 较小间距，作为辅助信息
-    rightLayout->addWidget(titleLabel);
-    rightLayout->addWidget(subtitleLabel);
+    // 品牌区域 - 较小间距，作为辅助信息，英文标题也居中对齐
+    rightLayout->addWidget(titleLabel, 0, Qt::AlignCenter);
+    rightLayout->addWidget(subtitleLabel, 0, Qt::AlignCenter);
     rightLayout->addSpacing(20); // 减少间距
 
-    // 欢迎区域 - 主要操作提示，增加突出感
-    rightLayout->addWidget(welcomeLabel);
-    rightLayout->addWidget(descLabel);
+    // 欢迎区域 - 主要操作提示，增加突出感，对齐描述文字
+    rightLayout->addWidget(welcomeLabel, 0, Qt::AlignCenter);
+    rightLayout->addWidget(descLabel, 0, Qt::AlignCenter);
     rightLayout->addSpacing(30); // 适当间距
 
     // 表单区域
@@ -288,7 +290,6 @@ void SimpleLoginWindow::setupUI()
 
     // 连接信号
     connect(loginButton, &QPushButton::clicked, this, &SimpleLoginWindow::onLoginClicked);
-    connect(closeButton, &QPushButton::clicked, this, &SimpleLoginWindow::onCloseClicked);
     connect(togglePasswordBtn, &QPushButton::clicked, [this]() {
         if (passwordEdit->echoMode() == QLineEdit::Password) {
             passwordEdit->setEchoMode(QLineEdit::Normal);
@@ -307,7 +308,7 @@ void SimpleLoginWindow::setupStyle()
         "  background-color: white;"
         "}"
         "QFrame#leftPanel {"
-        "  background-color: #C62828;"  // 使用柔化红色
+        "  background-color: #B71C1C;"  // 【修改3】使用更亮的深红色
         "}"
         "QFrame#rightPanel {"
         "  background-color: white;"
