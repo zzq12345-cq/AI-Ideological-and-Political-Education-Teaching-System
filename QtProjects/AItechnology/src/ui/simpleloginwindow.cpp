@@ -1,5 +1,5 @@
 #include "simpleloginwindow.h"
-#include "../ui/mainwindow.h"
+#include "modernmainwindow.h"
 #include <QMessageBox>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -11,12 +11,13 @@
 SimpleLoginWindow::SimpleLoginWindow(QWidget *parent)
     : QDialog(parent)
 {
-    setupUI();
-    setupStyle();
+    setupUI();  // 设置UI组件
+    setupStyle(); // 设置样式
 }
 
 SimpleLoginWindow::~SimpleLoginWindow()
 {
+    // 不再需要删除ui，因为我们不使用UI文件
 }
 
 bool SimpleLoginWindow::eventFilter(QObject *watched, QEvent *event)
@@ -30,30 +31,41 @@ bool SimpleLoginWindow::eventFilter(QObject *watched, QEvent *event)
 
 void SimpleLoginWindow::setupUI()
 {
+    qDebug() << "开始设置UI...";
+
+    // 首先设置基本窗口属性
     setWindowTitle("思想政治智慧课堂");
-    resize(1200, 700);  // 使用resize而不是setFixedSize，允许窗口调整大小
-    setMinimumSize(800, 600);  // 设置最小尺寸限制
+    resize(1200, 700);
+    setMinimumSize(800, 600);
 
-    // 设置窗口标志以显示完整的窗口控制按钮（关闭、最小化、最大化）
-    // 使用Qt::Window确保所有原生控件都显示，并启用最大化
-    setWindowFlags(Qt::Window | Qt::WindowMaximizeButtonHint);
+    qDebug() << "窗口基本属性设置完成";
 
-    // 启用窗口最大化功能
-    setWindowModality(Qt::NonModal);
-
-    // 确保窗口具有完整的窗口控件
-    setAttribute(Qt::WA_DeleteOnClose);
-    setAttribute(Qt::WA_QuitOnClose, false);
-
-    // 主布局 - 60%左侧 + 40%右侧布局，使右侧登录模块更聚焦
+    // 创建主布局
     mainLayout = new QHBoxLayout(this);
+    if (!mainLayout) {
+        qDebug() << "错误：无法创建主布局";
+        return;
+    }
+
+    qDebug() << "主布局创建成功";
+
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
+    qDebug() << "主布局属性设置完成";
+
     // 左侧面板 - 柔化红色调背景，显示口号和引言
     leftPanel = new QFrame();
+    if (!leftPanel) {
+        qDebug() << "错误：无法创建左侧面板";
+        return;
+    }
     leftPanel->setFixedWidth(720); // 60% of 1200
     leftLayout = new QVBoxLayout(leftPanel);
+    if (!leftLayout) {
+        qDebug() << "错误：无法创建左侧布局";
+        return;
+    }
 
     // 口号标签 - 使用暗金色点缀，体现庄重与典雅
     mottoLabel = new QLabel("\"不忘初心，牢记使命\"");
@@ -129,8 +141,17 @@ void SimpleLoginWindow::setupUI()
 
     // 右侧面板 - 白色背景，登录表单，更紧凑的布局
     rightPanel = new QFrame();
+    if (!rightPanel) {
+        qDebug() << "错误：无法创建右侧面板";
+        return;
+    }
     rightLayout = new QVBoxLayout(rightPanel);
+    if (!rightLayout) {
+        qDebug() << "错误：无法创建右侧布局";
+        return;
+    }
     rightLayout->setContentsMargins(50, 50, 50, 50); // 稍微减少边距使界面更紧凑
+    qDebug() << "右侧面板创建完成";
 
   
     // 品牌标题区域 - 【修改1】使用品牌红色
@@ -337,8 +358,14 @@ void SimpleLoginWindow::setupUI()
     rightLayout->addStretch();
 
     // 添加到主布局
-    mainLayout->addWidget(leftPanel);
-    mainLayout->addWidget(rightPanel);
+    if (mainLayout && leftPanel && rightPanel) {
+        qDebug() << "正在添加面板到主布局...";
+        mainLayout->addWidget(leftPanel);
+        mainLayout->addWidget(rightPanel);
+        qDebug() << "面板添加完成";
+    } else {
+        qDebug() << "错误：主布局或面板为空";
+    }
 
     // 连接信号
     connect(loginButton, &QPushButton::clicked, this, &SimpleLoginWindow::onLoginClicked);
@@ -354,6 +381,8 @@ void SimpleLoginWindow::setupUI()
 
     // 使用事件过滤器来监听密码框大小改变事件
     passwordEdit->installEventFilter(this);
+
+    qDebug() << "UI设置完成！";
 }
 
 void SimpleLoginWindow::setupStyle()
@@ -418,7 +447,7 @@ void SimpleLoginWindow::openMainWindow(const QString &username, const QString &r
 {
     // 延迟打开主窗口，确保登录窗口已关闭
     QTimer::singleShot(100, [this, username, role]() {
-        MainWindow *mainWindow = new MainWindow(username, role);
+        ModernMainWindow *mainWindow = new ModernMainWindow(username, role);
         mainWindow->show();
     });
 }

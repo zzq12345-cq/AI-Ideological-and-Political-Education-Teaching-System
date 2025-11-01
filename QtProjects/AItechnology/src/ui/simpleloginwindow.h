@@ -15,8 +15,11 @@ class SimpleLoginWindow : public QDialog
     Q_OBJECT
 
 public:
-    SimpleLoginWindow(QWidget *parent = nullptr);
+    explicit SimpleLoginWindow(QWidget *parent = nullptr);
     ~SimpleLoginWindow();
+
+protected:
+    void setupUI();
 
 private slots:
     void onLoginClicked();
@@ -26,10 +29,10 @@ protected:
 
 private:
     void openMainWindow(const QString &username, const QString &role);
+    void setupStyle();
 
 private:
-    void setupUI();
-    void setupStyle();
+    // 不再需要UI文件指针
 
     QHBoxLayout *mainLayout;
     QFrame *leftPanel;

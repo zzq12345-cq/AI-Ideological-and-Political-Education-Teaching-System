@@ -1,6 +1,7 @@
 #include <QApplication>
 #include <QStyleFactory>
 #include <QTimer>
+#include <QDebug>
 #include "../ui/simpleloginwindow.h"
 
 int main(int argc, char *argv[])
