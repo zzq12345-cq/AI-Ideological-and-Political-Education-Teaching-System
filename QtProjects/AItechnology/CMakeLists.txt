@@ -14,10 +14,17 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 
 set(PROJECT_SOURCES
     src/main/main.cpp
-    src/login/simpleloginwindow.cpp
-    src/login/simpleloginwindow.h
+    src/main/identicalloginwindow.cpp
+    src/main/identicalloginwindow.h
+    src/ui/simpleloginwindow.cpp
+    src/ui/simpleloginwindow.h
+    src/ui/simpleloginwindow.ui
+    src/ui/simpleloginwindow_designer.ui
     src/ui/mainwindow.cpp
     src/ui/mainwindow.h
+    src/ui/modernmainwindow.ui
+    src/ui/modernmainwindow.cpp
+    src/ui/modernmainwindow.h
 )
 
 qt_add_executable(AILoginSystem

@@ -6,7 +6,7 @@
 ** WARNING! All changes made in this file will be lost!
 *****************************************************************************/
 
-#include "../../../login/identicalloginwindow.h"
+#include "../../../src/main/identicalloginwindow.h"
 #include <QtGui/qtextcursor.h>
 #include <QtCore/qmetatype.h>
 

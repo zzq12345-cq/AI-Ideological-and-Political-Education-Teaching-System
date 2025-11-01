@@ -6,7 +6,7 @@
 ** WARNING! All changes made in this file will be lost!
 *****************************************************************************/
 
-#include "../../../modernmainwindow.h"
+#include "../../../src/dashboard/modernmainwindow.h"
 #include <QtGui/qtextcursor.h>
 #include <QtCore/qmetatype.h>
 
@@ -40,37 +40,43 @@ template <> constexpr inline auto ModernMainWindow::qt_create_metaobjectdata<qt_
     namespace QMC = QtMocConstants;
     QtMocHelpers::StringRefStorage qt_stringData {
         "ModernMainWindow",
-        "onLogoutClicked",
+        "onTeacherCenterClicked",
         "",
-        "onProfileClicked",
+        "onContentAnalysisClicked",
+        "onAIPreparationClicked",
+        "onResourceManagementClicked",
+        "onLearningAnalysisClicked",
+        "onDataReportClicked",
         "onSettingsClicked",
-        "onDashboardClicked",
-        "onCoursesClicked",
-        "onAssignmentsClicked",
-        "onAnalyticsClicked",
-        "onMessagesClicked",
-        "onHelpClicked"
+        "onHelpClicked",
+        "onQuickPreparationClicked",
+        "onStartClassClicked",
+        "onEnterClassClicked"
     };
 
     QtMocHelpers::UintData qt_methods {
-        // Slot 'onLogoutClicked'
+        // Slot 'onTeacherCenterClicked'
         QtMocHelpers::SlotData<void()>(1, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onProfileClicked'
+        // Slot 'onContentAnalysisClicked'
         QtMocHelpers::SlotData<void()>(3, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onSettingsClicked'
+        // Slot 'onAIPreparationClicked'
         QtMocHelpers::SlotData<void()>(4, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onDashboardClicked'
+        // Slot 'onResourceManagementClicked'
         QtMocHelpers::SlotData<void()>(5, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onCoursesClicked'
+        // Slot 'onLearningAnalysisClicked'
         QtMocHelpers::SlotData<void()>(6, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onAssignmentsClicked'
+        // Slot 'onDataReportClicked'
         QtMocHelpers::SlotData<void()>(7, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onAnalyticsClicked'
+        // Slot 'onSettingsClicked'
         QtMocHelpers::SlotData<void()>(8, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onMessagesClicked'
-        QtMocHelpers::SlotData<void()>(9, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onHelpClicked'
+        QtMocHelpers::SlotData<void()>(9, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onQuickPreparationClicked'
         QtMocHelpers::SlotData<void()>(10, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onStartClassClicked'
+        QtMocHelpers::SlotData<void()>(11, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onEnterClassClicked'
+        QtMocHelpers::SlotData<void()>(12, 2, QMC::AccessPrivate, QMetaType::Void),
     };
     QtMocHelpers::UintData qt_properties {
     };
@@ -94,15 +100,17 @@ void ModernMainWindow::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int
     auto *_t = static_cast<ModernMainWindow *>(_o);
     if (_c == QMetaObject::InvokeMetaMethod) {
         switch (_id) {
-        case 0: _t->onLogoutClicked(); break;
-        case 1: _t->onProfileClicked(); break;
-        case 2: _t->onSettingsClicked(); break;
-        case 3: _t->onDashboardClicked(); break;
-        case 4: _t->onCoursesClicked(); break;
-        case 5: _t->onAssignmentsClicked(); break;
-        case 6: _t->onAnalyticsClicked(); break;
-        case 7: _t->onMessagesClicked(); break;
-        case 8: _t->onHelpClicked(); break;
+        case 0: _t->onTeacherCenterClicked(); break;
+        case 1: _t->onContentAnalysisClicked(); break;
+        case 2: _t->onAIPreparationClicked(); break;
+        case 3: _t->onResourceManagementClicked(); break;
+        case 4: _t->onLearningAnalysisClicked(); break;
+        case 5: _t->onDataReportClicked(); break;
+        case 6: _t->onSettingsClicked(); break;
+        case 7: _t->onHelpClicked(); break;
+        case 8: _t->onQuickPreparationClicked(); break;
+        case 9: _t->onStartClassClicked(); break;
+        case 10: _t->onEnterClassClicked(); break;
         default: ;
         }
     }
@@ -128,14 +136,14 @@ int ModernMainWindow::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 9)
+        if (_id < 11)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 9;
+        _id -= 11;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 9)
+        if (_id < 11)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 9;
+        _id -= 11;
     }
     return _id;
 }

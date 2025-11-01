@@ -2,7 +2,7 @@
 #include <QStyleFactory>
 #include <QTimer>
 #include <QDebug>
-#include "../ui/simpleloginwindow.h"
+#include "../auth/login/simpleloginwindow.h"
 
 int main(int argc, char *argv[])
 {

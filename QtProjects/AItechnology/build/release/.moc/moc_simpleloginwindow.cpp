@@ -6,7 +6,7 @@
 ** WARNING! All changes made in this file will be lost!
 *****************************************************************************/
 
-#include "../../../simpleloginwindow.h"
+#include "../../../src/auth/login/simpleloginwindow.h"
 #include <QtGui/qtextcursor.h>
 #include <QtCore/qmetatype.h>
 
@@ -41,15 +41,12 @@ template <> constexpr inline auto SimpleLoginWindow::qt_create_metaobjectdata<qt
     QtMocHelpers::StringRefStorage qt_stringData {
         "SimpleLoginWindow",
         "onLoginClicked",
-        "",
-        "onCloseClicked"
+        ""
     };
 
     QtMocHelpers::UintData qt_methods {
         // Slot 'onLoginClicked'
         QtMocHelpers::SlotData<void()>(1, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onCloseClicked'
-        QtMocHelpers::SlotData<void()>(3, 2, QMC::AccessPrivate, QMetaType::Void),
     };
     QtMocHelpers::UintData qt_properties {
     };
@@ -74,7 +71,6 @@ void SimpleLoginWindow::qt_static_metacall(QObject *_o, QMetaObject::Call _c, in
     if (_c == QMetaObject::InvokeMetaMethod) {
         switch (_id) {
         case 0: _t->onLoginClicked(); break;
-        case 1: _t->onCloseClicked(); break;
         default: ;
         }
     }
@@ -100,14 +96,14 @@ int SimpleLoginWindow::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 2)
+        if (_id < 1)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 2;
+        _id -= 1;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 2)
+        if (_id < 1)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 2;
+        _id -= 1;
     }
     return _id;
 }

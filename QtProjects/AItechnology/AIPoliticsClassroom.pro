@@ -10,20 +10,18 @@ DEFINES += QT_DEPRECATED_WARNINGS
 # 源文件
 SOURCES += \
     src/main/main.cpp \
-    src/ui/simpleloginwindow.cpp \
-    src/ui/modernmainwindow.cpp \
-    mainwindow.cpp
+    src/auth/login/simpleloginwindow.cpp \
+    src/dashboard/modernmainwindow.cpp
 
 # 头文件
 HEADERS += \
-    src/ui/simpleloginwindow.h \
-    src/ui/modernmainwindow.h \
-    mainwindow.h
+    src/auth/login/simpleloginwindow.h \
+    src/dashboard/modernmainwindow.h
 
 # UI文件
 FORMS += \
-    src/ui/simpleloginwindow.ui \
-    src/ui/modernmainwindow.ui
+    src/auth/login/simpleloginwindow.ui \
+    src/dashboard/modernmainwindow.ui
 
 # 暂时移除资源文件依赖
 # RESOURCES += resources.qrc
