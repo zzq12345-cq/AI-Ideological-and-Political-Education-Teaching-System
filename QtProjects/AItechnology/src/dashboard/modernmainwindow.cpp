@@ -13,6 +13,8 @@
 #include <QProgressBar>
 #include <QDateTime>
 #include <QTimer>
+#include <QComboBox>
+#include <QShortcut>
 
 // 颜色常量 (从 code.html 提取)
 const QString PATRIOTIC_RED = "#d32f2f";
@@ -23,6 +25,14 @@ const QString OFF_WHITE = "#FFFFFF";
 const QString LIGHT_GRAY = "#F5F5F5";
 const QString MEDIUM_GRAY = "#757575";
 const QString DARK_GRAY = "#333333";
+
+// 侧栏按钮样式常量
+const QString SIDEBAR_BTN_NORMAL =
+    R"(QPushButton { background-color: transparent; color: %1; border: none; padding: 10px 12px; font-size: 14px; text-align: left; border-radius: 8px; }
+       QPushButton:hover { background-color: %2; })";
+const QString SIDEBAR_BTN_ACTIVE =
+    R"(QPushButton { background-color: %1; color: %2; border: none; padding: 10px 12px; font-size: 14px; font-weight: bold; text-align: left; border-radius: 8px; }
+       QPushButton:hover { background-color: rgba(211, 47, 47, 0.2); })";
 
 ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &username, QWidget *parent)
     : QMainWindow(parent)
@@ -94,6 +104,7 @@ void ModernMainWindow::setupMenuBar()
 
     helpMenu->addSeparator();
     aboutAction = helpMenu->addAction("关于(&A)");
+    connect(aboutAction, &QAction::triggered, this, [](){ QMessageBox::about(nullptr, "关于", "思政智慧课堂 - 教师中心"); });
 }
 
 void ModernMainWindow::setupStatusBar()
@@ -157,49 +168,15 @@ void ModernMainWindow::setupCentralWidget()
     settingsBtn = new QPushButton("系统设置");
     helpBtn = new QPushButton("帮助中心");
 
-    // 设置侧边栏按钮样式
-    QString sidebarButtonStyle = R"(
-        QPushButton {
-            background-color: transparent;
-            color: )" + DARK_GRAY + R"(;
-            border: none;
-            padding: 10px 12px;
-            font-size: 14px;
-            text-align: left;
-            border-radius: 8px;
-        }
-        QPushButton:hover {
-            background-color: )" + LIGHT_GRAY + R"(;
-        }
-        QPushButton:pressed {
-            background-color: #E0E0E0;
-        }
-    )";
-
-    QString activeButtonStyle = R"(
-        QPushButton {
-            background-color: )" + PATRIOTIC_RED_LIGHT + R"(;
-            color: )" + PATRIOTIC_RED + R"(;
-            border: none;
-            padding: 10px 12px;
-            font-size: 14px;
-            font-weight: bold;
-            text-align: left;
-            border-radius: 8px;
-        }
-        QPushButton:hover {
-            background-color: rgba(211, 47, 47, 0.2);
-        }
-    )";
-
-    teacherCenterBtn->setStyleSheet(activeButtonStyle);
-    contentAnalysisBtn->setStyleSheet(sidebarButtonStyle);
-    aiPreparationBtn->setStyleSheet(sidebarButtonStyle);
-    resourceManagementBtn->setStyleSheet(sidebarButtonStyle);
-    learningAnalysisBtn->setStyleSheet(sidebarButtonStyle);
-    dataReportBtn->setStyleSheet(sidebarButtonStyle);
-    settingsBtn->setStyleSheet(sidebarButtonStyle);
-    helpBtn->setStyleSheet(sidebarButtonStyle);
+    // 设置侧边栏按钮样式 - 使用统一样式常量
+    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    dataReportBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
 
     // 连接信号
     connect(teacherCenterBtn, &QPushButton::clicked, this, &ModernMainWindow::onTeacherCenterClicked);
@@ -342,7 +319,7 @@ void ModernMainWindow::createHeaderWidget()
         }
         QLineEdit:focus {
             outline: none;
-            border: 2px solid )" + PATRIOTIC_RED + R"(50;
+            border: 2px solid rgba(211, 47, 47, 0.3);
         }
     )");
 
@@ -387,6 +364,14 @@ void ModernMainWindow::createHeaderWidget()
     headerLayout->addLayout(searchLayout);
     headerLayout->addWidget(notificationBtn);
     headerLayout->addWidget(headerProfileBtn);
+
+    // 搜索框快捷键
+    auto slashShortcut = new QShortcut(QKeySequence("/"), this);
+    connect(slashShortcut, &QShortcut::activated, this, [this](){ this->searchInput->setFocus(); this->searchInput->selectAll(); });
+
+    // Ctrl+K 快捷键
+    auto ctrlKShortcut = new QShortcut(QKeySequence("Ctrl+K"), this);
+    connect(ctrlKShortcut, &QShortcut::activated, this, [this](){ this->searchInput->setFocus(); this->searchInput->selectAll(); });
 }
 
 void ModernMainWindow::createQuickActions()
@@ -596,28 +581,78 @@ void ModernMainWindow::createLearningAnalytics()
     QVBoxLayout *analyticsLayout = new QVBoxLayout(learningAnalyticsFrame);
     analyticsLayout->setSpacing(16);
 
+    // 标题和筛选器的水平布局
+    QHBoxLayout *titleLayout = new QHBoxLayout();
+
     QLabel *analyticsTitle = new QLabel("学情分析");
     analyticsTitle->setStyleSheet("color: " + DARK_GRAY + "; font-size: 18px; font-weight: bold;");
+    analyticsTitle->setAlignment(Qt::AlignLeft);
+
+    titleLayout->addWidget(analyticsTitle);
+    titleLayout->addStretch();
+
+    // 时间范围选择器
+    QComboBox *timeRangeCombo = new QComboBox();
+    timeRangeCombo->addItems({"近7天", "近30天", "本学期"});
+    timeRangeCombo->setCurrentText("近7天");
+    timeRangeCombo->setStyleSheet(R"(
+        QComboBox {
+            background-color: )" + LIGHT_GRAY + R"(;
+            border: 1px solid #E0E0E0;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 14px;
+            min-width: 100px;
+        }
+        QComboBox::drop-down {
+            border: none;
+            width: 20px;
+        }
+        QComboBox::down-arrow {
+            image: none;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid )" + MEDIUM_GRAY + R"(;
+        }
+    )");
+
+    titleLayout->addWidget(timeRangeCombo);
+
+    analyticsLayout->addLayout(titleLayout);
 
     QHBoxLayout *chartLayout = new QHBoxLayout();
     chartLayout->setSpacing(32);
 
-    // 简化的圆形进度条
-    QFrame *progressFrame = new QFrame();
-    progressFrame->setFixedSize(160, 160);
-    progressFrame->setStyleSheet(R"(
-        QFrame {
-            background-color: #E6E6E6;
-            border-radius: 80px;
-            position: relative;
+    // 横向进度条
+    QVBoxLayout *progressLayout = new QVBoxLayout();
+    QLabel *progressLabel = new QLabel("总体完成度");
+    progressLabel->setStyleSheet("color: " + MEDIUM_GRAY + "; font-size: 14px;");
+
+    QProgressBar *overallProgress = new QProgressBar();
+    overallProgress->setRange(0, 100);
+    overallProgress->setValue(85);
+    overallProgress->setFixedHeight(24);
+    overallProgress->setStyleSheet(R"(
+        QProgressBar {
+            background-color: )" + LIGHT_GRAY + R"(;
+            border: none;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        QProgressBar::chunk {
+            background-color: )" + PATRIOTIC_RED + R"(;
+            border-radius: 12px;
         }
     )");
 
-    QVBoxLayout *progressLayout = new QVBoxLayout(progressFrame);
-    QLabel *progressLabel = new QLabel("85%");
-    progressLabel->setStyleSheet("color: " + DARK_GRAY + "; font-size: 32px; font-weight: bold;");
-    progressLabel->setAlignment(Qt::AlignCenter);
+    QLabel *progressPercent = new QLabel("85%");
+    progressPercent->setStyleSheet("color: " + PATRIOTIC_RED + "; font-size: 28px; font-weight: bold;");
+
     progressLayout->addWidget(progressLabel);
+    progressLayout->addWidget(overallProgress);
+    progressLayout->addWidget(progressPercent);
 
     // 统计数据
     QGridLayout *statsLayout = new QGridLayout();
@@ -637,6 +672,15 @@ void ModernMainWindow::createLearningAnalytics()
         QLabel *labelLabel = new QLabel(statLabels[i]);
         labelLabel->setStyleSheet("color: " + MEDIUM_GRAY + "; font-size: 14px;");
 
+        // 添加tooltip
+        QStringList tooltips = {
+            "参与度=到课率×互动率；时间范围受右上角选择影响（默认近7天）",
+            "根据课堂行为数据计算；范围0-100%",
+            "近7天滚动口径；样本量=人×题量",
+            "统计期间内师生提问次数总和"
+        };
+        labelLabel->setToolTip(tooltips[i]);
+
         QLabel *valueLabel = new QLabel(statValues[i]);
         valueLabel->setStyleSheet("color: " + DARK_GRAY + "; font-size: 20px; font-weight: bold;");
 
@@ -648,11 +692,10 @@ void ModernMainWindow::createLearningAnalytics()
         statsLayout->addLayout(statLayout, i / 2, i % 2);
     }
 
-    chartLayout->addWidget(progressFrame);
+    chartLayout->addLayout(progressLayout);
     chartLayout->addLayout(statsLayout);
     chartLayout->addStretch();
 
-    analyticsLayout->addWidget(analyticsTitle);
     analyticsLayout->addLayout(chartLayout);
 }
 
@@ -681,6 +724,9 @@ void ModernMainWindow::createRecentActivities()
         {QString("已有15名学生提交\"历史分析论文\"作业"), "昨天, 11:00 AM", "📤", "#F4433610"},
         {QString("\"冷战纪录片\"已添加至资源库"), "2天前", "📹", "#FF980010"}
     };
+
+    // 先添加标题
+    activitiesLayout->addWidget(activitiesTitle);
 
     for (const auto &activity : activities) {
         QHBoxLayout *activityLayout = new QHBoxLayout();
@@ -720,7 +766,6 @@ void ModernMainWindow::createRecentActivities()
         activitiesLayout->addLayout(activityLayout);
     }
 
-    activitiesLayout->addWidget(activitiesTitle);
     activitiesLayout->addStretch();
 }
 
@@ -857,43 +902,12 @@ void ModernMainWindow::applyPatrioticRedTheme()
 void ModernMainWindow::onTeacherCenterClicked()
 {
     // 重置所有按钮样式
-    QString normalStyle = R"(
-        QPushButton {
-            background-color: transparent;
-            color: )" + DARK_GRAY + R"(;
-            border: none;
-            padding: 10px 12px;
-            font-size: 14px;
-            text-align: left;
-            border-radius: 8px;
-        }
-        QPushButton:hover {
-            background-color: )" + LIGHT_GRAY + R"(;
-        }
-    )";
-
-    QString activeStyle = R"(
-        QPushButton {
-            background-color: )" + PATRIOTIC_RED_LIGHT + R"(;
-            color: )" + PATRIOTIC_RED + R"(;
-            border: none;
-            padding: 10px 12px;
-            font-size: 14px;
-            font-weight: bold;
-            text-align: left;
-            border-radius: 8px;
-        }
-        QPushButton:hover {
-            background-color: rgba(211, 47, 47, 0.2);
-        }
-    )";
-
-    contentAnalysisBtn->setStyleSheet(normalStyle);
-    aiPreparationBtn->setStyleSheet(normalStyle);
-    resourceManagementBtn->setStyleSheet(normalStyle);
-    learningAnalysisBtn->setStyleSheet(normalStyle);
-    dataReportBtn->setStyleSheet(normalStyle);
-    teacherCenterBtn->setStyleSheet(activeStyle);
+    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    dataReportBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
 
     contentStack->setCurrentWidget(dashboardWidget);
     this->statusBar()->showMessage("教师中心");
@@ -902,105 +916,35 @@ void ModernMainWindow::onTeacherCenterClicked()
 void ModernMainWindow::onContentAnalysisClicked()
 {
     onTeacherCenterClicked();
-    contentAnalysisBtn->setStyleSheet(R"(
-        QPushButton {
-            background-color: )" + PATRIOTIC_RED_LIGHT + R"(;
-            color: )" + PATRIOTIC_RED + R"(;
-            border: none;
-            padding: 10px 12px;
-            font-size: 14px;
-            font-weight: bold;
-            text-align: left;
-            border-radius: 8px;
-        }
-        QPushButton:hover {
-            background-color: rgba(211, 47, 47, 0.2);
-        }
-    )");
+    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
     this->statusBar()->showMessage("智能内容分析");
 }
 
 void ModernMainWindow::onAIPreparationClicked()
 {
     onTeacherCenterClicked();
-    aiPreparationBtn->setStyleSheet(R"(
-        QPushButton {
-            background-color: )" + PATRIOTIC_RED_LIGHT + R"(;
-            color: )" + PATRIOTIC_RED + R"(;
-            border: none;
-            padding: 10px 12px;
-            font-size: 14px;
-            font-weight: bold;
-            text-align: left;
-            border-radius: 8px;
-        }
-        QPushButton:hover {
-            background-color: rgba(211, 47, 47, 0.2);
-        }
-    )");
+    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
     this->statusBar()->showMessage("AI智能备课");
 }
 
 void ModernMainWindow::onResourceManagementClicked()
 {
     onTeacherCenterClicked();
-    resourceManagementBtn->setStyleSheet(R"(
-        QPushButton {
-            background-color: )" + PATRIOTIC_RED_LIGHT + R"(;
-            color: )" + PATRIOTIC_RED + R"(;
-            border: none;
-            padding: 10px 12px;
-            font-size: 14px;
-            font-weight: bold;
-            text-align: left;
-            border-radius: 8px;
-        }
-        QPushButton:hover {
-            background-color: rgba(211, 47, 47, 0.2);
-        }
-    )");
+    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
     this->statusBar()->showMessage("资源库管理");
 }
 
 void ModernMainWindow::onLearningAnalysisClicked()
 {
     onTeacherCenterClicked();
-    learningAnalysisBtn->setStyleSheet(R"(
-        QPushButton {
-            background-color: )" + PATRIOTIC_RED_LIGHT + R"(;
-            color: )" + PATRIOTIC_RED + R"(;
-            border: none;
-            padding: 10px 12px;
-            font-size: 14px;
-            font-weight: bold;
-            text-align: left;
-            border-radius: 8px;
-        }
-        QPushButton:hover {
-            background-color: rgba(211, 47, 47, 0.2);
-        }
-    )");
+    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
     this->statusBar()->showMessage("学情与教评");
 }
 
 void ModernMainWindow::onDataReportClicked()
 {
     onTeacherCenterClicked();
-    dataReportBtn->setStyleSheet(R"(
-        QPushButton {
-            background-color: )" + PATRIOTIC_RED_LIGHT + R"(;
-            color: )" + PATRIOTIC_RED + R"(;
-            border: none;
-            padding: 10px 12px;
-            font-size: 14px;
-            font-weight: bold;
-            text-align: left;
-            border-radius: 8px;
-        }
-        QPushButton:hover {
-            background-color: rgba(211, 47, 47, 0.2);
-        }
-    )");
+    dataReportBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
     this->statusBar()->showMessage("数据分析报告");
 }
 
