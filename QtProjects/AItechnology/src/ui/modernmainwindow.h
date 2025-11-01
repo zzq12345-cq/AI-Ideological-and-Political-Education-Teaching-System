@@ -6,51 +6,61 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QGridLayout>
 #include <QMenuBar>
 #include <QStatusBar>
-#include <QTextEdit>
-#include <QTabWidget>
+#include <QScrollArea>
 #include <QStackedWidget>
-#include <QToolBar>
+#include <QFrame>
+#include <QLineEdit>
 #include <QAction>
+#include <QTimer>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class ModernMainWindow; }
 QT_END_NAMESPACE
+
+// 前向声明
+class SimpleLoginWindow;
 
 class ModernMainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    ModernMainWindow(const QString &userRole = "学生", const QString &username = "用户", QWidget *parent = nullptr);
+    ModernMainWindow(const QString &userRole = "教师", const QString &username = "王老师", QWidget *parent = nullptr);
     ~ModernMainWindow();
 
 private slots:
-    void onLogoutClicked();
-    void onProfileClicked();
+    void onTeacherCenterClicked();
+    void onContentAnalysisClicked();
+    void onAIPreparationClicked();
+    void onResourceManagementClicked();
+    void onLearningAnalysisClicked();
+    void onDataReportClicked();
     void onSettingsClicked();
-    void onDashboardClicked();
-    void onCoursesClicked();
-    void onAssignmentsClicked();
-    void onAnalyticsClicked();
-    void onMessagesClicked();
     void onHelpClicked();
+    void onQuickPreparationClicked();
+    void onStartClassClicked();
+    void onEnterClassClicked();
 
 private:
     void initUI();
     void setupMenuBar();
-    void setupToolBar();
     void setupStatusBar();
     void setupCentralWidget();
     void setupStyles();
     void createDashboard();
-    void createCoursesPage();
-    void createAssignmentsPage();
-    void createAnalyticsPage();
-    void createMessagesPage();
+    void createSidebarProfile();
+    void createHeaderWidget();
+    void createQuickActions();
+    void createCoreFeatures();
+    void createRecentCourses();
+    void createLearningAnalytics();
+    void createRecentActivities();
+    void applyPatrioticRedTheme();
 
-    // UI组件
+    // 核心UI组件
     QWidget *centralWidget;
     QVBoxLayout *mainLayout;
     QHBoxLayout *contentLayout;
@@ -58,35 +68,62 @@ private:
     // 侧边栏
     QFrame *sidebar;
     QVBoxLayout *sidebarLayout;
-    QPushButton *dashboardBtn;
-    QPushButton *coursesBtn;
-    QPushButton *assignmentsBtn;
-    QPushButton *analyticsBtn;
-    QPushButton *messagesBtn;
+    QFrame *profileWidget;
+
+    // 侧边栏导航按钮
+    QPushButton *teacherCenterBtn;
+    QPushButton *contentAnalysisBtn;
+    QPushButton *aiPreparationBtn;
+    QPushButton *resourceManagementBtn;
+    QPushButton *learningAnalysisBtn;
+    QPushButton *dataReportBtn;
     QPushButton *settingsBtn;
-    QPushButton *logoutBtn;
+    QPushButton *helpBtn;
 
     // 主内容区域
     QStackedWidget *contentStack;
     QWidget *dashboardWidget;
-    QWidget *coursesWidget;
-    QWidget *assignmentsWidget;
-    QWidget *analyticsWidget;
-    QWidget *messagesWidget;
+    QScrollArea *dashboardScrollArea;
 
-    // 用户信息
-    QLabel *userRoleLabel;
-    QLabel *usernameLabel;
+    // 顶部工具栏 (Header)
+    QFrame *headerWidget;
+    QHBoxLayout *headerLayout;
+    QLabel *titleLabel;
+    QLineEdit *searchInput;
+    QPushButton *notificationBtn;
+    QPushButton *headerProfileBtn;
+
+    // 仪表板内容组件
     QLabel *welcomeLabel;
+    QLabel *subtitleLabel;
+    QFrame *quickActionsFrame;
+    QPushButton *quickPreparationBtn;
+    QPushButton *startClassBtn;
+
+    // 核心功能卡片
+    QFrame *coreFeaturesFrame;
+    QGridLayout *coreFeaturesLayout;
+    QPushButton *psychologyCard;
+    QPushButton *editDocumentCard;
+    QPushButton *slideshowCard;
+    QPushButton *folderOpenCard;
+
+    // 近期课程和学情分析
+    QFrame *coursesAnalyticsFrame;
+    QGridLayout *coursesAnalyticsLayout;
+    QFrame *recentCoursesFrame;
+    QFrame *learningAnalyticsFrame;
+    QPushButton *enterClassBtn;
+
+    // 近期活动
+    QFrame *recentActivitiesFrame;
+    QVBoxLayout *recentActivitiesLayout;
 
     // 数据
     QString currentUserRole;
     QString currentUsername;
 
-    // 菜单和工具栏
-    QToolBar *mainToolBar;
-
-    // 动作
+    // 菜单动作
     QAction *profileAction;
     QAction *settingsAction;
     QAction *helpAction;
