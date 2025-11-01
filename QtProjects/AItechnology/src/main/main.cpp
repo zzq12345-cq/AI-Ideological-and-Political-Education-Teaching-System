@@ -1,6 +1,7 @@
 #include <QApplication>
 #include <QStyleFactory>
-#include "../login/simpleloginwindow.h"
+#include <QTimer>
+#include "../ui/simpleloginwindow.h"
 
 int main(int argc, char *argv[])
 {
@@ -15,14 +16,34 @@ int main(int argc, char *argv[])
     // 设置应用程序样式
     app.setStyle(QStyleFactory::create("Fusion"));
 
-    // 使用系统默认字体，避免字体问题
+    // 关键修复：确保应用程序不会自动退出
+    app.setQuitOnLastWindowClosed(false);
 
-    // 设置应用程序图标 - 使用系统默认图标避免资源依赖
-    // app.setWindowIcon(QIcon(":/icons/app_icon.png"));
+    // 创建登录窗口
+    SimpleLoginWindow *loginWindow = new SimpleLoginWindow();
 
-    // 显示简化的登录窗口
-    SimpleLoginWindow loginWindow;
-    loginWindow.show();
+    // 设置窗口标志，防止意外关闭
+    loginWindow->setAttribute(Qt::WA_DeleteOnClose, false);
 
-    return app.exec();
+    // 显示登录窗口
+    loginWindow->show();
+
+    // 确保窗口保持在顶部
+    loginWindow->raise();
+    loginWindow->activateWindow();
+
+    qDebug() << "Application started successfully";
+
+    // 运行应用程序事件循环
+    int result = app.exec();
+
+    qDebug() << "Application exiting with result:" << result;
+
+    // 手动清理资源
+    if (loginWindow) {
+        delete loginWindow;
+        loginWindow = nullptr;
+    }
+
+    return result;
 }

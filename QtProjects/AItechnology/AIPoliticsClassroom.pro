@@ -9,12 +9,23 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 # 源文件
 SOURCES += \
-    main.cpp \
-    simpleloginwindow.cpp
+    src/main/main.cpp \
+    src/main/identicalloginwindow.cpp \
+    src/ui/simpleloginwindow.cpp \
+    src/ui/modernmainwindow.cpp \
+    mainwindow.cpp
 
 # 头文件
 HEADERS += \
-    simpleloginwindow.h
+    src/main/identicalloginwindow.h \
+    src/ui/simpleloginwindow.h \
+    src/ui/modernmainwindow.h \
+    mainwindow.h
+
+# UI文件
+FORMS += \
+    src/ui/simpleloginwindow_designer.ui \
+    src/ui/modernmainwindow.ui
 
 # 暂时移除资源文件依赖
 # RESOURCES += resources.qrc
@@ -46,3 +57,6 @@ OBJECTS_DIR = $$DESTDIR/.obj
 MOC_DIR = $$DESTDIR/.moc
 RCC_DIR = $$DESTDIR/.qrc
 UI_DIR = $$DESTDIR/.ui
+
+RESOURCES += \
+    resources.qrc
