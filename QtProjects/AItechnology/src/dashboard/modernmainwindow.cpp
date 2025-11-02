@@ -743,6 +743,9 @@ void ModernMainWindow::createLearningAnalytics()
     QVBoxLayout *chartsLayout = new QVBoxLayout(chartsContainer);
     chartsLayout->setSpacing(16);
 
+    // 设置learningAnalyticsFrame的SizePolicy
+    learningAnalyticsFrame->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+
     // 图表1：柱状图 - 课堂参与度/测验正确率/专注度对比
     QWidget *barChartContainer = new QWidget();
     barChartContainer->setObjectName("barChart");
@@ -962,6 +965,10 @@ void ModernMainWindow::createRecentActivities()
     }
 
     activitiesLayout->addStretch();
+
+    // 设置近期活动侧栏的SizePolicy和最大宽度
+    recentActivitiesFrame->setMaximumWidth(360);
+    recentActivitiesFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
 }
 
 void ModernMainWindow::createDashboard()
@@ -1017,45 +1024,34 @@ void ModernMainWindow::createDashboard()
     createCoreFeatures();
     scrollLayout->addWidget(coreFeaturesFrame);
 
-    // 创建双行网格布局：第一行=近期活动+图表，第二行=近期课程
-    QFrame *dashboardRowFrame = new QFrame();
-    QGridLayout *dashboardGrid = new QGridLayout(dashboardRowFrame);
-    dashboardGrid->setContentsMargins(0, 0, 0, 0);
-    dashboardGrid->setVerticalSpacing(24);  // 两行之间的垂直间距
-    dashboardGrid->setHorizontalSpacing(24);
-
     // 按顺序创建组件
     createRecentActivities();      // 第0行左列
     createLearningAnalytics();     // 第0行右列（内部包含近期活动）
     createRecentCourses();         // 第1行
 
-    // 第0行：近期活动 + 学情分析图表
-    analyticsRowFrame = new QFrame();
-    QGridLayout *analyticsRowLayout = new QGridLayout(analyticsRowFrame);
-    analyticsRowLayout->setContentsMargins(0, 0, 0, 0);
-    analyticsRowLayout->setSpacing(16);
-    analyticsRowLayout->setColumnStretch(0, 1);   // 左列：近期活动
-    analyticsRowLayout->setColumnStretch(1, 2);   // 右列：图表
+    // 第0行：近期活动 + 学情分析图表（两列1:2）
+    coursesAnalyticsFrame = new QFrame();
+    coursesAnalyticsLayout = new QGridLayout(coursesAnalyticsFrame);
+    coursesAnalyticsLayout->setContentsMargins(0, 0, 0, 0);
+    coursesAnalyticsLayout->setSpacing(24);
+    coursesAnalyticsLayout->setColumnStretch(0, 1);   // 左列：近期活动
+    coursesAnalyticsLayout->setColumnStretch(1, 2);   // 右列：图表
 
-    // 左列：近期活动
-    if (recentActivitiesFrame) {
-        recentActivitiesFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-        recentActivitiesFrame->setMaximumWidth(360);
-        analyticsRowLayout->addWidget(recentActivitiesFrame, 0, 0, Qt::AlignTop | Qt::AlignLeft);
-    }
+    // 添加到两列布局
+    coursesAnalyticsLayout->addWidget(recentActivitiesFrame, 0, 0, Qt::AlignTop | Qt::AlignLeft);
+    coursesAnalyticsLayout->addWidget(learningAnalyticsFrame, 0, 1, Qt::AlignTop | Qt::AlignLeft);
 
-    // 右列：图表容器
-    chartsContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    analyticsRowLayout->addWidget(chartsContainer, 0, 1);
+    // 添加第一行到滚动布局
+    scrollLayout->addWidget(coursesAnalyticsFrame);
 
-    // 第1行：近期课程
+    // 设置滚动布局间距，确保下行与上行有间距
+    scrollLayout->setSpacing(24);
+
+    // 第1行：近期课程（单独一行）
     recentCoursesFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 
-    // 添加到双行网格
-    dashboardGrid->addWidget(analyticsRowFrame, 0, 0, Qt::AlignTop | Qt::AlignLeft);
-    dashboardGrid->addWidget(recentCoursesFrame, 1, 0, Qt::AlignTop | Qt::AlignLeft);
-
-    scrollLayout->addWidget(dashboardRowFrame);
+    // 添加第二行到滚动布局
+    scrollLayout->addWidget(recentCoursesFrame);
 
     // 不在底部重复显示近期活动
 
