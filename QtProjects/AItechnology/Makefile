@@ -14,10 +14,10 @@ EQ            = =
 
 CC            = /Library/Developer/CommandLineTools/usr/bin/clang
 CXX           = /Library/Developer/CommandLineTools/usr/bin/clang++
-DEFINES       = -DQT_DEPRECATED_WARNINGS -DQT_NO_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_NETWORK_LIB -DQT_CORE_LIB
+DEFINES       = -DQT_DEPRECATED_WARNINGS -DQT_NO_DEBUG -DQT_CHARTS_LIB -DQT_OPENGLWIDGETS_LIB -DQT_WIDGETS_LIB -DQT_OPENGL_LIB -DQT_GUI_LIB -DQT_NETWORK_LIB -DQT_CORE_LIB
 CFLAGS        = -pipe -O2 $(EXPORT_ARCH_ARGS) -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -mmacosx-version-min=12 -Wall -Wextra $(DEFINES)
 CXXFLAGS      = -pipe -stdlib=libc++ -O2 -std=gnu++1z $(EXPORT_ARCH_ARGS) -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -mmacosx-version-min=12 -Wall -Wextra $(DEFINES)
-INCPATH       = -I. -I../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers -I../../Qt/6.9.3/macos/lib/QtGui.framework/Headers -I../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers -I../../Qt/6.9.3/macos/lib/QtCore.framework/Headers -Ibuild/release/.moc -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/OpenGL.framework/Headers -Ibuild/release/.ui -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/OpenGL.framework/Headers -I../../Qt/6.9.3/macos/mkspecs/macx-clang -F/Users/zhouzhiqi/Qt/6.9.3/macos/lib
+INCPATH       = -I. -I../../Qt/6.9.3/macos/lib/QtCharts.framework/Headers -I../../Qt/6.9.3/macos/lib/QtOpenGLWidgets.framework/Headers -I../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers -I../../Qt/6.9.3/macos/lib/QtOpenGL.framework/Headers -I../../Qt/6.9.3/macos/lib/QtGui.framework/Headers -I../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers -I../../Qt/6.9.3/macos/lib/QtCore.framework/Headers -Ibuild/release/.moc -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/OpenGL.framework/Headers -Ibuild/release/.ui -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/OpenGL.framework/Headers -I../../Qt/6.9.3/macos/mkspecs/macx-clang -F/Users/zhouzhiqi/Qt/6.9.3/macos/lib
 QMAKE         = /Users/zhouzhiqi/Qt/6.9.3/macos/bin/qmake
 DEL_FILE      = rm -f
 CHK_DIR_EXISTS= test -d
@@ -40,7 +40,7 @@ DISTNAME      = AIPoliticsClassroom1.0.0
 DISTDIR = /Users/zhouzhiqi/QtProjects/AItechnology/build/release/.obj/AIPoliticsClassroom1.0.0
 LINK          = /Library/Developer/CommandLineTools/usr/bin/clang++
 LFLAGS        = -stdlib=libc++ -headerpad_max_install_names $(EXPORT_ARCH_ARGS) -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -mmacosx-version-min=12 -Wl,-rpath,@executable_path/../Frameworks -Wl,-rpath,/Users/zhouzhiqi/Qt/6.9.3/macos/lib
-LIBS          = $(SUBLIBS) -F/Users/zhouzhiqi/Qt/6.9.3/macos/lib -framework QtWidgets -framework QtGui -framework AppKit -framework ImageIO -framework Metal -framework QtNetwork -framework QtCore -framework IOKit -framework DiskArbitration -framework UniformTypeIdentifiers -framework OpenGL   
+LIBS          = $(SUBLIBS) -F/Users/zhouzhiqi/Qt/6.9.3/macos/lib -framework QtCharts -framework QtOpenGLWidgets -framework QtWidgets -framework QtOpenGL -framework QtGui -framework AppKit -framework ImageIO -framework Metal -framework QtNetwork -framework QtCore -framework IOKit -framework DiskArbitration -framework UniformTypeIdentifiers -framework OpenGL   
 AR            = /Library/Developer/CommandLineTools/usr/bin/ar cq
 RANLIB        = /Library/Developer/CommandLineTools/usr/bin/ranlib -s
 SED           = sed
@@ -587,7 +587,10 @@ Makefile: AIPoliticsClassroom.pro ../../Qt/6.9.3/macos/mkspecs/macx-clang/qmake.
 		../../Qt/6.9.3/macos/mkspecs/features/lex.prf \
 		AIPoliticsClassroom.pro \
 		resources.qrc \
+		../../Qt/6.9.3/macos/lib/QtCharts.framework/Resources/QtCharts.prl \
+		../../Qt/6.9.3/macos/lib/QtOpenGLWidgets.framework/Resources/QtOpenGLWidgets.prl \
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Resources/QtWidgets.prl \
+		../../Qt/6.9.3/macos/lib/QtOpenGL.framework/Resources/QtOpenGL.prl \
 		../../Qt/6.9.3/macos/lib/QtGui.framework/Resources/QtGui.prl \
 		../../Qt/6.9.3/macos/lib/QtNetwork.framework/Resources/QtNetwork.prl \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Resources/QtCore.prl
@@ -841,7 +844,10 @@ Makefile: AIPoliticsClassroom.pro ../../Qt/6.9.3/macos/mkspecs/macx-clang/qmake.
 ../../Qt/6.9.3/macos/mkspecs/features/lex.prf:
 AIPoliticsClassroom.pro:
 resources.qrc:
+../../Qt/6.9.3/macos/lib/QtCharts.framework/Resources/QtCharts.prl:
+../../Qt/6.9.3/macos/lib/QtOpenGLWidgets.framework/Resources/QtOpenGLWidgets.prl:
 ../../Qt/6.9.3/macos/lib/QtWidgets.framework/Resources/QtWidgets.prl:
+../../Qt/6.9.3/macos/lib/QtOpenGL.framework/Resources/QtOpenGL.prl:
 ../../Qt/6.9.3/macos/lib/QtGui.framework/Resources/QtGui.prl:
 ../../Qt/6.9.3/macos/lib/QtNetwork.framework/Resources/QtNetwork.prl:
 ../../Qt/6.9.3/macos/lib/QtCore.framework/Resources/QtCore.prl:
@@ -922,7 +928,7 @@ build/release/.moc/moc_simpleloginwindow.cpp: src/auth/login/simpleloginwindow.h
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QFrame \
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qframe.h \
 		../../Qt/6.9.3/macos/libexec/moc
-	/Users/zhouzhiqi/Qt/6.9.3/macos/libexec/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -D__cplusplus=199711L -D__APPLE_CC__=6000 -D__clang__ -D__clang_major__=14 -D__clang_minor__=0 -D__clang_patchlevel__=0 -D__GNUC__=4 -D__GNUC_MINOR__=2 -D__GNUC_PATCHLEVEL__=1 -I/Users/zhouzhiqi/Qt/6.9.3/macos/mkspecs/macx-clang -I/Users/zhouzhiqi/QtProjects/AItechnology -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtGui.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtNetwork.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtCore.framework/Headers -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1 -I/Library/Developer/CommandLineTools/usr/lib/clang/14.0.0/include -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include -I/Library/Developer/CommandLineTools/usr/include -F/Users/zhouzhiqi/Qt/6.9.3/macos/lib src/auth/login/simpleloginwindow.h -o build/release/.moc/moc_simpleloginwindow.cpp
+	/Users/zhouzhiqi/Qt/6.9.3/macos/libexec/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -D__cplusplus=199711L -D__APPLE_CC__=6000 -D__clang__ -D__clang_major__=14 -D__clang_minor__=0 -D__clang_patchlevel__=0 -D__GNUC__=4 -D__GNUC_MINOR__=2 -D__GNUC_PATCHLEVEL__=1 -I/Users/zhouzhiqi/Qt/6.9.3/macos/mkspecs/macx-clang -I/Users/zhouzhiqi/QtProjects/AItechnology -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtCharts.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtOpenGLWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtOpenGL.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtGui.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtNetwork.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtCore.framework/Headers -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1 -I/Library/Developer/CommandLineTools/usr/lib/clang/14.0.0/include -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include -I/Library/Developer/CommandLineTools/usr/include -F/Users/zhouzhiqi/Qt/6.9.3/macos/lib src/auth/login/simpleloginwindow.h -o build/release/.moc/moc_simpleloginwindow.cpp
 
 build/release/.moc/moc_modernmainwindow.cpp: src/dashboard/modernmainwindow.h \
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QMainWindow \
@@ -953,7 +959,7 @@ build/release/.moc/moc_modernmainwindow.cpp: src/dashboard/modernmainwindow.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QTimer \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qtimer.h \
 		../../Qt/6.9.3/macos/libexec/moc
-	/Users/zhouzhiqi/Qt/6.9.3/macos/libexec/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -D__cplusplus=199711L -D__APPLE_CC__=6000 -D__clang__ -D__clang_major__=14 -D__clang_minor__=0 -D__clang_patchlevel__=0 -D__GNUC__=4 -D__GNUC_MINOR__=2 -D__GNUC_PATCHLEVEL__=1 -I/Users/zhouzhiqi/Qt/6.9.3/macos/mkspecs/macx-clang -I/Users/zhouzhiqi/QtProjects/AItechnology -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtGui.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtNetwork.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtCore.framework/Headers -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1 -I/Library/Developer/CommandLineTools/usr/lib/clang/14.0.0/include -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include -I/Library/Developer/CommandLineTools/usr/include -F/Users/zhouzhiqi/Qt/6.9.3/macos/lib src/dashboard/modernmainwindow.h -o build/release/.moc/moc_modernmainwindow.cpp
+	/Users/zhouzhiqi/Qt/6.9.3/macos/libexec/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -D__cplusplus=199711L -D__APPLE_CC__=6000 -D__clang__ -D__clang_major__=14 -D__clang_minor__=0 -D__clang_patchlevel__=0 -D__GNUC__=4 -D__GNUC_MINOR__=2 -D__GNUC_PATCHLEVEL__=1 -I/Users/zhouzhiqi/Qt/6.9.3/macos/mkspecs/macx-clang -I/Users/zhouzhiqi/QtProjects/AItechnology -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtCharts.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtOpenGLWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtOpenGL.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtGui.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtNetwork.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtCore.framework/Headers -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1 -I/Library/Developer/CommandLineTools/usr/lib/clang/14.0.0/include -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include -I/Library/Developer/CommandLineTools/usr/include -F/Users/zhouzhiqi/Qt/6.9.3/macos/lib src/dashboard/modernmainwindow.h -o build/release/.moc/moc_modernmainwindow.cpp
 
 compiler_moc_objc_header_make_all:
 compiler_moc_objc_header_clean:
@@ -1079,6 +1085,11 @@ build/release/.obj/modernmainwindow.o: src/dashboard/modernmainwindow.cpp src/da
 		../../Qt/6.9.3/macos/lib/QtGui.framework/Headers/qaction.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QTimer \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qtimer.h \
+		src/auth/login/simpleloginwindow.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QDialog \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qdialog.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QCheckBox \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qcheckbox.h \
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QApplication \
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qapplication.h \
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QMessageBox \
@@ -1086,7 +1097,19 @@ build/release/.obj/modernmainwindow.o: src/dashboard/modernmainwindow.cpp src/da
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QProgressBar \
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qprogressbar.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QDateTime \
-		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qdatetime.h
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qdatetime.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QComboBox \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qcombobox.h \
+		../../Qt/6.9.3/macos/lib/QtGui.framework/Headers/QShortcut \
+		../../Qt/6.9.3/macos/lib/QtGui.framework/Headers/qshortcut.h \
+		../../Qt/6.9.3/macos/lib/QtCharts.framework/Headers/QChart \
+		../../Qt/6.9.3/macos/lib/QtCharts.framework/Headers/qchart.h \
+		../../Qt/6.9.3/macos/lib/QtCharts.framework/Headers/QLegend \
+		../../Qt/6.9.3/macos/lib/QtCharts.framework/Headers/qlegend.h \
+		../../Qt/6.9.3/macos/lib/QtCharts.framework/Headers/QBarLegendMarker \
+		../../Qt/6.9.3/macos/lib/QtCharts.framework/Headers/qbarlegendmarker.h \
+		../../Qt/6.9.3/macos/lib/QtCharts.framework/Headers/QPieLegendMarker \
+		../../Qt/6.9.3/macos/lib/QtCharts.framework/Headers/qpielegendmarker.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/release/.obj/modernmainwindow.o src/dashboard/modernmainwindow.cpp
 
 build/release/.obj/qrc_resources.o: build/release/.qrc/qrc_resources.cpp 

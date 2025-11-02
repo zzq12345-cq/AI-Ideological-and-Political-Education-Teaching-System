@@ -1,4 +1,4 @@
-QT += core widgets network
+QT += core widgets network charts
 CONFIG += c++17
 
 TARGET = AIPoliticsClassroom

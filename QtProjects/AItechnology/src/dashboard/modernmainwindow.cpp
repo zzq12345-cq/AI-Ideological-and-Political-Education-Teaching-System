@@ -15,6 +15,15 @@
 #include <QTimer>
 #include <QComboBox>
 #include <QShortcut>
+#include <QChart>
+#include <QtCharts/QChartView>
+#include <QtCharts/QBarSeries>
+#include <QtCharts/QBarSet>
+#include <QtCharts/QPieSeries>
+#include <QtCharts/QPieSlice>
+#include <QLegend>
+#include <QBarLegendMarker>
+#include <QPieLegendMarker>
 
 // 颜色常量 (从 code.html 提取)
 const QString PATRIOTIC_RED = "#d32f2f";
@@ -33,6 +42,27 @@ const QString SIDEBAR_BTN_NORMAL =
 const QString SIDEBAR_BTN_ACTIVE =
     R"(QPushButton { background-color: %1; color: %2; border: none; padding: 10px 12px; font-size: 14px; font-weight: bold; text-align: left; border-radius: 8px; }
        QPushButton:hover { background-color: rgba(211, 47, 47, 0.2); })";
+
+// 学情分析数据结构
+struct LearningMetrics {
+    int engagement;      // 课堂参与度 (%)
+    int accuracy;        // 测验正确率 (%)
+    int focus;           // 专注度 (%)
+    int mastery;         // 掌握 (%)
+    int partial;         // 基本掌握 (%)
+    int needsWork;       // 需巩固 (%)
+};
+
+QMap<QString, LearningMetrics> createSampleData() {
+    QMap<QString, LearningMetrics> data;
+    LearningMetrics metrics7d = {92, 79, 88, 65, 28, 7};
+    LearningMetrics metrics30d = {88, 82, 85, 68, 26, 6};
+    LearningMetrics metricsSemester = {90, 85, 87, 70, 24, 6};
+    data["近7天"] = metrics7d;
+    data["近30天"] = metrics30d;
+    data["本学期"] = metricsSemester;
+    return data;
+}
 
 ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &username, QWidget *parent)
     : QMainWindow(parent)
@@ -564,6 +594,9 @@ void ModernMainWindow::createRecentCourses()
 
     coursesLayout->addWidget(coursesTitle);
     coursesLayout->addLayout(courseInfoLayout);
+
+    // 设置SizePolicy以避免被高卡片撑出空白
+    recentCoursesFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 }
 
 void ModernMainWindow::createLearningAnalytics()
@@ -620,12 +653,17 @@ void ModernMainWindow::createLearningAnalytics()
 
     analyticsLayout->addLayout(titleLayout);
 
-    QHBoxLayout *chartLayout = new QHBoxLayout();
-    chartLayout->setSpacing(32);
+    // 尝试创建图表，如果失败则使用降级方案
+    bool chartsAvailable = true;
+    QWidget *chartsWidget = nullptr;
 
-    // 横向进度条
+    // 顶部区域：进度条 + 四项指标
+    QHBoxLayout *topRow = new QHBoxLayout();
+    topRow->setSpacing(24);
+
+    // 左侧：进度条
     QVBoxLayout *progressLayout = new QVBoxLayout();
-    QLabel *progressLabel = new QLabel("总体完成度");
+    QLabel *progressLabel = new QLabel("综合完成度");
     progressLabel->setStyleSheet("color: " + MEDIUM_GRAY + "; font-size: 14px;");
 
     QProgressBar *overallProgress = new QProgressBar();
@@ -648,13 +686,14 @@ void ModernMainWindow::createLearningAnalytics()
     )");
 
     QLabel *progressPercent = new QLabel("85%");
+    progressPercent->setObjectName("progressPercent");
     progressPercent->setStyleSheet("color: " + PATRIOTIC_RED + "; font-size: 28px; font-weight: bold;");
 
     progressLayout->addWidget(progressLabel);
     progressLayout->addWidget(overallProgress);
     progressLayout->addWidget(progressPercent);
 
-    // 统计数据
+    // 右侧：四项指标
     QGridLayout *statsLayout = new QGridLayout();
     statsLayout->setSpacing(16);
 
@@ -662,6 +701,7 @@ void ModernMainWindow::createLearningAnalytics()
     QStringList statValues = {"92%", "88%", "79%", "12"};
     QStringList statColors = {"#2196F3", "#4CAF50", "#FF9800", "#F44336"};
 
+    QList<QLabel*> statValueLabels;
     for (int i = 0; i < 4; ++i) {
         QHBoxLayout *statLayout = new QHBoxLayout();
         statLayout->setSpacing(8);
@@ -683,6 +723,7 @@ void ModernMainWindow::createLearningAnalytics()
 
         QLabel *valueLabel = new QLabel(statValues[i]);
         valueLabel->setStyleSheet("color: " + DARK_GRAY + "; font-size: 20px; font-weight: bold;");
+        statValueLabels.append(valueLabel);
 
         statLayout->addWidget(colorDot);
         statLayout->addWidget(labelLabel);
@@ -692,11 +733,183 @@ void ModernMainWindow::createLearningAnalytics()
         statsLayout->addLayout(statLayout, i / 2, i % 2);
     }
 
-    chartLayout->addLayout(progressLayout);
-    chartLayout->addLayout(statsLayout);
-    chartLayout->addStretch();
+    topRow->addLayout(progressLayout);
+    topRow->addLayout(statsLayout);
 
-    analyticsLayout->addLayout(chartLayout);
+    analyticsLayout->addLayout(topRow);
+
+    // 图表区域 - 使用 Charts 或降级方案
+    QWidget *chartsContainer = new QWidget();
+    QVBoxLayout *chartsLayout = new QVBoxLayout(chartsContainer);
+    chartsLayout->setSpacing(16);
+
+    // 图表1：柱状图 - 课堂参与度/测验正确率/专注度对比
+    QWidget *barChartContainer = new QWidget();
+    barChartContainer->setObjectName("barChart");
+    QVBoxLayout *barLayout = new QVBoxLayout(barChartContainer);
+    barLayout->setContentsMargins(16, 16, 16, 16);
+    barLayout->setSpacing(8);
+
+    QLabel *barTitle = new QLabel("三维度评分对比");
+    barTitle->setStyleSheet("color: " + DARK_GRAY + "; font-size: 16px; font-weight: bold;");
+
+    QChartView *barChartView = new QChartView();
+    barChartView->setRenderHint(QPainter::Antialiasing);
+    barChartView->setObjectName("barChartView");
+
+    // 创建柱状图数据
+    QBarSet *set0 = new QBarSet("参与度");
+    QBarSet *set1 = new QBarSet("正确率");
+    QBarSet *set2 = new QBarSet("专注度");
+    *set0 << 92 << 79 << 88;
+    *set1 << 88 << 82 << 85;
+    *set2 << 90 << 85 << 87;
+
+    set0->setColor(QColor(PATRIOTIC_RED));
+    set1->setColor(QColor("#2196F3"));
+    set2->setColor(QColor("#4CAF50"));
+
+    QBarSeries *barSeries = new QBarSeries();
+    barSeries->append(set0);
+    barSeries->append(set1);
+    barSeries->append(set2);
+
+    QChart *barChart = new QChart();
+    barChart->addSeries(barSeries);
+    barChart->setTitle("三维度评分");
+    barChart->setTitleBrush(QBrush(QColor(DARK_GRAY)));
+    barChart->setBackgroundBrush(QBrush(QColor(OFF_WHITE)));
+
+    barChart->createDefaultAxes();
+    barChart->axisY()->setRange(0, 100);
+    QFont axisFont("Microsoft YaHei", 10);
+    barChart->axisX()->setLabelsFont(axisFont);
+    barChart->axisY()->setLabelsFont(axisFont);
+
+    barChartView->setChart(barChart);
+
+    barLayout->addWidget(barTitle);
+    barLayout->addWidget(barChartView);
+
+    // 图表2：饼图 - 知识点掌握分布
+    QWidget *pieChartContainer = new QWidget();
+    pieChartContainer->setObjectName("pieChart");
+    QVBoxLayout *pieLayout = new QVBoxLayout(pieChartContainer);
+    pieLayout->setContentsMargins(16, 16, 16, 16);
+    pieLayout->setSpacing(8);
+
+    QLabel *pieTitle = new QLabel("知识点掌握分布");
+    pieTitle->setStyleSheet("color: " + DARK_GRAY + "; font-size: 16px; font-weight: bold;");
+
+    QChartView *pieChartView = new QChartView();
+    pieChartView->setRenderHint(QPainter::Antialiasing);
+    pieChartView->setObjectName("pieChartView");
+
+    QPieSeries *pieSeries = new QPieSeries();
+    pieSeries->append("掌握", 65);
+    pieSeries->append("基本掌握", 28);
+    pieSeries->append("需巩固", 7);
+
+    QPieSlice *slice0 = pieSeries->slices().at(0);
+    QPieSlice *slice1 = pieSeries->slices().at(1);
+    QPieSlice *slice2 = pieSeries->slices().at(2);
+    slice0->setColor(QColor("#4CAF50"));
+    slice1->setColor(QColor("#2196F3"));
+    slice2->setColor(QColor("#F44336"));
+
+    slice0->setLabelVisible(true);
+    slice1->setLabelVisible(true);
+    slice2->setLabelVisible(true);
+
+    QChart *pieChart = new QChart();
+    pieChart->addSeries(pieSeries);
+    pieChart->setTitle("知识点掌握分布");
+    pieChart->setTitleBrush(QBrush(QColor(DARK_GRAY)));
+    pieChart->setBackgroundBrush(QBrush(QColor(OFF_WHITE)));
+    pieChart->legend()->show();
+
+    pieChartView->setChart(pieChart);
+
+    pieLayout->addWidget(pieTitle);
+    pieLayout->addWidget(pieChartView);
+
+    // 图表容器布局
+    chartsLayout->addWidget(barChartContainer);
+    chartsLayout->addWidget(pieChartContainer);
+
+    // 创建两列布局：左侧近期活动，右侧图表
+    QGridLayout *chartsRow = new QGridLayout();
+    chartsRow->setContentsMargins(0, 0, 0, 0);
+    chartsRow->setSpacing(16);
+    chartsRow->setColumnStretch(0, 1);
+    chartsRow->setColumnStretch(1, 2);
+
+    // 左列放近期活动
+    if (recentActivitiesFrame) {
+        recentActivitiesFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+        recentActivitiesFrame->setMaximumWidth(360);
+        chartsRow->addWidget(recentActivitiesFrame, 0, 0, Qt::AlignTop | Qt::AlignLeft);
+    }
+
+    // 右列放图表容器
+    chartsContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    chartsRow->addWidget(chartsContainer, 0, 1);
+
+    // 添加到学情分析布局
+    analyticsLayout->addLayout(chartsRow);
+
+    // 降级提示
+    QLabel *fallbackNote = new QLabel("未启用 Qt Charts，已降级为基础视图");
+    fallbackNote->setStyleSheet("color: " + MEDIUM_GRAY + "; font-size: 12px; font-style: italic;");
+    fallbackNote->setVisible(false);
+
+    // 连接时间范围选择器的信号
+    connect(timeRangeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+        [this, timeRangeCombo, overallProgress, progressPercent, statValueLabels, barSeries, pieSeries](int index) {
+            QString range = timeRangeCombo->currentText();
+            QMap<QString, LearningMetrics> data = createSampleData();
+            LearningMetrics metrics = data[range];
+
+            // 更新进度条
+            int overallScore = (int)((metrics.engagement * 0.4 + metrics.accuracy * 0.4 + metrics.focus * 0.2));
+            overallProgress->setValue(overallScore);
+            progressPercent->setText(QString::number(overallScore) + "%");
+
+            // 更新统计数据
+            statValueLabels[0]->setText(QString::number(metrics.engagement) + "%");
+            statValueLabels[1]->setText(QString::number(metrics.focus) + "%");
+            statValueLabels[2]->setText(QString::number(metrics.accuracy) + "%");
+
+            // 更新柱状图数据
+            QList<QBarSet*> sets = barSeries->barSets();
+            sets[0]->remove(0, sets[0]->count());
+            sets[1]->remove(0, sets[1]->count());
+            sets[2]->remove(0, sets[2]->count());
+            *sets[0] << metrics.engagement << (metrics.engagement + 5) << (metrics.engagement - 3);
+            *sets[1] << metrics.accuracy << (metrics.accuracy + 3) << (metrics.accuracy - 4);
+            *sets[2] << metrics.focus << (metrics.focus + 2) << (metrics.focus - 5);
+
+            // 更新饼图数据
+            QList<QPieSlice*> slices = pieSeries->slices();
+            slices[0]->setValue(metrics.mastery);
+            slices[1]->setValue(metrics.partial);
+            slices[2]->setValue(metrics.needsWork);
+
+            // 更新状态栏
+            this->statusBar()->showMessage("学情分析 · " + range);
+        });
+
+    // 图表交互
+    connect(barSeries, &QBarSeries::clicked, this, [this](int index, QBarSet *set) {
+        this->statusBar()->showMessage("柱状图点击：可查看班级/学生下钻（示例）");
+    });
+
+    connect(pieSeries, &QPieSeries::clicked, this, [this](QPieSlice *slice) {
+        this->statusBar()->showMessage("饼图点击：可查看知识点详细分析（示例）");
+    });
+
+    // 设置SizePolicy以允许扩展
+    learningAnalyticsFrame->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 }
 
 void ModernMainWindow::createRecentActivities()
@@ -826,18 +1039,20 @@ void ModernMainWindow::createDashboard()
     coursesAnalyticsFrame = new QFrame();
     coursesAnalyticsLayout = new QGridLayout(coursesAnalyticsFrame);
     coursesAnalyticsLayout->setSpacing(24);
+    coursesAnalyticsLayout->setContentsMargins(0, 0, 0, 0);
+    coursesAnalyticsLayout->setColumnStretch(0, 2);
+    coursesAnalyticsLayout->setColumnStretch(1, 1);
 
     createRecentCourses();
+    createRecentActivities();
     createLearningAnalytics();
 
-    coursesAnalyticsLayout->addWidget(recentCoursesFrame, 0, 0);
-    coursesAnalyticsLayout->addWidget(learningAnalyticsFrame, 0, 1);
+    coursesAnalyticsLayout->addWidget(recentCoursesFrame, 0, 0, Qt::AlignTop | Qt::AlignLeft);
+    coursesAnalyticsLayout->addWidget(learningAnalyticsFrame, 0, 1, Qt::AlignTop | Qt::AlignLeft);
 
     scrollLayout->addWidget(coursesAnalyticsFrame);
 
-    // 近期活动
-    createRecentActivities();
-    scrollLayout->addWidget(recentActivitiesFrame);
+    // 不在底部重复显示近期活动
 
     scrollLayout->addStretch();
 
