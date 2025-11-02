@@ -119,6 +119,10 @@ private:
     QFrame *recentActivitiesFrame;
     QVBoxLayout *recentActivitiesLayout;
 
+    // 新布局：双行网格
+    QFrame *analyticsRowFrame;
+    QWidget *chartsContainer;
+
     // 数据
     QString currentUserRole;
     QString currentUsername;

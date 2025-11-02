@@ -739,7 +739,7 @@ void ModernMainWindow::createLearningAnalytics()
     analyticsLayout->addLayout(topRow);
 
     // 图表区域 - 使用 Charts 或降级方案
-    QWidget *chartsContainer = new QWidget();
+    chartsContainer = new QWidget();
     QVBoxLayout *chartsLayout = new QVBoxLayout(chartsContainer);
     chartsLayout->setSpacing(16);
 
@@ -837,26 +837,8 @@ void ModernMainWindow::createLearningAnalytics()
     chartsLayout->addWidget(barChartContainer);
     chartsLayout->addWidget(pieChartContainer);
 
-    // 创建两列布局：左侧近期活动，右侧图表
-    QGridLayout *chartsRow = new QGridLayout();
-    chartsRow->setContentsMargins(0, 0, 0, 0);
-    chartsRow->setSpacing(16);
-    chartsRow->setColumnStretch(0, 1);
-    chartsRow->setColumnStretch(1, 2);
-
-    // 左列放近期活动
-    if (recentActivitiesFrame) {
-        recentActivitiesFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-        recentActivitiesFrame->setMaximumWidth(360);
-        chartsRow->addWidget(recentActivitiesFrame, 0, 0, Qt::AlignTop | Qt::AlignLeft);
-    }
-
-    // 右列放图表容器
-    chartsContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    chartsRow->addWidget(chartsContainer, 0, 1);
-
-    // 添加到学情分析布局
-    analyticsLayout->addLayout(chartsRow);
+    // 将图表容器添加到学情分析布局（供外部调用者使用）
+    analyticsLayout->addWidget(chartsContainer);
 
     // 降级提示
     QLabel *fallbackNote = new QLabel("未启用 Qt Charts，已降级为基础视图");
@@ -1035,22 +1017,45 @@ void ModernMainWindow::createDashboard()
     createCoreFeatures();
     scrollLayout->addWidget(coreFeaturesFrame);
 
-    // 近期课程和学情分析
-    coursesAnalyticsFrame = new QFrame();
-    coursesAnalyticsLayout = new QGridLayout(coursesAnalyticsFrame);
-    coursesAnalyticsLayout->setSpacing(24);
-    coursesAnalyticsLayout->setContentsMargins(0, 0, 0, 0);
-    coursesAnalyticsLayout->setColumnStretch(0, 2);
-    coursesAnalyticsLayout->setColumnStretch(1, 1);
+    // 创建双行网格布局：第一行=近期活动+图表，第二行=近期课程
+    QFrame *dashboardRowFrame = new QFrame();
+    QGridLayout *dashboardGrid = new QGridLayout(dashboardRowFrame);
+    dashboardGrid->setContentsMargins(0, 0, 0, 0);
+    dashboardGrid->setVerticalSpacing(24);  // 两行之间的垂直间距
+    dashboardGrid->setHorizontalSpacing(24);
 
-    createRecentCourses();
-    createRecentActivities();
-    createLearningAnalytics();
+    // 按顺序创建组件
+    createRecentActivities();      // 第0行左列
+    createLearningAnalytics();     // 第0行右列（内部包含近期活动）
+    createRecentCourses();         // 第1行
 
-    coursesAnalyticsLayout->addWidget(recentCoursesFrame, 0, 0, Qt::AlignTop | Qt::AlignLeft);
-    coursesAnalyticsLayout->addWidget(learningAnalyticsFrame, 0, 1, Qt::AlignTop | Qt::AlignLeft);
+    // 第0行：近期活动 + 学情分析图表
+    analyticsRowFrame = new QFrame();
+    QGridLayout *analyticsRowLayout = new QGridLayout(analyticsRowFrame);
+    analyticsRowLayout->setContentsMargins(0, 0, 0, 0);
+    analyticsRowLayout->setSpacing(16);
+    analyticsRowLayout->setColumnStretch(0, 1);   // 左列：近期活动
+    analyticsRowLayout->setColumnStretch(1, 2);   // 右列：图表
 
-    scrollLayout->addWidget(coursesAnalyticsFrame);
+    // 左列：近期活动
+    if (recentActivitiesFrame) {
+        recentActivitiesFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+        recentActivitiesFrame->setMaximumWidth(360);
+        analyticsRowLayout->addWidget(recentActivitiesFrame, 0, 0, Qt::AlignTop | Qt::AlignLeft);
+    }
+
+    // 右列：图表容器
+    chartsContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    analyticsRowLayout->addWidget(chartsContainer, 0, 1);
+
+    // 第1行：近期课程
+    recentCoursesFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+
+    // 添加到双行网格
+    dashboardGrid->addWidget(analyticsRowFrame, 0, 0, Qt::AlignTop | Qt::AlignLeft);
+    dashboardGrid->addWidget(recentCoursesFrame, 1, 0, Qt::AlignTop | Qt::AlignLeft);
+
+    scrollLayout->addWidget(dashboardRowFrame);
 
     // 不在底部重复显示近期活动
 
