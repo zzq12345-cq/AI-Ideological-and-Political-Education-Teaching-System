@@ -7,12 +7,19 @@
 #include <QEvent>
 #include <QTimer>
 #include <QDebug>
+#include <iostream>
+#include "signupwindow.h"
 
 SimpleLoginWindow::SimpleLoginWindow(QWidget *parent)
-    : QDialog(parent)
+    : QWidget(parent)
+    , m_supabaseClient(new SupabaseClient(this))
 {
     setupUI();  // 设置UI组件
     setupStyle(); // 设置样式
+
+    // 连接Supabase信号
+    connect(m_supabaseClient, &SupabaseClient::loginSuccess, this, &SimpleLoginWindow::onLoginSuccess);
+    connect(m_supabaseClient, &SupabaseClient::loginFailed, this, &SimpleLoginWindow::onLoginFailed);
 }
 
 SimpleLoginWindow::~SimpleLoginWindow()
@@ -26,7 +33,7 @@ bool SimpleLoginWindow::eventFilter(QObject *watched, QEvent *event)
         // 重新定位眼睛按钮到右侧
         togglePasswordBtn->move(passwordEdit->width() - 40, (passwordEdit->height() - 30) / 2);
     }
-    return QDialog::eventFilter(watched, event);
+    return QWidget::eventFilter(watched, event);
 }
 
 void SimpleLoginWindow::setupUI()
@@ -369,6 +376,7 @@ void SimpleLoginWindow::setupUI()
 
     // 连接信号
     connect(loginButton, &QPushButton::clicked, this, &SimpleLoginWindow::onLoginClicked);
+    connect(signupBtn, &QPushButton::clicked, this, &SimpleLoginWindow::onSignupClicked);
     connect(togglePasswordBtn, &QPushButton::clicked, [this]() {
         if (passwordEdit->echoMode() == QLineEdit::Password) {
             passwordEdit->setEchoMode(QLineEdit::Normal);
@@ -413,42 +421,127 @@ void SimpleLoginWindow::onLoginClicked()
         return;
     }
 
-    // 测试账号验证
-    if ((username == "teacher01" && password == "Teacher@2024")) {
-        QMessageBox::information(this, "登录成功", "欢迎 " + username + "！\n\n正在进入教师端...");
-        accept(); // 关闭登录窗口
+    // 检查是否是测试账号
+    if ((username == "teacher01" && password == "Teacher@2024") ||
+        (username == "student01" && password == "Student@2024") ||
+        (username == "admin01" && password == "Admin@2024")) {
+        // 测试账号直接登录
+        QString role = (username == "teacher01") ? "教师" :
+                       (username == "student01") ? "学生" : "管理员";
+
+        QMessageBox::information(this, "登录成功", "欢迎 " + username + "！\n\n正在进入" + role + "端...");
+        this->close(); // 关闭登录窗口
 
         // 打开主界面
-        QString role = "教师";
         openMainWindow(username, role);
-
-    } else if ((username == "student01" && password == "Student@2024")) {
-        QMessageBox::information(this, "登录成功", "欢迎 " + username + "！\n\n正在进入学生端...");
-        accept(); // 关闭登录窗口
-
-        // 打开主界面
-        QString role = "学生";
-        openMainWindow(username, role);
-
-    } else if ((username == "admin01" && password == "Admin@2024")) {
-        QMessageBox::information(this, "登录成功", "欢迎 " + username + "！\n\n正在进入管理员端...");
-        accept(); // 关闭登录窗口
-
-        // 打开主界面
-        QString role = "管理员";
-        openMainWindow(username, role);
-
-    } else {
-        QMessageBox::warning(this, "登录失败", "用户名或密码错误！\n\n请使用：\n• teacher01 / Teacher@2024\n• student01 / Student@2024\n• admin01 / Admin@2024");
+        return;
     }
+
+    // 如果不是测试账号，尝试Supabase登录
+    // 检查输入的是否是邮箱格式
+    if (username.contains("@")) {
+        qDebug() << "尝试Supabase登录:" << username;
+        loginButton->setEnabled(false);
+        loginButton->setText("登录中...");
+
+        m_supabaseClient->login(username, password);
+    } else {
+        QMessageBox::warning(this, "登录失败", "请使用正确的用户名或邮箱！\n\n提示：\n• 测试账号：teacher01\n• 或使用邮箱登录");
+    }
+}
+
+void SimpleLoginWindow::onSignupClicked()
+{
+    qDebug() << "SimpleLoginWindow::onSignupClicked 调用";
+    std::cout << "SimpleLoginWindow::onSignupClicked 调用" << std::endl;
+    std::cout.flush();
+
+    // 使用QTimer延迟处理，确保按钮回调完全返回
+    QTimer::singleShot(0, this, [this]() {
+        qDebug() << "创建注册窗口...";
+        std::cout << "创建注册窗口..." << std::endl;
+        std::cout.flush();
+
+        // 创建注册窗口
+        SignupWindow *signupWindow = new SignupWindow();
+        signupWindow->setAttribute(Qt::WA_DeleteOnClose);
+
+        // 连接注册窗口的返回信号
+        QObject::connect(signupWindow, &SignupWindow::backToLogin, this, [this, signupWindow]() {
+            qDebug() << "\n>>> 用户从注册窗口返回登录 <<<\n";
+            std::cout << "\n>>> 用户从注册窗口返回登录 <<<\n" << std::endl;
+            std::cout.flush();
+
+            // 删除注册窗口
+            delete signupWindow;
+
+            // 重新显示登录窗口
+            qDebug() << "重新创建并显示登录窗口...";
+            std::cout << "重新创建并显示登录窗口..." << std::endl;
+            std::cout.flush();
+
+            SimpleLoginWindow *newLoginWindow = new SimpleLoginWindow();
+            newLoginWindow->show();
+            newLoginWindow->raise();
+            newLoginWindow->activateWindow();
+
+            // 关闭当前登录窗口（如果还在的话）
+            this->close();
+        });
+
+        signupWindow->show();
+        signupWindow->raise();
+        signupWindow->activateWindow();
+
+        qDebug() << "注册窗口已显示";
+        std::cout << "注册窗口已显示" << std::endl;
+        std::cout.flush();
+
+        // 关闭登录窗口
+        this->close();
+    });
 }
 
 void SimpleLoginWindow::openMainWindow(const QString &username, const QString &role)
 {
-    // 延迟打开主窗口，确保登录窗口已关闭
-    QTimer::singleShot(100, [this, username, role]() {
-        ModernMainWindow *mainWindow = new ModernMainWindow(username, role);
-        mainWindow->show();
-    });
+    qDebug() << "准备打开主窗口...";
+    qDebug() << "用户名:" << username << "角色:" << role;
+
+    qDebug() << "正在创建主窗口...";
+    ModernMainWindow *mainWindow = new ModernMainWindow(role, username);
+    qDebug() << "主窗口创建完成，准备显示...";
+    mainWindow->show();
+    qDebug() << "主窗口已显示!";
+}
+
+void SimpleLoginWindow::onLoginSuccess(const QString &userId, const QString &email)
+{
+    // 防止重复处理
+    if (m_loginProcessed) {
+        qDebug() << "登录已处理，跳过重复调用";
+        return;
+    }
+    m_loginProcessed = true;
+
+    qDebug() << "Supabase登录成功! 用户ID:" << userId << "邮箱:" << email;
+
+    loginButton->setEnabled(false);
+    loginButton->setText("登录中...");
+
+    // 打开主界面，默认角色为教师
+    openMainWindow(email, "教师");
+
+    // 最后关闭登录窗口
+    this->close();
+}
+
+void SimpleLoginWindow::onLoginFailed(const QString &errorMessage)
+{
+    qDebug() << "Supabase登录失败:" << errorMessage;
+
+    QMessageBox::warning(this, "登录失败", errorMessage);
+
+    loginButton->setEnabled(true);
+    loginButton->setText("登 录");
 }
 

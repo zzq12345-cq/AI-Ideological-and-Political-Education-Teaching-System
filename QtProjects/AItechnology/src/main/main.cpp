@@ -1,7 +1,7 @@
 #include <QApplication>
 #include <QStyleFactory>
-#include <QTimer>
 #include <QDebug>
+#include <iostream>
 #include "../auth/login/simpleloginwindow.h"
 
 int main(int argc, char *argv[])
@@ -17,34 +17,18 @@ int main(int argc, char *argv[])
     // 设置应用程序样式
     app.setStyle(QStyleFactory::create("Fusion"));
 
-    // 关键修复：确保应用程序不会自动退出
-    app.setQuitOnLastWindowClosed(false);
+    qDebug() << "\n=== 应用启动 ===\n";
+    std::cout << "应用启动" << std::endl;
 
-    // 创建登录窗口
+    // 创建并显示登录窗口
     SimpleLoginWindow *loginWindow = new SimpleLoginWindow();
-
-    // 设置窗口标志，防止意外关闭
-    loginWindow->setAttribute(Qt::WA_DeleteOnClose, false);
-
-    // 显示登录窗口
     loginWindow->show();
-
-    // 确保窗口保持在顶部
     loginWindow->raise();
     loginWindow->activateWindow();
 
-    qDebug() << "Application started successfully";
+    qDebug() << "登录窗口已显示\n";
+    std::cout << "登录窗口已显示" << std::endl;
 
-    // 运行应用程序事件循环
-    int result = app.exec();
-
-    qDebug() << "Application exiting with result:" << result;
-
-    // 手动清理资源
-    if (loginWindow) {
-        delete loginWindow;
-        loginWindow = nullptr;
-    }
-
-    return result;
+    // 运行事件循环
+    return app.exec();
 }

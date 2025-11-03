@@ -7,6 +7,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
+#include <QStackedLayout>
 #include <QMenuBar>
 #include <QStatusBar>
 #include <QScrollArea>
@@ -15,6 +16,8 @@
 #include <QLineEdit>
 #include <QAction>
 #include <QTimer>
+#include <QGraphicsDropShadowEffect>
+#include <QFont>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class ModernMainWindow; }
@@ -59,6 +62,9 @@ private:
     void createLearningAnalytics();
     void createRecentActivities();
     void applyPatrioticRedTheme();
+
+    // 创建指标项组件 - 紧凑单行信息
+    QWidget* createMetricItem(const QString& name, const QString& value, const QString& color, const QString& tooltip);
 
     // 核心UI组件
     QWidget *centralWidget;
