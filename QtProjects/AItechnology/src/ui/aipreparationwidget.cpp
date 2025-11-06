@@ -742,10 +742,8 @@ void AIPreparationWidget::updateTemplateCardStyle(const QString &key, bool isSel
             "color: %1;"
             "font-size: 14px;"
             "font-weight: %2;"
-            "text-overflow: ellipsis;"
-            "white-space: nowrap;"
-            "overflow: hidden;"
         ).arg(isSelected ? COLOR_PRIMARY : "#333333", isSelected ? QStringLiteral("600") : QStringLiteral("500")));
+        nameLabel->setWordWrap(false);
     }
 }
 

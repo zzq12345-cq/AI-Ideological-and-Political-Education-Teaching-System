@@ -6,7 +6,9 @@
 ** WARNING! All changes made in this file will be lost!
 *****************************************************************************/
 
-#include "../../../src/auth/login/signupwindow.h"
+#include "../../../src/auth/signup/signupwindow.h"
+#include <QtGui/qtextcursor.h>
+#include <QtNetwork/QSslError>
 #include <QtCore/qmetatype.h>
 
 #include <QtCore/qtmochelpers.h>
@@ -31,92 +33,95 @@ QT_WARNING_PUSH
 QT_WARNING_DISABLE_DEPRECATED
 QT_WARNING_DISABLE_GCC("-Wuseless-cast")
 namespace {
-struct qt_meta_tag_ZN12SignupWindowE_t {};
+struct qt_meta_tag_ZN12SignUpWindowE_t {};
 } // unnamed namespace
 
-template <> constexpr inline auto SignupWindow::qt_create_metaobjectdata<qt_meta_tag_ZN12SignupWindowE_t>()
+template <> constexpr inline auto SignUpWindow::qt_create_metaobjectdata<qt_meta_tag_ZN12SignUpWindowE_t>()
 {
     namespace QMC = QtMocConstants;
     QtMocHelpers::StringRefStorage qt_stringData {
-        "SignupWindow",
-        "backToLogin",
+        "SignUpWindow",
+        "onSignupClicked",
         "",
-        "onBackClicked"
+        "onBackToLoginClicked",
+        "onTogglePassword1Clicked",
+        "onTogglePassword2Clicked",
+        "validateInput"
     };
 
     QtMocHelpers::UintData qt_methods {
-        // Signal 'backToLogin'
-        QtMocHelpers::SignalData<void()>(1, 2, QMC::AccessPublic, QMetaType::Void),
-        // Slot 'onBackClicked'
+        // Slot 'onSignupClicked'
+        QtMocHelpers::SlotData<void()>(1, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onBackToLoginClicked'
         QtMocHelpers::SlotData<void()>(3, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onTogglePassword1Clicked'
+        QtMocHelpers::SlotData<void()>(4, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onTogglePassword2Clicked'
+        QtMocHelpers::SlotData<void()>(5, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'validateInput'
+        QtMocHelpers::SlotData<bool()>(6, 2, QMC::AccessPrivate, QMetaType::Bool),
     };
     QtMocHelpers::UintData qt_properties {
     };
     QtMocHelpers::UintData qt_enums {
     };
-    return QtMocHelpers::metaObjectData<SignupWindow, qt_meta_tag_ZN12SignupWindowE_t>(QMC::MetaObjectFlag{}, qt_stringData,
+    return QtMocHelpers::metaObjectData<SignUpWindow, qt_meta_tag_ZN12SignUpWindowE_t>(QMC::MetaObjectFlag{}, qt_stringData,
             qt_methods, qt_properties, qt_enums);
 }
-Q_CONSTINIT const QMetaObject SignupWindow::staticMetaObject = { {
-    QMetaObject::SuperData::link<QDialog::staticMetaObject>(),
-    qt_staticMetaObjectStaticContent<qt_meta_tag_ZN12SignupWindowE_t>.stringdata,
-    qt_staticMetaObjectStaticContent<qt_meta_tag_ZN12SignupWindowE_t>.data,
+Q_CONSTINIT const QMetaObject SignUpWindow::staticMetaObject = { {
+    QMetaObject::SuperData::link<QWidget::staticMetaObject>(),
+    qt_staticMetaObjectStaticContent<qt_meta_tag_ZN12SignUpWindowE_t>.stringdata,
+    qt_staticMetaObjectStaticContent<qt_meta_tag_ZN12SignUpWindowE_t>.data,
     qt_static_metacall,
     nullptr,
-    qt_staticMetaObjectRelocatingContent<qt_meta_tag_ZN12SignupWindowE_t>.metaTypes,
+    qt_staticMetaObjectRelocatingContent<qt_meta_tag_ZN12SignUpWindowE_t>.metaTypes,
     nullptr
 } };
 
-void SignupWindow::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
+void SignUpWindow::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
 {
-    auto *_t = static_cast<SignupWindow *>(_o);
+    auto *_t = static_cast<SignUpWindow *>(_o);
     if (_c == QMetaObject::InvokeMetaMethod) {
         switch (_id) {
-        case 0: _t->backToLogin(); break;
-        case 1: _t->onBackClicked(); break;
+        case 0: _t->onSignupClicked(); break;
+        case 1: _t->onBackToLoginClicked(); break;
+        case 2: _t->onTogglePassword1Clicked(); break;
+        case 3: _t->onTogglePassword2Clicked(); break;
+        case 4: { bool _r = _t->validateInput();
+            if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
         default: ;
         }
     }
-    if (_c == QMetaObject::IndexOfMethod) {
-        if (QtMocHelpers::indexOfMethod<void (SignupWindow::*)()>(_a, &SignupWindow::backToLogin, 0))
-            return;
-    }
 }
 
-const QMetaObject *SignupWindow::metaObject() const
+const QMetaObject *SignUpWindow::metaObject() const
 {
     return QObject::d_ptr->metaObject ? QObject::d_ptr->dynamicMetaObject() : &staticMetaObject;
 }
 
-void *SignupWindow::qt_metacast(const char *_clname)
+void *SignUpWindow::qt_metacast(const char *_clname)
 {
     if (!_clname) return nullptr;
-    if (!strcmp(_clname, qt_staticMetaObjectStaticContent<qt_meta_tag_ZN12SignupWindowE_t>.strings))
+    if (!strcmp(_clname, qt_staticMetaObjectStaticContent<qt_meta_tag_ZN12SignUpWindowE_t>.strings))
         return static_cast<void*>(this);
-    return QDialog::qt_metacast(_clname);
+    return QWidget::qt_metacast(_clname);
 }
 
-int SignupWindow::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
+int SignUpWindow::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
 {
-    _id = QDialog::qt_metacall(_c, _id, _a);
+    _id = QWidget::qt_metacall(_c, _id, _a);
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 2)
+        if (_id < 5)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 2;
+        _id -= 5;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 2)
+        if (_id < 5)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 2;
+        _id -= 5;
     }
     return _id;
-}
-
-// SIGNAL 0
-void SignupWindow::backToLogin()
-{
-    QMetaObject::activate(this, &staticMetaObject, 0, nullptr);
 }
 QT_WARNING_POP

@@ -12,6 +12,7 @@
 SimpleLoginWindow::SimpleLoginWindow(QWidget *parent)
     : QWidget(parent)
     , m_supabaseClient(new SupabaseClient(this))
+    , m_settings(new QSettings(this))
 {
     setupUI();  // 设置UI组件
     setupStyle(); // 设置样式
@@ -19,6 +20,11 @@ SimpleLoginWindow::SimpleLoginWindow(QWidget *parent)
     // 连接Supabase信号
     connect(m_supabaseClient, &SupabaseClient::loginSuccess, this, &SimpleLoginWindow::onLoginSuccess);
     connect(m_supabaseClient, &SupabaseClient::loginFailed, this, &SimpleLoginWindow::onLoginFailed);
+
+    // 检查是否有记住的凭证
+    if (hasRememberedCredentials()) {
+        loadRememberedCredentials();
+    }
 }
 
 SimpleLoginWindow::~SimpleLoginWindow()
@@ -75,7 +81,7 @@ void SimpleLoginWindow::setupUI()
 
     // 口号标签 - 使用暗金色点缀，体现庄重与典雅
     mottoLabel = new QLabel("\"不忘初心，牢记使命\"");
-    mottoLabel->setStyleSheet("color: #C9A64E; font-size: 32px; font-weight: 900; text-align: center; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);");
+    mottoLabel->setStyleSheet("color: #C9A64E; font-size: 32px; font-weight: 900; text-align: center;");
 
     // 英文翻译 - 使用浅色调搭配暗金色标题
     QLabel *mottoEnglish = new QLabel("\"Remain true to our original aspiration and keep our mission firmly in mind.\"");
@@ -88,7 +94,7 @@ void SimpleLoginWindow::setupUI()
 
     // 引言 - 使用暗金色标题，突出主题
     quoteLabel = new QLabel("\"为中华之崛起而读书\"");
-    quoteLabel->setStyleSheet("color: #C9A64E; font-size: 28px; font-weight: bold; text-align: center; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);");
+    quoteLabel->setStyleSheet("color: #C9A64E; font-size: 28px; font-weight: bold; text-align: center;");
 
     // 作者 - 使用浅色调
     authorLabel = new QLabel("—— 周恩来 (Zhou Enlai)");
@@ -162,7 +168,7 @@ void SimpleLoginWindow::setupUI()
   
     // 品牌标题区域 - 【修改1】使用品牌红色
     titleLabel = new QLabel("思想政治智慧课堂");
-    titleLabel->setStyleSheet("color: #C62828; font-size: 42px; font-weight: 900; text-align: center; margin: 10px 0; text-shadow: 1px 1px 3px rgba(0,0,0,0.4);");
+    titleLabel->setStyleSheet("color: #C62828; font-size: 42px; font-weight: 900; text-align: center; margin: 10px 0;");
 
     subtitleLabel = new QLabel("Ideological & Political Smart Classroom");
     subtitleLabel->setStyleSheet("color: #6B7280; font-size: 14px; text-align: center;");
@@ -241,8 +247,8 @@ void SimpleLoginWindow::setupUI()
 
     // 记住我和忘记密码 - 重新设计平衡布局
     QHBoxLayout *optionsLayout = new QHBoxLayout();
-    rememberCheck = new QCheckBox("记住我");
-    rememberCheck->setStyleSheet(
+    rememberMeCheck = new QCheckBox("记住我");
+    rememberMeCheck->setStyleSheet(
         "QCheckBox {"
         "  color: #0F172A;"
         "  font-size: 14px;"
@@ -276,7 +282,7 @@ void SimpleLoginWindow::setupUI()
     );
 
     // 平衡布局：左侧记住我，右侧忘记密码，中间弹簧
-    optionsLayout->addWidget(rememberCheck);
+    optionsLayout->addWidget(rememberMeCheck);
     optionsLayout->addStretch();
     optionsLayout->addWidget(forgotPasswordBtn);
 
@@ -376,6 +382,7 @@ void SimpleLoginWindow::setupUI()
     // 连接信号
     connect(loginButton, &QPushButton::clicked, this, &SimpleLoginWindow::onLoginClicked);
     connect(signupBtn, &QPushButton::clicked, this, &SimpleLoginWindow::onSignupClicked);
+    connect(rememberMeCheck, &QCheckBox::toggled, this, &SimpleLoginWindow::onRememberMeToggled);
     connect(togglePasswordBtn, &QPushButton::clicked, [this]() {
         if (passwordEdit->echoMode() == QLineEdit::Password) {
             passwordEdit->setEchoMode(QLineEdit::Normal);
@@ -428,6 +435,9 @@ void SimpleLoginWindow::onLoginClicked()
         QString role = (username == "teacher01") ? "教师" :
                        (username == "student01") ? "学生" : "管理员";
 
+        // 保存记住的凭证
+        saveRememberedCredentials();
+
         QMessageBox::information(this, "登录成功", "欢迎 " + username + "！\n\n正在进入" + role + "端...");
         this->close(); // 关闭登录窗口
 
@@ -452,7 +462,15 @@ void SimpleLoginWindow::onLoginClicked()
 void SimpleLoginWindow::onSignupClicked()
 {
     qDebug() << "SimpleLoginWindow::onSignupClicked 调用";
-    QMessageBox::information(this, "注册功能", "注册功能正在开发中，敬请期待！");
+
+    // 关闭当前登录窗口
+    this->close();
+
+    // 创建并显示注册窗口
+    SignUpWindow *signupWindow = new SignUpWindow();
+    signupWindow->show();
+
+    qDebug() << "已打开注册窗口";
 }
 
 void SimpleLoginWindow::openMainWindow(const QString &username, const QString &role)
@@ -481,6 +499,9 @@ void SimpleLoginWindow::onLoginSuccess(const QString &userId, const QString &ema
     loginButton->setEnabled(false);
     loginButton->setText("登录中...");
 
+    // 保存记住的凭证
+    saveRememberedCredentials();
+
     // 打开主界面，默认角色为教师
     openMainWindow(email, "教师");
 
@@ -498,3 +519,50 @@ void SimpleLoginWindow::onLoginFailed(const QString &errorMessage)
     loginButton->setText("登 录");
 }
 
+
+void SimpleLoginWindow::onRememberMeToggled(bool checked)
+{
+    qDebug() << "记住我状态切换:" << checked;
+    
+    if (!checked) {
+        // 如果取消记住我，清除保存的凭证
+        clearRememberedCredentials();
+    }
+}
+
+bool SimpleLoginWindow::hasRememberedCredentials()
+{
+    return m_settings->value("rememberMe", false).toBool() &&
+           !m_settings->value("savedUsername", "").toString().isEmpty();
+}
+
+void SimpleLoginWindow::loadRememberedCredentials()
+{
+    QString username = m_settings->value("savedUsername", "").toString();
+    QString password = m_settings->value("savedPassword", "").toString();
+    
+    if (!username.isEmpty() && !password.isEmpty()) {
+        usernameEdit->setText(username);
+        passwordEdit->setText(password);
+        rememberMeCheck->setChecked(true);
+        qDebug() << "已加载记住的用户凭证:" << username;
+    }
+}
+
+void SimpleLoginWindow::saveRememberedCredentials()
+{
+    if (rememberMeCheck->isChecked()) {
+        m_settings->setValue("rememberMe", true);
+        m_settings->setValue("savedUsername", usernameEdit->text());
+        m_settings->setValue("savedPassword", passwordEdit->text());
+        qDebug() << "已保存用户凭证";
+    }
+}
+
+void SimpleLoginWindow::clearRememberedCredentials()
+{
+    m_settings->remove("rememberMe");
+    m_settings->remove("savedUsername");
+    m_settings->remove("savedPassword");
+    qDebug() << "已清除记住的凭证";
+}

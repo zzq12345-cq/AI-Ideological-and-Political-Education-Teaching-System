@@ -12,8 +12,12 @@
 #include <QMessageBox>
 #include <QTimer>
 #include <QDebug>
+#include <QSettings>
+#include <QCoreApplication>
+#include <QApplication>
 #include "../supabase/supabaseclient.h"
 #include "../supabase/supabaseconfig.h"
+#include "../signup/signupwindow.h"
 
 class SimpleLoginWindow : public QWidget
 {
@@ -29,6 +33,7 @@ protected:
 private slots:
     void onLoginClicked();
     void onSignupClicked();
+    void onRememberMeToggled(bool checked);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -36,6 +41,10 @@ protected:
 private:
     void openMainWindow(const QString &username, const QString &role);
     void setupStyle();
+    void loadRememberedCredentials();
+    void saveRememberedCredentials();
+    void clearRememberedCredentials();
+    bool hasRememberedCredentials();
 
     // Supabase回调
     void onLoginSuccess(const QString &userId, const QString &email);
@@ -68,9 +77,12 @@ private:
     QLabel *passwordLabel;
     QLineEdit *passwordEdit;
     QPushButton *togglePasswordBtn;
-    QCheckBox *rememberCheck;
+    QCheckBox *rememberMeCheck;
     QPushButton *forgotPasswordBtn;
     QPushButton *loginButton;
+
+    // 记住我功能
+    QSettings *m_settings;
     QLabel *signupLabel;
     QPushButton *signupBtn;
 

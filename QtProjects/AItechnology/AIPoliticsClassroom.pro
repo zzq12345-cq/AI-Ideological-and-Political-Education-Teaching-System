@@ -11,6 +11,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
     src/main/main.cpp \
     src/auth/login/simpleloginwindow.cpp \
+    src/auth/signup/signupwindow.cpp \
     src/auth/supabase/supabaseclient.cpp \
     src/auth/supabase/supabaseconfig.cpp \
     src/dashboard/modernmainwindow.cpp \
@@ -21,6 +22,7 @@ SOURCES += \
 # 头文件
 HEADERS += \
     src/auth/login/simpleloginwindow.h \
+    src/auth/signup/signupwindow.h \
     src/auth/supabase/supabaseclient.h \
     src/auth/supabase/supabaseconfig.h \
     src/dashboard/modernmainwindow.h \
