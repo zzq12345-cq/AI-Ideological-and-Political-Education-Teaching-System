@@ -204,7 +204,7 @@ void ModernMainWindow::setupCentralWidget()
     teacherCenterBtn = new QPushButton("教师中心");
     contentAnalysisBtn = new QPushButton("智能内容分析");
     aiPreparationBtn = new QPushButton("AI智能备课");
-    resourceManagementBtn = new QPushButton("资源库管理");
+    resourceManagementBtn = new QPushButton("试题库");
     learningAnalysisBtn = new QPushButton("学情与教评");
     dataReportBtn = new QPushButton("数据分析报告");
 

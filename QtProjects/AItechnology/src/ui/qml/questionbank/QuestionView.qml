@@ -20,14 +20,7 @@ Rectangle {
     color: isDark ? Qt.darker(Theme.surfaceDark, 0.5) : Theme.surfaceLight
     radius: Theme.radiusLarge
 
-    layer.enabled: true
-    layer.effect: DropShadow {
-        horizontalOffset: 0
-        verticalOffset: 2
-        radius: 8
-        color: isDark ? "#000000" : "#000000"
-        opacity: 0.1
-    }
+    // 移除DropShadow依赖
 
     ColumnLayout {
         anchors.fill: parent
