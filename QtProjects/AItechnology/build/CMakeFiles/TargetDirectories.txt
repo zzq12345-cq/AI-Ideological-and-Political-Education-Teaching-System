@@ -1,0 +1,9 @@
+/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles/AILoginSystem.dir
+/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles/edit_cache.dir
+/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles/rebuild_cache.dir
+/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles/list_install_components.dir
+/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles/install.dir
+/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles/install/local.dir
+/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles/install/strip.dir
+/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles/AILoginSystem_autogen_timestamp_deps.dir
+/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles/AILoginSystem_autogen.dir

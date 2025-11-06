@@ -1,4 +1,4 @@
-QT += core widgets network charts
+QT += core widgets network charts quick qml gui quickwidgets
 CONFIG += c++17
 
 TARGET = AIPoliticsClassroom
@@ -11,17 +11,34 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
     src/main/main.cpp \
     src/auth/login/simpleloginwindow.cpp \
-    src/dashboard/modernmainwindow.cpp
+    src/auth/supabase/supabaseclient.cpp \
+    src/auth/supabase/supabaseconfig.cpp \
+    src/dashboard/modernmainwindow.cpp \
+    src/ui/aipreparationwidget.cpp \
+    src/questionbank/QuestionRepository.cpp \
+    src/services/ExportService.cpp
 
 # 头文件
 HEADERS += \
     src/auth/login/simpleloginwindow.h \
-    src/dashboard/modernmainwindow.h
+    src/auth/supabase/supabaseclient.h \
+    src/auth/supabase/supabaseconfig.h \
+    src/dashboard/modernmainwindow.h \
+    src/ui/aipreparationwidget.h \
+    src/questionbank/QuestionRepository.h \
+    src/services/ExportService.h
 
 # UI文件
 FORMS += \
     src/auth/login/simpleloginwindow.ui \
     src/dashboard/modernmainwindow.ui
+
+# QML资源文件
+RESOURCES += qml.qrc
+
+# 数据文件
+data.files += data/questions.json
+data.path = $$PWD
 
 # 暂时移除资源文件依赖
 # RESOURCES += resources.qrc

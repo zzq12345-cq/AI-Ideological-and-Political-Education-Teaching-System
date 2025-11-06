@@ -8,7 +8,6 @@
 #include <QTimer>
 #include <QDebug>
 #include <iostream>
-#include "signupwindow.h"
 
 SimpleLoginWindow::SimpleLoginWindow(QWidget *parent)
     : QWidget(parent)
@@ -453,53 +452,7 @@ void SimpleLoginWindow::onLoginClicked()
 void SimpleLoginWindow::onSignupClicked()
 {
     qDebug() << "SimpleLoginWindow::onSignupClicked 调用";
-    std::cout << "SimpleLoginWindow::onSignupClicked 调用" << std::endl;
-    std::cout.flush();
-
-    // 使用QTimer延迟处理，确保按钮回调完全返回
-    QTimer::singleShot(0, this, [this]() {
-        qDebug() << "创建注册窗口...";
-        std::cout << "创建注册窗口..." << std::endl;
-        std::cout.flush();
-
-        // 创建注册窗口
-        SignupWindow *signupWindow = new SignupWindow();
-        signupWindow->setAttribute(Qt::WA_DeleteOnClose);
-
-        // 连接注册窗口的返回信号
-        QObject::connect(signupWindow, &SignupWindow::backToLogin, this, [this, signupWindow]() {
-            qDebug() << "\n>>> 用户从注册窗口返回登录 <<<\n";
-            std::cout << "\n>>> 用户从注册窗口返回登录 <<<\n" << std::endl;
-            std::cout.flush();
-
-            // 删除注册窗口
-            delete signupWindow;
-
-            // 重新显示登录窗口
-            qDebug() << "重新创建并显示登录窗口...";
-            std::cout << "重新创建并显示登录窗口..." << std::endl;
-            std::cout.flush();
-
-            SimpleLoginWindow *newLoginWindow = new SimpleLoginWindow();
-            newLoginWindow->show();
-            newLoginWindow->raise();
-            newLoginWindow->activateWindow();
-
-            // 关闭当前登录窗口（如果还在的话）
-            this->close();
-        });
-
-        signupWindow->show();
-        signupWindow->raise();
-        signupWindow->activateWindow();
-
-        qDebug() << "注册窗口已显示";
-        std::cout << "注册窗口已显示" << std::endl;
-        std::cout.flush();
-
-        // 关闭登录窗口
-        this->close();
-    });
+    QMessageBox::information(this, "注册功能", "注册功能正在开发中，敬请期待！");
 }
 
 void SimpleLoginWindow::openMainWindow(const QString &username, const QString &role)

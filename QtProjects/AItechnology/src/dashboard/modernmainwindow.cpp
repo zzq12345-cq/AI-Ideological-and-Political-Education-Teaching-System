@@ -1,5 +1,7 @@
 #include "modernmainwindow.h"
 #include "../auth/login/simpleloginwindow.h"
+#include "../ui/aipreparationwidget.h"
+#include "../questionbank/QuestionRepository.h"
 #include <QApplication>
 #include <QMessageBox>
 #include <QHBoxLayout>
@@ -24,6 +26,9 @@
 #include <QLegend>
 #include <QBarLegendMarker>
 #include <QPieLegendMarker>
+#include <QQuickWidget>
+#include <QQmlEngine>
+#include <QQmlContext>
 
 // 颜色常量 (从 code.html 提取)
 const QString PATRIOTIC_RED = "#d32f2f";
@@ -75,6 +80,10 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     setWindowTitle("思政智慧课堂 - 教师中心");
     setMinimumSize(1400, 900);
     resize(1600, 1000);
+
+    // 初始化试题库数据仓库
+    questionRepository = new QuestionRepository(this);
+    questionRepository->loadQuestions("data/questions.json");
 
     initUI();
     setupMenuBar();
@@ -240,6 +249,17 @@ void ModernMainWindow::setupCentralWidget()
 
     dashboardWidget = new QWidget();
     contentStack->addWidget(dashboardWidget);
+
+    // 创建 AI 智能备课页面
+    aiPreparationWidget = new AIPreparationWidget();
+    contentStack->addWidget(aiPreparationWidget);
+
+    // 创建试题库QML页面
+    questionBankQuickWidget = new QQuickWidget(this);
+    questionBankQuickWidget->setSource(QUrl("qrc:/src/ui/qml/questionbank/QuestionBankPage.qml"));
+    questionBankQuickWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    questionBankQuickWidget->engine()->rootContext()->setContextProperty("questionRepository", questionRepository);
+    contentStack->addWidget(questionBankQuickWidget);
 
     // 添加到主布局
     contentLayout->addWidget(sidebar);
@@ -1248,16 +1268,32 @@ void ModernMainWindow::onContentAnalysisClicked()
 
 void ModernMainWindow::onAIPreparationClicked()
 {
-    onTeacherCenterClicked();
+    // 重置所有按钮样式
+    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    dataReportBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+
+    // 切换到AI智能备课页面
+    contentStack->setCurrentWidget(aiPreparationWidget);
     this->statusBar()->showMessage("AI智能备课");
 }
 
 void ModernMainWindow::onResourceManagementClicked()
 {
-    onTeacherCenterClicked();
+    // 重置所有按钮样式
+    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-    this->statusBar()->showMessage("资源库管理");
+    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    dataReportBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+
+    // 切换到试题库页面
+    contentStack->setCurrentWidget(questionBankQuickWidget);
+    this->statusBar()->showMessage("试题库");
 }
 
 void ModernMainWindow::onLearningAnalysisClicked()

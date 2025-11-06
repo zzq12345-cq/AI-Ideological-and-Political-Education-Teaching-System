@@ -1,0 +1,2 @@
+set(__QT_DEPLOY_TARGET_AILoginSystem_FILE /Users/zhouzhiqi/QtProjects/AItechnology/build/AILoginSystem.app/Contents/MacOS/AILoginSystem)
+set(__QT_DEPLOY_TARGET_AILoginSystem_TYPE EXECUTABLE)

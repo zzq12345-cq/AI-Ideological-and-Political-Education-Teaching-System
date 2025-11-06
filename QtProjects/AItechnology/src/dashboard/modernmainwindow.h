@@ -18,6 +18,8 @@
 #include <QTimer>
 #include <QGraphicsDropShadowEffect>
 #include <QFont>
+#include <QQuickWidget>
+#include <QQmlContext>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class ModernMainWindow; }
@@ -25,6 +27,8 @@ QT_END_NAMESPACE
 
 // 前向声明
 class SimpleLoginWindow;
+class AIPreparationWidget;
+class QuestionRepository;
 
 class ModernMainWindow : public QMainWindow
 {
@@ -90,6 +94,11 @@ private:
     QStackedWidget *contentStack;
     QWidget *dashboardWidget;
     QScrollArea *dashboardScrollArea;
+    AIPreparationWidget *aiPreparationWidget;
+
+    // 试题库相关组件
+    QQuickWidget *questionBankQuickWidget;
+    QuestionRepository *questionRepository;
 
     // 顶部工具栏 (Header)
     QFrame *headerWidget;
