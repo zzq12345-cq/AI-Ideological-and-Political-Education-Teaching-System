@@ -2,4 +2,7 @@
     <qresource prefix="/images">
         <file>src/shared/resources/download.png</file>
     </qresource>
+    <qresource prefix="/styles">
+        <file>resources/styles/auth.qss</file>
+    </qresource>
 </RCC>

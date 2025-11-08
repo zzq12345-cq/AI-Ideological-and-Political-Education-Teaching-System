@@ -38,6 +38,14 @@ private slots:
 private:
     void openLoginWindow();
     void setupStyle();
+    void buildHeroPanel();
+    void buildFormPanel();
+    QFrame *createInputGroup(QWidget *parent,
+                             const QString &placeholderText,
+                             QLineEdit **lineEdit,
+                             bool isPassword = false,
+                             QPushButton **toggleButton = nullptr);
+    QString resolveStyleSheetPath() const;
     void showMessage(const QString &title, const QString &message, QMessageBox::Icon icon = QMessageBox::Information);
 
     // Supabase回调
