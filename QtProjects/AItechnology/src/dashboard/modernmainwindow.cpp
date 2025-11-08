@@ -213,6 +213,16 @@ void ModernMainWindow::setupCentralWidget()
     settingsBtn = new QPushButton("系统设置");
     helpBtn = new QPushButton("帮助中心");
 
+    // 确保所有按钮都可见
+    teacherCenterBtn->setVisible(true);
+    contentAnalysisBtn->setVisible(true);
+    aiPreparationBtn->setVisible(true);
+    resourceManagementBtn->setVisible(true);
+    learningAnalysisBtn->setVisible(true);
+    dataReportBtn->setVisible(true);
+    settingsBtn->setVisible(true);
+    helpBtn->setVisible(true);
+
     // 设置侧边栏按钮样式 - 使用统一样式常量
     teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
     contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
@@ -224,14 +234,23 @@ void ModernMainWindow::setupCentralWidget()
     helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
 
     // 连接信号
-    connect(teacherCenterBtn, &QPushButton::clicked, this, &ModernMainWindow::onTeacherCenterClicked);
-    connect(contentAnalysisBtn, &QPushButton::clicked, this, &ModernMainWindow::onContentAnalysisClicked);
-    connect(aiPreparationBtn, &QPushButton::clicked, this, &ModernMainWindow::onAIPreparationClicked);
-    connect(resourceManagementBtn, &QPushButton::clicked, this, &ModernMainWindow::onResourceManagementClicked);
-    connect(learningAnalysisBtn, &QPushButton::clicked, this, &ModernMainWindow::onLearningAnalysisClicked);
-    connect(dataReportBtn, &QPushButton::clicked, this, &ModernMainWindow::onDataReportClicked);
-    connect(settingsBtn, &QPushButton::clicked, this, &ModernMainWindow::onSettingsClicked);
-    connect(helpBtn, &QPushButton::clicked, this, &ModernMainWindow::onHelpClicked);
+    connect(teacherCenterBtn, &QPushButton::clicked, this, [=]() { qDebug() << "教师中心按钮被点击"; onTeacherCenterClicked(); });
+    connect(contentAnalysisBtn, &QPushButton::clicked, this, [=]() { qDebug() << "智能内容分析按钮被点击"; onContentAnalysisClicked(); });
+    connect(aiPreparationBtn, &QPushButton::clicked, this, [=]() { qDebug() << "AI智能备课按钮被点击"; onAIPreparationClicked(); });
+    connect(resourceManagementBtn, &QPushButton::clicked, this, [=]() { qDebug() << "试题库按钮被点击"; onResourceManagementClicked(); });
+    connect(learningAnalysisBtn, &QPushButton::clicked, this, [=]() { qDebug() << "学情与教评按钮被点击"; onLearningAnalysisClicked(); });
+    connect(dataReportBtn, &QPushButton::clicked, this, [=]() { qDebug() << "数据分析报告按钮被点击"; onDataReportClicked(); });
+    connect(settingsBtn, &QPushButton::clicked, this, [=]() { qDebug() << "系统设置按钮被点击"; onSettingsClicked(); });
+    connect(helpBtn, &QPushButton::clicked, this, [=]() { qDebug() << "帮助中心按钮被点击"; onHelpClicked(); });
+
+    // 调试按钮状态
+    qDebug() << "=== 按钮状态检查 ===";
+    qDebug() << "试题库按钮 - 启用:" << resourceManagementBtn->isEnabled() << "可见:" << resourceManagementBtn->isVisible() << "文本:" << resourceManagementBtn->text();
+    qDebug() << "AI智能备课按钮 - 启用:" << aiPreparationBtn->isEnabled() << "可见:" << aiPreparationBtn->isVisible() << "文本:" << aiPreparationBtn->text();
+    qDebug() << "按钮尺寸 - 试题库:" << resourceManagementBtn->size() << "AI智能备课:" << aiPreparationBtn->size();
+    qDebug() << "按钮位置 - 试题库:" << resourceManagementBtn->pos() << "AI智能备课:" << aiPreparationBtn->pos();
+    qDebug() << "按钮父控件 - 试题库:" << resourceManagementBtn->parentWidget() << "AI智能备课:" << aiPreparationBtn->parentWidget();
+    qDebug() << "侧边栏控件:" << sidebar << "侧边栏可见性:" << sidebar->isVisible();
 
     // 添加按钮到侧边栏
     sidebarLayout->addWidget(teacherCenterBtn);
@@ -551,6 +570,28 @@ void ModernMainWindow::createCoreFeatures()
     coreFeaturesLayout->addWidget(editDocumentCard, 0, 1);
     coreFeaturesLayout->addWidget(slideshowCard, 0, 2);
     coreFeaturesLayout->addWidget(folderOpenCard, 0, 3);
+
+    // 连接核心功能卡片的点击事件
+    connect(folderOpenCard, &QPushButton::clicked, this, [=]() {
+        qDebug() << "试题库卡片被点击";
+        onResourceManagementClicked();
+    });
+
+    connect(editDocumentCard, &QPushButton::clicked, this, [=]() {
+        qDebug() << "AI智能备课卡片被点击";
+        onAIPreparationClicked();
+    });
+
+    connect(psychologyCard, &QPushButton::clicked, this, [=]() {
+        qDebug() << "智能内容分析卡片被点击";
+        onContentAnalysisClicked();
+    });
+
+    connect(slideshowCard, &QPushButton::clicked, this, [=]() {
+        qDebug() << "互动教学工具卡片被点击";
+        // 暂时使用已有的方法或添加新方法
+        onLearningAnalysisClicked();
+    });
 }
 
 void ModernMainWindow::createRecentCourses()
@@ -1265,6 +1306,8 @@ void ModernMainWindow::onContentAnalysisClicked()
 
 void ModernMainWindow::onAIPreparationClicked()
 {
+    qDebug() << "AI智能备课按钮被点击";
+
     // 重置所有按钮样式
     contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
@@ -1274,12 +1317,19 @@ void ModernMainWindow::onAIPreparationClicked()
     teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
 
     // 切换到AI智能备课页面
-    contentStack->setCurrentWidget(aiPreparationWidget);
-    this->statusBar()->showMessage("AI智能备课");
+    if (aiPreparationWidget) {
+        qDebug() << "切换到AI智能备课页面";
+        contentStack->setCurrentWidget(aiPreparationWidget);
+        this->statusBar()->showMessage("AI智能备课");
+    } else {
+        qDebug() << "错误：aiPreparationWidget为空";
+    }
 }
 
 void ModernMainWindow::onResourceManagementClicked()
 {
+    qDebug() << "试题库按钮被点击";
+
     // 重置所有按钮样式
     contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
@@ -1289,8 +1339,13 @@ void ModernMainWindow::onResourceManagementClicked()
     teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
 
     // 切换到试题库页面
-    contentStack->setCurrentWidget(questionBankWindow);
-    this->statusBar()->showMessage("试题库");
+    if (questionBankWindow) {
+        qDebug() << "切换到试题库页面";
+        contentStack->setCurrentWidget(questionBankWindow);
+        this->statusBar()->showMessage("试题库");
+    } else {
+        qDebug() << "错误：questionBankWindow为空";
+    }
 }
 
 void ModernMainWindow::onLearningAnalysisClicked()

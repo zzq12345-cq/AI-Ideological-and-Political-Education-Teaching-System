@@ -5,6 +5,24 @@ QuestionBankWindow#questionBankWindow {
     font-size: 14px;
 }
 
+/* 全局样式重置 - 移除所有装饰性元素 */
+QLabel {
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+}
+
+/* 确保选项文本样式正确 */
+QLabel[role="optionText"] {
+    font-size: 15px;
+    color: #1F2937;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+}
+
 QWidget#pageContainer,
 QWidget#scrollWrapper,
 QFrame#mainBody,
@@ -93,15 +111,18 @@ QComboBox[role="filterSelect"]:focus {
 
 QComboBox[role="filterSelect"]::drop-down {
     border: none;
-    width: 24px;
+    width: 0px;
+    height: 0px;
 }
 
 QComboBox[role="filterSelect"]::down-arrow {
     image: none;
+    width: 0px;
+    height: 0px;
 }
 
 QPushButton[role="filterButton"] {
-    background: #F3F4F6;
+    background: #FFFFFF;
     color: #374151;
     border-radius: 8px;
     border: 1px solid transparent;
@@ -112,7 +133,7 @@ QPushButton[role="filterButton"] {
 }
 
 QPushButton[role="filterButton"]:hover {
-    background: #E5E7EB;
+    background: #F3F4F6;
 }
 
 QPushButton[role="filterButton"]:checked {
@@ -197,26 +218,26 @@ QProgressBar#progressBar::chunk {
 }
 
 QFrame#tagRow QLabel {
-    padding: 6px 16px;
-    border-radius: 999px;
+    padding: 0;
+    border-radius: 0;
     font-size: 13px;
     font-weight: 600;
-    background: #F3F4F6;
+    background: transparent;
     color: #475467;
 }
 
 QLabel#tagType {
-    background: rgba(217, 0, 27, 0.12);
+    background: transparent;
     color: #D9001B;
 }
 
 QLabel#tagDifficulty {
-    background: rgba(74, 144, 226, 0.15);
+    background: transparent;
     color: #2563EB;
 }
 
 QLabel#tagChapter {
-    background: rgba(79, 70, 229, 0.12);
+    background: transparent;
     color: #4C1D95;
 }
 
@@ -234,7 +255,7 @@ QFrame[role="optionItem"] {
 }
 
 QFrame[role="optionItem"][hovered="true"] {
-    background: #F8FAFC;
+    background: #FFFFFF;
 }
 
 QFrame[role="optionItem"][selected="true"] {
@@ -248,6 +269,8 @@ QRadioButton[role="optionRadio"]::indicator {
     border-radius: 999px;
     border: 2px solid #CBD5F5;
     background: #FFFFFF;
+    margin: 0;
+    padding: 0;
 }
 
 QRadioButton[role="optionRadio"]::indicator:hover {
@@ -301,7 +324,7 @@ QLabel#answerDescription {
 }
 
 QFrame#analysisSection {
-    background: #F8FAFC;
+    background: #FFFFFF;
     border: 1px dashed #CBD5F5;
     border-radius: 18px;
 }
