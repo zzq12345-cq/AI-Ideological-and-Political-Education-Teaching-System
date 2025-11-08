@@ -76,7 +76,7 @@ QString ExportService::generateHtmlContent(const QString &paperTitle, const QLis
             box-sizing: border-box;
         }
         body {
-            font-family: "Microsoft YaHei", "PingFang SC", -apple-system, sans-serif;
+            font-family: "PingFang SC", -apple-system, sans-serif;
             line-height: 1.6;
             color: #333;
             background-color: #fff;

@@ -516,7 +516,7 @@ void ModernMainWindow::createCoreFeatures()
     )";
 
     QStringList icons = {"🧠", "📝", "📊", "📁"};
-    QStringList titles = {"智能内容分析", "AI智能备课", "互动教学工具", "资源库管理"};
+    QStringList titles = {"智能内容分析", "AI智能备课", "互动教学工具", "试题库"};
     QStringList descriptions = {
         "深挖思政元素，把握正确导向",
         "按章节自动生成PPT，一键生成试卷",
@@ -905,7 +905,7 @@ void ModernMainWindow::createLearningAnalytics()
 
     barChart->createDefaultAxes();
     barChart->axisY()->setRange(0, 100);
-    QFont axisFont("Microsoft YaHei", 10);
+    QFont axisFont("PingFang SC", 10);
     barChart->axisX()->setLabelsFont(axisFont);
     barChart->axisY()->setLabelsFont(axisFont);
     // 轴标签用深灰 #333
@@ -1196,7 +1196,7 @@ void ModernMainWindow::setupStyles()
     this->setStyleSheet(R"(
         QMainWindow {
             background-color: )" + BACKGROUND_LIGHT + R"(;
-            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            font-family: "PingFang SC", -apple-system, sans-serif;
         }
         QMenuBar {
             background-color: )" + OFF_WHITE + R"(;
