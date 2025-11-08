@@ -4,5 +4,6 @@
     </qresource>
     <qresource prefix="/styles">
         <file>resources/styles/auth.qss</file>
+        <file>resources/styles/question_bank.qss</file>
     </qresource>
 </RCC>

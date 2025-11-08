@@ -1,0 +1,288 @@
+QuestionBankWindow#questionBankWindow {
+    background-color: #F7F8FA;
+    font-family: "PingFang SC", "Microsoft YaHei", "Source Han Sans SC", "Helvetica Neue", Arial;
+    color: #333333;
+}
+
+QWidget#contentWrapper {
+    background: transparent;
+}
+
+QFrame#navBar {
+    background: transparent;
+}
+
+QPushButton#navBackButton {
+    border: none;
+    background: transparent;
+    color: #4A5568;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 0;
+}
+
+QPushButton#navBackButton:hover {
+    color: #D9001B;
+}
+
+QLabel#pageTitle {
+    font-size: 32px;
+    font-weight: 800;
+    color: #101828;
+    letter-spacing: -0.5px;
+}
+
+QLabel#pageSubtitle {
+    font-size: 16px;
+    font-weight: 500;
+    color: #64748B;
+}
+
+QFrame#sidebarPanel {
+    background-color: #FFFFFF;
+    border-radius: 16px;
+    border: 1px solid #E2E8F0;
+}
+
+QLabel#sidebarTitle {
+    font-size: 18px;
+    font-weight: 700;
+    color: #111113;
+}
+
+QLabel#sidebarDescription {
+    font-size: 14px;
+    color: #64748B;
+}
+
+QComboBox[role="filterCombo"] {
+    background-color: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    padding: 0 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1F2933;
+}
+
+QComboBox[role="filterCombo"]:hover {
+    border-color: #4A90E2;
+}
+
+QComboBox[role="filterCombo"]:focus {
+    border-color: #4A90E2;
+}
+
+QComboBox[role="filterCombo"]:disabled {
+    background-color: #F1F5F9;
+    color: #94A3B8;
+}
+
+QFrame#filterGroup QLabel[role="sectionLabel"] {
+    font-size: 13px;
+    font-weight: 700;
+    color: #4B5563;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+QPushButton[role="filterButton"] {
+    background-color: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    color: #1F2933;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 0 16px;
+}
+
+QPushButton[role="filterButton"]:hover {
+    border-color: #4A90E2;
+    color: #1D4ED8;
+}
+
+QPushButton[role="filterButton"]:focus {
+    border-color: #4A90E2;
+}
+
+QPushButton[role="filterButton"]:checked {
+    background-color: rgba(217, 0, 27, 0.08);
+    border-color: #D9001B;
+    color: #D9001B;
+}
+
+QPushButton[role="filterButton"]:disabled {
+    background-color: #E5E7EB;
+    border-color: #E5E7EB;
+    color: #94A3B8;
+}
+
+QPushButton#generateButton {
+    background-color: #D9001B;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #FFFFFF;
+}
+
+QPushButton#generateButton:hover {
+    background-color: #B80016;
+}
+
+QPushButton#generateButton:pressed {
+    background-color: #8F0011;
+}
+
+QPushButton#generateButton:disabled {
+    background-color: rgba(217, 0, 27, 0.4);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+QFrame#contentCard {
+    background-color: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 16px;
+}
+
+QFrame#tagRow QLabel {
+    font-size: 13px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 999px;
+}
+
+QLabel#badgePrimary {
+    background-color: rgba(217, 0, 27, 0.12);
+    color: #B80016;
+}
+
+QLabel#badgeSecondary {
+    background-color: rgba(74, 144, 226, 0.14);
+    color: #1E40AF;
+}
+
+QLabel#questionStem {
+    font-size: 20px;
+    font-weight: 700;
+    color: #0F172A;
+    line-height: 1.4;
+}
+
+QFrame#optionsPanel {
+    background-color: #F8FAFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 16px;
+}
+
+QFrame[role="optionItem"] {
+    background-color: #FFFFFF;
+    border: 1px solid transparent;
+    border-radius: 12px;
+}
+
+QFrame[role="optionItem"]:hover {
+    border-color: #4A90E2;
+    background-color: #FFFFFF;
+}
+
+QRadioButton[role="optionRadio"] {
+    spacing: 6px;
+}
+
+QRadioButton[role="optionRadio"]::indicator {
+    width: 18px;
+    height: 18px;
+    border-radius: 10px;
+    border: 2px solid #CBD5F5;
+    background: #FFFFFF;
+    margin: 0 4px;
+}
+
+QRadioButton[role="optionRadio"]::indicator:hover {
+    border-color: #4A90E2;
+}
+
+QRadioButton[role="optionRadio"]::indicator:checked {
+    border-color: #D9001B;
+    background-color: #D9001B;
+}
+
+QLabel[role="optionKey"] {
+    font-size: 15px;
+    font-weight: 700;
+    color: #4B5563;
+}
+
+QLabel[role="optionText"] {
+    font-size: 15px;
+    color: #1F2933;
+}
+
+QFrame#cardDivider {
+    background-color: #E2E8F0;
+}
+
+QLabel#answerLabel {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0F172A;
+}
+
+QLabel#analysisLabel {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #475467;
+}
+
+QFrame#actionsRow QPushButton {
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+QPushButton#prevButton {
+    border: 1px solid #E2E8F0;
+    background-color: #FFFFFF;
+    color: #0F172A;
+}
+
+QPushButton#prevButton:hover {
+    border-color: #4A90E2;
+}
+
+QPushButton#revealButton {
+    border: none;
+    background-color: #4A90E2;
+    color: #FFFFFF;
+}
+
+QPushButton#revealButton:hover {
+    background-color: #397CC9;
+}
+
+QPushButton#revealButton:pressed {
+    background-color: #2C5F91;
+}
+
+QPushButton#exportButton {
+    border: none;
+    background-color: #D9001B;
+    color: #FFFFFF;
+}
+
+QPushButton#exportButton:hover {
+    background-color: #B80016;
+}
+
+QPushButton#exportButton:pressed {
+    background-color: #8F0011;
+}
+
+QPushButton#prevButton:disabled,
+QPushButton#revealButton:disabled,
+QPushButton#exportButton:disabled {
+    background-color: #E5E7EB;
+    color: #94A3B8;
+    border: none;
+}
