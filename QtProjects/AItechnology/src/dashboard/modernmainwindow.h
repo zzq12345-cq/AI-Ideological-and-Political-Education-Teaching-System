@@ -29,6 +29,7 @@ QT_END_NAMESPACE
 class SimpleLoginWindow;
 class AIPreparationWidget;
 class QuestionRepository;
+class QuestionBankWindow;
 
 class ModernMainWindow : public QMainWindow
 {
@@ -97,7 +98,7 @@ private:
     AIPreparationWidget *aiPreparationWidget;
 
     // 试题库相关组件
-    QQuickWidget *questionBankQuickWidget;
+    QuestionBankWindow *questionBankWindow;
     QuestionRepository *questionRepository;
 
     // 顶部工具栏 (Header)

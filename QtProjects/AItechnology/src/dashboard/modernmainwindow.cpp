@@ -2,6 +2,7 @@
 #include "../auth/login/simpleloginwindow.h"
 #include "../ui/aipreparationwidget.h"
 #include "../questionbank/QuestionRepository.h"
+#include "../questionbank/questionbankwindow.h"
 #include <QApplication>
 #include <QMessageBox>
 #include <QHBoxLayout>
@@ -254,12 +255,9 @@ void ModernMainWindow::setupCentralWidget()
     aiPreparationWidget = new AIPreparationWidget();
     contentStack->addWidget(aiPreparationWidget);
 
-    // 创建试题库QML页面
-    questionBankQuickWidget = new QQuickWidget(this);
-    questionBankQuickWidget->setSource(QUrl("qrc:/src/ui/qml/questionbank/QuestionBankPage.qml"));
-    questionBankQuickWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
-    questionBankQuickWidget->engine()->rootContext()->setContextProperty("questionRepository", questionRepository);
-    contentStack->addWidget(questionBankQuickWidget);
+    // 创建试题库页面
+    questionBankWindow = new QuestionBankWindow(this);
+    contentStack->addWidget(questionBankWindow);
 
     // 添加到主布局
     contentLayout->addWidget(sidebar);
@@ -1291,7 +1289,7 @@ void ModernMainWindow::onResourceManagementClicked()
     teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
 
     // 切换到试题库页面
-    contentStack->setCurrentWidget(questionBankQuickWidget);
+    contentStack->setCurrentWidget(questionBankWindow);
     this->statusBar()->showMessage("试题库");
 }
 

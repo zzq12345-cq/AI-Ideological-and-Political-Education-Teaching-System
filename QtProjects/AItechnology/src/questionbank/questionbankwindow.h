@@ -15,11 +15,14 @@ public:
 
 private:
     void buildUI();
+    QWidget *createNavBar();
+    QWidget *createBody();
     QWidget *createSidebar();
     QWidget *createContentCard();
     QWidget *createFilterGroup(const QString &title,
                                const QStringList &options,
-                               const QString &groupName);
+                               const QString &groupName,
+                               int columns = 2);
     void loadStyle();
 
     QButtonGroup *m_optionGroup = nullptr;
