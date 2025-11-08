@@ -25,6 +25,9 @@ private:
                                int columns = 2);
     void loadStyle();
 
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
     QButtonGroup *m_optionGroup = nullptr;
 };
 

@@ -1,24 +1,56 @@
 #include "questionbankwindow.h"
 
 #include <QButtonGroup>
+#include <QColor>
 #include <QComboBox>
+#include <QEvent>
 #include <QFile>
 #include <QFrame>
+#include <QGraphicsDropShadowEffect>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QLabel>
 #include <QList>
+#include <QPainter>
+#include <QPen>
+#include <QPixmap>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QSize>
 #include <QSizePolicy>
+#include <QStyle>
 #include <QVBoxLayout>
 
 namespace {
-constexpr int kSidebarWidth = 360;
+constexpr int kSidebarWidth = 280;
 constexpr int kControlHeight = 48;
-constexpr int kButtonHeight = 44;
+constexpr int kFilterButtonHeight = 44;
+constexpr int kPrimaryButtonHeight = 56;
+constexpr int kActionButtonHeight = 44;
 constexpr int kContentMinWidth = 1280;
 constexpr int kContentMaxWidth = 1440;
+
+QIcon buildBackIcon()
+{
+    QPixmap pixmap(20, 20);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    QPen pen(QColor("#94A3B8"));
+    pen.setWidthF(2.2);
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    painter.setPen(pen);
+
+    painter.drawLine(QPointF(12, 5), QPointF(8, 10));
+    painter.drawLine(QPointF(8, 10), QPointF(12, 15));
+    painter.drawLine(QPointF(8, 10), QPointF(16, 10));
+
+    painter.end();
+    return QIcon(pixmap);
+}
 }
 
 QuestionBankWindow::QuestionBankWindow(QWidget *parent)
@@ -59,9 +91,12 @@ QWidget *QuestionBankWindow::createNavBar()
     navLayout->setContentsMargins(0, 0, 0, 0);
     navLayout->setSpacing(16);
 
-    auto *backButton = new QPushButton("返回", navBar);
+    auto *backButton = new QPushButton("返回主界面", navBar);
     backButton->setObjectName("navBackButton");
-    backButton->setFixedHeight(36);
+    backButton->setFixedHeight(40);
+    backButton->setIcon(buildBackIcon());
+    backButton->setIconSize(QSize(20, 20));
+    backButton->setCursor(Qt::PointingHandCursor);
 
     QWidget *headerWrapper = new QWidget(navBar);
     headerWrapper->setObjectName("headerWrapper");
@@ -113,9 +148,15 @@ QWidget *QuestionBankWindow::createSidebar()
     sidebar->setObjectName("sidebarPanel");
     sidebar->setFixedWidth(kSidebarWidth);
 
+    auto *sidebarShadow = new QGraphicsDropShadowEffect(sidebar);
+    sidebarShadow->setBlurRadius(30);
+    sidebarShadow->setOffset(0, 8);
+    sidebarShadow->setColor(QColor(15, 23, 42, 18));
+    sidebar->setGraphicsEffect(sidebarShadow);
+
     auto *sidebarLayout = new QVBoxLayout(sidebar);
-    sidebarLayout->setContentsMargins(24, 24, 24, 24);
-    sidebarLayout->setSpacing(20);
+    sidebarLayout->setContentsMargins(28, 28, 28, 28);
+    sidebarLayout->setSpacing(24);
 
     auto *sidebarTitle = new QLabel("智能筛选器", sidebar);
     sidebarTitle->setObjectName("sidebarTitle");
@@ -163,7 +204,14 @@ QWidget *QuestionBankWindow::createSidebar()
 
     auto *generateButton = new QPushButton("开始生成", sidebar);
     generateButton->setObjectName("generateButton");
-    generateButton->setFixedHeight(kControlHeight);
+    generateButton->setFixedHeight(kPrimaryButtonHeight);
+    generateButton->setCursor(Qt::PointingHandCursor);
+
+    auto *generateShadow = new QGraphicsDropShadowEffect(generateButton);
+    generateShadow->setBlurRadius(24);
+    generateShadow->setOffset(0, 8);
+    generateShadow->setColor(QColor(217, 0, 27, 70));
+    generateButton->setGraphicsEffect(generateShadow);
     sidebarLayout->addWidget(generateButton);
 
     return sidebar;
@@ -199,7 +247,7 @@ QWidget *QuestionBankWindow::createFilterGroup(const QString &title,
         filterButton->setCheckable(true);
         filterButton->setProperty("role", "filterButton");
         filterButton->setObjectName(groupName + QString::number(i));
-        filterButton->setFixedHeight(kButtonHeight);
+        filterButton->setFixedHeight(kFilterButtonHeight);
         if (i == 0) {
             filterButton->setChecked(true);
         }
@@ -219,6 +267,12 @@ QWidget *QuestionBankWindow::createContentCard()
     auto *card = new QFrame(this);
     card->setObjectName("contentCard");
 
+    auto *cardShadow = new QGraphicsDropShadowEffect(card);
+    cardShadow->setBlurRadius(36);
+    cardShadow->setOffset(0, 10);
+    cardShadow->setColor(QColor(15, 23, 42, 18));
+    card->setGraphicsEffect(cardShadow);
+
     auto *cardLayout = new QVBoxLayout(card);
     cardLayout->setContentsMargins(32, 32, 32, 32);
     cardLayout->setSpacing(24);
@@ -231,15 +285,12 @@ QWidget *QuestionBankWindow::createContentCard()
 
     auto *typeBadge = new QLabel("单选题", metaRow);
     typeBadge->setObjectName("badgePrimary");
-    typeBadge->setStyleSheet("background-color: #E0F2FE; color: #075985;");
 
     auto *difficultyBadge = new QLabel("中等", metaRow);
     difficultyBadge->setObjectName("badgeSecondary");
-    difficultyBadge->setStyleSheet("background-color: #FEF3C7; color: #B45309;");
 
     auto *progressLabel = new QLabel("进度: 3 / 20", metaRow);
     progressLabel->setObjectName("progressLabel");
-    progressLabel->setStyleSheet("color: #475467; font-size: 14px; font-weight: 600;");
 
     metaLayout->addWidget(typeBadge, 0, Qt::AlignLeft);
     metaLayout->addWidget(difficultyBadge, 0, Qt::AlignLeft);
@@ -253,7 +304,7 @@ QWidget *QuestionBankWindow::createContentCard()
     auto *optionsPanel = new QFrame(card);
     optionsPanel->setObjectName("optionsPanel");
     auto *optionsLayout = new QVBoxLayout(optionsPanel);
-    optionsLayout->setContentsMargins(16, 16, 16, 16);
+    optionsLayout->setContentsMargins(0, 0, 0, 0);
     optionsLayout->setSpacing(12);
 
     struct OptionRow {
@@ -274,8 +325,9 @@ QWidget *QuestionBankWindow::createContentCard()
     for (const OptionRow &option : options) {
         auto *optionItem = new QFrame(optionsPanel);
         optionItem->setProperty("role", "optionItem");
+        optionItem->setCursor(Qt::PointingHandCursor);
         auto *optionLayout = new QHBoxLayout(optionItem);
-        optionLayout->setContentsMargins(12, 12, 12, 12);
+        optionLayout->setContentsMargins(16, 16, 16, 16);
         optionLayout->setSpacing(12);
 
         auto *optionRadio = new QRadioButton(optionItem);
@@ -296,6 +348,19 @@ QWidget *QuestionBankWindow::createContentCard()
         optionLayout->addWidget(optionKey, 0, Qt::AlignTop);
         optionLayout->addWidget(optionText, 1);
 
+        optionItem->setProperty("selected", optionRadio->isChecked());
+        optionItem->installEventFilter(this);
+        optionRadio->installEventFilter(this);
+        optionKey->installEventFilter(this);
+        optionText->installEventFilter(this);
+
+        connect(optionRadio, &QRadioButton::toggled, optionItem, [optionItem](bool checked) {
+            optionItem->setProperty("selected", checked);
+            optionItem->style()->unpolish(optionItem);
+            optionItem->style()->polish(optionItem);
+            optionItem->update();
+        });
+
         optionsLayout->addWidget(optionItem);
     }
 
@@ -303,14 +368,30 @@ QWidget *QuestionBankWindow::createContentCard()
     divider->setObjectName("cardDivider");
     divider->setFixedHeight(1);
 
-    auto *answerLabel = new QLabel("答案：C 先完成教材版本、章节与题型的精准选择", card);
-    answerLabel->setObjectName("answerLabel");
+    auto *answerSection = new QWidget(card);
+    auto *answerLayout = new QVBoxLayout(answerSection);
+    answerLayout->setContentsMargins(0, 0, 0, 0);
+    answerLayout->setSpacing(8);
+
+    auto *answerTitle = new QLabel("正确答案", answerSection);
+    answerTitle->setObjectName("answerTitle");
+
+    auto *answerValue = new QLabel("C", answerSection);
+    answerValue->setObjectName("answerValue");
+    answerValue->setAlignment(Qt::AlignLeft);
+
+    auto *answerDescription = new QLabel("先完成教材版本、章节与题型的精准选择", answerSection);
+    answerDescription->setObjectName("answerDescription");
+    answerDescription->setWordWrap(true);
 
     auto *analysisLabel = new QLabel(
-        "解析：通过明确课程范围和章节，再结合题型与难度的筛选，AI 才能构建精准的知识图谱，从而生成与教学目标完全一致的PPT内容。",
+        "通过明确课程范围和章节，再结合题型与难度的筛选，AI 才能构建精准的知识图谱，从而生成与教学目标完全一致的PPT内容。",
         card);
     analysisLabel->setObjectName("analysisLabel");
     analysisLabel->setWordWrap(true);
+
+    auto *analysisTitle = new QLabel("解析", card);
+    analysisTitle->setObjectName("analysisTitle");
 
     auto *actionsRow = new QFrame(card);
     actionsRow->setObjectName("actionsRow");
@@ -320,15 +401,15 @@ QWidget *QuestionBankWindow::createContentCard()
 
     auto *prevButton = new QPushButton("上一题", actionsRow);
     prevButton->setObjectName("prevButton");
-    prevButton->setFixedHeight(kControlHeight);
+    prevButton->setFixedHeight(kActionButtonHeight);
 
     auto *revealButton = new QPushButton("查看答案", actionsRow);
     revealButton->setObjectName("revealButton");
-    revealButton->setFixedHeight(kControlHeight);
+    revealButton->setFixedHeight(kActionButtonHeight);
 
     auto *exportButton = new QPushButton("导出试卷", actionsRow);
     exportButton->setObjectName("exportButton");
-    exportButton->setFixedHeight(kControlHeight);
+    exportButton->setFixedHeight(kActionButtonHeight);
 
     actionsLayout->addWidget(prevButton);
     actionsLayout->addWidget(revealButton);
@@ -338,7 +419,8 @@ QWidget *QuestionBankWindow::createContentCard()
     cardLayout->addWidget(questionStem);
     cardLayout->addWidget(optionsPanel);
     cardLayout->addWidget(divider);
-    cardLayout->addWidget(answerLabel);
+    cardLayout->addWidget(answerSection);
+    cardLayout->addWidget(analysisTitle);
     cardLayout->addWidget(analysisLabel);
     cardLayout->addWidget(actionsRow);
 
@@ -354,4 +436,24 @@ void QuestionBankWindow::loadStyle()
 
     const QString styleSheet = QString::fromUtf8(styleFile.readAll());
     setStyleSheet(styleSheet);
+}
+
+bool QuestionBankWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() == QEvent::MouseButtonRelease) {
+        QObject *current = watched;
+        while (current) {
+            if (current->property("role").toString() == "optionItem") {
+                if (auto *frame = qobject_cast<QFrame *>(current)) {
+                    if (auto *radio = frame->findChild<QRadioButton *>()) {
+                        radio->setChecked(true);
+                    }
+                }
+                break;
+            }
+            current = current->parent();
+        }
+    }
+
+    return QWidget::eventFilter(watched, event);
 }
