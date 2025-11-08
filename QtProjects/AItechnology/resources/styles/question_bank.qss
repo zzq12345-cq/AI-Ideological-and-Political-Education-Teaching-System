@@ -1,5 +1,5 @@
 QuestionBankWindow#questionBankWindow {
-    background: #F7F8FA;
+    background: #FFFFFF;
     font-family: "Lexend", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
     color: #333333;
     font-size: 14px;
@@ -37,7 +37,7 @@ QFrame#pageHeader {
 }
 
 QPushButton#backButton {
-    background: #F1F5F9;
+    background: #FFFFFF;
     color: #374151;
     border: 1px solid transparent;
     border-radius: 999px;
@@ -90,7 +90,7 @@ QLabel[role="comboLabel"] {
 }
 
 QComboBox[role="filterSelect"] {
-    background: #F7F8FA;
+    background: #FFFFFF;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     padding: 0 12px;
@@ -133,7 +133,7 @@ QPushButton[role="filterButton"] {
 }
 
 QPushButton[role="filterButton"]:hover {
-    background: #F3F4F6;
+    background: #FFFFFF;
 }
 
 QPushButton[role="filterButton"]:checked {
