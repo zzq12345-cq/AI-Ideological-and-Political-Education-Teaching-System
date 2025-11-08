@@ -16,6 +16,7 @@ SOURCES += \
     src/auth/supabase/supabaseconfig.cpp \
     src/dashboard/modernmainwindow.cpp \
     src/ui/aipreparationwidget.cpp \
+    src/questionbank/questionbankwindow.cpp \
     src/questionbank/QuestionRepository.cpp \
     src/services/ExportService.cpp
 
@@ -27,6 +28,7 @@ HEADERS += \
     src/auth/supabase/supabaseconfig.h \
     src/dashboard/modernmainwindow.h \
     src/ui/aipreparationwidget.h \
+    src/questionbank/questionbankwindow.h \
     src/questionbank/QuestionRepository.h \
     src/services/ExportService.h
 

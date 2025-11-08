@@ -54,33 +54,41 @@ OBJECTS_DIR   = build/release/.obj/
 
 SOURCES       = src/main/main.cpp \
 		src/auth/login/simpleloginwindow.cpp \
+		src/auth/signup/signupwindow.cpp \
 		src/auth/supabase/supabaseclient.cpp \
 		src/auth/supabase/supabaseconfig.cpp \
 		src/dashboard/modernmainwindow.cpp \
 		src/ui/aipreparationwidget.cpp \
+		src/questionbank/questionbankwindow.cpp \
 		src/questionbank/QuestionRepository.cpp \
 		src/services/ExportService.cpp build/release/.qrc/qrc_qml.cpp \
 		build/release/.qrc/qrc_resources.cpp \
 		build/release/.moc/moc_simpleloginwindow.cpp \
+		build/release/.moc/moc_signupwindow.cpp \
 		build/release/.moc/moc_supabaseclient.cpp \
 		build/release/.moc/moc_modernmainwindow.cpp \
 		build/release/.moc/moc_aipreparationwidget.cpp \
+		build/release/.moc/moc_questionbankwindow.cpp \
 		build/release/.moc/moc_QuestionRepository.cpp \
 		build/release/.moc/moc_ExportService.cpp
 OBJECTS       = build/release/.obj/main.o \
 		build/release/.obj/simpleloginwindow.o \
+		build/release/.obj/signupwindow.o \
 		build/release/.obj/supabaseclient.o \
 		build/release/.obj/supabaseconfig.o \
 		build/release/.obj/modernmainwindow.o \
 		build/release/.obj/aipreparationwidget.o \
+		build/release/.obj/questionbankwindow.o \
 		build/release/.obj/QuestionRepository.o \
 		build/release/.obj/ExportService.o \
 		build/release/.obj/qrc_qml.o \
 		build/release/.obj/qrc_resources.o \
 		build/release/.obj/moc_simpleloginwindow.o \
+		build/release/.obj/moc_signupwindow.o \
 		build/release/.obj/moc_supabaseclient.o \
 		build/release/.obj/moc_modernmainwindow.o \
 		build/release/.obj/moc_aipreparationwidget.o \
+		build/release/.obj/moc_questionbankwindow.o \
 		build/release/.obj/moc_QuestionRepository.o \
 		build/release/.obj/moc_ExportService.o
 DIST          = ../../Qt/6.9.3/macos/mkspecs/features/spec_pre.prf \
@@ -331,17 +339,21 @@ DIST          = ../../Qt/6.9.3/macos/mkspecs/features/spec_pre.prf \
 		../../Qt/6.9.3/macos/mkspecs/features/yacc.prf \
 		../../Qt/6.9.3/macos/mkspecs/features/lex.prf \
 		AIPoliticsClassroom.pro src/auth/login/simpleloginwindow.h \
+		src/auth/signup/signupwindow.h \
 		src/auth/supabase/supabaseclient.h \
 		src/auth/supabase/supabaseconfig.h \
 		src/dashboard/modernmainwindow.h \
 		src/ui/aipreparationwidget.h \
+		src/questionbank/questionbankwindow.h \
 		src/questionbank/QuestionRepository.h \
 		src/services/ExportService.h src/main/main.cpp \
 		src/auth/login/simpleloginwindow.cpp \
+		src/auth/signup/signupwindow.cpp \
 		src/auth/supabase/supabaseclient.cpp \
 		src/auth/supabase/supabaseconfig.cpp \
 		src/dashboard/modernmainwindow.cpp \
 		src/ui/aipreparationwidget.cpp \
+		src/questionbank/questionbankwindow.cpp \
 		src/questionbank/QuestionRepository.cpp \
 		src/services/ExportService.cpp
 QMAKE_TARGET  = AIPoliticsClassroom
@@ -915,8 +927,8 @@ distdir: FORCE
 	@test -d $(DISTDIR) || mkdir -p $(DISTDIR)
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
 	$(COPY_FILE) --parents qml.qrc resources.qrc $(DISTDIR)/
-	$(COPY_FILE) --parents src/auth/login/simpleloginwindow.h src/auth/supabase/supabaseclient.h src/auth/supabase/supabaseconfig.h src/dashboard/modernmainwindow.h src/ui/aipreparationwidget.h src/questionbank/QuestionRepository.h src/services/ExportService.h $(DISTDIR)/
-	$(COPY_FILE) --parents src/main/main.cpp src/auth/login/simpleloginwindow.cpp src/auth/supabase/supabaseclient.cpp src/auth/supabase/supabaseconfig.cpp src/dashboard/modernmainwindow.cpp src/ui/aipreparationwidget.cpp src/questionbank/QuestionRepository.cpp src/services/ExportService.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents src/auth/login/simpleloginwindow.h src/auth/signup/signupwindow.h src/auth/supabase/supabaseclient.h src/auth/supabase/supabaseconfig.h src/dashboard/modernmainwindow.h src/ui/aipreparationwidget.h src/questionbank/questionbankwindow.h src/questionbank/QuestionRepository.h src/services/ExportService.h $(DISTDIR)/
+	$(COPY_FILE) --parents src/main/main.cpp src/auth/login/simpleloginwindow.cpp src/auth/signup/signupwindow.cpp src/auth/supabase/supabaseclient.cpp src/auth/supabase/supabaseconfig.cpp src/dashboard/modernmainwindow.cpp src/ui/aipreparationwidget.cpp src/questionbank/questionbankwindow.cpp src/questionbank/QuestionRepository.cpp src/services/ExportService.cpp $(DISTDIR)/
 	$(COPY_FILE) --parents src/auth/login/simpleloginwindow.ui src/dashboard/modernmainwindow.ui $(DISTDIR)/
 
 
@@ -959,12 +971,14 @@ build/release/.qrc/qrc_qml.cpp: qml.qrc \
 
 build/release/.qrc/qrc_resources.cpp: resources.qrc \
 		../../Qt/6.9.3/macos/libexec/rcc \
-		src/shared/resources/download.png
+		src/shared/resources/download.png \
+		resources/styles/question_bank.qss \
+		resources/styles/auth.qss
 	/Users/zhouzhiqi/Qt/6.9.3/macos/libexec/rcc -name resources --no-zstd resources.qrc -o build/release/.qrc/qrc_resources.cpp
 
-compiler_moc_header_make_all: build/release/.moc/moc_simpleloginwindow.cpp build/release/.moc/moc_supabaseclient.cpp build/release/.moc/moc_modernmainwindow.cpp build/release/.moc/moc_aipreparationwidget.cpp build/release/.moc/moc_QuestionRepository.cpp build/release/.moc/moc_ExportService.cpp
+compiler_moc_header_make_all: build/release/.moc/moc_simpleloginwindow.cpp build/release/.moc/moc_signupwindow.cpp build/release/.moc/moc_supabaseclient.cpp build/release/.moc/moc_modernmainwindow.cpp build/release/.moc/moc_aipreparationwidget.cpp build/release/.moc/moc_questionbankwindow.cpp build/release/.moc/moc_QuestionRepository.cpp build/release/.moc/moc_ExportService.cpp
 compiler_moc_header_clean:
-	-$(DEL_FILE) build/release/.moc/moc_simpleloginwindow.cpp build/release/.moc/moc_supabaseclient.cpp build/release/.moc/moc_modernmainwindow.cpp build/release/.moc/moc_aipreparationwidget.cpp build/release/.moc/moc_QuestionRepository.cpp build/release/.moc/moc_ExportService.cpp
+	-$(DEL_FILE) build/release/.moc/moc_simpleloginwindow.cpp build/release/.moc/moc_signupwindow.cpp build/release/.moc/moc_supabaseclient.cpp build/release/.moc/moc_modernmainwindow.cpp build/release/.moc/moc_aipreparationwidget.cpp build/release/.moc/moc_questionbankwindow.cpp build/release/.moc/moc_QuestionRepository.cpp build/release/.moc/moc_ExportService.cpp
 build/release/.moc/moc_simpleloginwindow.cpp: src/auth/login/simpleloginwindow.h \
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QWidget \
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qwidget.h \
@@ -987,6 +1001,64 @@ build/release/.moc/moc_simpleloginwindow.cpp: src/auth/login/simpleloginwindow.h
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qtimer.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QDebug \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qdebug.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QSettings \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qsettings.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QCoreApplication \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qcoreapplication.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QApplication \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qapplication.h \
+		src/auth/supabase/supabaseclient.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QObject \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qobject.h \
+		../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers/QNetworkAccessManager \
+		../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers/qnetworkaccessmanager.h \
+		../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers/QNetworkReply \
+		../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers/qnetworkreply.h \
+		../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers/QNetworkRequest \
+		../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers/qnetworkrequest.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QJsonDocument \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qjsondocument.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QJsonObject \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qjsonobject.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QJsonArray \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qjsonarray.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QByteArray \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qbytearray.h \
+		../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers/QAuthenticator \
+		../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers/qauthenticator.h \
+		src/auth/supabase/supabaseconfig.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QString \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qstring.h \
+		src/auth/signup/signupwindow.h \
+		../../Qt/6.9.3/macos/libexec/moc
+	/Users/zhouzhiqi/Qt/6.9.3/macos/libexec/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -D__cplusplus=199711L -D__APPLE_CC__=6000 -D__clang__ -D__clang_major__=14 -D__clang_minor__=0 -D__clang_patchlevel__=0 -D__GNUC__=4 -D__GNUC_MINOR__=2 -D__GNUC_PATCHLEVEL__=1 -I/Users/zhouzhiqi/Qt/6.9.3/macos/mkspecs/macx-clang -I/Users/zhouzhiqi/QtProjects/AItechnology -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtCharts.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtOpenGLWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQuickWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQuick.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtOpenGL.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtGui.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQmlMeta.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQmlModels.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQmlWorkerScript.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQml.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtNetwork.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/include -I/Users/zhouzhiqi/Qt/6.9.3/macos/include/QtQmlIntegration -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtCore.framework/Headers -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1 -I/Library/Developer/CommandLineTools/usr/lib/clang/14.0.0/include -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include -I/Library/Developer/CommandLineTools/usr/include -F/Users/zhouzhiqi/Qt/6.9.3/macos/lib src/auth/login/simpleloginwindow.h -o build/release/.moc/moc_simpleloginwindow.cpp
+
+build/release/.moc/moc_signupwindow.cpp: src/auth/signup/signupwindow.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QWidget \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qwidget.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QHBoxLayout \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qboxlayout.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QVBoxLayout \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QLabel \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qlabel.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QLineEdit \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qlineedit.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QPushButton \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qpushbutton.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QCheckBox \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qcheckbox.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QFrame \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qframe.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QMessageBox \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qmessagebox.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QTimer \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qtimer.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QDebug \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qdebug.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QCoreApplication \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qcoreapplication.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QApplication \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qapplication.h \
 		src/auth/supabase/supabaseclient.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QObject \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qobject.h \
@@ -1010,7 +1082,7 @@ build/release/.moc/moc_simpleloginwindow.cpp: src/auth/login/simpleloginwindow.h
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QString \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qstring.h \
 		../../Qt/6.9.3/macos/libexec/moc
-	/Users/zhouzhiqi/Qt/6.9.3/macos/libexec/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -D__cplusplus=199711L -D__APPLE_CC__=6000 -D__clang__ -D__clang_major__=14 -D__clang_minor__=0 -D__clang_patchlevel__=0 -D__GNUC__=4 -D__GNUC_MINOR__=2 -D__GNUC_PATCHLEVEL__=1 -I/Users/zhouzhiqi/Qt/6.9.3/macos/mkspecs/macx-clang -I/Users/zhouzhiqi/QtProjects/AItechnology -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtCharts.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtOpenGLWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQuickWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQuick.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtOpenGL.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtGui.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQmlMeta.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQmlModels.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQmlWorkerScript.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQml.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtNetwork.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/include -I/Users/zhouzhiqi/Qt/6.9.3/macos/include/QtQmlIntegration -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtCore.framework/Headers -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1 -I/Library/Developer/CommandLineTools/usr/lib/clang/14.0.0/include -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include -I/Library/Developer/CommandLineTools/usr/include -F/Users/zhouzhiqi/Qt/6.9.3/macos/lib src/auth/login/simpleloginwindow.h -o build/release/.moc/moc_simpleloginwindow.cpp
+	/Users/zhouzhiqi/Qt/6.9.3/macos/libexec/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -D__cplusplus=199711L -D__APPLE_CC__=6000 -D__clang__ -D__clang_major__=14 -D__clang_minor__=0 -D__clang_patchlevel__=0 -D__GNUC__=4 -D__GNUC_MINOR__=2 -D__GNUC_PATCHLEVEL__=1 -I/Users/zhouzhiqi/Qt/6.9.3/macos/mkspecs/macx-clang -I/Users/zhouzhiqi/QtProjects/AItechnology -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtCharts.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtOpenGLWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQuickWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQuick.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtOpenGL.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtGui.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQmlMeta.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQmlModels.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQmlWorkerScript.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQml.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtNetwork.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/include -I/Users/zhouzhiqi/Qt/6.9.3/macos/include/QtQmlIntegration -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtCore.framework/Headers -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1 -I/Library/Developer/CommandLineTools/usr/lib/clang/14.0.0/include -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include -I/Library/Developer/CommandLineTools/usr/include -F/Users/zhouzhiqi/Qt/6.9.3/macos/lib src/auth/signup/signupwindow.h -o build/release/.moc/moc_signupwindow.cpp
 
 build/release/.moc/moc_supabaseclient.cpp: src/auth/supabase/supabaseclient.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QObject \
@@ -1127,6 +1199,14 @@ build/release/.moc/moc_aipreparationwidget.cpp: src/ui/aipreparationwidget.h \
 		../../Qt/6.9.3/macos/libexec/moc
 	/Users/zhouzhiqi/Qt/6.9.3/macos/libexec/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -D__cplusplus=199711L -D__APPLE_CC__=6000 -D__clang__ -D__clang_major__=14 -D__clang_minor__=0 -D__clang_patchlevel__=0 -D__GNUC__=4 -D__GNUC_MINOR__=2 -D__GNUC_PATCHLEVEL__=1 -I/Users/zhouzhiqi/Qt/6.9.3/macos/mkspecs/macx-clang -I/Users/zhouzhiqi/QtProjects/AItechnology -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtCharts.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtOpenGLWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQuickWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQuick.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtOpenGL.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtGui.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQmlMeta.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQmlModels.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQmlWorkerScript.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQml.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtNetwork.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/include -I/Users/zhouzhiqi/Qt/6.9.3/macos/include/QtQmlIntegration -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtCore.framework/Headers -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1 -I/Library/Developer/CommandLineTools/usr/lib/clang/14.0.0/include -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include -I/Library/Developer/CommandLineTools/usr/include -F/Users/zhouzhiqi/Qt/6.9.3/macos/lib src/ui/aipreparationwidget.h -o build/release/.moc/moc_aipreparationwidget.cpp
 
+build/release/.moc/moc_questionbankwindow.cpp: src/questionbank/questionbankwindow.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QList \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qlist.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QWidget \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qwidget.h \
+		../../Qt/6.9.3/macos/libexec/moc
+	/Users/zhouzhiqi/Qt/6.9.3/macos/libexec/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -D__cplusplus=199711L -D__APPLE_CC__=6000 -D__clang__ -D__clang_major__=14 -D__clang_minor__=0 -D__clang_patchlevel__=0 -D__GNUC__=4 -D__GNUC_MINOR__=2 -D__GNUC_PATCHLEVEL__=1 -I/Users/zhouzhiqi/Qt/6.9.3/macos/mkspecs/macx-clang -I/Users/zhouzhiqi/QtProjects/AItechnology -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtCharts.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtOpenGLWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQuickWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtWidgets.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQuick.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtOpenGL.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtGui.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQmlMeta.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQmlModels.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQmlWorkerScript.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtQml.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtNetwork.framework/Headers -I/Users/zhouzhiqi/Qt/6.9.3/macos/include -I/Users/zhouzhiqi/Qt/6.9.3/macos/include/QtQmlIntegration -I/Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtCore.framework/Headers -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1 -I/Library/Developer/CommandLineTools/usr/lib/clang/14.0.0/include -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include -I/Library/Developer/CommandLineTools/usr/include -F/Users/zhouzhiqi/Qt/6.9.3/macos/lib src/questionbank/questionbankwindow.h -o build/release/.moc/moc_questionbankwindow.cpp
+
 build/release/.moc/moc_QuestionRepository.cpp: src/questionbank/QuestionRepository.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QObject \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qobject.h \
@@ -1210,6 +1290,10 @@ build/release/.obj/main.o: src/main/main.cpp ../../Qt/6.9.3/macos/lib/QtWidgets.
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qmessagebox.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QTimer \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qtimer.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QSettings \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qsettings.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QCoreApplication \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qcoreapplication.h \
 		src/auth/supabase/supabaseclient.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QObject \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qobject.h \
@@ -1231,7 +1315,8 @@ build/release/.obj/main.o: src/main/main.cpp ../../Qt/6.9.3/macos/lib/QtWidgets.
 		../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers/qauthenticator.h \
 		src/auth/supabase/supabaseconfig.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QString \
-		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qstring.h
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qstring.h \
+		src/auth/signup/signupwindow.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/release/.obj/main.o src/main/main.cpp
 
 build/release/.obj/simpleloginwindow.o: src/auth/login/simpleloginwindow.cpp src/auth/login/simpleloginwindow.h \
@@ -1256,6 +1341,12 @@ build/release/.obj/simpleloginwindow.o: src/auth/login/simpleloginwindow.cpp src
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qtimer.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QDebug \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qdebug.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QSettings \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qsettings.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QCoreApplication \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qcoreapplication.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QApplication \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qapplication.h \
 		src/auth/supabase/supabaseclient.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QObject \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qobject.h \
@@ -1278,6 +1369,7 @@ build/release/.obj/simpleloginwindow.o: src/auth/login/simpleloginwindow.cpp src
 		src/auth/supabase/supabaseconfig.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QString \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qstring.h \
+		src/auth/signup/signupwindow.h \
 		src/dashboard/modernmainwindow.h \
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QMainWindow \
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qmainwindow.h \
@@ -1308,6 +1400,71 @@ build/release/.obj/simpleloginwindow.o: src/auth/login/simpleloginwindow.cpp src
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QEvent \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qcoreevent.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/release/.obj/simpleloginwindow.o src/auth/login/simpleloginwindow.cpp
+
+build/release/.obj/signupwindow.o: src/auth/signup/signupwindow.cpp src/auth/signup/signupwindow.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QWidget \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qwidget.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QHBoxLayout \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qboxlayout.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QVBoxLayout \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QLabel \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qlabel.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QLineEdit \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qlineedit.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QPushButton \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qpushbutton.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QCheckBox \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qcheckbox.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QFrame \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qframe.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QMessageBox \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qmessagebox.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QTimer \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qtimer.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QDebug \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qdebug.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QCoreApplication \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qcoreapplication.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QApplication \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qapplication.h \
+		src/auth/supabase/supabaseclient.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QObject \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qobject.h \
+		../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers/QNetworkAccessManager \
+		../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers/qnetworkaccessmanager.h \
+		../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers/QNetworkReply \
+		../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers/qnetworkreply.h \
+		../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers/QNetworkRequest \
+		../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers/qnetworkrequest.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QJsonDocument \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qjsondocument.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QJsonObject \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qjsonobject.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QJsonArray \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qjsonarray.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QByteArray \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qbytearray.h \
+		../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers/QAuthenticator \
+		../../Qt/6.9.3/macos/lib/QtNetwork.framework/Headers/qauthenticator.h \
+		src/auth/supabase/supabaseconfig.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QString \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qstring.h \
+		src/auth/login/simpleloginwindow.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QSettings \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qsettings.h \
+		../../Qt/6.9.3/macos/lib/QtGui.framework/Headers/QFontDatabase \
+		../../Qt/6.9.3/macos/lib/QtGui.framework/Headers/qfontdatabase.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QFile \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qfile.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QFileInfo \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qfileinfo.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QGraphicsDropShadowEffect \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qgraphicseffect.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QStringList \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qstringlist.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QSizePolicy \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qsizepolicy.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/release/.obj/signupwindow.o src/auth/signup/signupwindow.cpp
 
 build/release/.obj/supabaseclient.o: src/auth/supabase/supabaseclient.cpp src/auth/supabase/supabaseclient.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QObject \
@@ -1391,6 +1548,12 @@ build/release/.obj/modernmainwindow.o: src/dashboard/modernmainwindow.cpp src/da
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qmessagebox.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QDebug \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qdebug.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QSettings \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qsettings.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QCoreApplication \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qcoreapplication.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QApplication \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qapplication.h \
 		src/auth/supabase/supabaseclient.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QObject \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qobject.h \
@@ -1413,6 +1576,7 @@ build/release/.obj/modernmainwindow.o: src/dashboard/modernmainwindow.cpp src/da
 		src/auth/supabase/supabaseconfig.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QString \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qstring.h \
+		src/auth/signup/signupwindow.h \
 		src/ui/aipreparationwidget.h \
 		../../Qt/6.9.3/macos/lib/QtGui.framework/Headers/QColor \
 		../../Qt/6.9.3/macos/lib/QtGui.framework/Headers/qcolor.h \
@@ -1440,8 +1604,7 @@ build/release/.obj/modernmainwindow.o: src/dashboard/modernmainwindow.cpp src/da
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QPointer \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qpointer.h \
 		src/questionbank/QuestionRepository.h \
-		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QApplication \
-		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qapplication.h \
+		src/questionbank/questionbankwindow.h \
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QProgressBar \
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qprogressbar.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QDateTime \
@@ -1530,6 +1693,48 @@ build/release/.obj/aipreparationwidget.o: src/ui/aipreparationwidget.cpp src/ui/
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qstyle.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/release/.obj/aipreparationwidget.o src/ui/aipreparationwidget.cpp
 
+build/release/.obj/questionbankwindow.o: src/questionbank/questionbankwindow.cpp src/questionbank/questionbankwindow.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QList \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qlist.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QWidget \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qwidget.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QAbstractButton \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qabstractbutton.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QButtonGroup \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qbuttongroup.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QComboBox \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qcombobox.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QDebug \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qdebug.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QEvent \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qcoreevent.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QFile \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qfile.h \
+		../../Qt/6.9.3/macos/lib/QtGui.framework/Headers/QFont \
+		../../Qt/6.9.3/macos/lib/QtGui.framework/Headers/qfont.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QFrame \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qframe.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QGraphicsDropShadowEffect \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qgraphicseffect.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QGridLayout \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qgridlayout.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QHBoxLayout \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qboxlayout.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QLabel \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qlabel.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QProgressBar \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qprogressbar.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QPushButton \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qpushbutton.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QRadioButton \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qradiobutton.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QScrollArea \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qscrollarea.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QStyle \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qstyle.h \
+		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QVBoxLayout
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/release/.obj/questionbankwindow.o src/questionbank/questionbankwindow.cpp
+
 build/release/.obj/QuestionRepository.o: src/questionbank/QuestionRepository.cpp src/questionbank/QuestionRepository.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QObject \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qobject.h \
@@ -1583,6 +1788,9 @@ build/release/.obj/qrc_resources.o: build/release/.qrc/qrc_resources.cpp
 build/release/.obj/moc_simpleloginwindow.o: build/release/.moc/moc_simpleloginwindow.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/release/.obj/moc_simpleloginwindow.o build/release/.moc/moc_simpleloginwindow.cpp
 
+build/release/.obj/moc_signupwindow.o: build/release/.moc/moc_signupwindow.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/release/.obj/moc_signupwindow.o build/release/.moc/moc_signupwindow.cpp
+
 build/release/.obj/moc_supabaseclient.o: build/release/.moc/moc_supabaseclient.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/release/.obj/moc_supabaseclient.o build/release/.moc/moc_supabaseclient.cpp
 
@@ -1591,6 +1799,9 @@ build/release/.obj/moc_modernmainwindow.o: build/release/.moc/moc_modernmainwind
 
 build/release/.obj/moc_aipreparationwidget.o: build/release/.moc/moc_aipreparationwidget.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/release/.obj/moc_aipreparationwidget.o build/release/.moc/moc_aipreparationwidget.cpp
+
+build/release/.obj/moc_questionbankwindow.o: build/release/.moc/moc_questionbankwindow.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/release/.obj/moc_questionbankwindow.o build/release/.moc/moc_questionbankwindow.cpp
 
 build/release/.obj/moc_QuestionRepository.o: build/release/.moc/moc_QuestionRepository.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/release/.obj/moc_QuestionRepository.o build/release/.moc/moc_QuestionRepository.cpp

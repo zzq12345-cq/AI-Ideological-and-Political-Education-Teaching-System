@@ -1,55 +1,63 @@
 #include "questionbankwindow.h"
 
+#include <QAbstractButton>
 #include <QButtonGroup>
-#include <QColor>
 #include <QComboBox>
+#include <QDebug>
 #include <QEvent>
 #include <QFile>
+#include <QFont>
 #include <QFrame>
 #include <QGraphicsDropShadowEffect>
 #include <QGridLayout>
 #include <QHBoxLayout>
-#include <QIcon>
 #include <QLabel>
 #include <QList>
-#include <QPainter>
-#include <QPen>
-#include <QPixmap>
+#include <QProgressBar>
 #include <QPushButton>
 #include <QRadioButton>
-#include <QSize>
-#include <QSizePolicy>
+#include <QScrollArea>
 #include <QStyle>
 #include <QVBoxLayout>
+#include <algorithm>
 
 namespace {
-constexpr int kSidebarWidth = 280;
-constexpr int kControlHeight = 48;
-constexpr int kFilterButtonHeight = 44;
-constexpr int kPrimaryButtonHeight = 56;
+constexpr int kPageMaxWidth = 1280;
+constexpr int kSidebarWidth = 320;
+constexpr int kComboHeight = 48;
+constexpr int kFilterButtonHeight = 40;
+constexpr int kGenerateButtonHeight = 56;
+constexpr int kPrimaryActionHeight = 52;
 constexpr int kActionButtonHeight = 44;
-constexpr int kContentMinWidth = 1280;
-constexpr int kContentMaxWidth = 1440;
+constexpr int kOptionMinHeight = 60;
+constexpr int kCardPadding = 32;
 
-QIcon buildBackIcon()
+const QColor kPrimaryColor("#D9001B");
+const QColor kSidebarShadowColor(18, 24, 38, 30);
+const QColor kButtonShadowColor(217, 0, 27, 90);
+
+QFrame *resolveOptionFrame(QObject *node)
 {
-    QPixmap pixmap(20, 20);
-    pixmap.fill(Qt::transparent);
-    QPainter painter(&pixmap);
-    painter.setRenderHint(QPainter::Antialiasing);
+    QObject *current = node;
+    while (current) {
+        if (current->property("role").toString() == QLatin1String("optionItem")) {
+            return qobject_cast<QFrame *>(current);
+        }
+        current = current->parent();
+    }
+    return nullptr;
+}
 
-    QPen pen(QColor("#94A3B8"));
-    pen.setWidthF(2.2);
-    pen.setCapStyle(Qt::RoundCap);
-    pen.setJoinStyle(Qt::RoundJoin);
-    painter.setPen(pen);
-
-    painter.drawLine(QPointF(12, 5), QPointF(8, 10));
-    painter.drawLine(QPointF(8, 10), QPointF(12, 15));
-    painter.drawLine(QPointF(8, 10), QPointF(16, 10));
-
-    painter.end();
-    return QIcon(pixmap);
+void applyShadow(QWidget *target, qreal blurRadius, const QPointF &offset, const QColor &color)
+{
+    if (!target) {
+        return;
+    }
+    auto *shadow = new QGraphicsDropShadowEffect(target);
+    shadow->setBlurRadius(blurRadius);
+    shadow->setOffset(offset);
+    shadow->setColor(color);
+    target->setGraphicsEffect(shadow);
 }
 }
 
@@ -57,401 +65,645 @@ QuestionBankWindow::QuestionBankWindow(QWidget *parent)
     : QWidget(parent)
 {
     setObjectName("questionBankWindow");
-    buildUI();
-    loadStyle();
+
+    QFont baseFont("Lexend", 12);
+    baseFont.setStyleHint(QFont::SansSerif);
+    baseFont.setStyleStrategy(QFont::PreferAntialias);
+    setFont(baseFont);
+
+    setupLayout();
+    loadStyleSheet();
 }
 
-void QuestionBankWindow::buildUI()
+void QuestionBankWindow::setupLayout()
 {
-    auto *rootLayout = new QVBoxLayout(this);
-    rootLayout->setContentsMargins(32, 24, 32, 24);
+    auto *rootLayout = new QHBoxLayout(this);
+    rootLayout->setContentsMargins(0, 0, 0, 0);
     rootLayout->setSpacing(0);
 
-    QWidget *contentWrapper = new QWidget(this);
-    contentWrapper->setObjectName("contentWrapper");
-    contentWrapper->setMinimumWidth(kContentMinWidth);
-    contentWrapper->setMaximumWidth(kContentMaxWidth);
+    auto *pageContainer = new QWidget(this);
+    pageContainer->setObjectName("pageContainer");
 
-    auto *contentLayout = new QVBoxLayout(contentWrapper);
-    contentLayout->setContentsMargins(0, 0, 0, 0);
-    contentLayout->setSpacing(24);
+    auto *pageLayout = new QVBoxLayout(pageContainer);
+    pageLayout->setContentsMargins(0, 0, 0, 0);
+    pageLayout->setSpacing(0);
 
-    contentLayout->addWidget(createNavBar());
-    contentLayout->addWidget(createBody(), 1);
+    pageLayout->addWidget(buildHeader());
+    pageLayout->addWidget(buildBody(), 1);
 
-    rootLayout->addWidget(contentWrapper, 0, Qt::AlignHCenter);
+    rootLayout->addWidget(pageContainer);
 }
 
-QWidget *QuestionBankWindow::createNavBar()
+QWidget *QuestionBankWindow::buildHeader()
 {
-    auto *navBar = new QFrame(this);
-    navBar->setObjectName("navBar");
+    auto *header = new QFrame(this);
+    header->setObjectName("pageHeader");
 
-    auto *navLayout = new QHBoxLayout(navBar);
-    navLayout->setContentsMargins(0, 0, 0, 0);
-    navLayout->setSpacing(16);
+    auto *layout = new QHBoxLayout(header);
+    layout->setContentsMargins(24, 20, 24, 20);
+    layout->setSpacing(12);
 
-    auto *backButton = new QPushButton("返回主界面", navBar);
-    backButton->setObjectName("navBackButton");
-    backButton->setFixedHeight(40);
-    backButton->setIcon(buildBackIcon());
-    backButton->setIconSize(QSize(20, 20));
+    auto *backButton = new QPushButton(QStringLiteral("返回主界面"), header);
+    backButton->setObjectName("backButton");
     backButton->setCursor(Qt::PointingHandCursor);
 
-    QWidget *headerWrapper = new QWidget(navBar);
-    headerWrapper->setObjectName("headerWrapper");
-    auto *headerLayout = new QVBoxLayout(headerWrapper);
-    headerLayout->setContentsMargins(0, 0, 0, 0);
-    headerLayout->setSpacing(8);
+    connect(backButton, &QPushButton::clicked, this, [] {
+        qInfo() << "Navigate back to dashboard";
+    });
 
-    auto *titleLabel = new QLabel("AI 智能备课 - PPT生成", headerWrapper);
-    titleLabel->setObjectName("pageTitle");
-    titleLabel->setAlignment(Qt::AlignCenter);
+    auto *titleWrapper = new QWidget(header);
+    auto *titleLayout = new QVBoxLayout(titleWrapper);
+    titleLayout->setContentsMargins(0, 0, 0, 0);
+    titleLayout->setSpacing(6);
 
-    auto *subtitleLabel = new QLabel("根据教材、章节和课时，智能生成教学PPT", headerWrapper);
-    subtitleLabel->setObjectName("pageSubtitle");
-    subtitleLabel->setAlignment(Qt::AlignCenter);
+    auto *title = new QLabel(QStringLiteral("AI 智能备课 · 试题库"), titleWrapper);
+    title->setObjectName("pageTitle");
 
-    headerLayout->addWidget(titleLabel);
-    headerLayout->addWidget(subtitleLabel);
+    auto *subtitle = new QLabel(QStringLiteral("根据教材、章节与难度智能筛选题目"), titleWrapper);
+    subtitle->setObjectName("pageSubtitle");
 
-    QWidget *navPlaceholder = new QWidget(navBar);
-    navPlaceholder->setFixedWidth(backButton->sizeHint().width());
+    titleLayout->addWidget(title);
+    titleLayout->addWidget(subtitle);
 
-    navLayout->addWidget(backButton, 0, Qt::AlignLeft);
-    navLayout->addWidget(headerWrapper, 1);
-    navLayout->addWidget(navPlaceholder, 0, Qt::AlignRight);
+    layout->addWidget(backButton, 0, Qt::AlignLeft);
+    layout->addWidget(titleWrapper, 1);
 
-    return navBar;
+    applyShadow(header, 24, QPointF(0, 8), QColor(0, 0, 0, 20));
+    return header;
 }
 
-QWidget *QuestionBankWindow::createBody()
+QWidget *QuestionBankWindow::buildBody()
 {
-    auto *bodyWrapper = new QWidget(this);
-    bodyWrapper->setObjectName("bodyWrapper");
+    auto *body = new QFrame(this);
+    body->setObjectName("mainBody");
 
-    auto *bodyLayout = new QHBoxLayout(bodyWrapper);
+    auto *bodyLayout = new QHBoxLayout(body);
     bodyLayout->setContentsMargins(0, 0, 0, 0);
-    bodyLayout->setSpacing(24);
+    bodyLayout->setSpacing(18);
 
-    bodyLayout->addWidget(createSidebar(), 0, Qt::AlignTop);
-    bodyLayout->addWidget(createContentCard(), 1);
-    bodyLayout->setStretch(0, 0);
-    bodyLayout->setStretch(1, 1);
+    bodyLayout->addWidget(buildSidebar(), 0, Qt::AlignTop);
+    bodyLayout->addWidget(buildContentArea(), 1);
 
-    return bodyWrapper;
+    return body;
 }
 
-QWidget *QuestionBankWindow::createSidebar()
+QWidget *QuestionBankWindow::buildSidebar()
 {
     auto *sidebar = new QFrame(this);
-    sidebar->setObjectName("sidebarPanel");
+    sidebar->setObjectName("filterSidebar");
     sidebar->setFixedWidth(kSidebarWidth);
+    applyShadow(sidebar, 30, QPointF(0, 10), kSidebarShadowColor);
 
-    auto *sidebarShadow = new QGraphicsDropShadowEffect(sidebar);
-    sidebarShadow->setBlurRadius(30);
-    sidebarShadow->setOffset(0, 8);
-    sidebarShadow->setColor(QColor(15, 23, 42, 18));
-    sidebar->setGraphicsEffect(sidebarShadow);
+    auto *layout = new QVBoxLayout(sidebar);
+    layout->setContentsMargins(24, 24, 24, 24);
+    layout->setSpacing(16);
 
-    auto *sidebarLayout = new QVBoxLayout(sidebar);
-    sidebarLayout->setContentsMargins(28, 28, 28, 28);
-    sidebarLayout->setSpacing(24);
-
-    auto *sidebarTitle = new QLabel("智能筛选器", sidebar);
+    auto *sidebarTitle = new QLabel(QStringLiteral("筛选条件"), sidebar);
     sidebarTitle->setObjectName("sidebarTitle");
 
-    auto *sidebarDescription = new QLabel("根据教材参数精准筛选题目", sidebar);
-    sidebarDescription->setObjectName("sidebarDescription");
-    sidebarDescription->setWordWrap(true);
+    auto *sidebarHint = new QLabel(QStringLiteral("按照 HTML 模板规范筛选参数，生成一致的试题体验"), sidebar);
+    sidebarHint->setObjectName("sidebarHint");
+    sidebarHint->setWordWrap(true);
 
-    sidebarLayout->addWidget(sidebarTitle);
-    sidebarLayout->addWidget(sidebarDescription);
+    layout->addWidget(sidebarTitle);
+    layout->addWidget(sidebarHint);
 
-    const QStringList comboPlaceholders = {
-        "课程范围",
-        "教材版本",
-        "年级学期",
-        "选择章节"
+    struct ComboField {
+        QString label;
+        QStringList options;
     };
 
-    for (const QString &placeholder : comboPlaceholders) {
-        auto *combo = new QComboBox(sidebar);
-        combo->setProperty("role", "filterCombo");
-        combo->setFixedHeight(kControlHeight);
-        combo->addItem(placeholder);
-        combo->addItem("示例选项 A");
-        combo->addItem("示例选项 B");
-        combo->setCurrentIndex(0);
-        sidebarLayout->addWidget(combo);
+    const QList<ComboField> comboFields = {
+        {QStringLiteral("课程范围"), {QStringLiteral("思想道德与法治"), QStringLiteral("中国近现代史纲要"), QStringLiteral("马克思主义基本原理"), QStringLiteral("形势与政策")}},
+        {QStringLiteral("教材版本"), {QStringLiteral("人教版"), QStringLiteral("部编版"), QStringLiteral("自编教材")}},
+        {QStringLiteral("年级学期"), {QStringLiteral("七年级上学期"), QStringLiteral("八年级下学期"), QStringLiteral("高中必修一")}},
+        {QStringLiteral("章节"), {QStringLiteral("第一章"), QStringLiteral("第二章"), QStringLiteral("第三章"), QStringLiteral("综合复习")}}
+    };
+
+    for (const ComboField &field : comboFields) {
+        layout->addWidget(createComboField(field.label, field.options));
     }
 
-    sidebarLayout->addWidget(createFilterGroup("试卷类型",
-                                               {"不限", "章节练习", "期中", "期末"},
-                                               "paperTypeButton"));
+    layout->addSpacing(4);
 
-    sidebarLayout->addWidget(createFilterGroup("题目题型",
-                                               {"不限", "单选题", "多选题", "判断题", "简答题"},
-                                               "questionTypeButton", 2));
+    layout->addWidget(createFilterButtons(QStringLiteral("试卷类型"),
+                                          {QStringLiteral("不限"), QStringLiteral("章节练习"), QStringLiteral("课后作业"), QStringLiteral("期中"), QStringLiteral("期末"), QStringLiteral("模拟卷")},
+                                          QStringLiteral("paperType")));
 
-    sidebarLayout->addWidget(createFilterGroup("题目难度",
-                                               {"不限", "简单", "中等", "困难"},
-                                               "difficultyButton"));
+    layout->addWidget(createFilterButtons(QStringLiteral("题目题型"),
+                                          {QStringLiteral("不限"), QStringLiteral("单选"), QStringLiteral("多选"), QStringLiteral("判断"), QStringLiteral("简答"), QStringLiteral("综合"), QStringLiteral("材料分析")},
+                                          QStringLiteral("questionType")));
 
-    auto *spacer = new QWidget(sidebar);
-    spacer->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
-    sidebarLayout->addWidget(spacer);
+    layout->addWidget(createFilterButtons(QStringLiteral("题目难度"),
+                                          {QStringLiteral("不限"), QStringLiteral("简单"), QStringLiteral("中等"), QStringLiteral("困难")},
+                                          QStringLiteral("difficulty")));
 
-    auto *generateButton = new QPushButton("开始生成", sidebar);
-    generateButton->setObjectName("generateButton");
-    generateButton->setFixedHeight(kPrimaryButtonHeight);
-    generateButton->setCursor(Qt::PointingHandCursor);
+    layout->addStretch(1);
 
-    auto *generateShadow = new QGraphicsDropShadowEffect(generateButton);
-    generateShadow->setBlurRadius(24);
-    generateShadow->setOffset(0, 8);
-    generateShadow->setColor(QColor(217, 0, 27, 70));
-    generateButton->setGraphicsEffect(generateShadow);
-    sidebarLayout->addWidget(generateButton);
+    m_generateButton = new QPushButton(QStringLiteral("开始生成"), sidebar);
+    m_generateButton->setObjectName("generateButton");
+    m_generateButton->setFixedHeight(kGenerateButtonHeight);
+    m_generateButton->setCursor(Qt::PointingHandCursor);
+    m_generateButton->setProperty("hovered", false);
+    m_generateButton->installEventFilter(this);
+    applyShadow(m_generateButton, 20, QPointF(0, 4), kButtonShadowColor);
+
+    layout->addWidget(m_generateButton);
+
+    connect(m_generateButton, &QPushButton::clicked, this, [this] {
+        qInfo() << "Generate paper with" << m_currentQuestion << "current question";
+        updateProgress(1);
+    });
 
     return sidebar;
 }
 
-QWidget *QuestionBankWindow::createFilterGroup(const QString &title,
-                                               const QStringList &options,
-                                               const QString &groupName,
-                                               int columns)
+QWidget *QuestionBankWindow::buildContentArea()
 {
-    auto *groupFrame = new QFrame(this);
-    groupFrame->setObjectName("filterGroup");
+    auto *scrollArea = new QScrollArea(this);
+    scrollArea->setObjectName("contentScrollArea");
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-    auto *groupLayout = new QVBoxLayout(groupFrame);
-    groupLayout->setContentsMargins(0, 0, 0, 0);
-    groupLayout->setSpacing(12);
+    auto *scrollWidget = new QWidget(scrollArea);
+    scrollWidget->setObjectName("scrollWrapper");
 
-    auto *groupLabel = new QLabel(title, groupFrame);
-    groupLabel->setProperty("role", "sectionLabel");
-    groupLayout->addWidget(groupLabel);
+    auto *scrollLayout = new QVBoxLayout(scrollWidget);
+    scrollLayout->setContentsMargins(0, 0, 4, 0);
+    scrollLayout->setSpacing(16);
 
-    auto *buttonsWrapper = new QWidget(groupFrame);
-    auto *gridLayout = new QGridLayout(buttonsWrapper);
-    gridLayout->setContentsMargins(0, 0, 0, 0);
-    gridLayout->setHorizontalSpacing(12);
-    gridLayout->setVerticalSpacing(12);
+    scrollLayout->addWidget(createQuestionCard());
+    scrollLayout->addStretch(1);
 
-    auto *buttonGroup = new QButtonGroup(buttonsWrapper);
-    buttonGroup->setExclusive(true);
-
-    for (int i = 0; i < options.size(); ++i) {
-        auto *filterButton = new QPushButton(options.at(i), buttonsWrapper);
-        filterButton->setCheckable(true);
-        filterButton->setProperty("role", "filterButton");
-        filterButton->setObjectName(groupName + QString::number(i));
-        filterButton->setFixedHeight(kFilterButtonHeight);
-        if (i == 0) {
-            filterButton->setChecked(true);
-        }
-        buttonGroup->addButton(filterButton);
-
-        const int row = i / columns;
-        const int column = i % columns;
-        gridLayout->addWidget(filterButton, row, column);
-    }
-
-    groupLayout->addWidget(buttonsWrapper);
-    return groupFrame;
+    scrollArea->setWidget(scrollWidget);
+    return scrollArea;
 }
 
-QWidget *QuestionBankWindow::createContentCard()
+QWidget *QuestionBankWindow::createComboField(const QString &labelText, const QStringList &options)
+{
+    auto *wrapper = new QWidget(this);
+    wrapper->setObjectName("comboField");
+
+    auto *layout = new QVBoxLayout(wrapper);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(4);
+
+    auto *label = new QLabel(labelText, wrapper);
+    label->setProperty("role", "comboLabel");
+    layout->addWidget(label);
+
+    auto *combo = new QComboBox(wrapper);
+    combo->setProperty("role", "filterSelect");
+    combo->setCursor(Qt::PointingHandCursor);
+    combo->setFixedHeight(kComboHeight);
+    combo->addItems(options);
+
+    layout->addWidget(combo);
+
+    m_filterCombos.append(combo);
+    connectFilterCombo(combo, labelText);
+
+    return wrapper;
+}
+
+QWidget *QuestionBankWindow::createFilterButtons(const QString &labelText,
+                                                 const QStringList &options,
+                                                 const QString &groupId,
+                                                 int columns)
+{
+    auto *section = new QWidget(this);
+    section->setObjectName(groupId + "Section");
+
+    auto *layout = new QVBoxLayout(section);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(12);
+
+    auto *label = new QLabel(labelText, section);
+    label->setProperty("role", "comboLabel");
+    layout->addWidget(label);
+
+    auto *gridHost = new QWidget(section);
+    auto *grid = new QGridLayout(gridHost);
+    grid->setContentsMargins(0, 0, 0, 0);
+    grid->setHorizontalSpacing(12);
+    grid->setVerticalSpacing(12);
+
+    auto *group = new QButtonGroup(gridHost);
+    group->setExclusive(true);
+
+    for (int i = 0; i < options.size(); ++i) {
+        auto *button = new QPushButton(options.at(i), gridHost);
+        button->setProperty("role", "filterButton");
+        button->setCheckable(true);
+        button->setCursor(Qt::PointingHandCursor);
+        button->setFixedHeight(kFilterButtonHeight);
+
+        if (i == 0) {
+            button->setChecked(true);
+        }
+
+        group->addButton(button);
+        grid->addWidget(button, i / columns, i % columns);
+    }
+
+    layout->addWidget(gridHost);
+
+    m_filterGroups.append(group);
+    connectFilterButton(group, labelText);
+
+    return section;
+}
+
+QWidget *QuestionBankWindow::createQuestionCard()
 {
     auto *card = new QFrame(this);
-    card->setObjectName("contentCard");
+    card->setObjectName("questionCard");
+    applyShadow(card, 36, QPointF(0, 14), QColor(0, 0, 0, 18));
 
-    auto *cardShadow = new QGraphicsDropShadowEffect(card);
-    cardShadow->setBlurRadius(36);
-    cardShadow->setOffset(0, 10);
-    cardShadow->setColor(QColor(15, 23, 42, 18));
-    card->setGraphicsEffect(cardShadow);
+    auto *layout = new QVBoxLayout(card);
+    layout->setContentsMargins(kCardPadding, kCardPadding, kCardPadding, kCardPadding);
+    layout->setSpacing(20);
 
-    auto *cardLayout = new QVBoxLayout(card);
-    cardLayout->setContentsMargins(32, 32, 32, 32);
-    cardLayout->setSpacing(24);
+    auto *header = new QFrame(card);
+    header->setObjectName("cardHeader");
 
-    auto *metaRow = new QFrame(card);
-    metaRow->setObjectName("tagRow");
-    auto *metaLayout = new QHBoxLayout(metaRow);
-    metaLayout->setContentsMargins(0, 0, 0, 0);
-    metaLayout->setSpacing(12);
+    auto *headerLayout = new QHBoxLayout(header);
+    headerLayout->setContentsMargins(0, 0, 0, 0);
+    headerLayout->setSpacing(12);
 
-    auto *typeBadge = new QLabel("单选题", metaRow);
-    typeBadge->setObjectName("badgePrimary");
+    auto *titleWrapper = new QWidget(header);
+    auto *titleLayout = new QVBoxLayout(titleWrapper);
+    titleLayout->setContentsMargins(0, 0, 0, 0);
+    titleLayout->setSpacing(6);
 
-    auto *difficultyBadge = new QLabel("中等", metaRow);
-    difficultyBadge->setObjectName("badgeSecondary");
+    auto *title = new QLabel(QStringLiteral("智能出题中心"), titleWrapper);
+    title->setObjectName("cardTitle");
 
-    auto *progressLabel = new QLabel("进度: 3 / 20", metaRow);
+    auto *subtitle = new QLabel(QStringLiteral("依据选择的教材和章节即时生成题目"), titleWrapper);
+    subtitle->setObjectName("cardSubtitle");
+
+    titleLayout->addWidget(title);
+    titleLayout->addWidget(subtitle);
+
+    auto *progressWrapper = new QWidget(header);
+    auto *progressLayout = new QVBoxLayout(progressWrapper);
+    progressLayout->setContentsMargins(0, 0, 0, 0);
+    progressLayout->setSpacing(6);
+    progressLayout->setAlignment(Qt::AlignRight);
+
+    auto *progressLabel = new QLabel(QStringLiteral("当前进度"), progressWrapper);
     progressLabel->setObjectName("progressLabel");
 
-    metaLayout->addWidget(typeBadge, 0, Qt::AlignLeft);
-    metaLayout->addWidget(difficultyBadge, 0, Qt::AlignLeft);
-    metaLayout->addStretch();
-    metaLayout->addWidget(progressLabel, 0, Qt::AlignRight);
+    m_progressBar = new QProgressBar(progressWrapper);
+    m_progressBar->setObjectName("progressBar");
+    m_progressBar->setRange(0, m_totalQuestions);
+    m_progressBar->setTextVisible(false);
 
-    auto *questionStem = new QLabel("在“AI 智能备课 - PPT生成”系统中，教师如何保证课堂内容与教材章节精准对应？", card);
+    m_progressValueLabel = new QLabel(progressWrapper);
+    m_progressValueLabel->setObjectName("progressValue");
+    m_progressValueLabel->setAlignment(Qt::AlignRight);
+
+    progressLayout->addWidget(progressLabel);
+    progressLayout->addWidget(m_progressBar);
+    progressLayout->addWidget(m_progressValueLabel);
+
+    headerLayout->addWidget(titleWrapper, 1);
+    headerLayout->addWidget(progressWrapper, 0, Qt::AlignTop);
+
+    layout->addWidget(header);
+    layout->addWidget(createTagRow());
+
+    auto *questionStem = new QLabel(
+        QStringLiteral("在智能备课系统中，如何确保生成的题目能够精准匹配教材章节与难度？"),
+        card);
     questionStem->setObjectName("questionStem");
     questionStem->setWordWrap(true);
+    layout->addWidget(questionStem);
 
     auto *optionsPanel = new QFrame(card);
     optionsPanel->setObjectName("optionsPanel");
+
     auto *optionsLayout = new QVBoxLayout(optionsPanel);
     optionsLayout->setContentsMargins(0, 0, 0, 0);
     optionsLayout->setSpacing(12);
 
-    struct OptionRow {
+    m_optionGroup = new QButtonGroup(optionsPanel);
+    m_optionGroup->setExclusive(true);
+
+    struct OptionDef {
         QString key;
         QString value;
     };
 
-    const QList<OptionRow> options = {
-        {"A", "生成PPT后再逐步补充教学要点"},
-        {"B", "将所有章节一次性导入模板"},
-        {"C", "先完成教材版本、章节与题型的精准选择"},
-        {"D", "完全依赖系统默认推荐内容"}
+    const QList<OptionDef> options = {
+        {QStringLiteral("A"), QStringLiteral("先配置课程范围、版本、年级与章节后再生成")},
+        {QStringLiteral("B"), QStringLiteral("直接使用系统推荐而不进行任何筛选")},
+        {QStringLiteral("C"), QStringLiteral("只选择难度即可，其他参数忽略")},
+        {QStringLiteral("D"), QStringLiteral("在导出后再人工编辑匹配章节")}
     };
 
-    m_optionGroup = new QButtonGroup(optionsPanel);
-    m_optionGroup->setExclusive(true);
-
-    for (const OptionRow &option : options) {
-        auto *optionItem = new QFrame(optionsPanel);
-        optionItem->setProperty("role", "optionItem");
-        optionItem->setCursor(Qt::PointingHandCursor);
-        auto *optionLayout = new QHBoxLayout(optionItem);
-        optionLayout->setContentsMargins(16, 16, 16, 16);
-        optionLayout->setSpacing(12);
-
-        auto *optionRadio = new QRadioButton(optionItem);
-        optionRadio->setProperty("role", "optionRadio");
-        m_optionGroup->addButton(optionRadio);
-        if (option.key == "C") {
-            optionRadio->setChecked(true);
+    for (int i = 0; i < options.size(); ++i) {
+        optionsLayout->addWidget(createOptionItem(options.at(i).key, options.at(i).value));
+        if (i == 0) {
+            const auto buttons = m_optionGroup->buttons();
+            if (!buttons.isEmpty()) {
+                buttons.constLast()->setChecked(true);
+            }
         }
-
-        auto *optionKey = new QLabel(option.key, optionItem);
-        optionKey->setProperty("role", "optionKey");
-
-        auto *optionText = new QLabel(option.value, optionItem);
-        optionText->setProperty("role", "optionText");
-        optionText->setWordWrap(true);
-
-        optionLayout->addWidget(optionRadio, 0, Qt::AlignTop);
-        optionLayout->addWidget(optionKey, 0, Qt::AlignTop);
-        optionLayout->addWidget(optionText, 1);
-
-        optionItem->setProperty("selected", optionRadio->isChecked());
-        optionItem->installEventFilter(this);
-        optionRadio->installEventFilter(this);
-        optionKey->installEventFilter(this);
-        optionText->installEventFilter(this);
-
-        connect(optionRadio, &QRadioButton::toggled, optionItem, [optionItem](bool checked) {
-            optionItem->setProperty("selected", checked);
-            optionItem->style()->unpolish(optionItem);
-            optionItem->style()->polish(optionItem);
-            optionItem->update();
-        });
-
-        optionsLayout->addWidget(optionItem);
     }
 
-    auto *divider = new QFrame(card);
-    divider->setObjectName("cardDivider");
-    divider->setFixedHeight(1);
+    layout->addWidget(optionsPanel);
 
-    auto *answerSection = new QWidget(card);
-    auto *answerLayout = new QVBoxLayout(answerSection);
-    answerLayout->setContentsMargins(0, 0, 0, 0);
-    answerLayout->setSpacing(8);
+    m_answerSection = createAnswerSection();
+    layout->addWidget(m_answerSection);
 
-    auto *answerTitle = new QLabel("正确答案", answerSection);
-    answerTitle->setObjectName("answerTitle");
+    m_analysisSection = createAnalysisSection();
+    layout->addWidget(m_analysisSection);
 
-    auto *answerValue = new QLabel("C", answerSection);
-    answerValue->setObjectName("answerValue");
-    answerValue->setAlignment(Qt::AlignLeft);
+    layout->addWidget(createActionRow());
 
-    auto *answerDescription = new QLabel("先完成教材版本、章节与题型的精准选择", answerSection);
-    answerDescription->setObjectName("answerDescription");
-    answerDescription->setWordWrap(true);
-
-    auto *analysisLabel = new QLabel(
-        "通过明确课程范围和章节，再结合题型与难度的筛选，AI 才能构建精准的知识图谱，从而生成与教学目标完全一致的PPT内容。",
-        card);
-    analysisLabel->setObjectName("analysisLabel");
-    analysisLabel->setWordWrap(true);
-
-    auto *analysisTitle = new QLabel("解析", card);
-    analysisTitle->setObjectName("analysisTitle");
-
-    auto *actionsRow = new QFrame(card);
-    actionsRow->setObjectName("actionsRow");
-    auto *actionsLayout = new QHBoxLayout(actionsRow);
-    actionsLayout->setContentsMargins(0, 0, 0, 0);
-    actionsLayout->setSpacing(16);
-
-    auto *prevButton = new QPushButton("上一题", actionsRow);
-    prevButton->setObjectName("prevButton");
-    prevButton->setFixedHeight(kActionButtonHeight);
-
-    auto *revealButton = new QPushButton("查看答案", actionsRow);
-    revealButton->setObjectName("revealButton");
-    revealButton->setFixedHeight(kActionButtonHeight);
-
-    auto *exportButton = new QPushButton("导出试卷", actionsRow);
-    exportButton->setObjectName("exportButton");
-    exportButton->setFixedHeight(kActionButtonHeight);
-
-    actionsLayout->addWidget(prevButton);
-    actionsLayout->addWidget(revealButton);
-    actionsLayout->addWidget(exportButton);
-
-    cardLayout->addWidget(metaRow);
-    cardLayout->addWidget(questionStem);
-    cardLayout->addWidget(optionsPanel);
-    cardLayout->addWidget(divider);
-    cardLayout->addWidget(answerSection);
-    cardLayout->addWidget(analysisTitle);
-    cardLayout->addWidget(analysisLabel);
-    cardLayout->addWidget(actionsRow);
-
+    updateProgress(0);
     return card;
 }
 
-void QuestionBankWindow::loadStyle()
+QWidget *QuestionBankWindow::createTagRow()
 {
-    QFile styleFile(":/styles/question_bank.qss");
-    if (!styleFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    auto *tagRow = new QFrame(this);
+    tagRow->setObjectName("tagRow");
+
+    auto *layout = new QHBoxLayout(tagRow);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(8);
+
+    auto createTag = [tagRow](const QString &text, const QString &objectName) {
+        auto *label = new QLabel(text, tagRow);
+        label->setObjectName(objectName);
+        return label;
+    };
+
+    layout->addWidget(createTag(QStringLiteral("单选题"), QStringLiteral("tagType")));
+    layout->addWidget(createTag(QStringLiteral("难度 · 中等"), QStringLiteral("tagDifficulty")));
+    layout->addWidget(createTag(QStringLiteral("教材：第一单元"), QStringLiteral("tagChapter")));
+    layout->addStretch(1);
+
+    return tagRow;
+}
+
+QWidget *QuestionBankWindow::createOptionItem(const QString &key, const QString &text)
+{
+    auto *row = new QFrame(this);
+    row->setProperty("role", "optionItem");
+    row->setProperty("hovered", false);
+    row->setProperty("selected", false);
+    row->setCursor(Qt::PointingHandCursor);
+    row->setMinimumHeight(kOptionMinHeight);
+    row->setMouseTracking(true);
+
+    auto *layout = new QHBoxLayout(row);
+    layout->setContentsMargins(20, 12, 20, 12);
+    layout->setSpacing(12);
+
+    auto *radio = new QRadioButton(row);
+    radio->setProperty("role", "optionRadio");
+    radio->setCursor(Qt::PointingHandCursor);
+    m_optionGroup->addButton(radio);
+
+    auto *keyLabel = new QLabel(key, row);
+    keyLabel->setProperty("role", "optionKey");
+
+    auto *textLabel = new QLabel(text, row);
+    textLabel->setProperty("role", "optionText");
+    textLabel->setWordWrap(true);
+
+    layout->addWidget(radio, 0, Qt::AlignTop);
+    layout->addWidget(keyLabel, 0, Qt::AlignTop);
+    layout->addWidget(textLabel, 1);
+
+    row->installEventFilter(this);
+    radio->installEventFilter(this);
+    keyLabel->installEventFilter(this);
+    textLabel->installEventFilter(this);
+
+    connect(radio, &QRadioButton::toggled, this, [this, row, key, text](bool checked) {
+        row->setProperty("selected", checked);
+        row->style()->unpolish(row);
+        row->style()->polish(row);
+        row->update();
+        if (checked) {
+            qInfo() << "Selected option" << key << text;
+        }
+    });
+
+    m_optionFrames.append(row);
+    return row;
+}
+
+QFrame *QuestionBankWindow::createAnswerSection()
+{
+    auto *section = new QFrame(this);
+    section->setObjectName("answerSection");
+
+    auto *layout = new QVBoxLayout(section);
+    layout->setContentsMargins(20, 16, 20, 16);
+    layout->setSpacing(4);
+
+    auto *title = new QLabel(QStringLiteral("正确答案"), section);
+    title->setObjectName("answerTitle");
+
+    auto *value = new QLabel(QStringLiteral("A"), section);
+    value->setObjectName("answerValue");
+
+    auto *reason = new QLabel(
+        QStringLiteral("通过完整配置课程范围、版本、年级与章节，系统才能生成与教学目标匹配的题目。"),
+        section);
+    reason->setObjectName("answerDescription");
+    reason->setWordWrap(true);
+
+    layout->addWidget(title);
+    layout->addWidget(value);
+    layout->addWidget(reason);
+
+    return section;
+}
+
+QFrame *QuestionBankWindow::createAnalysisSection()
+{
+    auto *section = new QFrame(this);
+    section->setObjectName("analysisSection");
+
+    auto *layout = new QVBoxLayout(section);
+    layout->setContentsMargins(20, 16, 20, 16);
+    layout->setSpacing(6);
+
+    auto *title = new QLabel(QStringLiteral("解析"), section);
+    title->setObjectName("analysisTitle");
+
+    auto *description = new QLabel(
+        QStringLiteral("系统通过匹配教材版本、年级与章节，结合题型与难度标签对题库进行聚合检索，再依据教学目标进行二次筛选，保证题目语境与教学内容完全一致。"),
+        section);
+    description->setObjectName("analysisDescription");
+    description->setWordWrap(true);
+
+    layout->addWidget(title);
+    layout->addWidget(description);
+
+    return section;
+}
+
+QWidget *QuestionBankWindow::createActionRow()
+{
+    auto *row = new QFrame(this);
+    row->setObjectName("actionRow");
+
+    auto *layout = new QHBoxLayout(row);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(12);
+
+    auto *primaryAction = new QPushButton(QStringLiteral("下一题"), row);
+    primaryAction->setObjectName("primaryActionButton");
+    primaryAction->setFixedHeight(kPrimaryActionHeight);
+    primaryAction->setCursor(Qt::PointingHandCursor);
+
+    auto *prevAction = new QPushButton(QStringLiteral("上一题"), row);
+    prevAction->setObjectName("secondaryButton");
+    prevAction->setFixedHeight(kActionButtonHeight);
+    prevAction->setCursor(Qt::PointingHandCursor);
+
+    auto *revealAction = new QPushButton(QStringLiteral("查看解析"), row);
+    revealAction->setObjectName("secondaryButton");
+    revealAction->setFixedHeight(kActionButtonHeight);
+    revealAction->setCursor(Qt::PointingHandCursor);
+
+    auto *exportAction = new QPushButton(QStringLiteral("导出试卷"), row);
+    exportAction->setObjectName("ghostButton");
+    exportAction->setFixedHeight(kActionButtonHeight);
+    exportAction->setCursor(Qt::PointingHandCursor);
+
+    layout->addWidget(primaryAction, 0, Qt::AlignLeft);
+    layout->addWidget(prevAction);
+    layout->addWidget(revealAction);
+    layout->addWidget(exportAction);
+    layout->addStretch(1);
+
+    connect(primaryAction, &QPushButton::clicked, this, [this] {
+        updateProgress(1);
+    });
+
+    connect(prevAction, &QPushButton::clicked, this, [this] {
+        updateProgress(-1);
+    });
+
+    connect(revealAction, &QPushButton::clicked, this, [this] {
+        const bool currentlyVisible = m_answerSection && m_answerSection->isVisible();
+        if (m_answerSection) {
+            m_answerSection->setVisible(!currentlyVisible);
+        }
+        if (m_analysisSection) {
+            m_analysisSection->setVisible(!currentlyVisible);
+        }
+    });
+
+    connect(exportAction, &QPushButton::clicked, this, [] {
+        qInfo() << "Export paper request";
+    });
+
+    return row;
+}
+
+void QuestionBankWindow::connectFilterCombo(QComboBox *combo, const QString &labelText)
+{
+    connect(combo, &QComboBox::currentTextChanged, this, [labelText](const QString &value) {
+        qInfo() << labelText << "changed to" << value;
+    });
+}
+
+void QuestionBankWindow::connectFilterButton(QButtonGroup *group, const QString &labelText)
+{
+    const QList<QAbstractButton *> buttons = group->buttons();
+    for (QAbstractButton *button : buttons) {
+        connect(button, &QAbstractButton::toggled, this, [labelText, button](bool checked) {
+            if (checked) {
+                qInfo() << labelText << "selected" << button->text();
+            }
+        });
+    }
+}
+
+void QuestionBankWindow::updateProgress(int delta)
+{
+    m_currentQuestion = std::clamp(m_currentQuestion + delta, 1, m_totalQuestions);
+    if (m_progressBar) {
+        m_progressBar->setValue(m_currentQuestion);
+    }
+    if (m_progressValueLabel) {
+        m_progressValueLabel->setText(QStringLiteral("%1 / %2").arg(m_currentQuestion).arg(m_totalQuestions));
+    }
+}
+
+void QuestionBankWindow::loadStyleSheet()
+{
+    QFile file(QStringLiteral(":/styles/question_bank.qss"));
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "Unable to load question bank stylesheet from :/styles/question_bank.qss";
+
+        // 尝试备用路径
+        QFile fallbackFile(QStringLiteral(":/styles/resources/styles/question_bank.qss"));
+        if (!fallbackFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            qWarning() << "Unable to load question bank stylesheet from fallback path";
+            return;
+        }
+
+        setStyleSheet(QString::fromUtf8(fallbackFile.readAll()));
+        qDebug() << "Loaded question bank stylesheet from fallback path";
         return;
     }
 
-    const QString styleSheet = QString::fromUtf8(styleFile.readAll());
-    setStyleSheet(styleSheet);
+    setStyleSheet(QString::fromUtf8(file.readAll()));
+    qDebug() << "Loaded question bank stylesheet from primary path";
+}
+
+void QuestionBankWindow::refreshOptionFrame(QFrame *frame, bool hovered)
+{
+    if (!frame) {
+        return;
+    }
+    frame->setProperty("hovered", hovered);
+    frame->style()->unpolish(frame);
+    frame->style()->polish(frame);
+    frame->update();
 }
 
 bool QuestionBankWindow::eventFilter(QObject *watched, QEvent *event)
 {
-    if (event->type() == QEvent::MouseButtonRelease) {
-        QObject *current = watched;
-        while (current) {
-            if (current->property("role").toString() == "optionItem") {
-                if (auto *frame = qobject_cast<QFrame *>(current)) {
-                    if (auto *radio = frame->findChild<QRadioButton *>()) {
-                        radio->setChecked(true);
-                    }
-                }
-                break;
+    if (!watched) {
+        return QWidget::eventFilter(watched, event);
+    }
+
+    if (m_generateButton && watched == m_generateButton) {
+        if (event->type() == QEvent::Enter) {
+            m_generateButton->setProperty("hovered", true);
+            m_generateButton->style()->unpolish(m_generateButton);
+            m_generateButton->style()->polish(m_generateButton);
+            m_generateButton->update();
+        } else if (event->type() == QEvent::Leave) {
+            m_generateButton->setProperty("hovered", false);
+            m_generateButton->style()->unpolish(m_generateButton);
+            m_generateButton->style()->polish(m_generateButton);
+            m_generateButton->update();
+        }
+    }
+
+    auto *optionFrame = resolveOptionFrame(watched);
+    if (optionFrame) {
+        if (event->type() == QEvent::Enter) {
+            refreshOptionFrame(optionFrame, true);
+        } else if (event->type() == QEvent::Leave) {
+            refreshOptionFrame(optionFrame, false);
+        } else if (event->type() == QEvent::MouseButtonRelease) {
+            if (auto *radio = optionFrame->findChild<QRadioButton *>()) {
+                radio->setChecked(true);
             }
-            current = current->parent();
         }
     }
 

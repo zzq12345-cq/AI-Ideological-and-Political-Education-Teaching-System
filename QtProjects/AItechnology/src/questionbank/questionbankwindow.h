@@ -1,10 +1,16 @@
 #ifndef QUESTIONBANKWINDOW_H
 #define QUESTIONBANKWINDOW_H
 
+#include <QList>
 #include <QWidget>
-#include <QStringList>
 
+class QAbstractButton;
 class QButtonGroup;
+class QComboBox;
+class QFrame;
+class QLabel;
+class QProgressBar;
+class QPushButton;
 
 class QuestionBankWindow : public QWidget
 {
@@ -13,22 +19,46 @@ class QuestionBankWindow : public QWidget
 public:
     explicit QuestionBankWindow(QWidget *parent = nullptr);
 
-private:
-    void buildUI();
-    QWidget *createNavBar();
-    QWidget *createBody();
-    QWidget *createSidebar();
-    QWidget *createContentCard();
-    QWidget *createFilterGroup(const QString &title,
-                               const QStringList &options,
-                               const QString &groupName,
-                               int columns = 2);
-    void loadStyle();
-
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
+private:
+    void setupLayout();
+    QWidget *buildHeader();
+    QWidget *buildBody();
+    QWidget *buildSidebar();
+    QWidget *buildContentArea();
+    QWidget *createComboField(const QString &labelText, const QStringList &options);
+    QWidget *createFilterButtons(const QString &labelText,
+                                 const QStringList &options,
+                                 const QString &groupId,
+                                 int columns = 2);
+    QWidget *createQuestionCard();
+    QWidget *createOptionItem(const QString &key, const QString &text);
+    QFrame *createAnswerSection();
+    QFrame *createAnalysisSection();
+    QWidget *createActionRow();
+    QWidget *createTagRow();
+
+    void connectFilterCombo(QComboBox *combo, const QString &labelText);
+    void connectFilterButton(QButtonGroup *group, const QString &labelText);
+    void updateProgress(int delta);
+    void loadStyleSheet();
+    void refreshOptionFrame(QFrame *frame, bool hovered);
+
+    QList<QComboBox *> m_filterCombos;
+    QList<QButtonGroup *> m_filterGroups;
+    QList<QFrame *> m_optionFrames;
+
     QButtonGroup *m_optionGroup = nullptr;
+    QLabel *m_progressValueLabel = nullptr;
+    QProgressBar *m_progressBar = nullptr;
+    QPushButton *m_generateButton = nullptr;
+    QFrame *m_answerSection = nullptr;
+    QFrame *m_analysisSection = nullptr;
+
+    int m_currentQuestion = 1;
+    int m_totalQuestions = 12;
 };
 
 #endif // QUESTIONBANKWINDOW_H
