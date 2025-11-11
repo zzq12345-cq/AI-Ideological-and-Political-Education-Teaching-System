@@ -5,6 +5,8 @@
 #include "../questionbank/questionbankwindow.h"
 #include <QApplication>
 #include <QMessageBox>
+#include <QFile>
+#include <QRegularExpression>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QGridLayout>
@@ -1278,6 +1280,9 @@ void ModernMainWindow::setupStyles()
 
 void ModernMainWindow::applyPatrioticRedTheme()
 {
+    // 最终决定：QtTheme与现有系统不兼容，保持原样
+    qDebug() << "保持现有样式，不应用QtTheme以确保系统稳定";
+
     // 确保主题一致性
     this->update();
 }
