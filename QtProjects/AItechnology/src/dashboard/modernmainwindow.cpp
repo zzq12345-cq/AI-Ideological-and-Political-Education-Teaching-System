@@ -35,19 +35,37 @@
 #include <QStyle>
 #include <QIcon>
 #include <QSize>
+#include <QGraphicsDropShadowEffect>
 
-// 颜色常量 (从 code.html 提取)
-const QString PATRIOTIC_RED = "#d32f2f";
-const QString PATRIOTIC_RED_LIGHT = "#d32f2f22";
-const QString BACKGROUND_LIGHT = "#f6f6f8";
-const QString BACKGROUND_DARK = "#101622";
-const QString OFF_WHITE = "#FFFFFF";
-const QString LIGHT_GRAY = "#F5F5F5";
-const QString MEDIUM_GRAY = "#757575";
-const QString DARK_GRAY = "#333333";
-const QString ULTRA_LIGHT_GRAY = "#F7F8FA";
-const QString SUCCESS_GREEN = "#4CAF50";
-const QString SIDEBAR_GRADIENT = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFFFFF, stop:1 #F7F8FA)";
+// 思政课堂色彩体系
+const QString PATRIOTIC_RED = "#e53935";          // 主思政红（温暖庄重）
+const QString PATRIOTIC_RED_LIGHT = "#ffebee";    // 亮思政红（柔和背景）
+const QString PATRIOTIC_RED_DARK = "#c62828";     // 深思政红（重点强调）
+
+const QString WISDOM_BLUE = "#1976d2";            // 智慧蓝（理性思考）
+const QString GROWTH_GREEN = "#388e3c";           // 成长绿（积极向上）
+const QString CULTURE_GOLD = "#f57c00";           // 文化金（传统文化）
+const QString ACADEMIC_PURPLE = "#7b1fa2";        // 学术紫（深度思考）
+
+// 背景与结构色
+const QString BACKGROUND_LIGHT = "#fafafa";       // 主背景
+const QString CARD_WHITE = "#ffffff";             // 卡片背景
+const QString LIGHT_GRAY = "#f5f5f5";             // 淡灰背景
+const QString SEPARATOR = "#e8eaf6";              // 分隔线
+const QString ULTRA_LIGHT_GRAY = "#f7f8fa";
+
+// 现代卡片样式
+const QString CARD_GRADIENT = "#ffffff";
+const QString CARD_BORDER_COLOR = "#f0f0f0";
+const int CARD_CORNER_RADIUS = 16;
+const int CARD_PADDING_PX = 24;
+
+// 文字层次
+const QString PRIMARY_TEXT = "#212121";           // 主文本
+const QString SECONDARY_TEXT = "#757575";         // 次文本
+const QString LIGHT_TEXT = "#9e9e9e";             // 淡文本
+
+const QString SIDEBAR_GRADIENT = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e53935, stop:0.65 #c62828, stop:1 #1976d2)";
 
 // 侧栏按钮样式常量
 const QString SIDEBAR_BTN_NORMAL =
@@ -55,7 +73,7 @@ const QString SIDEBAR_BTN_NORMAL =
        QPushButton:hover { background-color: %2; })";
 const QString SIDEBAR_BTN_ACTIVE =
     R"(QPushButton { background-color: %1; color: %2; border: none; border-left: 4px solid %2; padding: 10px 12px 10px 20px; font-size: 14px; font-weight: bold; text-align: left; border-radius: 8px; }
-       QPushButton:hover { background-color: rgba(211, 47, 47, 0.2); })";
+       QPushButton:hover { background-color: rgba(239, 83, 80, 0.22); })";
 
 // 学情分析数据结构
 struct LearningMetrics {
@@ -76,6 +94,39 @@ QMap<QString, LearningMetrics> createSampleData() {
     data["近30天"] = metrics30d;
     data["本学期"] = metricsSemester;
     return data;
+}
+
+namespace {
+
+QString buildCardStyle(const QString &selector)
+{
+    return QString(
+        "%1 {"
+        "  background-color: %2;"
+        "  border: 1px solid %3;"
+        "  border-radius: %4px;"
+        "  padding: %5px;"
+        "}"
+    ).arg(selector)
+     .arg(CARD_GRADIENT)
+     .arg(CARD_BORDER_COLOR)
+     .arg(CARD_CORNER_RADIUS)
+     .arg(CARD_PADDING_PX);
+}
+
+void applyCardShadow(QWidget *widget, qreal blurRadius = 24.0, qreal yOffset = 8.0)
+{
+    if (!widget) {
+        return;
+    }
+
+    auto *shadow = new QGraphicsDropShadowEffect(widget);
+    shadow->setBlurRadius(blurRadius);
+    shadow->setOffset(0, yOffset);
+    shadow->setColor(QColor(15, 23, 42, 35));
+    widget->setGraphicsEffect(shadow);
+}
+
 }
 
 ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &username, QWidget *parent)
@@ -121,7 +172,7 @@ void ModernMainWindow::initUI()
 void ModernMainWindow::setupMenuBar()
 {
     QMenuBar* mainMenuBar = this->menuBar();
-    mainMenuBar->setStyleSheet("QMenuBar { background-color: " + OFF_WHITE + "; border-bottom: 1px solid #E0E0E0; }");
+    mainMenuBar->setStyleSheet("QMenuBar { background-color: " + CARD_WHITE + "; border-bottom: 1px solid " + SEPARATOR + "; }");
 
     // 文件菜单
     QMenu *fileMenu = mainMenuBar->addMenu("文件(&F)");
@@ -163,16 +214,16 @@ void ModernMainWindow::setupMenuBar()
 void ModernMainWindow::setupStatusBar()
 {
     QStatusBar* mainStatusBar = this->statusBar();
-    mainStatusBar->setStyleSheet("QStatusBar { background-color: " + OFF_WHITE + "; color: " + DARK_GRAY + "; border-top: 1px solid #E0E0E0; }");
+    mainStatusBar->setStyleSheet("QStatusBar { background-color: " + CARD_WHITE + "; color: " + PRIMARY_TEXT + "; border-top: 1px solid " + SEPARATOR + "; }");
     mainStatusBar->showMessage("就绪");
 
     // 添加永久状态信息
     QLabel *statusLabel = new QLabel(QString("当前用户: %1 (%2)").arg(currentUsername).arg(currentUserRole));
-    statusLabel->setStyleSheet("color: " + MEDIUM_GRAY + "; font-size: 12px;");
+    statusLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 12px;");
     mainStatusBar->addPermanentWidget(statusLabel);
 
     QLabel *timeLabel = new QLabel(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss"));
-    timeLabel->setStyleSheet("color: " + MEDIUM_GRAY + "; font-size: 12px;");
+    timeLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 12px;");
     mainStatusBar->addPermanentWidget(timeLabel);
 
     // 定时更新时间
@@ -200,7 +251,7 @@ void ModernMainWindow::setupCentralWidget()
     // 创建侧边栏 (按照 code.html 的 <aside>)
     sidebar = new QFrame();
     sidebar->setFixedWidth(256); // w-64 = 16rem = 256px
-    sidebar->setStyleSheet("QFrame { background: " + SIDEBAR_GRADIENT + "; border-right: 1px solid #E0E0E0; }");
+    sidebar->setStyleSheet("QFrame { background-color: " + CARD_WHITE + "; border-right: 1px solid " + SEPARATOR + "; }");
 
     sidebarLayout = new QVBoxLayout(sidebar);
     sidebarLayout->setContentsMargins(16, 16, 16, 16); // p-4 = 16px
@@ -233,12 +284,12 @@ void ModernMainWindow::setupCentralWidget()
 
     // 设置侧边栏按钮样式 - 使用统一样式常量
     teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
-    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
-    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
-    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
-      settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
-    helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+      settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
     // 连接信号
     connect(teacherCenterBtn, &QPushButton::clicked, this, [=]() { qDebug() << "教师中心按钮被点击"; onTeacherCenterClicked(); });
@@ -361,10 +412,10 @@ void ModernMainWindow::createSidebarProfile()
     userInfoLayout->setSpacing(2);
 
     QLabel *nameLabel = new QLabel("王老师");
-    nameLabel->setStyleSheet("color: " + DARK_GRAY + "; font-size: 16px; font-weight: bold;");
+    nameLabel->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 16px; font-weight: bold;");
 
     QLabel *roleLabel = new QLabel("思政教研组");
-    roleLabel->setStyleSheet("color: " + MEDIUM_GRAY + "; font-size: 14px;");
+    roleLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 14px;");
 
     userInfoLayout->addWidget(nameLabel);
     userInfoLayout->addWidget(roleLabel);
@@ -382,13 +433,13 @@ void ModernMainWindow::createSidebarProfile()
 
     QFrame *statusDot = new QFrame();
     statusDot->setFixedSize(10, 10);
-    statusDot->setStyleSheet("QFrame { background-color: " + SUCCESS_GREEN + "; border-radius: 5px; }");
+    statusDot->setStyleSheet("QFrame { background-color: " + GROWTH_GREEN + "; border-radius: 5px; }");
 
     QLabel *statusLabel = new QLabel("在线");
-    statusLabel->setStyleSheet("color: " + SUCCESS_GREEN + "; font-size: 12px; font-weight: 600;");
+    statusLabel->setStyleSheet("color: " + GROWTH_GREEN + "; font-size: 12px; font-weight: 600;");
 
     QLabel *statusHint = new QLabel("实时连接");
-    statusHint->setStyleSheet("color: " + MEDIUM_GRAY + "; font-size: 12px;");
+    statusHint->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 12px;");
 
     statusLayout->addWidget(statusDot);
     statusLayout->addWidget(statusLabel);
@@ -403,7 +454,13 @@ void ModernMainWindow::createHeaderWidget()
 {
     headerWidget = new QFrame();
     headerWidget->setFixedHeight(64); // py-3 = 12px * 2 + line-height ≈ 64px
-    headerWidget->setStyleSheet("QFrame { background-color: " + OFF_WHITE + "; border-bottom: 1px solid #E0E0E0; }");
+    headerWidget->setStyleSheet("QFrame { background-color: " + CARD_WHITE + "; border: none; border-bottom: 1px solid rgba(15, 23, 42, 0.08); }");
+
+    auto *headerShadow = new QGraphicsDropShadowEffect(headerWidget);
+    headerShadow->setBlurRadius(28);
+    headerShadow->setOffset(0, 4);
+    headerShadow->setColor(QColor(15, 23, 42, 20));
+    headerWidget->setGraphicsEffect(headerShadow);
 
     headerLayout = new QHBoxLayout(headerWidget);
     headerLayout->setContentsMargins(24, 12, 24, 12); // px-6 py-3
@@ -417,7 +474,7 @@ void ModernMainWindow::createHeaderWidget()
     starIcon->setStyleSheet("color: " + PATRIOTIC_RED + "; font-size: 24px;");
 
     titleLabel = new QLabel("思政智慧课堂");
-    titleLabel->setStyleSheet("color: " + DARK_GRAY + "; font-size: 18px; font-weight: bold;");
+    titleLabel->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 18px; font-weight: bold;");
 
     titleLayout->addWidget(starIcon);
     titleLayout->addWidget(titleLabel);
@@ -427,43 +484,49 @@ void ModernMainWindow::createHeaderWidget()
     headerLayout->addStretch();
 
     // 搜索框
-    QHBoxLayout *searchLayout = new QHBoxLayout();
-    searchLayout->setSpacing(0);
+    QFrame *searchWrapper = new QFrame();
+    searchWrapper->setObjectName("SearchWrapper");
+    searchWrapper->setFixedHeight(44);
+    searchWrapper->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    searchWrapper->setStyleSheet(
+        "#SearchWrapper {"
+        "  background-color: " + LIGHT_GRAY + ";"
+        "  border: 1px solid rgba(15, 23, 42, 0.08);"
+        "  border-radius: 24px;"
+        "}"
+    );
+
+    auto *searchShadow = new QGraphicsDropShadowEffect(searchWrapper);
+    searchShadow->setBlurRadius(20);
+    searchShadow->setOffset(0, 3);
+    searchShadow->setColor(QColor(15, 23, 42, 25));
+    searchWrapper->setGraphicsEffect(searchShadow);
+
+    QHBoxLayout *searchLayout = new QHBoxLayout(searchWrapper);
+    searchLayout->setContentsMargins(18, 0, 18, 0);
+    searchLayout->setSpacing(10);
 
     QLabel *searchIcon = new QLabel("🔍");
-    searchIcon->setFixedSize(40, 40);
-    searchIcon->setStyleSheet(R"(
-        QLabel {
-            background-color: )" + LIGHT_GRAY + R"(;
-            color: )" + MEDIUM_GRAY + R"(;
-            border-radius: 8px 0px 0px 8px;
-            font-size: 16px;
-            padding-left: 12px;
-        }
-    )");
+    searchIcon->setFixedSize(22, 22);
     searchIcon->setAlignment(Qt::AlignCenter);
+    searchIcon->setStyleSheet("QLabel { color: " + SECONDARY_TEXT + "; font-size: 18px; }");
 
     searchInput = new QLineEdit();
     searchInput->setPlaceholderText("搜索资源、学生...");
-    searchInput->setFixedHeight(40);
-    searchInput->setStyleSheet(R"(
-        QLineEdit {
-            background-color: )" + LIGHT_GRAY + R"(;
-            border: none;
-            border-radius: 0px 8px 8px 0px;
-            padding: 0px 16px;
-            font-size: 16px;
-            color: )" + DARK_GRAY + R"(;
-        }
-        QLineEdit:focus {
-            outline: none;
-            border: 2px solid rgba(211, 47, 47, 0.3);
-        }
-    )");
+    searchInput->setFixedHeight(44);
+    searchInput->setStyleSheet(
+        "QLineEdit {"
+        "  background: transparent;"
+        "  border: none;"
+        "  font-size: 15px;"
+        "  color: " + PRIMARY_TEXT + ";"
+        "}"
+        "QLineEdit::placeholder { color: " + LIGHT_TEXT + "; }"
+        "QLineEdit:focus { border: none; }"
+    );
 
     searchLayout->addWidget(searchIcon);
     searchLayout->addWidget(searchInput);
-    searchLayout->addSpacing(24);
 
     // 通知按钮
     notificationBtn = new QPushButton("🔔");
@@ -471,13 +534,13 @@ void ModernMainWindow::createHeaderWidget()
     notificationBtn->setStyleSheet(R"(
         QPushButton {
             background-color: )" + LIGHT_GRAY + R"(;
-            color: )" + MEDIUM_GRAY + R"(;
+            color: )" + SECONDARY_TEXT + R"(;
             border: none;
             border-radius: 8px;
             font-size: 16px;
         }
         QPushButton:hover {
-            background-color: #E0E0E0;
+            background-color: )" + SEPARATOR + R"(;
         }
     )");
 
@@ -494,12 +557,13 @@ void ModernMainWindow::createHeaderWidget()
             font-weight: bold;
         }
         QPushButton:hover {
-            background-color: #B71C1C;
+            background-color: )" + PATRIOTIC_RED_DARK + R"(;
         }
     )");
     headerProfileBtn->setText("王");
 
-    headerLayout->addLayout(searchLayout);
+    headerLayout->addWidget(searchWrapper);
+    headerLayout->addSpacing(12);
     headerLayout->addWidget(notificationBtn);
     headerLayout->addWidget(headerProfileBtn);
 
@@ -515,20 +579,14 @@ void ModernMainWindow::createHeaderWidget()
 void ModernMainWindow::createQuickActions()
 {
     quickActionsFrame = new QFrame();
-    quickActionsFrame->setStyleSheet(R"(
-        QFrame {
-            background-color: )" + OFF_WHITE + R"(;
-            border: 1px solid #E0E0E0;
-            border-radius: 12px;
-            padding: 24px;
-        }
-    )");
+    quickActionsFrame->setStyleSheet(buildCardStyle("QFrame"));
+    applyCardShadow(quickActionsFrame, 22.0, 8.0);
 
     QHBoxLayout *quickActionsLayout = new QHBoxLayout(quickActionsFrame);
     quickActionsLayout->setSpacing(16);
 
     QLabel *quickLabel = new QLabel("需要开启新的课堂活动吗？");
-    quickLabel->setStyleSheet("color: " + DARK_GRAY + "; font-size: 16px; font-weight: 500;");
+    quickLabel->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 16px; font-weight: 500;");
 
     quickPreparationBtn = new QPushButton("快速备课");
     quickPreparationBtn->setStyleSheet(R"(
@@ -543,7 +601,7 @@ void ModernMainWindow::createQuickActions()
             min-width: 84px;
         }
         QPushButton:hover {
-            background-color: rgba(211, 47, 47, 0.2);
+            background-color: rgba(239, 83, 80, 0.22);
         }
     )");
 
@@ -560,7 +618,7 @@ void ModernMainWindow::createQuickActions()
             min-width: 84px;
         }
         QPushButton:hover {
-            background-color: #B71C1C;
+            background-color: )" + PATRIOTIC_RED_DARK + R"(;
         }
     )");
 
@@ -585,18 +643,24 @@ void ModernMainWindow::createCoreFeatures()
     slideshowCard = new QPushButton();
     folderOpenCard = new QPushButton();
 
-    QString cardStyle = R"(
-        QPushButton {
-            background-color: )" + OFF_WHITE + R"(;
-            border: 1px solid #E0E0E0;
-            border-radius: 12px;
-            padding: 20px;
-            text-align: left;
-        }
-        QPushButton:hover {
-            border: 1px solid rgba(211, 47, 47, 0.3);
-        }
-    )";
+    QString cardStyle = QString(
+        "QPushButton {"
+        "  background-color: %1;"
+        "  border: 1px solid %2;"
+        "  border-radius: %3px;"
+        "  padding: %4px;"
+        "  text-align: left;"
+        "}"
+        "QPushButton:hover {"
+        "  border: 1px solid rgba(229, 57, 53, 0.45);"
+        "}"
+        "QPushButton:pressed {"
+        "  background-color: %1;"
+        "}"
+    ).arg(CARD_GRADIENT)
+     .arg(CARD_BORDER_COLOR)
+     .arg(CARD_CORNER_RADIUS)
+     .arg(CARD_PADDING_PX);
 
     QStringList icons = {"🧠", "📝", "📊", "📁"};
     QStringList titles = {"智能内容分析", "AI智能备课", "互动教学工具", "试题库"};
@@ -608,19 +672,20 @@ void ModernMainWindow::createCoreFeatures()
     };
 
     QList<QPushButton*> cards = {psychologyCard, editDocumentCard, slideshowCard, folderOpenCard};
+    QStringList accentColors = {PATRIOTIC_RED, WISDOM_BLUE, CULTURE_GOLD, ACADEMIC_PURPLE};
 
     for (int i = 0; i < 4; ++i) {
         QVBoxLayout *cardLayout = new QVBoxLayout(cards[i]);
         cardLayout->setSpacing(8);
 
         QLabel *iconLabel = new QLabel(icons[i]);
-        iconLabel->setStyleSheet("color: " + PATRIOTIC_RED + "; font-size: 24px; font-weight: bold;");
+        iconLabel->setStyleSheet("color: " + accentColors[qMin(i, accentColors.size() - 1)] + "; font-size: 24px; font-weight: bold;");
 
         QLabel *titleLabel = new QLabel(titles[i]);
-        titleLabel->setStyleSheet("color: " + DARK_GRAY + "; font-size: 16px; font-weight: bold;");
+        titleLabel->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 16px; font-weight: bold;");
 
         QLabel *descLabel = new QLabel(descriptions[i]);
-        descLabel->setStyleSheet("color: " + MEDIUM_GRAY + "; font-size: 14px;");
+        descLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 14px;");
         descLabel->setWordWrap(true);
 
         cardLayout->addWidget(iconLabel);
@@ -630,6 +695,7 @@ void ModernMainWindow::createCoreFeatures()
 
         cards[i]->setStyleSheet(cardStyle);
         cards[i]->setMinimumHeight(140);
+        applyCardShadow(cards[i], 18.0, 6.0);
     }
 
     coreFeaturesLayout->addWidget(psychologyCard, 0, 0);
@@ -663,20 +729,14 @@ void ModernMainWindow::createCoreFeatures()
 void ModernMainWindow::createRecentCourses()
 {
     recentCoursesFrame = new QFrame();
-    recentCoursesFrame->setStyleSheet(R"(
-        QFrame {
-            background-color: )" + OFF_WHITE + R"(;
-            border: 1px solid #E0E0E0;
-            border-radius: 12px;
-            padding: 24px;
-        }
-    )");
+    recentCoursesFrame->setStyleSheet(buildCardStyle("QFrame"));
+    applyCardShadow(recentCoursesFrame, 24.0, 10.0);
 
     QVBoxLayout *coursesLayout = new QVBoxLayout(recentCoursesFrame);
     coursesLayout->setSpacing(16);
 
     QLabel *coursesTitle = new QLabel("近期课程");
-    coursesTitle->setStyleSheet("color: " + DARK_GRAY + "; font-size: 18px; font-weight: bold;");
+    coursesTitle->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 18px; font-weight: bold;");
 
     QHBoxLayout *courseInfoLayout = new QHBoxLayout();
     courseInfoLayout->setSpacing(16);
@@ -685,13 +745,13 @@ void ModernMainWindow::createRecentCourses()
     infoLayout->setSpacing(4);
 
     QLabel *timeLabel = new QLabel("今日, 10:00 AM");
-    timeLabel->setStyleSheet("color: " + MEDIUM_GRAY + "; font-size: 14px;");
+    timeLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 14px;");
 
     QLabel *courseTitle = new QLabel("当代思潮与青年担当");
     courseTitle->setStyleSheet("color: " + PATRIOTIC_RED + "; font-size: 20px; font-weight: bold;");
 
     QLabel *classLabel = new QLabel("高二 (2) 班");
-    classLabel->setStyleSheet("color: " + MEDIUM_GRAY + "; font-size: 14px;");
+    classLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 14px;");
 
     infoLayout->addWidget(timeLabel);
     infoLayout->addWidget(courseTitle);
@@ -711,7 +771,7 @@ void ModernMainWindow::createRecentCourses()
             min-height: 44px;
         }
         QPushButton:hover {
-            background-color: #B71C1C;
+            background-color: )" + PATRIOTIC_RED_DARK + R"(;
         }
     )");
 
@@ -739,14 +799,14 @@ QWidget* ModernMainWindow::createMetricItem(const QString& name, const QString& 
     row->setAttribute(Qt::WA_NoSystemBackground, true);  // 禁用系统背景
     row->setStyleSheet(QString(
         "QWidget#metricItem {"
-        "  background-color: #F6F6F8;"
+        "  background-color: %1;"
         "  border-radius: 10px;"
         "  padding: 0 12px;"
         "}"
         "QWidget#metricItem:hover {"
-        "  background-color: rgba(0,0,0,0.05);"
+        "  background-color: rgba(25, 118, 210, 0.08);"
         "}"
-    ));
+    ).arg(PATRIOTIC_RED_LIGHT));
 
     // 水平布局
     QHBoxLayout *rowLayout = new QHBoxLayout(row);
@@ -764,7 +824,7 @@ QWidget* ModernMainWindow::createMetricItem(const QString& name, const QString& 
 
     // 名称 - 降一阶与中灰
     QLabel *nameLabel = new QLabel(name);
-    nameLabel->setStyleSheet("color: #757575; font-size: 13px;");
+    nameLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 13px;");
     nameLabel->setToolTip(tooltip);
 
     leftLayout->addWidget(dotLabel);
@@ -782,7 +842,7 @@ QWidget* ModernMainWindow::createMetricItem(const QString& name, const QString& 
     valueFont.setPointSize(20);
     valueFont.setBold(true);
     valueLabel->setFont(valueFont);
-    valueLabel->setStyleSheet("color: #222222;");
+    valueLabel->setStyleSheet("color: " + PRIMARY_TEXT + ";");
 
     // 添加到行布局
     rowLayout->addLayout(leftLayout);
@@ -794,21 +854,8 @@ QWidget* ModernMainWindow::createMetricItem(const QString& name, const QString& 
 void ModernMainWindow::createLearningAnalytics()
 {
     learningAnalyticsFrame = new QFrame();
-    learningAnalyticsFrame->setStyleSheet(R"(
-        QFrame {
-            background-color: #FFFFFF;
-            border: none;
-            border-radius: 12px;
-            padding: 24px;
-        }
-    )");
-
-    // 添加柔和阴影
-    QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect();
-    shadow->setBlurRadius(18);
-    shadow->setOffset(0, 6);
-    shadow->setColor(QColor(0, 0, 0, 25));
-    learningAnalyticsFrame->setGraphicsEffect(shadow);
+    learningAnalyticsFrame->setStyleSheet(buildCardStyle("QFrame"));
+    applyCardShadow(learningAnalyticsFrame, 26.0, 10.0);
 
     QVBoxLayout *analyticsLayout = new QVBoxLayout(learningAnalyticsFrame);
     analyticsLayout->setSpacing(16);
@@ -817,7 +864,7 @@ void ModernMainWindow::createLearningAnalytics()
     QHBoxLayout *titleLayout = new QHBoxLayout();
 
     QLabel *analyticsTitle = new QLabel("学情分析");
-    analyticsTitle->setStyleSheet("color: #222222; font-size: 18px; font-weight: bold;");
+    analyticsTitle->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 18px; font-weight: bold;");
     analyticsTitle->setAlignment(Qt::AlignLeft);
 
     titleLayout->addWidget(analyticsTitle);
@@ -827,26 +874,26 @@ void ModernMainWindow::createLearningAnalytics()
     QComboBox *timeRangeCombo = new QComboBox();
     timeRangeCombo->addItems({"近7天", "近30天", "本学期"});
     timeRangeCombo->setCurrentText("近7天");
-    timeRangeCombo->setStyleSheet(R"(
-        QComboBox {
-            background-color: #F6F6F8;
-            border: 1px solid #E6E6E6;
-            border-radius: 8px;
-            padding: 6px 10px;
-            font-size: 14px;
-            min-width: 112px;
-        }
-        QComboBox::drop-down {
-            border: none;
-            width: 20px;
-        }
-        QComboBox::down-arrow {
-            image: none;
-            border-left: 5px solid transparent;
-            border-right: 5px solid transparent;
-            border-top: 5px solid #757575;
-        }
-    )");
+    timeRangeCombo->setStyleSheet(QString(
+        "QComboBox {"
+        "  background-color: %1;"
+        "  border: 1px solid %2;"
+        "  border-radius: 8px;"
+        "  padding: 6px 10px;"
+        "  font-size: 14px;"
+        "  min-width: 112px;"
+        "}"
+        "QComboBox::drop-down {"
+        "  border: none;"
+        "  width: 20px;"
+        "}"
+        "QComboBox::down-arrow {"
+        "  image: none;"
+        "  border-left: 5px solid transparent;"
+        "  border-right: 5px solid transparent;"
+        "  border-top: 5px solid #757575;"
+        "}"
+    ).arg(BACKGROUND_LIGHT, SEPARATOR));
 
     titleLayout->addWidget(timeRangeCombo);
 
@@ -879,7 +926,7 @@ void ModernMainWindow::createLearningAnalytics()
     QPieSlice *remainingSlice = donutSeries->slices().at(1);
     completedSlice->setColor(QColor(PATRIOTIC_RED));
     completedSlice->setBorderColor(Qt::transparent);
-    remainingSlice->setColor(QColor("#e6e6e6"));
+    remainingSlice->setColor(QColor(SEPARATOR));
     remainingSlice->setBorderColor(Qt::transparent);
 
     QChart *donutChart = new QChart();
@@ -912,10 +959,10 @@ void ModernMainWindow::createLearningAnalytics()
     donutPercentFont.setPointSize(32);
     donutPercentFont.setBold(true);
     donutPercentLabel->setFont(donutPercentFont);
-    donutPercentLabel->setStyleSheet("color: #333333;");
+    donutPercentLabel->setStyleSheet("color: " + PRIMARY_TEXT + ";");
 
     QLabel *donutTitleLabel = new QLabel("综合完成度");
-    donutTitleLabel->setStyleSheet("color: #757575; font-size: 13px;");
+    donutTitleLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 13px;");
     donutTitleLabel->setAlignment(Qt::AlignCenter);
 
     centerTextLayout->addWidget(donutPercentLabel);
@@ -937,7 +984,7 @@ void ModernMainWindow::createLearningAnalytics()
     // 指标项颜色语义固定
     QStringList statLabels = {"课堂参与度", "专注度", "测验正确率", "提问次数"};
     QStringList statValues = {"92%", "88%", "79%", "12"};
-    QStringList statColors = {"#2196F3", "#4CAF50", "#FF9800", "#F44336"};
+    QStringList statColors = {PATRIOTIC_RED, WISDOM_BLUE, GROWTH_GREEN, CULTURE_GOLD};
     QStringList tooltips = {
         "参与度=到课率×互动率；时间范围受右上角选择影响（默认近7天）",
         "根据课堂行为数据计算；范围0-100%",
@@ -976,7 +1023,7 @@ void ModernMainWindow::createLearningAnalytics()
     barLayout->setSpacing(8);
 
     QLabel *barTitle = new QLabel("三维度评分对比");
-    barTitle->setStyleSheet("color: #333333; font-size: 16px; font-weight: bold;");
+    barTitle->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 16px; font-weight: bold;");
 
     QChartView *barChartView = new QChartView();
     barChartView->setRenderHint(QPainter::Antialiasing);
@@ -993,8 +1040,8 @@ void ModernMainWindow::createLearningAnalytics()
     *set2 << 90 << 85 << 87;
 
     set0->setColor(QColor(PATRIOTIC_RED));
-    set1->setColor(QColor("#2196F3"));
-    set2->setColor(QColor("#4CAF50"));
+    set1->setColor(QColor(WISDOM_BLUE));
+    set2->setColor(QColor(GROWTH_GREEN));
 
     QBarSeries *barSeries = new QBarSeries();
     barSeries->append(set0);
@@ -1013,9 +1060,9 @@ void ModernMainWindow::createLearningAnalytics()
     QFont axisFont("PingFang SC", 10);
     barChart->axisX()->setLabelsFont(axisFont);
     barChart->axisY()->setLabelsFont(axisFont);
-    // 轴标签用深灰 #333
-    barChart->axisX()->setLabelsColor(QColor("#333333"));
-    barChart->axisY()->setLabelsColor(QColor("#333333"));
+    // 轴标签用深灰
+    barChart->axisX()->setLabelsColor(QColor(PRIMARY_TEXT));
+    barChart->axisY()->setLabelsColor(QColor(PRIMARY_TEXT));
 
     barChartView->setChart(barChart);
 
@@ -1031,7 +1078,7 @@ void ModernMainWindow::createLearningAnalytics()
     pieLayout->setSpacing(8);
 
     QLabel *pieTitle = new QLabel("知识点掌握分布");
-    pieTitle->setStyleSheet("color: #333333; font-size: 16px; font-weight: bold;");
+    pieTitle->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 16px; font-weight: bold;");
 
     QChartView *pieChartView = new QChartView();
     pieChartView->setRenderHint(QPainter::Antialiasing);
@@ -1047,9 +1094,9 @@ void ModernMainWindow::createLearningAnalytics()
     QPieSlice *slice0 = pieSeries->slices().at(0);
     QPieSlice *slice1 = pieSeries->slices().at(1);
     QPieSlice *slice2 = pieSeries->slices().at(2);
-    slice0->setColor(QColor("#4CAF50"));
-    slice1->setColor(QColor("#2196F3"));
-    slice2->setColor(QColor("#F44336"));
+    slice0->setColor(QColor(GROWTH_GREEN));
+    slice1->setColor(QColor(WISDOM_BLUE));
+    slice2->setColor(QColor(ACADEMIC_PURPLE));
 
     slice0->setLabelVisible(true);
     slice1->setLabelVisible(true);
@@ -1062,7 +1109,7 @@ void ModernMainWindow::createLearningAnalytics()
     pieChart->setTitle("");
     pieChart->setAnimationOptions(QChart::SeriesAnimations);
     pieChart->legend()->show();
-    pieChart->legend()->setColor(QColor("#333333"));
+    pieChart->legend()->setColor(QColor(PRIMARY_TEXT));
 
     pieChartView->setChart(pieChart);
 
@@ -1078,7 +1125,7 @@ void ModernMainWindow::createLearningAnalytics()
 
     // 降级提示
     QLabel *fallbackNote = new QLabel("未启用 Qt Charts，已降级为基础视图");
-    fallbackNote->setStyleSheet("color: " + MEDIUM_GRAY + "; font-size: 12px; font-style: italic;");
+    fallbackNote->setStyleSheet("color: " + LIGHT_TEXT + "; font-size: 12px; font-style: italic;");
     fallbackNote->setVisible(false);
 
     // 连接时间范围选择器的信号
@@ -1132,27 +1179,21 @@ void ModernMainWindow::createLearningAnalytics()
 void ModernMainWindow::createRecentActivities()
 {
     recentActivitiesFrame = new QFrame();
-    recentActivitiesFrame->setStyleSheet(R"(
-        QFrame {
-            background-color: )" + OFF_WHITE + R"(;
-            border: 1px solid #E0E0E0;
-            border-radius: 12px;
-            padding: 24px;
-        }
-    )");
+    recentActivitiesFrame->setStyleSheet(buildCardStyle("QFrame"));
+    applyCardShadow(recentActivitiesFrame, 24.0, 10.0);
 
     QVBoxLayout *activitiesLayout = new QVBoxLayout(recentActivitiesFrame);
     activitiesLayout->setSpacing(20);
 
     QLabel *activitiesTitle = new QLabel("近期活动");
-    activitiesTitle->setStyleSheet("color: " + DARK_GRAY + "; font-size: 18px; font-weight: bold;");
+    activitiesTitle->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 18px; font-weight: bold;");
 
     // 活动列表
     QList<QStringList> activities = {
         {QString("《全球化与民族主义》的教案已创建"), "2小时前", "📄", PATRIOTIC_RED_LIGHT},
-        {QString("新生\"李明\"已加入高二(2)班"), "昨天, 4:30 PM", "👤", "#4CAF5010"},
-        {QString("已有15名学生提交\"历史分析论文\"作业"), "昨天, 11:00 AM", "📤", "#F4433610"},
-        {QString("\"冷战纪录片\"已添加至资源库"), "2天前", "📹", "#FF980010"}
+        {QString("新生\"李明\"已加入高二(2)班"), "昨天, 4:30 PM", "👤", GROWTH_GREEN + "10"},
+        {QString("已有15名学生提交\"历史分析论文\"作业"), "昨天, 11:00 AM", "📤", PATRIOTIC_RED_LIGHT},
+        {QString("\"冷战纪录片\"已添加至资源库"), "2天前", "📹", CULTURE_GOLD + "10"}
     };
 
     // 先添加标题
@@ -1180,11 +1221,11 @@ void ModernMainWindow::createRecentActivities()
         contentLayout->setSpacing(2);
 
         QLabel *descLabel = new QLabel(activity[0]);
-        descLabel->setStyleSheet("color: " + DARK_GRAY + "; font-size: 14px;");
+        descLabel->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 14px;");
         descLabel->setWordWrap(true);
 
         QLabel *timeLabel = new QLabel(activity[1]);
-        timeLabel->setStyleSheet("color: " + MEDIUM_GRAY + "; font-size: 12px;");
+        timeLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 12px;");
 
         contentLayout->addWidget(descLabel);
         contentLayout->addWidget(timeLabel);
@@ -1228,10 +1269,10 @@ void ModernMainWindow::createDashboard()
     welcomeLayout->setSpacing(8);
 
     welcomeLabel = new QLabel("欢迎回来，王老师！");
-    welcomeLabel->setStyleSheet("color: " + DARK_GRAY + "; font-size: 32px; font-weight: bold;");
+    welcomeLabel->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 32px; font-weight: bold;");
 
     subtitleLabel = new QLabel("这是您的课堂活动与教学工具概览。");
-    subtitleLabel->setStyleSheet("color: " + MEDIUM_GRAY + "; font-size: 16px;");
+    subtitleLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 16px;");
 
     QVBoxLayout *titleLayout = new QVBoxLayout();
     titleLayout->setSpacing(4);
@@ -1249,7 +1290,7 @@ void ModernMainWindow::createDashboard()
 
     // 核心功能标题
     QLabel *coreTitle = new QLabel("核心功能");
-    coreTitle->setStyleSheet("color: " + DARK_GRAY + "; font-size: 22px; font-weight: bold;");
+    coreTitle->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 22px; font-weight: bold;");
     scrollLayout->addWidget(coreTitle);
 
     // 核心功能卡片
@@ -1304,10 +1345,10 @@ void ModernMainWindow::setupStyles()
             font-family: "PingFang SC", -apple-system, sans-serif;
         }
         QMenuBar {
-            background-color: )" + OFF_WHITE + R"(;
-            color: )" + DARK_GRAY + R"(;
+            background-color: )" + CARD_WHITE + R"(;
+            color: )" + PRIMARY_TEXT + R"(;
             font-size: 14px;
-            border-bottom: 1px solid #E0E0E0;
+            border-bottom: 1px solid )" + SEPARATOR + R"(;
         }
         QMenuBar::item {
             background-color: transparent;
@@ -1317,10 +1358,10 @@ void ModernMainWindow::setupStyles()
             background-color: rgba(0, 0, 0, 0.05);
         }
         QStatusBar {
-            background-color: )" + OFF_WHITE + R"(;
-            color: )" + MEDIUM_GRAY + R"(;
+            background-color: )" + CARD_WHITE + R"(;
+            color: )" + SECONDARY_TEXT + R"(;
             font-size: 12px;
-            border-top: 1px solid #E0E0E0;
+            border-top: 1px solid )" + SEPARATOR + R"(;
         }
         QScrollArea {
             background-color: )" + BACKGROUND_LIGHT + R"(;
@@ -1332,12 +1373,12 @@ void ModernMainWindow::setupStyles()
             border-radius: 4px;
         }
         QScrollBar::handle:vertical {
-            background-color: )" + MEDIUM_GRAY + R"(;
+            background-color: )" + SECONDARY_TEXT + R"(;
             border-radius: 4px;
             min-height: 20px;
         }
         QScrollBar::handle:vertical:hover {
-            background-color: )" + DARK_GRAY + R"(;
+            background-color: )" + PRIMARY_TEXT + R"(;
         }
     )");
 }
@@ -1355,10 +1396,10 @@ void ModernMainWindow::applyPatrioticRedTheme()
 void ModernMainWindow::onTeacherCenterClicked()
 {
     // 重置所有按钮样式
-    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
-    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
-    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
-    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
       teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
 
     contentStack->setCurrentWidget(dashboardWidget);
@@ -1377,11 +1418,11 @@ void ModernMainWindow::onAIPreparationClicked()
     qDebug() << "AI智能备课按钮被点击";
 
     // 重置所有按钮样式
-    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
-    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
-      teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+      teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
     // 切换到AI智能备课页面
     if (aiPreparationWidget) {
@@ -1398,11 +1439,11 @@ void ModernMainWindow::onResourceManagementClicked()
     qDebug() << "试题库按钮被点击";
 
     // 重置所有按钮样式
-    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
-    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
-      teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(DARK_GRAY, LIGHT_GRAY));
+    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+      teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
     // 切换到试题库页面
     if (questionBankWindow) {

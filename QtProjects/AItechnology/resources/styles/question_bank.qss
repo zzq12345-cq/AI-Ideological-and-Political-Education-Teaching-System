@@ -34,82 +34,82 @@ QScrollArea#contentScrollArea {
 QFrame#pageHeader {
     background: #FFFFFF;
     border-radius: 16px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid #e8eaf6;
 }
 
 /* QtTheme融合的返回按钮样式 */
 QPushButton#backButton {
-    background: #e0e0e0; /* QtTheme默认按钮背景 */
-    color: #424242; /* QtTheme按钮文本色 */
-    border: none; /* QtTheme无边框设计 */
-    border-radius: 4px; /* QtTheme圆角设计 */
-    padding: 8px 16px; /* QtTheme标准按钮内边距 */
+    background: #ffebee;
+    color: #c62828;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
     font-weight: 600;
 }
 
 QPushButton#backButton:hover {
-    background: #9e9e9e; /* QtTheme悬停状态 */
-    color: #424242;
+    background: rgba(229, 57, 53, 0.16);
+    color: #e53935;
 }
 
 QPushButton#backButton:pressed {
-    background: #bdbdbd; /* QtTheme按下状态 */
-    color: #424242;
+    background: rgba(198, 40, 40, 0.22);
+    color: #c62828;
 }
 
 QLabel#pageTitle {
     font-size: 26px;
     font-weight: 700;
-    color: #111827;
+    color: #212121;
 }
 
 QLabel#pageSubtitle {
     font-size: 15px;
-    color: #6B7280;
+    color: #757575;
 }
 
 QFrame#filterSidebar {
     background: #FFFFFF;
-    border: 1px solid #e2e8f0;
+    border: 1px solid #e8eaf6;
     border-radius: 12px;
 }
 
 QLabel#sidebarTitle {
     font-size: 18px;
     font-weight: 700;
-    color: #111827;
+    color: #212121;
 }
 
 QLabel#sidebarHint {
     font-size: 13px;
-    color: #6B7280;
+    color: #757575;
     line-height: 1.5;
 }
 
 QLabel[role="comboLabel"] {
     font-size: 13px;
     font-weight: 600;
-    color: #333333;
+    color: #424242;
 }
 
 QComboBox[role="filterSelect"] {
     background: #FFFFFF;
-    border: 1px solid #e2e8f0;
+    border: 1px solid #e8eaf6;
     border-radius: 8px;
     padding: 0 12px;
     padding-right: 32px;
     min-height: 48px;
     max-height: 48px;
     font-size: 14px;
-    color: #333333;
+    color: #424242;
 }
 
 QComboBox[role="filterSelect"]:hover {
-    border-color: #4A90E2;
+    border-color: #1976d2;
 }
 
 QComboBox[role="filterSelect"]:focus {
-    border-color: #D9001B;
+    border-color: #e53935;
 }
 
 QComboBox[role="filterSelect"]::drop-down {
@@ -126,7 +126,7 @@ QComboBox[role="filterSelect"]::down-arrow {
 
 QPushButton[role="filterButton"] {
     background: #FFFFFF;
-    color: #374151;
+    color: #424242;
     border-radius: 5px;
     border: 1px solid transparent;
     font-size: 13px;
@@ -140,19 +140,19 @@ QPushButton[role="filterButton"]:hover {
 }
 
 QPushButton[role="filterButton"]:checked {
-    background: rgba(217, 0, 27, 0.1);
-    color: #D9001B;
-    border-color: rgba(217, 0, 27, 0.4);
+    background: rgba(229, 57, 53, 0.14);
+    color: #e53935;
+    border-color: rgba(229, 57, 53, 0.45);
 }
 
 QPushButton[role="filterButton"]:checked:hover {
-    background: rgba(217, 0, 27, 0.2);
+    background: rgba(229, 57, 53, 0.22);
 }
 
 /* QtTheme融合的生成按钮样式 - Primary配色 */
 QPushButton#generateButton {
     background: #ef5350; /* QtTheme Primary主色 */
-    color: #424242; /* QtTheme Primary文本色 */
+    color: #ffffff; /* QtTheme Primary文本色 */
     border-radius: 4px; /* QtTheme圆角设计 */
     border: none; /* QtTheme无边框设计 */
     font-size: 16px;
@@ -164,61 +164,62 @@ QPushButton#generateButton {
 }
 
 QPushButton#generateButton[hovered="true"] {
-    background: #f44336; /* QtTheme Primary悬停色 */
-    color: #424242;
+    background: #e53935; /* QtTheme Primary悬停色 */
+    color: #ffffff;
 }
 
 QPushButton#generateButton:pressed {
-    background: #e57373; /* QtTheme Primary按下色 */
-    color: #424242;
+    background: #c62828; /* QtTheme Primary按下色 */
+    color: #ffffff;
 }
 
 QPushButton#generateButton:disabled {
-    background: rgba(217, 0, 27, 0.4);
+    background: rgba(229, 57, 53, 0.35);
+    color: #ffffff;
 }
 
 QFrame#questionCard {
     background: #FFFFFF;
     border-radius: 24px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid #e8eaf6;
 }
 
 QFrame#cardHeader {
-    border-bottom: 1px solid #ECEFF4;
+    border-bottom: 1px solid #e8eaf6;
     padding-bottom: 12px;
 }
 
 QLabel#cardTitle {
     font-size: 22px;
     font-weight: 700;
-    color: #111827;
+    color: #212121;
 }
 
 QLabel#cardSubtitle {
     font-size: 14px;
-    color: #6B7280;
+    color: #757575;
 }
 
 QLabel#progressLabel {
     font-size: 12px;
-    color: #94A3B8;
+    color: #9e9e9e;
 }
 
 QLabel#progressValue {
     font-size: 14px;
     font-weight: 600;
-    color: #333333;
+    color: #424242;
 }
 
 QProgressBar#progressBar {
-    background: #E2E8F0;
+    background: #e8eaf6;
     border: none;
     border-radius: 999px;
     height: 8px;
 }
 
 QProgressBar#progressBar::chunk {
-    background: #4A90E2;
+    background: #1976d2;
     border-radius: 999px;
 }
 
@@ -228,33 +229,33 @@ QFrame#tagRow QLabel {
     font-size: 13px;
     font-weight: 600;
     background: transparent;
-    color: #475467;
+    color: #424242;
 }
 
 QLabel#tagType {
     background: transparent;
-    color: #D9001B;
+    color: #e53935;
 }
 
 QLabel#tagDifficulty {
     background: transparent;
-    color: #2563EB;
+    color: #1976d2;
 }
 
 QLabel#tagChapter {
     background: transparent;
-    color: #4C1D95;
+    color: #7b1fa2;
 }
 
 QLabel#questionStem {
     font-size: 18px;
     font-weight: 600;
-    color: #111827;
+    color: #212121;
     line-height: 1.7;
 }
 
 QFrame[role="optionItem"] {
-    border: 1px solid #E2E8F0;
+    border: 1px solid #e8eaf6;
     border-radius: 16px;
     background: #FFFFFF;
 }
@@ -264,86 +265,86 @@ QFrame[role="optionItem"][hovered="true"] {
 }
 
 QFrame[role="optionItem"][selected="true"] {
-    border-color: #4A90E2;
-    background: rgba(74, 144, 226, 0.08);
+    border-color: #1976d2;
+    background: rgba(25, 118, 210, 0.12);
 }
 
 QRadioButton[role="optionRadio"]::indicator {
     width: 18px;
     height: 18px;
     border-radius: 999px;
-    border: 2px solid #CBD5F5;
+    border: 2px solid #e8eaf6;
     background: #FFFFFF;
     margin: 0;
     padding: 0;
 }
 
 QRadioButton[role="optionRadio"]::indicator:hover {
-    border-color: #4A90E2;
+    border-color: #1976d2;
 }
 
 QRadioButton[role="optionRadio"]::indicator:checked {
     border: 6px solid #FFFFFF;
-    background: #4A90E2;
+    background: #1976d2;
 }
 
 QLabel[role="optionKey"] {
     font-size: 16px;
     font-weight: 700;
-    color: #475467;
+    color: #424242;
 }
 
 QLabel[role="optionText"] {
     font-size: 15px;
-    color: #1F2937;
+    color: #424242;
 }
 
 QFrame[role="optionItem"][selected="true"] QLabel[role="optionKey"],
 QFrame[role="optionItem"][selected="true"] QLabel[role="optionText"] {
-    color: #1D4ED8;
+    color: #1976d2;
 }
 
 QFrame#answerSection {
-    background: rgba(16, 185, 129, 0.12);
-    border: 1px solid rgba(16, 185, 129, 0.4);
+    background: rgba(56, 142, 60, 0.12);
+    border: 1px solid rgba(56, 142, 60, 0.4);
     border-radius: 18px;
 }
 
 QLabel#answerTitle {
     font-size: 13px;
     font-weight: 700;
-    color: #047857;
+    color: #388e3c;
     letter-spacing: 0.6px;
 }
 
 QLabel#answerValue {
     font-size: 26px;
     font-weight: 700;
-    color: #059669;
+    color: #388e3c;
 }
 
 QLabel#answerDescription {
     font-size: 14px;
-    color: #115E59;
+    color: rgba(56, 142, 60, 0.85);
     line-height: 1.6;
 }
 
 QFrame#analysisSection {
     background: #FFFFFF;
-    border: 1px dashed #CBD5F5;
+    border: 1px dashed #e8eaf6;
     border-radius: 18px;
 }
 
 QLabel#analysisTitle {
     font-size: 13px;
     font-weight: 700;
-    color: #4A90E2;
+    color: #1976d2;
     letter-spacing: 0.6px;
 }
 
 QLabel#analysisDescription {
     font-size: 14px;
-    color: #475467;
+    color: #424242;
     line-height: 1.7;
 }
 
@@ -355,32 +356,32 @@ QFrame#actionRow QPushButton {
 }
 
 QPushButton#primaryActionButton {
-    background: #D9001B;
+    background: #e53935;
     color: #FFFFFF;
-    border: 1px solid #D9001B;
+    border: 1px solid #e53935;
 }
 
 QPushButton#primaryActionButton:hover {
-    background: #B80016;
-    border-color: #B80016;
+    background: #c62828;
+    border-color: #c62828;
 }
 
 QPushButton#secondaryButton {
     background: #FFFFFF;
-    border: 1px solid #D9001B;
-    color: #D9001B;
+    border: 1px solid #e53935;
+    color: #e53935;
 }
 
 QPushButton#secondaryButton:hover {
-    background: rgba(217, 0, 27, 0.08);
+    background: rgba(229, 57, 53, 0.1);
 }
 
 QPushButton#ghostButton {
     background: transparent;
-    border: 1px dashed #4A90E2;
-    color: #4A90E2;
+    border: 1px dashed #1976d2;
+    color: #1976d2;
 }
 
 QPushButton#ghostButton:hover {
-    background: rgba(74, 144, 226, 0.08);
+    background: rgba(25, 118, 210, 0.12);
 }
