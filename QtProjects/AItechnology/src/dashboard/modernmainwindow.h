@@ -11,6 +11,8 @@
 #include <QMenuBar>
 #include <QStatusBar>
 #include <QScrollArea>
+#include <QIcon>
+#include <QStyle>
 #include <QStackedWidget>
 #include <QFrame>
 #include <QLineEdit>
@@ -45,7 +47,6 @@ private slots:
     void onAIPreparationClicked();
     void onResourceManagementClicked();
     void onLearningAnalysisClicked();
-    void onDataReportClicked();
     void onSettingsClicked();
     void onHelpClicked();
     void onQuickPreparationClicked();
@@ -67,6 +68,8 @@ private:
     void createLearningAnalytics();
     void createRecentActivities();
     void applyPatrioticRedTheme();
+    void applySidebarIcons();
+    QIcon loadSidebarIcon(const QString &themeName, QStyle::StandardPixmap fallback) const;
 
     // 创建指标项组件 - 紧凑单行信息
     QWidget* createMetricItem(const QString& name, const QString& value, const QString& color, const QString& tooltip);
@@ -87,7 +90,6 @@ private:
     QPushButton *aiPreparationBtn;
     QPushButton *resourceManagementBtn;
     QPushButton *learningAnalysisBtn;
-    QPushButton *dataReportBtn;
     QPushButton *settingsBtn;
     QPushButton *helpBtn;
 

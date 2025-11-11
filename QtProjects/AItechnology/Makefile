@@ -972,6 +972,36 @@ build/release/.qrc/qrc_qml.cpp: qml.qrc \
 build/release/.qrc/qrc_resources.cpp: resources.qrc \
 		../../Qt/6.9.3/macos/libexec/rcc \
 		src/shared/resources/download.png \
+		页面组件库/icon/chevron_left/\#424242.svg \
+		页面组件库/icon/chevron_left/\#bdbdbd.svg \
+		页面组件库/icon/check_box_checked/\#66bb6a.svg \
+		页面组件库/icon/check_box_checked/\#424242.svg \
+		页面组件库/icon/check_box_checked/\#42a5f5.svg \
+		页面组件库/icon/check_box_checked/\#a5d6a7.svg \
+		页面组件库/icon/check_box_checked/\#ef5350.svg \
+		页面组件库/icon/check_box_checked/\#90caf9.svg \
+		页面组件库/icon/check_box_checked/\#ffcc80.svg \
+		页面组件库/icon/check_box_checked/\#bdbdbd.svg \
+		页面组件库/icon/check_box_checked/\#ef9a9a.svg \
+		页面组件库/icon/check_box_checked/\#ffa726.svg \
+		页面组件库/icon/size_grip/\#66bb6a.svg \
+		页面组件库/icon/size_grip/\#42a5f5.svg \
+		页面组件库/icon/size_grip/\#ef5350.svg \
+		页面组件库/icon/size_grip/\#616161.svg \
+		页面组件库/icon/size_grip/\#ffa726.svg \
+		页面组件库/icon/triangle_right/\#ef5350.svg \
+		页面组件库/icon/check_box_unchecked/\#66bb6a.svg \
+		页面组件库/icon/check_box_unchecked/\#424242.svg \
+		页面组件库/icon/check_box_unchecked/\#42a5f5.svg \
+		页面组件库/icon/check_box_unchecked/\#a5d6a7.svg \
+		页面组件库/icon/check_box_unchecked/\#ef5350.svg \
+		页面组件库/icon/check_box_unchecked/\#90caf9.svg \
+		页面组件库/icon/check_box_unchecked/\#ffcc80.svg \
+		页面组件库/icon/check_box_unchecked/\#bdbdbd.svg \
+		页面组件库/icon/check_box_unchecked/\#ef9a9a.svg \
+		页面组件库/icon/check_box_unchecked/\#ffa726.svg \
+		页面组件库/icon/chevron_right/\#bdbdbd.svg \
+		页面组件库/theme/Flat/Light/Red/Blue.qss \
 		resources/QtTheme/icon/ellipsis_vertical/\#bdbdbd.svg \
 		resources/QtTheme/icon/radio_button_checked/\#66bb6a.svg \
 		resources/QtTheme/icon/radio_button_checked/\#424242.svg \
@@ -989,7 +1019,6 @@ build/release/.qrc/qrc_resources.cpp: resources.qrc \
 		resources/QtTheme/icon/chevron_left/\#4caf50.svg \
 		resources/QtTheme/icon/chevron_left/\#1e88e5.svg \
 		resources/QtTheme/icon/chevron_left/\#ef5350.svg \
-		resources/QtTheme/icon/chevron_left/\#bdbdbd.svg \
 		resources/QtTheme/icon/chevron_left/\#f44336.svg \
 		resources/QtTheme/icon/chevron_left/\#616161.svg \
 		resources/QtTheme/icon/chevron_left/\#ffa726.svg \
@@ -1001,22 +1030,7 @@ build/release/.qrc/qrc_resources.cpp: resources.qrc \
 		resources/QtTheme/icon/triangle_left/\#616161.svg \
 		resources/QtTheme/icon/triangle_left/\#ffa726.svg \
 		resources/QtTheme/icon/ellipsis/\#bdbdbd.svg \
-		resources/QtTheme/icon/check_box_checked/\#66bb6a.svg \
-		resources/QtTheme/icon/check_box_checked/\#424242.svg \
-		resources/QtTheme/icon/check_box_checked/\#42a5f5.svg \
-		resources/QtTheme/icon/check_box_checked/\#a5d6a7.svg \
-		resources/QtTheme/icon/check_box_checked/\#ef5350.svg \
-		resources/QtTheme/icon/check_box_checked/\#90caf9.svg \
-		resources/QtTheme/icon/check_box_checked/\#ffcc80.svg \
-		resources/QtTheme/icon/check_box_checked/\#bdbdbd.svg \
-		resources/QtTheme/icon/check_box_checked/\#ef9a9a.svg \
-		resources/QtTheme/icon/check_box_checked/\#ffa726.svg \
 		resources/QtTheme/icon/size_grip/\#1976d2.svg \
-		resources/QtTheme/icon/size_grip/\#66bb6a.svg \
-		resources/QtTheme/icon/size_grip/\#42a5f5.svg \
-		resources/QtTheme/icon/size_grip/\#ef5350.svg \
-		resources/QtTheme/icon/size_grip/\#616161.svg \
-		resources/QtTheme/icon/size_grip/\#ffa726.svg \
 		resources/QtTheme/icon/size_grip/\#f57c00.svg \
 		resources/QtTheme/icon/size_grip/\#388e3c.svg \
 		resources/QtTheme/icon/size_grip/\#d32f2f.svg \
@@ -1065,16 +1079,6 @@ build/release/.qrc/qrc_resources.cpp: resources.qrc \
 		resources/QtTheme/icon/triangle_right/\#ef5350.svg \
 		resources/QtTheme/icon/triangle_right/\#616161.svg \
 		resources/QtTheme/icon/triangle_right/\#ffa726.svg \
-		resources/QtTheme/icon/check_box_unchecked/\#66bb6a.svg \
-		resources/QtTheme/icon/check_box_unchecked/\#424242.svg \
-		resources/QtTheme/icon/check_box_unchecked/\#42a5f5.svg \
-		resources/QtTheme/icon/check_box_unchecked/\#a5d6a7.svg \
-		resources/QtTheme/icon/check_box_unchecked/\#ef5350.svg \
-		resources/QtTheme/icon/check_box_unchecked/\#90caf9.svg \
-		resources/QtTheme/icon/check_box_unchecked/\#ffcc80.svg \
-		resources/QtTheme/icon/check_box_unchecked/\#bdbdbd.svg \
-		resources/QtTheme/icon/check_box_unchecked/\#ef9a9a.svg \
-		resources/QtTheme/icon/check_box_unchecked/\#ffa726.svg \
 		resources/QtTheme/icon/close/\#ef5350.svg \
 		resources/QtTheme/icon/close/\#bdbdbd.svg \
 		resources/QtTheme/icon/close/\#ef9a9a.svg \
@@ -1116,7 +1120,6 @@ build/release/.qrc/qrc_resources.cpp: resources.qrc \
 		resources/QtTheme/icon/chevron_right/\#4caf50.svg \
 		resources/QtTheme/icon/chevron_right/\#1e88e5.svg \
 		resources/QtTheme/icon/chevron_right/\#ef5350.svg \
-		resources/QtTheme/icon/chevron_right/\#bdbdbd.svg \
 		resources/QtTheme/icon/chevron_right/\#f44336.svg \
 		resources/QtTheme/icon/chevron_right/\#616161.svg \
 		resources/QtTheme/icon/chevron_right/\#ffa726.svg \
@@ -1125,7 +1128,7 @@ build/release/.qrc/qrc_resources.cpp: resources.qrc \
 		resources/QtTheme/icon/chevron_right/\#388e3c.svg \
 		resources/QtTheme/icon/chevron_right/\#fb8c00.svg \
 		resources/QtTheme/icon/chevron_right/\#d32f2f.svg \
-		resources/QtTheme/theme/Flat/Light/Red/Blue.qss \
+		resources/styles/qt_theme_safe.qss \
 		resources/styles/question_bank.qss \
 		resources/styles/auth.qss
 	/Users/zhouzhiqi/Qt/6.9.3/macos/libexec/rcc -name resources --no-zstd resources.qrc -o build/release/.qrc/qrc_resources.cpp
@@ -1761,6 +1764,8 @@ build/release/.obj/modernmainwindow.o: src/dashboard/modernmainwindow.cpp src/da
 		src/questionbank/questionbankwindow.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QFile \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qfile.h \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QRegularExpression \
+		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/qregularexpression.h \
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/QProgressBar \
 		../../Qt/6.9.3/macos/lib/QtWidgets.framework/Headers/qprogressbar.h \
 		../../Qt/6.9.3/macos/lib/QtCore.framework/Headers/QDateTime \

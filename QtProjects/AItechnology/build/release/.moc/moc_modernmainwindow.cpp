@@ -46,7 +46,6 @@ template <> constexpr inline auto ModernMainWindow::qt_create_metaobjectdata<qt_
         "onAIPreparationClicked",
         "onResourceManagementClicked",
         "onLearningAnalysisClicked",
-        "onDataReportClicked",
         "onSettingsClicked",
         "onHelpClicked",
         "onQuickPreparationClicked",
@@ -65,18 +64,16 @@ template <> constexpr inline auto ModernMainWindow::qt_create_metaobjectdata<qt_
         QtMocHelpers::SlotData<void()>(5, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onLearningAnalysisClicked'
         QtMocHelpers::SlotData<void()>(6, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onDataReportClicked'
-        QtMocHelpers::SlotData<void()>(7, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onSettingsClicked'
-        QtMocHelpers::SlotData<void()>(8, 2, QMC::AccessPrivate, QMetaType::Void),
+        QtMocHelpers::SlotData<void()>(7, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onHelpClicked'
-        QtMocHelpers::SlotData<void()>(9, 2, QMC::AccessPrivate, QMetaType::Void),
+        QtMocHelpers::SlotData<void()>(8, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onQuickPreparationClicked'
-        QtMocHelpers::SlotData<void()>(10, 2, QMC::AccessPrivate, QMetaType::Void),
+        QtMocHelpers::SlotData<void()>(9, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onStartClassClicked'
-        QtMocHelpers::SlotData<void()>(11, 2, QMC::AccessPrivate, QMetaType::Void),
+        QtMocHelpers::SlotData<void()>(10, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onEnterClassClicked'
-        QtMocHelpers::SlotData<void()>(12, 2, QMC::AccessPrivate, QMetaType::Void),
+        QtMocHelpers::SlotData<void()>(11, 2, QMC::AccessPrivate, QMetaType::Void),
     };
     QtMocHelpers::UintData qt_properties {
     };
@@ -105,12 +102,11 @@ void ModernMainWindow::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int
         case 2: _t->onAIPreparationClicked(); break;
         case 3: _t->onResourceManagementClicked(); break;
         case 4: _t->onLearningAnalysisClicked(); break;
-        case 5: _t->onDataReportClicked(); break;
-        case 6: _t->onSettingsClicked(); break;
-        case 7: _t->onHelpClicked(); break;
-        case 8: _t->onQuickPreparationClicked(); break;
-        case 9: _t->onStartClassClicked(); break;
-        case 10: _t->onEnterClassClicked(); break;
+        case 5: _t->onSettingsClicked(); break;
+        case 6: _t->onHelpClicked(); break;
+        case 7: _t->onQuickPreparationClicked(); break;
+        case 8: _t->onStartClassClicked(); break;
+        case 9: _t->onEnterClassClicked(); break;
         default: ;
         }
     }
@@ -136,14 +132,14 @@ int ModernMainWindow::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 11)
+        if (_id < 10)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 11;
+        _id -= 10;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 11)
+        if (_id < 10)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 11;
+        _id -= 10;
     }
     return _id;
 }
