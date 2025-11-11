@@ -26,7 +26,7 @@ constexpr int kPageMaxWidth = 1280;
 constexpr int kSidebarWidth = 320;
 constexpr int kComboHeight = 48;
 constexpr int kFilterButtonHeight = 40;
-constexpr int kGenerateButtonHeight = 56;
+constexpr int kGenerateButtonHeight = 40;
 constexpr int kPrimaryActionHeight = 52;
 constexpr int kActionButtonHeight = 44;
 constexpr int kOptionMinHeight = 60;
@@ -103,9 +103,14 @@ QWidget *QuestionBankWindow::buildHeader()
     layout->setContentsMargins(24, 20, 24, 20);
     layout->setSpacing(12);
 
-    auto *backButton = new QPushButton(QStringLiteral("返回主界面"), header);
+    auto *backButton = new QPushButton(header);
     backButton->setObjectName("backButton");
     backButton->setCursor(Qt::PointingHandCursor);
+
+    // 使用QtTheme图标 - 完全安全的图标集成方式
+    backButton->setIcon(QIcon(":/QtTheme/icon/chevron_left/#424242.svg"));
+    backButton->setIconSize(QSize(20, 20));
+    backButton->setText(QStringLiteral("返回主界面"));
 
     connect(backButton, &QPushButton::clicked, this, [] {
         qInfo() << "Navigate back to dashboard";
@@ -141,7 +146,7 @@ QWidget *QuestionBankWindow::buildBody()
     bodyLayout->setContentsMargins(0, 0, 0, 0);
     bodyLayout->setSpacing(18);
 
-    bodyLayout->addWidget(buildSidebar(), 0, Qt::AlignTop);
+    bodyLayout->addWidget(buildSidebar(), 0);
     bodyLayout->addWidget(buildContentArea(), 1);
 
     return body;
@@ -152,16 +157,32 @@ QWidget *QuestionBankWindow::buildSidebar()
     auto *sidebar = new QFrame(this);
     sidebar->setObjectName("filterSidebar");
     sidebar->setFixedWidth(kSidebarWidth);
+    sidebar->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
     applyShadow(sidebar, 30, QPointF(0, 10), kSidebarShadowColor);
 
-    auto *layout = new QVBoxLayout(sidebar);
+    auto *outerLayout = new QVBoxLayout(sidebar);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+    outerLayout->setSpacing(0);
+
+    auto *scrollArea = new QScrollArea(sidebar);
+    scrollArea->setObjectName("filterSidebarScroll");
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scrollArea->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
+    auto *content = new QWidget(scrollArea);
+    content->setObjectName("filterSidebarContent");
+    content->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+
+    auto *layout = new QVBoxLayout(content);
     layout->setContentsMargins(24, 24, 24, 24);
     layout->setSpacing(16);
 
-    auto *sidebarTitle = new QLabel(QStringLiteral("筛选条件"), sidebar);
+    auto *sidebarTitle = new QLabel(QStringLiteral("筛选条件"), content);
     sidebarTitle->setObjectName("sidebarTitle");
 
-    auto *sidebarHint = new QLabel(QStringLiteral("按照 HTML 模板规范筛选参数，生成一致的试题体验"), sidebar);
+    auto *sidebarHint = new QLabel(QStringLiteral("按照 HTML 模板规范筛选参数，生成一致的试题体验"), content);
     sidebarHint->setObjectName("sidebarHint");
     sidebarHint->setWordWrap(true);
 
@@ -188,32 +209,56 @@ QWidget *QuestionBankWindow::buildSidebar()
 
     layout->addWidget(createFilterButtons(QStringLiteral("试卷类型"),
                                           {QStringLiteral("不限"), QStringLiteral("章节练习"), QStringLiteral("课后作业"), QStringLiteral("期中"), QStringLiteral("期末"), QStringLiteral("模拟卷")},
-                                          QStringLiteral("paperType")));
+                                          QStringLiteral("paperType"),
+                                          3));
 
     layout->addWidget(createFilterButtons(QStringLiteral("题目题型"),
                                           {QStringLiteral("不限"), QStringLiteral("单选"), QStringLiteral("多选"), QStringLiteral("判断"), QStringLiteral("简答"), QStringLiteral("综合"), QStringLiteral("材料分析")},
-                                          QStringLiteral("questionType")));
+                                          QStringLiteral("questionType"),
+                                          3));
 
     layout->addWidget(createFilterButtons(QStringLiteral("题目难度"),
                                           {QStringLiteral("不限"), QStringLiteral("简单"), QStringLiteral("中等"), QStringLiteral("困难")},
-                                          QStringLiteral("difficulty")));
+                                          QStringLiteral("difficulty"),
+                                          2));
 
     layout->addStretch(1);
 
-    m_generateButton = new QPushButton(QStringLiteral("开始生成"), sidebar);
+    auto *actionPanel = new QWidget(sidebar);
+    actionPanel->setObjectName("filterSidebarActions");
+    actionPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    actionPanel->setFixedHeight(kGenerateButtonHeight + 48); // 按钮高度 + 边距
+
+    auto *actionLayout = new QVBoxLayout(actionPanel);
+    actionLayout->setContentsMargins(24, 0, 24, 24);
+    actionLayout->setSpacing(12);
+
+    m_generateButton = new QPushButton(actionPanel);
     m_generateButton->setObjectName("generateButton");
     m_generateButton->setFixedHeight(kGenerateButtonHeight);
     m_generateButton->setCursor(Qt::PointingHandCursor);
+
+    // 使用QtTheme图标 - 与主题色调一致的红色三角形图标
+    m_generateButton->setIcon(QIcon(":/QtTheme/icon/triangle_right/#ef5350.svg"));
+    m_generateButton->setIconSize(QSize(20, 20));
+    m_generateButton->setText(QStringLiteral("开始生成"));
     m_generateButton->setProperty("hovered", false);
     m_generateButton->installEventFilter(this);
     applyShadow(m_generateButton, 20, QPointF(0, 4), kButtonShadowColor);
 
-    layout->addWidget(m_generateButton);
+    actionLayout->addWidget(m_generateButton);
 
     connect(m_generateButton, &QPushButton::clicked, this, [this] {
         qInfo() << "Generate paper with" << m_currentQuestion << "current question";
         updateProgress(1);
     });
+
+    // 设置滚动区域内容
+    scrollArea->setWidget(content);
+
+    // 更新主布局：滚动区域在上方，操作面板固定在底部
+    outerLayout->addWidget(scrollArea, 1);  // 可伸缩
+    outerLayout->addWidget(actionPanel, 0); // 固定高度
 
     return sidebar;
 }
@@ -272,22 +317,33 @@ QWidget *QuestionBankWindow::createFilterButtons(const QString &labelText,
                                                  const QString &groupId,
                                                  int columns)
 {
+    const int columnCount = std::max(1, columns);
+
     auto *section = new QWidget(this);
     section->setObjectName(groupId + "Section");
+    section->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
 
     auto *layout = new QVBoxLayout(section);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(12);
+    layout->setSizeConstraint(QLayout::SetMinimumSize);
 
     auto *label = new QLabel(labelText, section);
     label->setProperty("role", "comboLabel");
     layout->addWidget(label);
 
     auto *gridHost = new QWidget(section);
+    gridHost->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
     auto *grid = new QGridLayout(gridHost);
     grid->setContentsMargins(0, 0, 0, 0);
     grid->setHorizontalSpacing(12);
     grid->setVerticalSpacing(12);
+    grid->setSizeConstraint(QLayout::SetMinimumSize);
+
+    // 设置网格列拉伸，确保按钮平均分布
+    for (int col = 0; col < columnCount; ++col) {
+        grid->setColumnStretch(col, 1);
+    }
 
     auto *group = new QButtonGroup(gridHost);
     group->setExclusive(true);
@@ -297,14 +353,15 @@ QWidget *QuestionBankWindow::createFilterButtons(const QString &labelText,
         button->setProperty("role", "filterButton");
         button->setCheckable(true);
         button->setCursor(Qt::PointingHandCursor);
-        button->setFixedHeight(kFilterButtonHeight);
+        button->setMinimumHeight(kFilterButtonHeight);
+        button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 
         if (i == 0) {
             button->setChecked(true);
         }
 
         group->addButton(button);
-        grid->addWidget(button, i / columns, i % columns);
+        grid->addWidget(button, i / columnCount, i % columnCount);
     }
 
     layout->addWidget(gridHost);

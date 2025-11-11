@@ -5,36 +5,39 @@
     <qresource prefix="/styles">
         <file>resources/styles/auth.qss</file>
         <file>resources/styles/question_bank.qss</file>
+        <file>resources/styles/qt_theme_safe.qss</file>
     </qresource>
     <qresource prefix="/QtTheme">
-        <file>resources/QtTheme/theme/Flat/Light/Red/Blue.qss</file>
-        <file>resources/QtTheme/icon/check_box_unchecked/#424242.svg</file>
-        <file>resources/QtTheme/icon/check_box_checked/#424242.svg</file>
-        <file>resources/QtTheme/icon/check_box_unchecked/#bdbdbd.svg</file>
-        <file>resources/QtTheme/icon/check_box_checked/#bdbdbd.svg</file>
-        <file>resources/QtTheme/icon/check_box_unchecked/#ef5350.svg</file>
-        <file>resources/QtTheme/icon/check_box_checked/#ef5350.svg</file>
-        <file>resources/QtTheme/icon/check_box_unchecked/#ef9a9a.svg</file>
-        <file>resources/QtTheme/icon/check_box_checked/#ef9a9a.svg</file>
-        <file>resources/QtTheme/icon/check_box_unchecked/#42a5f5.svg</file>
-        <file>resources/QtTheme/icon/check_box_checked/#42a5f5.svg</file>
-        <file>resources/QtTheme/icon/check_box_unchecked/#90caf9.svg</file>
-        <file>resources/QtTheme/icon/check_box_checked/#90caf9.svg</file>
-        <file>resources/QtTheme/icon/check_box_unchecked/#66bb6a.svg</file>
-        <file>resources/QtTheme/icon/check_box_checked/#66bb6a.svg</file>
-        <file>resources/QtTheme/icon/check_box_unchecked/#a5d6a7.svg</file>
-        <file>resources/QtTheme/icon/check_box_checked/#a5d6a7.svg</file>
-        <file>resources/QtTheme/icon/check_box_unchecked/#ffa726.svg</file>
-        <file>resources/QtTheme/icon/check_box_checked/#ffa726.svg</file>
-        <file>resources/QtTheme/icon/check_box_unchecked/#ffcc80.svg</file>
-        <file>resources/QtTheme/icon/check_box_checked/#ffcc80.svg</file>
-        <file>resources/QtTheme/icon/size_grip/#616161.svg</file>
-        <file>resources/QtTheme/icon/chevron_left/#bdbdbd.svg</file>
-        <file>resources/QtTheme/icon/chevron_right/#bdbdbd.svg</file>
-        <file>resources/QtTheme/icon/size_grip/#ef5350.svg</file>
-        <file>resources/QtTheme/icon/size_grip/#42a5f5.svg</file>
-        <file>resources/QtTheme/icon/size_grip/#66bb6a.svg</file>
-        <file>resources/QtTheme/icon/size_grip/#ffa726.svg</file>
+        <file>页面组件库/theme/Flat/Light/Red/Blue.qss</file>
+        <file>页面组件库/icon/check_box_unchecked/#424242.svg</file>
+        <file>页面组件库/icon/check_box_checked/#424242.svg</file>
+        <file>页面组件库/icon/check_box_unchecked/#bdbdbd.svg</file>
+        <file>页面组件库/icon/check_box_checked/#bdbdbd.svg</file>
+        <file>页面组件库/icon/check_box_unchecked/#ef5350.svg</file>
+        <file>页面组件库/icon/check_box_checked/#ef5350.svg</file>
+        <file>页面组件库/icon/check_box_unchecked/#ef9a9a.svg</file>
+        <file>页面组件库/icon/check_box_checked/#ef9a9a.svg</file>
+        <file>页面组件库/icon/check_box_unchecked/#42a5f5.svg</file>
+        <file>页面组件库/icon/check_box_checked/#42a5f5.svg</file>
+        <file>页面组件库/icon/check_box_unchecked/#90caf9.svg</file>
+        <file>页面组件库/icon/check_box_checked/#90caf9.svg</file>
+        <file>页面组件库/icon/check_box_unchecked/#66bb6a.svg</file>
+        <file>页面组件库/icon/check_box_checked/#66bb6a.svg</file>
+        <file>页面组件库/icon/check_box_unchecked/#a5d6a7.svg</file>
+        <file>页面组件库/icon/check_box_checked/#a5d6a7.svg</file>
+        <file>页面组件库/icon/check_box_unchecked/#ffa726.svg</file>
+        <file>页面组件库/icon/check_box_checked/#ffa726.svg</file>
+        <file>页面组件库/icon/check_box_unchecked/#ffcc80.svg</file>
+        <file>页面组件库/icon/check_box_checked/#ffcc80.svg</file>
+        <file>页面组件库/icon/size_grip/#616161.svg</file>
+        <file>页面组件库/icon/chevron_left/#bdbdbd.svg</file>
+        <file>页面组件库/icon/chevron_right/#bdbdbd.svg</file>
+        <file>页面组件库/icon/size_grip/#ef5350.svg</file>
+        <file>页面组件库/icon/size_grip/#42a5f5.svg</file>
+        <file>页面组件库/icon/size_grip/#66bb6a.svg</file>
+        <file>页面组件库/icon/size_grip/#ffa726.svg</file>
+        <file>页面组件库/icon/chevron_left/#424242.svg</file>
+        <file>页面组件库/icon/triangle_right/#ef5350.svg</file>
         <file>resources/QtTheme/icon/chevron_down/#bdbdbd.svg</file>
         <file>resources/QtTheme/icon/chevron_down/#ef9a9a.svg</file>
         <file>resources/QtTheme/icon/chevron_down/#90caf9.svg</file>

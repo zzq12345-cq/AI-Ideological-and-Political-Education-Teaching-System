@@ -1,7 +1,8 @@
+/* QtTheme融合配色方案 - 安全应用 */
 QuestionBankWindow#questionBankWindow {
-    background: #FFFFFF;
+    background: #fafafa; /* QtTheme主背景色 */
     font-family: "Lexend", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
-    color: #333333;
+    color: #424242; /* QtTheme主文本色 */
     font-size: 14px;
 }
 
@@ -13,10 +14,10 @@ QLabel {
     background: transparent;
 }
 
-/* 确保选项文本样式正确 */
+/* 确保选项文本样式正确 - QtTheme融合 */
 QLabel[role="optionText"] {
     font-size: 15px;
-    color: #1F2937;
+    color: #424242; /* QtTheme主文本色 */
     border: none !important;
     padding: 0 !important;
     margin: 0 !important;
@@ -36,22 +37,24 @@ QFrame#pageHeader {
     border: 1px solid #e2e8f0;
 }
 
+/* QtTheme融合的返回按钮样式 */
 QPushButton#backButton {
-    background: #FFFFFF;
-    color: #374151;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    padding: 10px 18px;
+    background: #e0e0e0; /* QtTheme默认按钮背景 */
+    color: #424242; /* QtTheme按钮文本色 */
+    border: none; /* QtTheme无边框设计 */
+    border-radius: 4px; /* QtTheme圆角设计 */
+    padding: 8px 16px; /* QtTheme标准按钮内边距 */
     font-weight: 600;
 }
 
 QPushButton#backButton:hover {
-    color: #D9001B;
-    border-color: rgba(217, 0, 27, 0.35);
+    background: #9e9e9e; /* QtTheme悬停状态 */
+    color: #424242;
 }
 
 QPushButton#backButton:pressed {
-    background: #E2E8F0;
+    background: #bdbdbd; /* QtTheme按下状态 */
+    color: #424242;
 }
 
 QLabel#pageTitle {
@@ -124,7 +127,7 @@ QComboBox[role="filterSelect"]::down-arrow {
 QPushButton[role="filterButton"] {
     background: #FFFFFF;
     color: #374151;
-    border-radius: 8px;
+    border-radius: 5px;
     border: 1px solid transparent;
     font-size: 13px;
     font-weight: 600;
@@ -146,26 +149,28 @@ QPushButton[role="filterButton"]:checked:hover {
     background: rgba(217, 0, 27, 0.2);
 }
 
+/* QtTheme融合的生成按钮样式 - Primary配色 */
 QPushButton#generateButton {
-    background: #D9001B;
-    color: #FFFFFF;
-    border-radius: 8px;
-    border: none;
+    background: #ef5350; /* QtTheme Primary主色 */
+    color: #424242; /* QtTheme Primary文本色 */
+    border-radius: 4px; /* QtTheme圆角设计 */
+    border: none; /* QtTheme无边框设计 */
     font-size: 16px;
     font-weight: 700;
     min-height: 56px;
     max-height: 56px;
     letter-spacing: 0.4px;
-    padding: 0 24px;
+    padding: 8px 16px; /* QtTheme标准按钮内边距 */
 }
 
 QPushButton#generateButton[hovered="true"] {
-    background: #B80016;
-    padding: 0 28px;
+    background: #f44336; /* QtTheme Primary悬停色 */
+    color: #424242;
 }
 
 QPushButton#generateButton:pressed {
-    background: #930012;
+    background: #e57373; /* QtTheme Primary按下色 */
+    color: #424242;
 }
 
 QPushButton#generateButton:disabled {
