@@ -36,6 +36,14 @@
 #include <QIcon>
 #include <QSize>
 #include <QGraphicsDropShadowEffect>
+#include <QtMath>
+#include <QToolTip>
+#include <QCursor>
+#include <QSharedPointer>
+#include <QDialog>
+#include <QEvent>
+#include <QMouseEvent>
+#include <functional>
 
 // 思政课堂色彩体系
 const QString PATRIOTIC_RED = "#e53935";          // 主思政红（温暖庄重）
@@ -75,21 +83,49 @@ const QString SIDEBAR_BTN_ACTIVE =
     R"(QPushButton { background-color: %1; color: %2; border: none; border-left: 4px solid %2; padding: 10px 12px 10px 20px; font-size: 14px; font-weight: bold; text-align: left; border-radius: 8px; }
        QPushButton:hover { background-color: rgba(239, 83, 80, 0.22); })";
 
+struct TrendValue {
+    int current = 0;
+    int previous = 0;
+};
+
 // 学情分析数据结构
 struct LearningMetrics {
-    int engagement;      // 课堂参与度 (%)
-    int accuracy;        // 测验正确率 (%)
-    int focus;           // 专注度 (%)
-    int mastery;         // 掌握 (%)
-    int partial;         // 基本掌握 (%)
-    int needsWork;       // 需巩固 (%)
+    TrendValue participation;   // 课堂参与
+    TrendValue homework;        // 作业完成
+    TrendValue quiz;            // 测验成绩
+    TrendValue knowledge;       // 知识掌握
+    int mastery;                // 掌握 (%)
+    int partial;                // 基本掌握 (%)
+    int needsWork;              // 需巩固 (%)
 };
 
 QMap<QString, LearningMetrics> createSampleData() {
     QMap<QString, LearningMetrics> data;
-    LearningMetrics metrics7d = {92, 79, 88, 65, 28, 7};
-    LearningMetrics metrics30d = {88, 82, 85, 68, 26, 6};
-    LearningMetrics metricsSemester = {90, 85, 87, 70, 24, 6};
+
+    LearningMetrics metrics7d = {
+        {92, 89}, // participation
+        {88, 84}, // homework
+        {79, 82}, // quiz
+        {81, 78}, // knowledge
+        65, 28, 7
+    };
+
+    LearningMetrics metrics30d = {
+        {89, 87},
+        {85, 83},
+        {82, 79},
+        {79, 76},
+        68, 25, 7
+    };
+
+    LearningMetrics metricsSemester = {
+        {90, 88},
+        {86, 84},
+        {85, 82},
+        {83, 80},
+        70, 24, 6
+    };
+
     data["近7天"] = metrics7d;
     data["近30天"] = metrics30d;
     data["本学期"] = metricsSemester;
@@ -126,6 +162,32 @@ void applyCardShadow(QWidget *widget, qreal blurRadius = 24.0, qreal yOffset = 8
     shadow->setColor(QColor(15, 23, 42, 35));
     widget->setGraphicsEffect(shadow);
 }
+
+class ChartClickFilter : public QObject
+{
+public:
+    explicit ChartClickFilter(std::function<void()> handler, QObject *parent = nullptr)
+        : QObject(parent)
+        , onClick(std::move(handler))
+    {
+    }
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (!event || event->type() != QEvent::MouseButtonRelease) {
+            return QObject::eventFilter(watched, event);
+        }
+        auto *mouseEvent = static_cast<QMouseEvent *>(event);
+        if (mouseEvent && mouseEvent->button() == Qt::LeftButton && onClick) {
+            onClick();
+        }
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    std::function<void()> onClick;
+};
 
 }
 
@@ -789,7 +851,12 @@ void ModernMainWindow::createRecentCourses()
 }
 
 // 创建指标项组件 - 紧凑的单行信息
-QWidget* ModernMainWindow::createMetricItem(const QString& name, const QString& value, const QString& color, const QString& tooltip)
+QWidget* ModernMainWindow::createMetricItem(const QString& name,
+                                            const QString& value,
+                                            const QString& color,
+                                            const QString& tooltip,
+                                            const QString& changeText,
+                                            int trendDirection)
 {
     // 容器：单行、高度56px、圆角10、轻底色
     QWidget *row = new QWidget();
@@ -807,6 +874,8 @@ QWidget* ModernMainWindow::createMetricItem(const QString& name, const QString& 
         "  background-color: rgba(25, 118, 210, 0.08);"
         "}"
     ).arg(PATRIOTIC_RED_LIGHT));
+
+    row->setToolTip(tooltip);
 
     // 水平布局
     QHBoxLayout *rowLayout = new QHBoxLayout(row);
@@ -837,16 +906,78 @@ QWidget* ModernMainWindow::createMetricItem(const QString& name, const QString& 
     valueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     valueLabel->setAutoFillBackground(false);  // 确保数值标签也无背景
 
-    // 使用 Consolas 等宽字体
-    QFont valueFont("Consolas");
+    // 使用系统默认字体避免崩溃
+    QFont valueFont = QFont();
     valueFont.setPointSize(20);
     valueFont.setBold(true);
     valueLabel->setFont(valueFont);
     valueLabel->setStyleSheet("color: " + PRIMARY_TEXT + ";");
 
+    QLabel *trendArrowLabel = new QLabel();
+    trendArrowLabel->setObjectName("trendArrowLabel");
+    trendArrowLabel->setFixedSize(22, 22);
+    trendArrowLabel->setAlignment(Qt::AlignCenter);
+    trendArrowLabel->setStyleSheet(QString(
+        "QLabel#trendArrowLabel {"
+        "  border-radius: 11px;"
+        "  background-color: rgba(117, 117, 117, 0.15);"
+        "  color: %1;"
+        "  font-size: 12px;"
+        "  font-weight: bold;"
+        "}"
+    ).arg(SECONDARY_TEXT));
+
+    QLabel *trendLabel = new QLabel();
+    trendLabel->setObjectName("trendLabel");
+    QString trendColor = SECONDARY_TEXT;
+    if (trendDirection > 0) {
+        trendColor = GROWTH_GREEN;
+        trendArrowLabel->setText("↑");
+        trendArrowLabel->setStyleSheet(QString(
+            "QLabel#trendArrowLabel {"
+            "  border-radius: 11px;"
+            "  background-color: rgba(56, 142, 60, 0.15);"
+            "  color: %1;"
+            "  font-size: 12px;"
+            "  font-weight: bold;"
+        "}"
+        ).arg(GROWTH_GREEN));
+    } else if (trendDirection < 0) {
+        trendColor = PATRIOTIC_RED;
+        trendArrowLabel->setText("↓");
+        trendArrowLabel->setStyleSheet(QString(
+            "QLabel#trendArrowLabel {"
+            "  border-radius: 11px;"
+            "  background-color: rgba(229, 57, 53, 0.15);"
+            "  color: %1;"
+            "  font-size: 12px;"
+            "  font-weight: bold;"
+        "}"
+        ).arg(PATRIOTIC_RED));
+    } else {
+        trendArrowLabel->setText("→");
+    }
+
+    QString trendText = changeText.isEmpty() ? QStringLiteral("持平") : changeText;
+    trendLabel->setText(trendText);
+    trendLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    trendLabel->setStyleSheet(QString("color: %1; font-size: 12px; font-weight: 600;").arg(trendColor));
+
+    QVBoxLayout *valueLayout = new QVBoxLayout();
+    valueLayout->setContentsMargins(0, 8, 0, 8);
+    valueLayout->setSpacing(0);
+    valueLayout->addWidget(valueLabel);
+    QHBoxLayout *trendLayout = new QHBoxLayout();
+    trendLayout->setContentsMargins(0, 0, 0, 0);
+    trendLayout->setSpacing(6);
+    trendLayout->addStretch();
+    trendLayout->addWidget(trendArrowLabel);
+    trendLayout->addWidget(trendLabel);
+    valueLayout->addLayout(trendLayout);
+
     // 添加到行布局
-    rowLayout->addLayout(leftLayout);
-    rowLayout->addWidget(valueLabel);
+    rowLayout->addLayout(leftLayout, 1);
+    rowLayout->addLayout(valueLayout);
 
     return row;
 }
@@ -859,6 +990,63 @@ void ModernMainWindow::createLearningAnalytics()
 
     QVBoxLayout *analyticsLayout = new QVBoxLayout(learningAnalyticsFrame);
     analyticsLayout->setSpacing(16);
+
+    const QString defaultRange = "近7天";
+    const QString baseScope = "高二(2)班 · 48名学生";
+    const int sampleSize = 48;
+    QMap<QString, LearningMetrics> dataByRange = createSampleData();
+    LearningMetrics currentMetrics = dataByRange.value(defaultRange);
+    auto currentRangeLabel = QSharedPointer<QString>::create(defaultRange);
+
+    auto computeOverallScore = [](const LearningMetrics &metrics) {
+        qreal sum = metrics.participation.current + metrics.homework.current + metrics.quiz.current + metrics.knowledge.current;
+        return qRound(sum / 4.0);
+    };
+
+    auto formatFormulaText = [](const LearningMetrics &metrics, int overallScore) {
+        return QString("计算：(课堂参与 %1% + 作业完成 %2% + 测验成绩 %3% + 知识掌握 %4%) ÷ 4 = %5%")
+            .arg(metrics.participation.current)
+            .arg(metrics.homework.current)
+            .arg(metrics.quiz.current)
+            .arg(metrics.knowledge.current)
+            .arg(overallScore);
+    };
+
+    auto buildCompletionTooltip = [baseScope, formatFormulaText](const LearningMetrics &metrics, const QString &range, int overallScore) {
+        QString timestamp = QDateTime::currentDateTime().toString("M月d日 hh:mm");
+        return QString("综合完成度 · %1\n%2\n样本范围：%3\n更新时间：%4\n数据来源：课堂互动记录、作业提交、阶段测验、知识图谱评测")
+            .arg(range)
+            .arg(formatFormulaText(metrics, overallScore))
+            .arg(baseScope)
+            .arg(timestamp);
+    };
+
+    auto metricValueByIndex = [](const LearningMetrics &metrics, int index) -> TrendValue {
+        switch (index) {
+            case 0: return metrics.participation;
+            case 1: return metrics.homework;
+            case 2: return metrics.quiz;
+            default: return metrics.knowledge;
+        }
+    };
+
+    auto buildTrendArrowStyle = [](const QString &color) {
+        QString background = "rgba(117, 117, 117, 0.15)";
+        if (color == GROWTH_GREEN) {
+            background = "rgba(56, 142, 60, 0.15)";
+        } else if (color == PATRIOTIC_RED) {
+            background = "rgba(229, 57, 53, 0.15)";
+        }
+        return QString(
+            "QLabel#trendArrowLabel {"
+            "  border-radius: 11px;"
+            "  background-color: %1;"
+            "  color: %2;"
+            "  font-size: 12px;"
+            "  font-weight: bold;"
+            "}"
+        ).arg(background, color);
+    };
 
     // 标题和筛选器的水平布局
     QHBoxLayout *titleLayout = new QHBoxLayout();
@@ -873,7 +1061,7 @@ void ModernMainWindow::createLearningAnalytics()
     // 时间范围选择器 - 统一浅灰底+细描边
     QComboBox *timeRangeCombo = new QComboBox();
     timeRangeCombo->addItems({"近7天", "近30天", "本学期"});
-    timeRangeCombo->setCurrentText("近7天");
+    timeRangeCombo->setCurrentText(defaultRange);
     timeRangeCombo->setStyleSheet(QString(
         "QComboBox {"
         "  background-color: %1;"
@@ -896,6 +1084,7 @@ void ModernMainWindow::createLearningAnalytics()
     ).arg(BACKGROUND_LIGHT, SEPARATOR));
 
     titleLayout->addWidget(timeRangeCombo);
+    timeRangeCombo->setToolTip("切换统计窗口，所有指标与图表将同步更新");
 
     analyticsLayout->addLayout(titleLayout);
 
@@ -914,9 +1103,10 @@ void ModernMainWindow::createLearningAnalytics()
     stackedLayout->setContentsMargins(0, 0, 0, 0);
 
     // 创建环形图 - 设置孔径与尺寸
+    int overallScore = computeOverallScore(currentMetrics);
     QPieSeries *donutSeries = new QPieSeries();
-    donutSeries->append("已完成", 85);
-    donutSeries->append("未完成", 15);
+    donutSeries->append("已完成", overallScore);
+    donutSeries->append("未完成", qMax(0, 100 - overallScore));
     donutSeries->setHoleSize(0.66);
     donutSeries->setPieSize(0.90);
     donutSeries->setPieStartAngle(270);
@@ -928,6 +1118,7 @@ void ModernMainWindow::createLearningAnalytics()
     completedSlice->setBorderColor(Qt::transparent);
     remainingSlice->setColor(QColor(SEPARATOR));
     remainingSlice->setBorderColor(Qt::transparent);
+
 
     QChart *donutChart = new QChart();
     donutChart->addSeries(donutSeries);
@@ -952,10 +1143,10 @@ void ModernMainWindow::createLearningAnalytics()
     centerTextLayout->setAlignment(Qt::AlignCenter);
     centerTextLayout->setSpacing(2);
 
-    QLabel *donutPercentLabel = new QLabel("85%");
+    QLabel *donutPercentLabel = new QLabel(QString::number(overallScore) + "%");
     donutPercentLabel->setObjectName("donutPercentLabel");
     donutPercentLabel->setAlignment(Qt::AlignCenter);
-    QFont donutPercentFont("Consolas");
+    QFont donutPercentFont = QFont();
     donutPercentFont.setPointSize(32);
     donutPercentFont.setBold(true);
     donutPercentLabel->setFont(donutPercentFont);
@@ -981,23 +1172,71 @@ void ModernMainWindow::createLearningAnalytics()
     statsLayout->setHorizontalSpacing(16);
     statsLayout->setVerticalSpacing(12);
 
-    // 指标项颜色语义固定
-    QStringList statLabels = {"课堂参与度", "专注度", "测验正确率", "提问次数"};
-    QStringList statValues = {"92%", "88%", "79%", "12"};
-    QStringList statColors = {PATRIOTIC_RED, WISDOM_BLUE, GROWTH_GREEN, CULTURE_GOLD};
-    QStringList tooltips = {
-        "参与度=到课率×互动率；时间范围受右上角选择影响（默认近7天）",
-        "根据课堂行为数据计算；范围0-100%",
-        "近7天滚动口径；样本量=人×题量",
-        "统计期间内师生提问次数总和"
+    struct MetricMeta {
+        QString name;
+        QString color;
+        QString source;
+    };
+
+    QVector<MetricMeta> metricMeta = {
+        {"课堂参与", PATRIOTIC_RED, "课堂签到 + 互动行为日志"},
+        {"作业完成", WISDOM_BLUE, "作业提交与批改记录"},
+        {"测验成绩", GROWTH_GREEN, "随堂测验与阶段测试"},
+        {"知识掌握", CULTURE_GOLD, "知识点掌握度测评"}
+    };
+
+    const int metricWeightPercent = metricMeta.isEmpty() ? 0 : qRound(100.0 / metricMeta.size());
+
+    auto buildChangeDescription = [](int diff) {
+        if (diff == 0) {
+            return QStringLiteral("与上次持平");
+        }
+        QString sign = diff > 0 ? "+" : "-";
+        return QString("较上次 %1%").arg(sign + QString::number(qAbs(diff)));
+    };
+
+    auto formatMetricTooltip = [baseScope, metricWeightPercent](const MetricMeta &meta, const TrendValue &value, const QString &range) {
+        int diff = value.current - value.previous;
+        QString diffText = diff == 0
+            ? QStringLiteral("变化：持平")
+            : QString("变化：%1%").arg((diff > 0 ? "+" : "-") + QString::number(qAbs(diff)));
+        int contribution = qRound(value.current * metricWeightPercent / 100.0);
+        return QString("%1 · %2\n数据口径：%3\n来源：%4\n当前：%5% · 上次：%6%\n%7 · 权重：%8% · 对完成度贡献 ≈ %9%")
+            .arg(meta.name)
+            .arg(range)
+            .arg(baseScope)
+            .arg(meta.source)
+            .arg(value.current)
+            .arg(value.previous)
+            .arg(diffText)
+            .arg(metricWeightPercent)
+            .arg(contribution);
     };
 
     QList<QLabel*> statValueLabels;
+    QList<QLabel*> statTrendLabels;
+    QList<QLabel*> statTrendArrowLabels;
+    QList<QWidget*> statMetricRows;
+    QVector<QLabel*> breakdownDetailLabels;
 
     // 创建 2×2 指标网格
-    for (int i = 0; i < 4; ++i) {
-        QWidget *metricItem = createMetricItem(statLabels[i], statValues[i], statColors[i], tooltips[i]);
+    for (int i = 0; i < metricMeta.size(); ++i) {
+        TrendValue value = metricValueByIndex(currentMetrics, i);
+        int diff = value.current - value.previous;
+        int direction = diff > 0 ? 1 : (diff < 0 ? -1 : 0);
+        QString changeDescription = buildChangeDescription(diff);
+        QWidget *metricItem = createMetricItem(
+            metricMeta[i].name,
+            QString::number(value.current) + "%",
+            metricMeta[i].color,
+            formatMetricTooltip(metricMeta[i], value, defaultRange),
+            changeDescription,
+            direction
+        );
         statValueLabels.append(metricItem->findChild<QLabel*>("valueLabel"));
+        statTrendLabels.append(metricItem->findChild<QLabel*>("trendLabel"));
+        statTrendArrowLabels.append(metricItem->findChild<QLabel*>("trendArrowLabel"));
+        statMetricRows.append(metricItem);
         statsLayout->addWidget(metricItem, i / 2, i % 2);
     }
 
@@ -1007,17 +1246,161 @@ void ModernMainWindow::createLearningAnalytics()
 
     analyticsLayout->addLayout(topRow);
 
-    // 图表区域 - 使用 Charts 或降级方案
-    chartsContainer = new QWidget();
+    QFrame *completionInfoFrame = new QFrame();
+    completionInfoFrame->setObjectName("completionInfoFrame");
+    completionInfoFrame->setStyleSheet(QString(
+        "QFrame#completionInfoFrame {"
+        "  background-color: rgba(239, 83, 80, 0.06);"
+        "  border: 1px dashed %1;"
+        "  border-radius: 12px;"
+        "}"
+    ).arg(PATRIOTIC_RED));
+
+    QVBoxLayout *completionInfoLayout = new QVBoxLayout(completionInfoFrame);
+    completionInfoLayout->setContentsMargins(16, 12, 16, 12);
+    completionInfoLayout->setSpacing(4);
+
+    QLabel *completionScopeLabel = new QLabel();
+    completionScopeLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 12px;");
+    QLabel *completionFormulaLabel = new QLabel();
+    completionFormulaLabel->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 13px; font-weight: 500;");
+    completionFormulaLabel->setWordWrap(true);
+    QLabel *completionSourceLabel = new QLabel("数据来源：课堂互动记录 · 作业提交 · 随堂测验 · 知识图谱评测");
+    completionSourceLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 12px;");
+    completionSourceLabel->setWordWrap(true);
+
+    completionInfoLayout->addWidget(completionScopeLabel);
+    completionInfoLayout->addWidget(completionFormulaLabel);
+    completionInfoLayout->addWidget(completionSourceLabel);
+
+    analyticsLayout->addWidget(completionInfoFrame);
+
+    QFrame *completionBreakdownFrame = new QFrame();
+    completionBreakdownFrame->setObjectName("completionBreakdownFrame");
+    completionBreakdownFrame->setStyleSheet(QString(
+        "QFrame#completionBreakdownFrame {"
+        "  background-color: %1;"
+        "  border: 1px solid rgba(33, 33, 33, 0.05);"
+        "  border-radius: 12px;"
+        "}"
+    ).arg(ULTRA_LIGHT_GRAY));
+
+    QVBoxLayout *breakdownLayout = new QVBoxLayout(completionBreakdownFrame);
+    breakdownLayout->setContentsMargins(16, 12, 16, 12);
+    breakdownLayout->setSpacing(6);
+
+    QLabel *breakdownTitle = new QLabel("完成度拆解");
+    breakdownTitle->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 14px; font-weight: 600;");
+    QLabel *breakdownSubtitle = new QLabel("总体完成度由四项核心指标等权（25%）构成，方便定位提升抓手");
+    breakdownSubtitle->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 12px;");
+    breakdownSubtitle->setWordWrap(true);
+
+    QGridLayout *breakdownGrid = new QGridLayout();
+    breakdownGrid->setContentsMargins(0, 0, 0, 0);
+    breakdownGrid->setHorizontalSpacing(12);
+    breakdownGrid->setVerticalSpacing(4);
+    breakdownGrid->setColumnStretch(0, 1);
+    breakdownGrid->setColumnStretch(1, 2);
+
+    for (int i = 0; i < metricMeta.size(); ++i) {
+        QLabel *label = new QLabel(QString("%1（权重%2%）").arg(metricMeta[i].name).arg(metricWeightPercent));
+        label->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 12px;");
+        QLabel *detail = new QLabel("--");
+        detail->setObjectName(QString("breakdownDetail_%1").arg(i));
+        detail->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 13px; font-weight: 500;");
+        detail->setWordWrap(true);
+        breakdownDetailLabels.append(detail);
+
+        breakdownGrid->addWidget(label, i, 0);
+        breakdownGrid->addWidget(detail, i, 1);
+    }
+
+    QLabel *breakdownFootnote = new QLabel(QString("数据口径：%1 · 样本数：%2人").arg(baseScope).arg(sampleSize));
+    breakdownFootnote->setStyleSheet("color: " + LIGHT_TEXT + "; font-size: 11px;");
+
+    breakdownLayout->addWidget(breakdownTitle);
+    breakdownLayout->addWidget(breakdownSubtitle);
+    breakdownLayout->addLayout(breakdownGrid);
+    breakdownLayout->addWidget(breakdownFootnote);
+
+    analyticsLayout->addWidget(completionBreakdownFrame);
+
+    auto refreshBreakdownDetails = [breakdownDetailLabels,
+                                    metricMeta,
+                                    metricWeightPercent,
+                                    metricValueByIndex,
+                                    formatMetricTooltip](const LearningMetrics &metrics, const QString &range) {
+        for (int i = 0; i < breakdownDetailLabels.size() && i < metricMeta.size(); ++i) {
+            TrendValue value = metricValueByIndex(metrics, i);
+            int diff = value.current - value.previous;
+            QString diffText = diff == 0
+                ? QStringLiteral("Δ0%（持平）")
+                : QString("Δ%1%").arg((diff > 0 ? "+" : "-") + QString::number(qAbs(diff)));
+            int contribution = qRound(value.current * metricWeightPercent / 100.0);
+            QString text = QString("当前%1% · %2 · 对完成度贡献≈%3%")
+                .arg(value.current)
+                .arg(diffText)
+                .arg(contribution);
+            QLabel *detailLabel = breakdownDetailLabels[i];
+            if (detailLabel) {
+                detailLabel->setText(text);
+                detailLabel->setToolTip(formatMetricTooltip(metricMeta[i], value, range));
+            }
+        }
+    };
+
+    auto refreshCompletionInfo = [completionScopeLabel,
+                                  completionFormulaLabel,
+                                  completionInfoFrame,
+                                  donutPercentLabel,
+                                  donutTitleLabel,
+                                  donutChartView,
+                                  completedSlice,
+                                  remainingSlice,
+                                  baseScope,
+                                  formatFormulaText,
+                                  buildCompletionTooltip,
+                                  refreshBreakdownDetails,
+                                  computeOverallScore](const LearningMetrics &metrics, const QString &range) {
+        int score = computeOverallScore(metrics);
+        int remaining = qMax(0, 100 - score);
+        completionScopeLabel->setText(QString("统计范围：%1 · %2").arg(range, baseScope));
+        completionFormulaLabel->setText(formatFormulaText(metrics, score));
+        QString tooltip = buildCompletionTooltip(metrics, range, score);
+        completionInfoFrame->setToolTip(tooltip);
+        donutPercentLabel->setText(QString::number(score) + "%");
+        donutPercentLabel->setToolTip(tooltip);
+        donutTitleLabel->setToolTip(tooltip);
+        donutChartView->setToolTip(tooltip);
+        completedSlice->setValue(score);
+        // completedSlice->setToolTip(tooltip); // QPieSlice没有setToolTip方法
+        remainingSlice->setValue(remaining);
+        // remainingSlice->setToolTip(QString("未完成 %1% · 待跟进任务 = 计划 - 已完成").arg(remaining)); // QPieSlice没有setToolTip方法
+        refreshBreakdownDetails(metrics, range);
+    };
+
+    refreshCompletionInfo(currentMetrics, defaultRange);
+
+    // 图表区域（独立卡片，右侧展示）
+    chartsContainer = new QFrame();
+    chartsContainer->setObjectName("analyticsChartsCard");
+    chartsContainer->setStyleSheet(buildCardStyle("QFrame#analyticsChartsCard"));
+    chartsContainer->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
+    chartsContainer->setMaximumWidth(360);
+    applyCardShadow(chartsContainer, 22.0, 8.0);
     QVBoxLayout *chartsLayout = new QVBoxLayout(chartsContainer);
-    chartsLayout->setSpacing(16);
+    chartsLayout->setContentsMargins(20, 20, 20, 20);
+    chartsLayout->setSpacing(12);
 
     // 设置learningAnalyticsFrame的SizePolicy
     learningAnalyticsFrame->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 
+    const int compactChartHeight = 220;
+
     // 图表1：柱状图 - 课堂参与度/测验正确率/专注度对比
     QWidget *barChartContainer = new QWidget();
     barChartContainer->setObjectName("barChart");
+    barChartContainer->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     QVBoxLayout *barLayout = new QVBoxLayout(barChartContainer);
     barLayout->setContentsMargins(16, 16, 16, 16);
     barLayout->setSpacing(8);
@@ -1030,18 +1413,45 @@ void ModernMainWindow::createLearningAnalytics()
     barChartView->setObjectName("barChartView");
     barChartView->setStyleSheet("QChartView { border: none; background: transparent; }");
     barChartView->setAutoFillBackground(false);  // 禁止自动填充背景
+    barChartView->setToolTip("悬停柱体查看当前/上次/目标的具体数值");
+    barChartView->setMinimumHeight(compactChartHeight);
+    barChartView->setMaximumHeight(compactChartHeight + 30);
+    barChartView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
     // 创建柱状图数据
-    QBarSet *set0 = new QBarSet("参与度");
-    QBarSet *set1 = new QBarSet("正确率");
-    QBarSet *set2 = new QBarSet("专注度");
-    *set0 << 92 << 79 << 88;
-    *set1 << 88 << 82 << 85;
-    *set2 << 90 << 85 << 87;
+    QBarSet *set0 = new QBarSet("课堂参与");
+    QBarSet *set1 = new QBarSet("作业完成");
+    QBarSet *set2 = new QBarSet("测验成绩");
+    int participationTarget = qMin(100, currentMetrics.participation.current + 3);
+    int homeworkTarget = qMin(100, currentMetrics.homework.current + 2);
+    int quizTarget = qMin(100, currentMetrics.quiz.current + 4);
+    *set0 << currentMetrics.participation.current << currentMetrics.participation.previous << participationTarget;
+    *set1 << currentMetrics.homework.current << currentMetrics.homework.previous << homeworkTarget;
+    *set2 << currentMetrics.quiz.current << currentMetrics.quiz.previous << quizTarget;
 
     set0->setColor(QColor(PATRIOTIC_RED));
     set1->setColor(QColor(WISDOM_BLUE));
     set2->setColor(QColor(GROWTH_GREEN));
+
+    auto formatBarTooltip = [baseScope](const QString &label, int current, int previous, int target, const QString &range) {
+        int diff = current - previous;
+        QString diffText = diff == 0
+            ? QStringLiteral("Δ0%（持平）")
+            : QString("Δ%1%").arg((diff > 0 ? "+" : "-") + QString::number(qAbs(diff)));
+        return QString("%1 · %2\n当前：%3% · 上次：%4% · %5\n目标值：%6%\n数据口径：%7")
+            .arg(label)
+            .arg(range)
+            .arg(current)
+            .arg(previous)
+            .arg(diffText)
+            .arg(target)
+            .arg(baseScope);
+    };
+    // set0->setToolTip(formatBarTooltip("课堂参与", currentMetrics.participation.current, currentMetrics.participation.previous, participationTarget, defaultRange)); // QBarSet没有setToolTip方法
+    // set1->setToolTip(formatBarTooltip("作业完成", currentMetrics.homework.current, currentMetrics.homework.previous, homeworkTarget, defaultRange)); // QBarSet没有setToolTip方法
+    // set2->setToolTip(formatBarTooltip("测验成绩", currentMetrics.quiz.current, currentMetrics.quiz.previous, quizTarget, defaultRange)); // QBarSet没有setToolTip方法
+
+    QStringList comparisonBuckets = {"当前值", "上次值", "目标值"};
 
     QBarSeries *barSeries = new QBarSeries();
     barSeries->append(set0);
@@ -1073,6 +1483,7 @@ void ModernMainWindow::createLearningAnalytics()
     QWidget *pieChartContainer = new QWidget();
     pieChartContainer->setObjectName("pieChart");
     pieChartContainer->setAutoFillBackground(false);  // 禁止自动填充背景
+    pieChartContainer->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     QVBoxLayout *pieLayout = new QVBoxLayout(pieChartContainer);
     pieLayout->setContentsMargins(16, 16, 16, 16);
     pieLayout->setSpacing(8);
@@ -1085,6 +1496,10 @@ void ModernMainWindow::createLearningAnalytics()
     pieChartView->setObjectName("pieChartView");
     pieChartView->setStyleSheet("QChartView { border: none; background: transparent; }");
     pieChartView->setAutoFillBackground(false);  // 禁止自动填充背景
+    pieChartView->setToolTip("悬停或点击扇区查看掌握水平和人数换算");
+    pieChartView->setMinimumHeight(compactChartHeight);
+    pieChartView->setMaximumHeight(compactChartHeight + 30);
+    pieChartView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
     QPieSeries *pieSeries = new QPieSeries();
     pieSeries->append("掌握", 65);
@@ -1097,6 +1512,19 @@ void ModernMainWindow::createLearningAnalytics()
     slice0->setColor(QColor(GROWTH_GREEN));
     slice1->setColor(QColor(WISDOM_BLUE));
     slice2->setColor(QColor(ACADEMIC_PURPLE));
+
+    auto formatSliceTooltip = [sampleSize, baseScope](const QString &label, int percent, const QString &range) {
+        int students = qRound((percent / 100.0) * sampleSize);
+        return QString("%1 · %2\n占比：%3%（约%4人）\n数据口径：%5")
+            .arg(label)
+            .arg(range)
+            .arg(percent)
+            .arg(students)
+            .arg(baseScope);
+    };
+    // slice0->setToolTip(formatSliceTooltip("掌握", static_cast<int>(slice0->value()), defaultRange)); // QPieSlice没有setToolTip方法
+    // slice1->setToolTip(formatSliceTooltip("基本掌握", static_cast<int>(slice1->value()), defaultRange)); // QPieSlice没有setToolTip方法
+    // slice2->setToolTip(formatSliceTooltip("需巩固", static_cast<int>(slice2->value()), defaultRange)); // QPieSlice没有setToolTip方法
 
     slice0->setLabelVisible(true);
     slice1->setLabelVisible(true);
@@ -1116,54 +1544,197 @@ void ModernMainWindow::createLearningAnalytics()
     pieLayout->addWidget(pieTitle);
     pieLayout->addWidget(pieChartView);
 
+    auto openChartDialog = [this](const QString &title, const std::function<QChart *()> &chartBuilder) {
+        if (!chartBuilder) {
+            return;
+        }
+        QChart *chart = chartBuilder();
+        if (!chart) {
+            return;
+        }
+        QDialog dialog(this);
+        dialog.setWindowTitle(title);
+        dialog.setModal(true);
+        dialog.resize(860, 560);
+        QVBoxLayout *dialogLayout = new QVBoxLayout(&dialog);
+        QChartView *dialogChartView = new QChartView(chart, &dialog);
+        dialogChartView->setRenderHint(QPainter::Antialiasing);
+        dialogChartView->setStyleSheet("QChartView { border: none; background: transparent; }");
+        dialogLayout->addWidget(dialogChartView);
+        dialog.exec();
+    };
+
+    std::function<QChart *()> barChartBuilder = [barSeries]() -> QChart* {
+        if (!barSeries) {
+            return nullptr;
+        }
+        QBarSeries *seriesCopy = new QBarSeries();
+        for (QBarSet *set : barSeries->barSets()) {
+            if (!set) {
+                continue;
+            }
+            QBarSet *copy = new QBarSet(set->label());
+            for (int valueIndex = 0; valueIndex < set->count(); ++valueIndex) {
+                *copy << set->at(valueIndex);
+            }
+            copy->setColor(set->brush().color());
+            copy->setLabelColor(set->labelColor());
+            seriesCopy->append(copy);
+        }
+        QChart *chartCopy = new QChart();
+        chartCopy->addSeries(seriesCopy);
+        chartCopy->setTitle("三维度评分对比");
+        chartCopy->setBackgroundBrush(Qt::NoBrush);
+        chartCopy->setAnimationOptions(QChart::SeriesAnimations);
+        chartCopy->createDefaultAxes();
+        chartCopy->axisY()->setRange(0, 100);
+        QFont axisFont("PingFang SC", 12);
+        chartCopy->axisX()->setLabelsFont(axisFont);
+        chartCopy->axisY()->setLabelsFont(axisFont);
+        chartCopy->axisX()->setLabelsColor(QColor(PRIMARY_TEXT));
+        chartCopy->axisY()->setLabelsColor(QColor(PRIMARY_TEXT));
+        chartCopy->legend()->setAlignment(Qt::AlignBottom);
+        return chartCopy;
+    };
+
+    std::function<QChart *()> pieChartBuilder = [pieSeries]() -> QChart* {
+        if (!pieSeries) {
+            return nullptr;
+        }
+        QPieSeries *seriesCopy = new QPieSeries();
+        for (QPieSlice *slice : pieSeries->slices()) {
+            if (!slice) {
+                continue;
+            }
+            QPieSlice *copy = new QPieSlice(slice->label(), slice->value());
+            copy->setColor(slice->brush().color());
+            copy->setLabelVisible(true);
+            seriesCopy->append(copy);
+        }
+        QChart *chartCopy = new QChart();
+        chartCopy->addSeries(seriesCopy);
+        chartCopy->setTitle("知识点掌握分布");
+        chartCopy->setBackgroundBrush(Qt::NoBrush);
+        chartCopy->setAnimationOptions(QChart::SeriesAnimations);
+        chartCopy->legend()->setAlignment(Qt::AlignBottom);
+        return chartCopy;
+    };
+
+    const auto installChartMagnifier =
+        [openChartDialog](QChartView *view, const QString &title, const std::function<QChart *()> &builder) {
+            if (!view || !builder) {
+                return;
+            }
+            QString tooltip = view->toolTip();
+            if (!tooltip.contains(QStringLiteral("点击可放大查看"))) {
+                tooltip = tooltip.isEmpty()
+                    ? QStringLiteral("点击可放大查看")
+                    : tooltip + QStringLiteral("\n点击可放大查看");
+                view->setToolTip(tooltip);
+            }
+            view->setCursor(Qt::PointingHandCursor);
+            view->viewport()->installEventFilter(new ChartClickFilter([title, builder, openChartDialog]() {
+                openChartDialog(title, builder);
+            }, view));
+        };
+
+    installChartMagnifier(barChartView, QStringLiteral("三维度评分对比"), barChartBuilder);
+    installChartMagnifier(pieChartView, QStringLiteral("知识点掌握分布"), pieChartBuilder);
+
     // 图表容器布局
     chartsLayout->addWidget(barChartContainer);
     chartsLayout->addWidget(pieChartContainer);
-
-    // 将图表容器添加到学情分析布局（供外部调用者使用）
-    analyticsLayout->addWidget(chartsContainer);
 
     // 降级提示
     QLabel *fallbackNote = new QLabel("未启用 Qt Charts，已降级为基础视图");
     fallbackNote->setStyleSheet("color: " + LIGHT_TEXT + "; font-size: 12px; font-style: italic;");
     fallbackNote->setVisible(false);
+    fallbackNote->setAlignment(Qt::AlignCenter);
+    chartsLayout->addWidget(fallbackNote);
+    chartsLayout->addStretch();
 
     // 连接时间范围选择器的信号
     connect(timeRangeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-        [this, timeRangeCombo, donutPercentLabel, statValueLabels, barSeries, pieSeries, donutSeries](int index) {
+        [this,
+         timeRangeCombo,
+         dataByRange,
+         defaultRange,
+         currentMetrics,
+         metricMeta,
+         statValueLabels,
+         statTrendLabels,
+         statTrendArrowLabels,
+         statMetricRows,
+         buildChangeDescription,
+         formatMetricTooltip,
+         metricValueByIndex,
+         barSeries,
+         pieSeries,
+         formatBarTooltip,
+         formatSliceTooltip,
+         refreshCompletionInfo,
+         buildTrendArrowStyle,
+         computeOverallScore,
+         currentRangeLabel](int) {
             QString range = timeRangeCombo->currentText();
-            QMap<QString, LearningMetrics> data = createSampleData();
-            LearningMetrics metrics = data[range];
+            *currentRangeLabel = range;
+            LearningMetrics metrics = dataByRange.value(range, dataByRange.value(defaultRange, currentMetrics));
+            refreshCompletionInfo(metrics, range);
 
-            // 更新环形图
-            int overallScore = (int)((metrics.engagement * 0.4 + metrics.accuracy * 0.4 + metrics.focus * 0.2));
-            donutPercentLabel->setText(QString::number(overallScore) + "%");
-            QList<QPieSlice*> donutSlices = donutSeries->slices();
-            donutSlices[0]->setValue(overallScore);
-            donutSlices[1]->setValue(100 - overallScore);
+            for (int i = 0; i < metricMeta.size(); ++i) {
+                TrendValue value = metricValueByIndex(metrics, i);
+                int diff = value.current - value.previous;
+                int direction = diff > 0 ? 1 : (diff < 0 ? -1 : 0);
 
-            // 更新统计数据
-            statValueLabels[0]->setText(QString::number(metrics.engagement) + "%");
-            statValueLabels[1]->setText(QString::number(metrics.focus) + "%");
-            statValueLabels[2]->setText(QString::number(metrics.accuracy) + "%");
+                if (i < statValueLabels.size() && statValueLabels[i]) {
+                    statValueLabels[i]->setText(QString::number(value.current) + "%");
+                }
+                if (i < statTrendLabels.size() && statTrendLabels[i]) {
+                    QString changeDescription = buildChangeDescription(diff);
+                    QString arrow = direction > 0 ? "↑" : (direction < 0 ? "↓" : "→");
+                    QString trendColor = direction > 0 ? GROWTH_GREEN : (direction < 0 ? PATRIOTIC_RED : SECONDARY_TEXT);
+                    statTrendLabels[i]->setText(changeDescription);
+                    statTrendLabels[i]->setStyleSheet(QString("color: %1; font-size: 12px; font-weight: 600;").arg(trendColor));
+                    if (i < statTrendArrowLabels.size() && statTrendArrowLabels[i]) {
+                        statTrendArrowLabels[i]->setText(arrow);
+                        statTrendArrowLabels[i]->setStyleSheet(buildTrendArrowStyle(trendColor));
+                    }
+                }
+                if (i < statMetricRows.size() && statMetricRows[i]) {
+                    statMetricRows[i]->setToolTip(formatMetricTooltip(metricMeta[i], value, range));
+                }
+            }
 
-            // 更新柱状图数据
             QList<QBarSet*> sets = barSeries->barSets();
-            sets[0]->remove(0, sets[0]->count());
-            sets[1]->remove(0, sets[1]->count());
-            sets[2]->remove(0, sets[2]->count());
-            *sets[0] << metrics.engagement << (metrics.engagement + 5) << (metrics.engagement - 3);
-            *sets[1] << metrics.accuracy << (metrics.accuracy + 3) << (metrics.accuracy - 4);
-            *sets[2] << metrics.focus << (metrics.focus + 2) << (metrics.focus - 5);
+            auto updateSet = [&](QBarSet *set, const TrendValue &value, const QString &label, int offset) {
+                if (!set) {
+                    return;
+                }
+                set->remove(0, set->count());
+                int target = qMin(100, value.current + offset);
+                *set << value.current << value.previous << target;
+                // set->setToolTip(formatBarTooltip(label, value.current, value.previous, target, range)); // QBarSet没有setToolTip方法
+            };
 
-            // 更新饼图数据
+            if (sets.size() >= 3) {
+                updateSet(sets[0], metrics.participation, "课堂参与", 3);
+                updateSet(sets[1], metrics.homework, "作业完成", 2);
+                updateSet(sets[2], metrics.quiz, "测验成绩", 4);
+            }
+
             QList<QPieSlice*> slices = pieSeries->slices();
-            slices[0]->setValue(metrics.mastery);
-            slices[1]->setValue(metrics.partial);
-            slices[2]->setValue(metrics.needsWork);
+            if (slices.size() >= 3) {
+                slices[0]->setValue(metrics.mastery);
+                // slices[0]->setToolTip(formatSliceTooltip("掌握", metrics.mastery, range)); // QPieSlice没有setToolTip方法
+                slices[1]->setValue(metrics.partial);
+                // slices[1]->setToolTip(formatSliceTooltip("基本掌握", metrics.partial, range)); // QPieSlice没有setToolTip方法
+                slices[2]->setValue(metrics.needsWork);
+                // slices[2]->setToolTip(formatSliceTooltip("需巩固", metrics.needsWork, range)); // QPieSlice没有setToolTip方法
+            }
 
-            // 更新状态栏
-            this->statusBar()->showMessage("学情分析 · " + range);
+            this->statusBar()->showMessage(
+                QString("学情分析 · %1 · 综合完成度 %2%").arg(range).arg(computeOverallScore(metrics))
+            );
         });
 
     // 图表交互
@@ -1171,9 +1742,46 @@ void ModernMainWindow::createLearningAnalytics()
         this->statusBar()->showMessage("柱状图点击：可查看班级/学生下钻（示例）");
     });
 
+    connect(barSeries, &QBarSeries::hovered, this,
+        [barChartView, comparisonBuckets, currentRangeLabel, baseScope](bool status, int index, QBarSet *set) {
+            if (!status || !set) {
+                return;
+            }
+            QString dimension = (index >= 0 && index < comparisonBuckets.size())
+                ? comparisonBuckets[index]
+                : QString("维度%1").arg(index + 1);
+            QString bucketHint;
+            if (dimension == "当前值") {
+                bucketHint = QStringLiteral("当前表现");
+            } else if (dimension == "上次值") {
+                bucketHint = QStringLiteral("上次表现");
+            } else if (dimension == "目标值") {
+                bucketHint = QStringLiteral("教师设定目标");
+            } else {
+                bucketHint = dimension;
+            }
+            QString text = QString("%1 · %2（%3）\n数值：%4%\n数据口径：%5 · %6")
+                .arg(set->label())
+                .arg(*currentRangeLabel)
+                .arg(dimension)
+                .arg(QString::number(set->at(index), 'f', 0))
+                .arg(baseScope)
+                .arg(bucketHint);
+            QToolTip::showText(QCursor::pos(), text, barChartView);
+        });
+
     connect(pieSeries, &QPieSeries::clicked, this, [this](QPieSlice *slice) {
         this->statusBar()->showMessage("饼图点击：可查看知识点详细分析（示例）");
     });
+
+    connect(pieSeries, &QPieSeries::hovered, this,
+        [pieChartView, formatSliceTooltip, currentRangeLabel](QPieSlice *slice, bool state) {
+            if (!state || !slice) {
+                return;
+            }
+            QString text = formatSliceTooltip(slice->label(), static_cast<int>(slice->value()), *currentRangeLabel);
+            QToolTip::showText(QCursor::pos(), text, pieChartView);
+        });
 }
 
 void ModernMainWindow::createRecentActivities()
@@ -1318,9 +1926,19 @@ void ModernMainWindow::createDashboard()
     leftStack->addWidget(recentCoursesFrame);
     leftStack->addWidget(learningAnalyticsFrame);
 
+    // 右列：近期活动 + 图表
+    QFrame *rightStackFrame = new QFrame();
+    QVBoxLayout *rightStack = new QVBoxLayout(rightStackFrame);
+    rightStack->setContentsMargins(0, 0, 0, 0);
+    rightStack->setSpacing(24);
+    rightStack->addWidget(recentActivitiesFrame);
+    if (chartsContainer) {
+        rightStack->addWidget(chartsContainer);
+    }
+
     // 放入网格
     grid->addWidget(leftStackFrame, 0, 0, Qt::AlignTop | Qt::AlignLeft);
-    grid->addWidget(recentActivitiesFrame, 0, 1, Qt::AlignTop | Qt::AlignLeft);
+    grid->addWidget(rightStackFrame, 0, 1, Qt::AlignTop | Qt::AlignLeft);
 
     // 添加到滚动布局
     scrollLayout->addWidget(dashboardGridFrame);
