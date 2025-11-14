@@ -104,10 +104,10 @@ void SimpleLoginWindow::setupUI()
     translationLabel = new QLabel("\"Study for the rise of China.\"");
     translationLabel->setStyleSheet("color: #D4C5A0; font-size: 14px;");
 
-    // 添加中心图片 - 适配您界面中的图片样式
+    // 添加小logo图片到左上方
     QLabel *imageLabel = new QLabel();
-    imageLabel->setFixedSize(400, 400); // 更大的尺寸
-    imageLabel->setAlignment(Qt::AlignCenter);
+    imageLabel->setFixedSize(160, 160); // 放大到160x80
+    imageLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     imageLabel->setScaledContents(true);
 
     // 加载实际图片
@@ -123,33 +123,35 @@ void SimpleLoginWindow::setupUI()
             qDebug() << "图片加载成功（绝对路径），尺寸:" << pixmap.size();
         } else {
             qDebug() << "图片加载失败，显示占位符";
-            imageLabel->setText("图片加载失败");
+            imageLabel->setText("Logo");
             imageLabel->setStyleSheet(
                 "QLabel {"
                 "  color: #C9A64E;"
-                "  font-size: 16px;"
+                "  font-size: 12px;"
                 "  background-color: rgba(255, 255, 255, 0.2);"
                 "  border: 1px solid #C9A64E;"
-                "  border-radius: 8px;"
-                "  padding: 10px;"
+                "  border-radius: 4px;"
+                "  padding: 5px;"
                 "}"
             );
         }
     }
 
-    // 左侧布局
-    leftLayout->addStretch();
-    leftLayout->addWidget(imageLabel);
+    // 左侧布局 - logo在左上方，文字在中间
+    leftLayout->addWidget(imageLabel, 0, Qt::AlignLeft | Qt::AlignTop);
+    leftLayout->addStretch(); // 上方弹簧
+
+    // 中间区域放置文字内容
+    leftLayout->addWidget(mottoLabel, 0, Qt::AlignCenter);
+    leftLayout->addWidget(mottoEnglish, 0, Qt::AlignCenter);
     leftLayout->addSpacing(30);
-    leftLayout->addWidget(mottoLabel);
-    leftLayout->addWidget(mottoEnglish);
-    leftLayout->addSpacing(40);
-    leftLayout->addWidget(separator);
-    leftLayout->addSpacing(40);
-    leftLayout->addWidget(quoteLabel);
-    leftLayout->addWidget(authorLabel);
-    leftLayout->addWidget(translationLabel);
-    leftLayout->addStretch();
+    leftLayout->addWidget(separator, 0, Qt::AlignCenter);
+    leftLayout->addSpacing(30);
+    leftLayout->addWidget(quoteLabel, 0, Qt::AlignCenter);
+    leftLayout->addWidget(authorLabel, 0, Qt::AlignCenter);
+    leftLayout->addWidget(translationLabel, 0, Qt::AlignCenter);
+
+    leftLayout->addStretch(); // 下方弹簧
 
     // 右侧面板 - 白色背景，登录表单，更紧凑的布局
     rightPanel = new QFrame();
