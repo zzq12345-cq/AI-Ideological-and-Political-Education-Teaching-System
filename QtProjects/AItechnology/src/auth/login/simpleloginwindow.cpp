@@ -4,6 +4,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QIcon>
+#include <QSize>
 #include <QEvent>
 #include <QTimer>
 #include <QDebug>
@@ -13,6 +14,8 @@ SimpleLoginWindow::SimpleLoginWindow(QWidget *parent)
     : QWidget(parent)
     , m_supabaseClient(new SupabaseClient(this))
     , m_settings(new QSettings(this))
+    , m_eyeShowIcon(QIcon(QStringLiteral(":/images/眼睛_显示.png")))
+    , m_eyeHideIcon(QIcon(QStringLiteral(":/images/眼睛_隐藏.png")))
 {
     setupUI();  // 设置UI组件
     setupStyle(); // 设置样式
@@ -230,10 +233,31 @@ void SimpleLoginWindow::setupUI()
     );
 
     // 创建眼睛按钮，放在密码框内部右侧
-    togglePasswordBtn = new QPushButton("👁", passwordEdit);  // 设置父对象为passwordEdit
+    togglePasswordBtn = new QPushButton(passwordEdit);  // 设置父对象为passwordEdit
     togglePasswordBtn->setFixedSize(30, 30);
     togglePasswordBtn->setCursor(Qt::PointingHandCursor);
     togglePasswordBtn->move(passwordEdit->width() - 40, (passwordEdit->height() - 30) / 2);  // 定位到右侧
+
+    // 测试图标加载，如果资源路径不行就用绝对路径
+    QIcon showIcon, hideIcon;
+    if (!m_eyeShowIcon.isNull()) {
+        showIcon = m_eyeShowIcon;
+        qDebug() << "使用资源路径加载显示图标";
+    } else {
+        showIcon = QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_显示.png");
+        qDebug() << "使用绝对路径加载显示图标";
+    }
+
+    if (!m_eyeHideIcon.isNull()) {
+        hideIcon = m_eyeHideIcon;
+        qDebug() << "使用资源路径加载隐藏图标";
+    } else {
+        hideIcon = QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_隐藏.png");
+        qDebug() << "使用绝对路径加载隐藏图标";
+    }
+
+    togglePasswordBtn->setIcon(passwordEdit->echoMode() == QLineEdit::Password ? hideIcon : showIcon);
+    togglePasswordBtn->setIconSize(QSize(28, 28));
     togglePasswordBtn->setStyleSheet(
         "QPushButton {"
         "  border: none;"
@@ -388,10 +412,18 @@ void SimpleLoginWindow::setupUI()
     connect(togglePasswordBtn, &QPushButton::clicked, [this]() {
         if (passwordEdit->echoMode() == QLineEdit::Password) {
             passwordEdit->setEchoMode(QLineEdit::Normal);
-            togglePasswordBtn->setText("👁‍🗨");
+            // 使用相同的逻辑加载显示图标
+            QIcon showIcon = !m_eyeShowIcon.isNull() ?
+                           m_eyeShowIcon :
+                           QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_显示.png");
+            togglePasswordBtn->setIcon(showIcon);
         } else {
             passwordEdit->setEchoMode(QLineEdit::Password);
-            togglePasswordBtn->setText("👁");
+            // 使用相同的逻辑加载隐藏图标
+            QIcon hideIcon = !m_eyeHideIcon.isNull() ?
+                           m_eyeHideIcon :
+                           QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_隐藏.png");
+            togglePasswordBtn->setIcon(hideIcon);
         }
     });
 
