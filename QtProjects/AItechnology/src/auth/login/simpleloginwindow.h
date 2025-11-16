@@ -15,6 +15,7 @@
 #include <QSettings>
 #include <QCoreApplication>
 #include <QApplication>
+#include <QIcon>
 #include "../supabase/supabaseclient.h"
 #include "../supabase/supabaseconfig.h"
 #include "../signup/signupwindow.h"
@@ -80,6 +81,8 @@ private:
     QCheckBox *rememberMeCheck;
     QPushButton *forgotPasswordBtn;
     QPushButton *loginButton;
+    QIcon m_eyeShowIcon;
+    QIcon m_eyeHideIcon;
 
     // 记住我功能
     QSettings *m_settings;

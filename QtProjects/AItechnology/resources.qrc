@@ -1,6 +1,8 @@
 <RCC>
     <qresource prefix="/images">
         <file>src/shared/resources/download.png</file>
+        <file>images/眼睛_显示.png</file>
+        <file>images/眼睛_隐藏.png</file>
     </qresource>
     <qresource prefix="/styles">
         <file>resources/styles/auth.qss</file>
