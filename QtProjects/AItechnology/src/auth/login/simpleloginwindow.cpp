@@ -50,8 +50,8 @@ void SimpleLoginWindow::setupUI()
 
     // 首先设置基本窗口属性
     setWindowTitle("思想政治智慧课堂");
-    resize(1200, 700);
-    setMinimumSize(800, 600);
+    resize(1400, 900);
+    setMinimumSize(1000, 800);
 
     qDebug() << "窗口基本属性设置完成";
 
@@ -153,8 +153,43 @@ void SimpleLoginWindow::setupUI()
     leftLayout->addWidget(quoteLabel, 0, Qt::AlignCenter);
     leftLayout->addWidget(authorLabel, 0, Qt::AlignCenter);
     leftLayout->addWidget(translationLabel, 0, Qt::AlignCenter);
+    leftLayout->addStretch(); // 中间弹簧
 
-    leftLayout->addStretch(); // 下方弹簧
+    // 添加天安门图片到底部 - 显示完整的城楼建筑
+    QLabel *tiananmenLabel = new QLabel();
+    tiananmenLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    tiananmenLabel->setAlignment(Qt::AlignCenter);
+    tiananmenLabel->setScaledContents(true); // 允许缩放，显示完整的楼
+
+    // 加载天安门图片
+    QPixmap tiananmenPixmap("/Users/zhouzhiqi/QtProjects/AItechnology/images/摄图网_401630316_天安门(非营利使用).png");
+    if (!tiananmenPixmap.isNull()) {
+        tiananmenLabel->setPixmap(tiananmenPixmap);
+        qDebug() << "天安门图片加载成功，原始尺寸:" << tiananmenPixmap.size();
+        tiananmenLabel->setStyleSheet(
+            "QLabel {"
+            "  margin: 0px;"
+            "  padding: 0px;"
+            "  border: none;"
+            "  background-color: transparent;"
+            "}"
+        );
+    } else {
+        qDebug() << "天安门图片加载失败";
+        tiananmenLabel->setText("天安门");
+        tiananmenLabel->setStyleSheet(
+            "QLabel {"
+            "  color: #C9A64E;"
+            "  font-size: 24px;"
+            "  margin: 0px;"
+            "  padding: 0px;"
+            "  border: none;"
+            "}"
+        );
+    }
+
+    // 让天安门图片占据更大空间，显示完整的城楼建筑
+    leftLayout->addWidget(tiananmenLabel, 6);
 
     // 右侧面板 - 白色背景，登录表单，更紧凑的布局
     rightPanel = new QFrame();
