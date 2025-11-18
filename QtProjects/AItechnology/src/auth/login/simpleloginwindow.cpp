@@ -155,23 +155,27 @@ void SimpleLoginWindow::setupUI()
     leftLayout->addWidget(translationLabel, 0, Qt::AlignCenter);
     leftLayout->addStretch(); // 中间弹簧
 
-    // 添加天安门图片到底部 - 显示完整的城楼建筑
+    // 添加天安门图片到底部 - 显示完整的城楼建筑，零缝隙
     QLabel *tiananmenLabel = new QLabel();
     tiananmenLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     tiananmenLabel->setAlignment(Qt::AlignCenter);
     tiananmenLabel->setScaledContents(true); // 允许缩放，显示完整的楼
+
+    // 移除QLabel默认边距 - 关键修复
+    tiananmenLabel->setContentsMargins(0, 0, 0, 0);
 
     // 加载天安门图片
     QPixmap tiananmenPixmap("/Users/zhouzhiqi/QtProjects/AItechnology/images/摄图网_401630316_天安门(非营利使用).png");
     if (!tiananmenPixmap.isNull()) {
         tiananmenLabel->setPixmap(tiananmenPixmap);
         qDebug() << "天安门图片加载成功，原始尺寸:" << tiananmenPixmap.size();
+        // 零缝隙样式 - 完全贴合背景
         tiananmenLabel->setStyleSheet(
             "QLabel {"
-            "  margin: 0px;"
-            "  padding: 0px;"
-            "  border: none;"
-            "  background-color: transparent;"
+            "  margin: 0px;"          // 外边距=0
+            "  padding: 0px;"         // 内边距=0
+            "  border: none;"         // 无边框
+            "  background-color: transparent;" // 透明背景
             "}"
         );
     } else {
@@ -181,14 +185,18 @@ void SimpleLoginWindow::setupUI()
             "QLabel {"
             "  color: #C9A64E;"
             "  font-size: 24px;"
-            "  margin: 0px;"
-            "  padding: 0px;"
+            "  margin: 0px;"         // 零边距
+            "  padding: 0px;"        // 零边距
             "  border: none;"
             "}"
         );
     }
 
-    // 让天安门图片占据更大空间，显示完整的城楼建筑
+    // 确保左侧布局零间距 - 关键修复
+    leftLayout->setSpacing(0);          // 布局元素间距=0
+    leftLayout->setContentsMargins(0, 0, 0, 0); // 布局边距=0
+
+    // 让天安门图片占据底部更大空间，无缝贴合
     leftLayout->addWidget(tiananmenLabel, 6);
 
     // 右侧面板 - 白色背景，登录表单，更紧凑的布局
