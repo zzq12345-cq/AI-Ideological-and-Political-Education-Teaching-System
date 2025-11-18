@@ -894,13 +894,15 @@ void ModernMainWindow::setupCentralWidget()
     contentLayout->setContentsMargins(0, 0, 0, 0);
     contentLayout->setSpacing(0);
 
-    // 创建侧边栏 (按照 code.html 的 <aside>)
+    // 创建侧边栏 - 使用白色背景
     sidebar = new QFrame();
-    sidebar->setFixedWidth(256); // w-64 = 16rem = 256px
-    sidebar->setStyleSheet("QFrame { background-color: " + CARD_WHITE + "; border-right: 1px solid " + SEPARATOR + "; }");
+    sidebar->setMinimumWidth(240);  // 设置最小宽度
+    sidebar->setMaximumWidth(300);  // 设置最大宽度
+    sidebar->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+    sidebar->setStyleSheet("QFrame { background: " + CARD_WHITE + "; border-right: 1px solid " + SEPARATOR + "; }");
 
     sidebarLayout = new QVBoxLayout(sidebar);
-    sidebarLayout->setContentsMargins(20, 24, 20, 24); // 提升留白
+    sidebarLayout->setContentsMargins(24, 24, 24, 24); // 调整边距与用户信息对齐
     sidebarLayout->setSpacing(20);
 
     // 创建侧边栏顶部用户资料
@@ -934,7 +936,7 @@ void ModernMainWindow::setupCentralWidget()
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-      settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
     // 连接信号
@@ -1017,24 +1019,18 @@ QIcon ModernMainWindow::loadSidebarIcon(const QString &themeName, QStyle::Standa
 
 void ModernMainWindow::createSidebarProfile()
 {
-    profileWidget = new QFrame();
-    profileWidget->setObjectName("sidebarProfileCard");
+    // 创建扁平化的用户资料区域 - 与导航背景融合
+    QFrame *profileWidget = new QFrame();
+    profileWidget->setObjectName("sidebarProfile");
     profileWidget->setStyleSheet(
-        "QFrame#sidebarProfileCard {"
-        "  background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 rgba(255, 255, 255, 0.98), stop:1 " + PATRIOTIC_RED_SOFT_LAYER + ");"
-        "  border-radius: 20px;"
-        "  border: 1px solid rgba(229, 57, 53, 0.18);"
-        "}"
-        "QFrame#sidebarProfileCard[cardState=\"hover\"] {"
-        "  border-color: " + CARD_BORDER_HIGHLIGHT + ";"
-        "  background: " + CARD_HOVER_GRADIENT + ";"
+        "QFrame#sidebarProfile {"
+        "  background: transparent;"  // 使用透明背景，与侧栏融合
+        "  border: none;"  // 移除边框
         "}"
     );
-    applyCardShadow(profileWidget, 18.0, 6.0);
-    new FrameHoverAnimator(profileWidget, profileWidget, 4);
 
     QVBoxLayout *profileLayout = new QVBoxLayout(profileWidget);
-    profileLayout->setContentsMargins(16, 16, 16, 16);
+    profileLayout->setContentsMargins(24, 16, 24, 16);  // 与导航菜单对齐
     profileLayout->setSpacing(12);
 
     // 创建头像容器 (水平布局)
@@ -1042,17 +1038,17 @@ void ModernMainWindow::createSidebarProfile()
     avatarLayout->setContentsMargins(0, 0, 0, 0);
     avatarLayout->setSpacing(14);
 
-    // 头像占位符
+    // 头像占位符 - 扁平化设计，去掉白色边框
     QLabel *avatarLabel = new QLabel();
-    avatarLabel->setFixedSize(48, 48); // size-12 = 48px
+    avatarLabel->setFixedSize(40, 40); // 调整尺寸，更符合扁平设计
     avatarLabel->setStyleSheet(QString(
         "QLabel {"
         "  background-color: %1;"
-        "  border-radius: 24px;"
+        "  border-radius: 20px;"  // 调整为完全圆形
         "  color: white;"
-        "  font-size: 18px;"
+        "  font-size: 16px;"
         "  font-weight: bold;"
-        "  border: 2px solid rgba(255, 255, 255, 0.8);"
+        "  border: none;"  // 移除边框
         "}"
     ).arg(PATRIOTIC_RED));
     avatarLabel->setAlignment(Qt::AlignCenter);
@@ -1064,10 +1060,10 @@ void ModernMainWindow::createSidebarProfile()
     userInfoLayout->setSpacing(4);
 
     QLabel *nameLabel = new QLabel("王老师");
-    nameLabel->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 16px; font-weight: bold;");
+    nameLabel->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 15px; font-weight: bold;"); // 调整字体大小
 
     QLabel *roleLabel = new QLabel("思政教研组");
-    roleLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 14px;");
+    roleLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 13px;"); // 使用标准次文本颜色，适配白色背景
 
     userInfoLayout->addWidget(nameLabel);
     userInfoLayout->addWidget(roleLabel);
@@ -1078,20 +1074,20 @@ void ModernMainWindow::createSidebarProfile()
 
     profileLayout->addLayout(avatarLayout);
 
-    // 在线状态指示器
+    // 在线状态指示器 - 扁平化设计
     QHBoxLayout *statusLayout = new QHBoxLayout();
     statusLayout->setContentsMargins(0, 0, 0, 0);
-    statusLayout->setSpacing(8);
+    statusLayout->setSpacing(6); // 减小间距
 
     QFrame *statusDot = new QFrame();
-    statusDot->setFixedSize(10, 10);
-    statusDot->setStyleSheet("QFrame { background-color: " + GROWTH_GREEN + "; border-radius: 5px; }");
+    statusDot->setFixedSize(8, 8); // 缩小圆点尺寸
+    statusDot->setStyleSheet("QFrame { background-color: " + GROWTH_GREEN + "; border-radius: 4px; }");
 
     QLabel *statusLabel = new QLabel("在线");
-    statusLabel->setStyleSheet("color: " + GROWTH_GREEN + "; font-size: 12px; font-weight: 600;");
+    statusLabel->setStyleSheet("color: " + GROWTH_GREEN + "; font-size: 12px; font-weight: 600;"); // 恢复绿色文本
 
     QLabel *statusHint = new QLabel("实时连接");
-    statusHint->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 12px;");
+    statusHint->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 12px;"); // 使用标准次文本颜色
 
     statusLayout->addWidget(statusDot);
     statusLayout->addWidget(statusLabel);
