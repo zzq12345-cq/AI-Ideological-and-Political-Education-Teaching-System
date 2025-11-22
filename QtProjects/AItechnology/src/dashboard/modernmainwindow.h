@@ -119,9 +119,6 @@ private:
     // 仪表板内容组件
     QLabel *welcomeLabel;
     QLabel *subtitleLabel;
-    QFrame *quickActionsFrame;
-    QPushButton *quickPreparationBtn;
-    QPushButton *startClassBtn;
 
     // 核心功能卡片
     QFrame *coreFeaturesFrame;

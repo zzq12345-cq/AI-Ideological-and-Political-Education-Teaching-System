@@ -11,6 +11,8 @@
 #include <QByteArray>
 #include <QAuthenticator>
 #include <QTimer>
+#include <QSslError>
+#include <QSslSocket>
 
 class SupabaseClient : public QObject
 {
@@ -44,6 +46,8 @@ signals:
 
 private slots:
     void onReplyFinished(QNetworkReply *reply);
+    void onNetworkError(QNetworkReply::NetworkError error);
+    void onSslErrors(const QList<QSslError> &errors);
     void onAuthRequired(QNetworkReply *reply, QAuthenticator *authenticator);
 
 private:

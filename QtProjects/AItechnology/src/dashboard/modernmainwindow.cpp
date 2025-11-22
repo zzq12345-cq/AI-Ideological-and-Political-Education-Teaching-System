@@ -1251,78 +1251,6 @@ void ModernMainWindow::createHeaderWidget()
     connect(ctrlKShortcut, &QShortcut::activated, this, [this](){ this->searchInput->setFocus(); this->searchInput->selectAll(); });
 }
 
-void ModernMainWindow::createQuickActions()
-{
-    quickActionsFrame = new QFrame();
-    quickActionsFrame->setStyleSheet(buildCardStyle("QFrame"));
-    applyCardShadow(quickActionsFrame, 22.0, 8.0);
-    new FrameHoverAnimator(quickActionsFrame, quickActionsFrame, 5);
-
-    QHBoxLayout *quickActionsLayout = new QHBoxLayout(quickActionsFrame);
-    quickActionsLayout->setContentsMargins(36, 26, 36, 26);
-    quickActionsLayout->setSpacing(32);
-
-    QLabel *quickLabel = new QLabel("需要开启新的课堂活动吗？");
-    quickLabel->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 16px; font-weight: 500; letter-spacing: 0.3px;");
-
-    quickPreparationBtn = new QPushButton("快速备课");
-    quickPreparationBtn->setStyleSheet(QString(
-        "QPushButton {"
-        "  background: %1;"
-        ""
-        "  border: 1px solid rgba(229, 57, 53, 0.35);"
-        "  border-radius: 12px;"
-        "  padding: 10px 20px;"
-        "  font-size: 14px;"
-        "  font-weight: 600;"
-        "  min-width: 96px;"
-        "}"
-        "QPushButton[actionState=\"hover\"] {"
-        "  background: %3;"
-        "  border-color: rgba(229, 57, 53, 0.55);"
-        "}"
-        "QPushButton[actionState=\"pressed\"] {"
-        "  background: %4;"
-        "  border-color: rgba(229, 57, 53, 0.65);"
-        "}"
-    ).arg(SOFT_BUTTON_GRADIENT,
-          PATRIOTIC_RED,
-          SOFT_BUTTON_HOVER_GRADIENT,
-          SOFT_BUTTON_PRESSED_GRADIENT));
-
-    startClassBtn = new QPushButton("开始授课");
-    startClassBtn->setStyleSheet(QString(
-        "QPushButton {"
-        "  background: %1;"
-        "  color: white;"
-        "  border: none;"
-        "  border-radius: 10px;"
-        "  padding: 10px 24px;"
-        "  font-size: 15px;"
-        "  font-weight: 600;"
-        "  min-width: 110px;"
-        "}"
-        "QPushButton[actionState=\"hover\"] {"
-        "  background: %2;"
-        "}"
-        "QPushButton[actionState=\"pressed\"] {"
-        "  background: %3;"
-        "}"
-    ).arg(PRIMARY_BUTTON_GRADIENT,
-          PRIMARY_BUTTON_HOVER_GRADIENT,
-          PRIMARY_BUTTON_PRESSED_GRADIENT));
-
-    connect(quickPreparationBtn, &QPushButton::clicked, this, &ModernMainWindow::onQuickPreparationClicked);
-    connect(startClassBtn, &QPushButton::clicked, this, &ModernMainWindow::onStartClassClicked);
-
-    new ButtonHoverAnimator(quickPreparationBtn, quickPreparationBtn);
-    new ButtonHoverAnimator(startClassBtn, startClassBtn, 3);
-
-    quickActionsLayout->addWidget(quickLabel);
-    quickActionsLayout->addStretch();
-    quickActionsLayout->addWidget(quickPreparationBtn);
-    quickActionsLayout->addWidget(startClassBtn);
-}
 
 void ModernMainWindow::createCoreFeatures()
 {
@@ -2430,16 +2358,13 @@ void ModernMainWindow::createRecentActivities()
     recentActivitiesFrame->setAttribute(Qt::WA_StyledBackground, true);
     recentActivitiesFrame->setStyleSheet(QString(
         "QFrame#recentActivitiesCard {"
-        "  background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,"
-        "    stop:0 rgba(255, 255, 255, 0.98),"
-        "    stop:0.45 rgba(255, 250, 248, 0.95),"
-        "    stop:1 rgba(252, 244, 240, 0.96));"
+        "  background: #FFFFFF;"
         "  border-radius: 28px;"
-        "  border: 1px solid rgba(229, 57, 53, 0.18);"
+        "  border: 1px solid rgba(0, 0, 0, 0.1);"
         "  padding: 12px;"
         "}"
         "QFrame#recentActivitiesCard:hover {"
-        "  border-color: rgba(229, 57, 53, 0.32);"
+        "  border-color: rgba(0, 0, 0, 0.2);"
         "  box-shadow: 0 20px 38px rgba(15, 23, 42, 0.16);"
         "  transform: translateY(-2px);"
         "}"
@@ -2648,7 +2573,7 @@ void ModernMainWindow::createRecentActivities()
     activitiesLayout->addStretch();
 
     recentActivitiesFrame->setMaximumWidth(420);
-    recentActivitiesFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    recentActivitiesFrame->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 }
 
 void ModernMainWindow::createDashboard()
@@ -2691,10 +2616,7 @@ void ModernMainWindow::createDashboard()
 
     scrollLayout->addLayout(welcomeLayout);
 
-    // 快速操作
-    createQuickActions();
-    scrollLayout->addWidget(quickActionsFrame);
-
+    
     // 核心功能标题
     QLabel *coreTitle = new QLabel("核心功能");
     coreTitle->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 22px; font-weight: bold;");
@@ -2735,14 +2657,12 @@ void ModernMainWindow::createDashboard()
     rightStack->setSpacing(32);
 
     if (recentActivitiesFrame) {
-        rightStack->addWidget(recentActivitiesFrame);
+        rightStack->addWidget(recentActivitiesFrame, 1);  // stretch factor = 1
     }
 
     if (chartsContainer) {
-        rightStack->addWidget(chartsContainer);
+        rightStack->addWidget(chartsContainer, 0);  // stretch factor = 0
     }
-
-    rightStack->addStretch();
 
     // 放入网格
     grid->addWidget(leftStackFrame, 0, 0, Qt::AlignTop | Qt::AlignLeft);
@@ -2750,7 +2670,14 @@ void ModernMainWindow::createDashboard()
     // 为右侧布局创建一个widget容器
     QWidget *rightWidget = new QWidget();
     rightWidget->setLayout(rightStack);
-    grid->addWidget(rightWidget, 0, 1, Qt::AlignTop | Qt::AlignLeft);
+    grid->addWidget(rightWidget, 0, 1);
+
+    // 配置网格行拉伸以支持高度分布
+    grid->setRowStretch(0, 1);     // 允许行垂直拉伸
+
+    // 设置容器大小策略以支持拉伸
+    leftStackFrame->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    rightWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     // 添加到滚动布局
     scrollLayout->addWidget(dashboardGridFrame);

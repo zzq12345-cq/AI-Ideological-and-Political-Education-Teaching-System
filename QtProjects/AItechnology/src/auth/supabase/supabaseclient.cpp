@@ -8,6 +8,8 @@ SupabaseClient::SupabaseClient(QObject *parent)
     , m_networkManager(new QNetworkAccessManager(this))
 {
     qDebug() << "Supabase客户端初始化...";
+    qDebug() << "SSL支持:" << QSslSocket::supportsSsl();
+    qDebug() << "SSL版本:" << QSslSocket::sslLibraryVersionString();
 }
 
 SupabaseClient::~SupabaseClient()
@@ -53,6 +55,8 @@ void SupabaseClient::checkUserExists(const QString &email)
 
 void SupabaseClient::sendRequest(const QString &endpoint, const QJsonObject &data, bool isPost)
 {
+    qDebug() << "发送请求到:" << endpoint;
+
     QNetworkRequest request;
     request.setUrl(QUrl(endpoint));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
@@ -72,6 +76,12 @@ void SupabaseClient::sendRequest(const QString &endpoint, const QJsonObject &dat
         connect(reply, &QNetworkReply::finished, this, [this, reply]() {
             onReplyFinished(reply);
         });
+        connect(reply, &QNetworkReply::errorOccurred, this, &SupabaseClient::onNetworkError);
+        connect(reply, &QNetworkReply::sslErrors, this, &SupabaseClient::onSslErrors);
+        qDebug() << "请求已发送，等待响应...";
+    } else {
+        qDebug() << "错误：无法创建网络请求";
+        emit loginFailed("无法创建网络请求");
     }
 }
 
@@ -205,4 +215,49 @@ QString SupabaseClient::parseError(const QJsonObject &json)
     } else {
         return "未知错误";
     }
+}
+
+void SupabaseClient::onNetworkError(QNetworkReply::NetworkError error)
+{
+    qDebug() << "网络错误:" << error;
+
+    QString errorString;
+    switch (error) {
+    case QNetworkReply::ConnectionRefusedError:
+        errorString = "连接被拒绝，请检查网络连接";
+        break;
+    case QNetworkReply::HostNotFoundError:
+        errorString = "主机未找到，请检查服务器地址";
+        break;
+    case QNetworkReply::TimeoutError:
+        errorString = "连接超时，请检查网络连接";
+        break;
+    case QNetworkReply::SslHandshakeFailedError:
+        errorString = "SSL握手失败，可能存在证书问题";
+        break;
+    case QNetworkReply::ProtocolFailure:
+        errorString = "协议错误，服务器返回了无效响应";
+        break;
+    case QNetworkReply::UnknownServerError:
+        errorString = "未知服务器错误";
+        break;
+    default:
+        errorString = QString("网络错误：%1").arg(error);
+        break;
+    }
+
+    qDebug() << "网络错误详情:" << errorString;
+    emit loginFailed(errorString);
+}
+
+void SupabaseClient::onSslErrors(const QList<QSslError> &errors)
+{
+    qDebug() << "SSL错误数量:" << errors.size();
+    for (const QSslError &error : errors) {
+        qDebug() << "SSL错误:" << error.errorString();
+    }
+
+    // 为了调试，暂时忽略SSL错误
+    // 在生产环境中应该严格验证SSL证书
+    emit loginFailed("SSL连接错误: " + (errors.isEmpty() ? "未知SSL错误" : errors.first().errorString()));
 }
