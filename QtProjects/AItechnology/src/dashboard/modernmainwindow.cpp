@@ -1375,25 +1375,32 @@ void ModernMainWindow::createCoreFeatures()
 
     for (int i = 0; i < 4; ++i) {
         QVBoxLayout *cardLayout = new QVBoxLayout(cards[i]);
-        cardLayout->setSpacing(16);
+        cardLayout->setSpacing(8);  // 减小间距，避免灰色背景条
+        cardLayout->setContentsMargins(16, 16, 16, 16);  // 统一边距
 
         QLabel *iconLabel = new QLabel(icons[i]);
-        iconLabel->setStyleSheet("color: " + accentColors[qMin(i, accentColors.size() - 1)] + "; font-size: 24px; font-weight: bold;");
+        iconLabel->setStyleSheet("color: " + accentColors[qMin(i, accentColors.size() - 1)] + "; font-size: 24px; font-weight: bold; background: transparent;");
+        iconLabel->setAlignment(Qt::AlignCenter);
 
         QLabel *titleLabel = new QLabel(titles[i]);
-        titleLabel->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 16px; font-weight: bold;");
+        titleLabel->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 16px; font-weight: bold; background: transparent; border: none;");
+        titleLabel->setAlignment(Qt::AlignCenter);
+        titleLabel->setMinimumHeight(20);  // 确保标题区域一致
 
         QLabel *descLabel = new QLabel(descriptions[i]);
-        descLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 14px;");
+        descLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 14px; background: transparent;");
         descLabel->setWordWrap(true);
+        descLabel->setAlignment(Qt::AlignCenter);
+        descLabel->setMinimumHeight(40);  // 确保描述区域一致
 
         cardLayout->addWidget(iconLabel);
         cardLayout->addWidget(titleLabel);
         cardLayout->addWidget(descLabel);
         cardLayout->addStretch();
 
-        cards[i]->setStyleSheet(cardStyle);
+        cards[i]->setStyleSheet(cardStyle + " QLabel { background: transparent; border: none; }");
         cards[i]->setMinimumHeight(140);
+        cards[i]->setFixedHeight(140);  // 确保所有卡片高度完全一致
         applyCardShadow(cards[i], 18.0, 6.0);
         new CardHoverAnimator(cards[i], cards[i]);
     }
@@ -2693,6 +2700,9 @@ void ModernMainWindow::createDashboard()
     coreTitle->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 22px; font-weight: bold;");
     scrollLayout->addWidget(coreTitle);
 
+    // 核心功能卡片与标题之间的紧凑间距
+    scrollLayout->addSpacing(4);
+
     // 核心功能卡片
     createCoreFeatures();
     scrollLayout->addWidget(coreFeaturesFrame);
@@ -2798,6 +2808,19 @@ void ModernMainWindow::setupStyles()
             min-height: 20px;
         }
         QScrollBar::handle:vertical:hover {
+            background-color: )" + PRIMARY_TEXT + R"(;
+        }
+        QScrollBar:horizontal {
+            background-color: #F0F0F0;
+            height: 8px;
+            border-radius: 4px;
+        }
+        QScrollBar::handle:horizontal {
+            background-color: )" + SECONDARY_TEXT + R"(;
+            border-radius: 4px;
+            min-width: 20px;
+        }
+        QScrollBar::handle:horizontal:hover {
             background-color: )" + PRIMARY_TEXT + R"(;
         }
     )");
