@@ -1238,24 +1238,26 @@ void ModernMainWindow::createHeaderWidget()
     notificationBtn->setStyleSheet(QString(
         "QPushButton {"
         "  background: %1;"
-        ""
-        "  border: 1px solid rgba(229, 57, 53, 0.2);"
+        "  color: %2;"
+        "  border: 1px solid rgba(255, 255, 255, 0.3);"
         "  border-radius: 12px;"
-        ""
         "}"
         "QPushButton[actionState=\"hover\"] {"
         "  background: %3;"
         "  color: %4;"
+        "  border: 1px solid rgba(255, 255, 255, 0.5);"
         "}"
         "QPushButton[actionState=\"pressed\"] {"
         "  background: %5;"
-        "  color: white;"
+        "  color: %6;"
+        "  border: 1px solid rgba(255, 255, 255, 0.7);"
         "}"
-    ).arg(PATRIOTIC_RED_SOFT_LAYER,
-          PATRIOTIC_RED,
-          PATRIOTIC_RED_TINT,
-          PATRIOTIC_RED_DEEP_TONE,
-          PATRIOTIC_RED_DARK));
+    ).arg(CARD_WHITE,                    // 正常状态 - 白色背景
+          PRIMARY_TEXT,                   // 正常状态 - 深色文字
+          ULTRA_LIGHT_GRAY,              // 悬停状态 - 浅灰背景
+          PRIMARY_TEXT,                   // 悬停状态 - 深色文字
+          LIGHT_GRAY,                     // 按下状态 - 灰色背景
+          PRIMARY_TEXT));                 // 按下状态 - 深色文字
 
     // 头部头像
     headerProfileBtn = new QPushButton();
@@ -1279,7 +1281,7 @@ void ModernMainWindow::createHeaderWidget()
           PATRIOTIC_RED_DARK,
           PATRIOTIC_RED_DEEP_TONE));
     headerProfileBtn->setText("王");
-    new ButtonHoverAnimator(notificationBtn, notificationBtn, 2);
+    // 移除通知按钮的ButtonHoverAnimator，避免红色光晕效果
     new ButtonHoverAnimator(headerProfileBtn, headerProfileBtn, 2);
 
     headerLayout->addWidget(searchWrapper);
@@ -1892,7 +1894,7 @@ void ModernMainWindow::createLearningAnalytics()
     QList<QLabel*> statTrendLabels;
     QList<QLabel*> statTrendArrowLabels;
     QList<QWidget*> statMetricRows;
-    QVector<QLabel*> breakdownDetailLabels;
+    // breakdownDetailLabels 已随完成度拆解模块移除
 
     // 创建 2×2 指标网格
     for (int i = 0; i < metricMeta.size(); ++i) {
@@ -1950,79 +1952,9 @@ void ModernMainWindow::createLearningAnalytics()
 
     analyticsLayout->addWidget(completionInfoFrame);
 
-    QFrame *completionBreakdownFrame = new QFrame();
-    completionBreakdownFrame->setObjectName("completionBreakdownFrame");
-    completionBreakdownFrame->setStyleSheet(QString(
-        "QFrame#completionBreakdownFrame {"
-        "  background-color: %1;"
-        "  border: 1px solid rgba(33, 33, 33, 0.05);"
-        "  border-radius: 12px;"
-        "}"
-    ).arg(ULTRA_LIGHT_GRAY));
+    // 完成度拆解模块已移除
 
-    QVBoxLayout *breakdownLayout = new QVBoxLayout(completionBreakdownFrame);
-    breakdownLayout->setContentsMargins(16, 12, 16, 12);
-    breakdownLayout->setSpacing(6);
-
-    QLabel *breakdownTitle = new QLabel("完成度拆解");
-    breakdownTitle->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 14px; font-weight: 600;");
-    QLabel *breakdownSubtitle = new QLabel("总体完成度由四项核心指标等权（25%）构成，方便定位提升抓手");
-    breakdownSubtitle->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 12px;");
-    breakdownSubtitle->setWordWrap(true);
-
-    QGridLayout *breakdownGrid = new QGridLayout();
-    breakdownGrid->setContentsMargins(0, 0, 0, 0);
-    breakdownGrid->setHorizontalSpacing(12);
-    breakdownGrid->setVerticalSpacing(4);
-    breakdownGrid->setColumnStretch(0, 1);
-    breakdownGrid->setColumnStretch(1, 2);
-
-    for (int i = 0; i < metricMeta.size(); ++i) {
-        QLabel *label = new QLabel(QString("%1（权重%2%）").arg(metricMeta[i].name).arg(metricWeightPercent));
-        label->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 12px;");
-        QLabel *detail = new QLabel("--");
-        detail->setObjectName(QString("breakdownDetail_%1").arg(i));
-        detail->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 13px; font-weight: 500;");
-        detail->setWordWrap(true);
-        breakdownDetailLabels.append(detail);
-
-        breakdownGrid->addWidget(label, i, 0);
-        breakdownGrid->addWidget(detail, i, 1);
-    }
-
-    QLabel *breakdownFootnote = new QLabel(QString("数据口径：%1 · 样本数：%2人").arg(baseScope).arg(sampleSize));
-    breakdownFootnote->setStyleSheet("color: " + LIGHT_TEXT + "; font-size: 11px;");
-
-    breakdownLayout->addWidget(breakdownTitle);
-    breakdownLayout->addWidget(breakdownSubtitle);
-    breakdownLayout->addLayout(breakdownGrid);
-    breakdownLayout->addWidget(breakdownFootnote);
-
-    analyticsLayout->addWidget(completionBreakdownFrame);
-
-    auto refreshBreakdownDetails = [breakdownDetailLabels,
-                                    metricMeta,
-                                    metricWeightPercent,
-                                    metricValueByIndex,
-                                    formatMetricTooltip](const LearningMetrics &metrics, const QString &range) {
-        for (int i = 0; i < breakdownDetailLabels.size() && i < metricMeta.size(); ++i) {
-            TrendValue value = metricValueByIndex(metrics, i);
-            int diff = value.current - value.previous;
-            QString diffText = diff == 0
-                ? QStringLiteral("Δ0%（持平）")
-                : QString("Δ%1%").arg((diff > 0 ? "+" : "-") + QString::number(qAbs(diff)));
-            int contribution = qRound(value.current * metricWeightPercent / 100.0);
-            QString text = QString("当前%1% · %2 · 对完成度贡献≈%3%")
-                .arg(value.current)
-                .arg(diffText)
-                .arg(contribution);
-            QLabel *detailLabel = breakdownDetailLabels[i];
-            if (detailLabel) {
-                detailLabel->setText(text);
-                detailLabel->setToolTip(formatMetricTooltip(metricMeta[i], value, range));
-            }
-        }
-    };
+    // refreshBreakdownDetails 函数已随完成度拆解模块移除
 
     auto refreshCompletionInfo = [completionScopeLabel,
                                   completionFormulaLabel,
@@ -2035,7 +1967,6 @@ void ModernMainWindow::createLearningAnalytics()
                                   baseScope,
                                   formatFormulaText,
                                   buildCompletionTooltip,
-                                  refreshBreakdownDetails,
                                   computeOverallScore](const LearningMetrics &metrics, const QString &range) {
         int score = computeOverallScore(metrics);
         int remaining = qMax(0, 100 - score);
@@ -2051,7 +1982,7 @@ void ModernMainWindow::createLearningAnalytics()
         // completedSlice->setToolTip(tooltip); // QPieSlice没有setToolTip方法
         remainingSlice->setValue(remaining);
         // remainingSlice->setToolTip(QString("未完成 %1% · 待跟进任务 = 计划 - 已完成").arg(remaining)); // QPieSlice没有setToolTip方法
-        refreshBreakdownDetails(metrics, range);
+        // refreshBreakdownDetails 调用已随完成度拆解模块移除
     };
 
     refreshCompletionInfo(currentMetrics, defaultRange);
