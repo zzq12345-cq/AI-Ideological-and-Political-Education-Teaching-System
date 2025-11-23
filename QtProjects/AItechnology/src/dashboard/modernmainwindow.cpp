@@ -2318,8 +2318,9 @@ void ModernMainWindow::createLearningAnalytics()
     installChartMagnifier(pieChartView, QStringLiteral("知识点掌握分布"), pieChartBuilder);
 
     // 图表容器布局
-    chartsLayout->addWidget(barChartContainer);
-    chartsLayout->addWidget(pieChartContainer);
+    // 移除三维评分对比和知识点掌握分布图表
+    // chartsLayout->addWidget(barChartContainer);
+    // chartsLayout->addWidget(pieChartContainer);
 
     // 降级提示
     QLabel *fallbackNote = new QLabel("未启用 Qt Charts，已降级为基础视图");
@@ -2468,7 +2469,7 @@ void ModernMainWindow::createRecentActivities()
     recentActivitiesFrame->setStyleSheet(QString(
         "QFrame#recentActivitiesCard {"
         "  background: #FFFFFF;"
-        "  border-radius: 28px;"
+        "  border-radius: 32px;"
         "  border: 1px solid rgba(0, 0, 0, 0.1);"
         "  padding: 12px;"
         "}"
@@ -2478,7 +2479,7 @@ void ModernMainWindow::createRecentActivities()
         "  transform: translateY(-2px);"
         "}"
     ));
-    applyCardShadow(recentActivitiesFrame, 28.0, 10.0);
+    applyCardShadow(recentActivitiesFrame, 32.0, 10.0);
     new FrameHoverAnimator(recentActivitiesFrame, recentActivitiesFrame, 5);
 
     QVBoxLayout *activitiesLayout = new QVBoxLayout(recentActivitiesFrame);
@@ -2489,7 +2490,7 @@ void ModernMainWindow::createRecentActivities()
     titleLayout->setSpacing(12);
 
     QLabel *activitiesTitle = new QLabel("近期活动");
-    activitiesTitle->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 20px; font-weight: 700; letter-spacing: 0.4px;");
+    activitiesTitle->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 16px; font-weight: 600; letter-spacing: 0.4px;");
 
     QLabel *liveBadge = new QLabel("实时");
     liveBadge->setAlignment(Qt::AlignCenter);
@@ -2547,16 +2548,16 @@ void ModernMainWindow::createRecentActivities()
     listContainer->setObjectName("recentActivitiesList");
     listContainer->setStyleSheet(
         "QFrame#recentActivitiesList {"
-        "  background: rgba(255, 255, 255, 0.78);"
-        "  border-radius: 22px;"
-        "  border: 1px solid rgba(255, 255, 255, 0.55);"
-        "  padding: 12px;"
+        "  background: transparent;"
+        "  border-radius: 0px;"
+        "  border: none;"
+        "  padding: 0px;"
         "}"
     );
 
     QVBoxLayout *listLayout = new QVBoxLayout(listContainer);
-    listLayout->setContentsMargins(4, 6, 4, 6);
-    listLayout->setSpacing(14);
+    listLayout->setContentsMargins(4, 8, 4, 20);
+    listLayout->setSpacing(16);
 
     struct ActivityEntry {
         QString title;
@@ -2583,20 +2584,21 @@ void ModernMainWindow::createRecentActivities()
         activityItem->setObjectName(itemObject);
         activityItem->setStyleSheet(QString(
             "QFrame#%1 {"
-            "  background: rgba(255, 255, 255, 0.94);"
-            "  border-radius: 18px;"
-            "  border: 1px solid rgba(15, 23, 42, 0.05);"
-            "  padding: 4px;"
+            "  background: transparent;"
+            "  border-radius: 0px;"
+            "  border: none;"
+            "  padding: 0px;"
             "}"
             "QFrame#%1:hover {"
-            "  border-color: %2;"
-            "  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.14);"
+            "  background: transparent;"
+            "  border-radius: 0px;"
+            "  border: none;"
             "}"
-        ).arg(itemObject, entry.accentColor));
+        ).arg(itemObject));
 
         QHBoxLayout *activityLayout = new QHBoxLayout(activityItem);
-        activityLayout->setSpacing(16);
-        activityLayout->setContentsMargins(12, 12, 12, 12);
+        activityLayout->setSpacing(12);  // 图标与文字之间12px间距
+        activityLayout->setContentsMargins(0, 0, 0, 0);  // 移除内边距，避免产生背景区域
 
         QString iconObject = QStringLiteral("activityIcon_%1").arg(i);
         QFrame *iconWrapper = new QFrame();
@@ -2604,11 +2606,11 @@ void ModernMainWindow::createRecentActivities()
         iconWrapper->setFixedSize(48, 48);
         iconWrapper->setStyleSheet(QString(
             "QFrame#%1 {"
-            "  background: %2;"
+            "  background: transparent;"
             "  border-radius: 18px;"
             "  border: 1px solid rgba(255, 255, 255, 0.55);"
             "}"
-        ).arg(iconObject, entry.accentBackground));
+        ).arg(iconObject));
 
         QVBoxLayout *iconLayout = new QVBoxLayout(iconWrapper);
         iconLayout->setContentsMargins(0, 0, 0, 0);
@@ -2621,57 +2623,24 @@ void ModernMainWindow::createRecentActivities()
 
         QVBoxLayout *contentLayout = new QVBoxLayout();
         contentLayout->setSpacing(4);
+        contentLayout->setContentsMargins(0, 0, 0, 0);
 
-        QLabel *descLabel = new QLabel(entry.title);
-        descLabel->setWordWrap(true);
-        descLabel->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 14px; font-weight: 600; letter-spacing: 0.2px;");
+        // 标题行 - 14px, #4A4A4A, 600字重
+        QLabel *titleLabel = new QLabel(entry.title);
+        titleLabel->setWordWrap(true);
+        titleLabel->setStyleSheet("color: #4A4A4A; font-size: 14px; font-weight: 600;");
 
-        QLabel *metaLabel = new QLabel(entry.meta);
-        metaLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 12px;");
-        metaLabel->setWordWrap(true);
+        // 时间行 - 14px, #8B8B8B
+        QLabel *timeLabel = new QLabel(entry.time);
+        timeLabel->setStyleSheet("color: #8B8B8B; font-size: 14px;");
 
-        contentLayout->addWidget(descLabel);
-        contentLayout->addWidget(metaLabel);
+        contentLayout->addWidget(titleLabel);
+        contentLayout->addWidget(timeLabel);
 
         activityLayout->addLayout(contentLayout, 1);
 
-        QVBoxLayout *statusLayout = new QVBoxLayout();
-        statusLayout->setSpacing(6);
-        statusLayout->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-
-        QFrame *statusDot = new QFrame();
-        statusDot->setFixedSize(10, 10);
-        statusDot->setStyleSheet(QString(
-            "QFrame {"
-            "  background: %1;"
-            "  border-radius: 5px;"
-            "}"
-        ).arg(entry.accentColor));
-
-        QLabel *timeLabel = new QLabel(entry.time);
-        timeLabel->setAlignment(Qt::AlignRight);
-        timeLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 12px;");
-
-        QLabel *badgeLabel = new QLabel(entry.badge);
-        badgeLabel->setAlignment(Qt::AlignCenter);
-        badgeLabel->setStyleSheet(QString(
-            "QLabel {"
-            "  color: %1;"
-            "  border: 1px solid %1;"
-            "  border-radius: 11px;"
-            "  padding: 2px 10px;"
-            "  font-size: 11px;"
-            "  font-weight: 600;"
-            "  background: transparent;"
-            "}"
-        ).arg(entry.accentColor));
-
-        statusLayout->addWidget(statusDot, 0, Qt::AlignRight);
-        statusLayout->addWidget(timeLabel);
-        statusLayout->addWidget(badgeLabel);
-        statusLayout->addStretch();
-
-        activityLayout->addLayout(statusLayout);
+        // 添加弹性空间，确保文字不被遮挡
+        activityLayout->addStretch();
 
         listLayout->addWidget(activityItem);
     }
@@ -2682,7 +2651,8 @@ void ModernMainWindow::createRecentActivities()
     // 移除底部留白 - 减少近期活动信息下的空白空间
 
     recentActivitiesFrame->setMaximumWidth(420);
-    recentActivitiesFrame->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    recentActivitiesFrame->setMaximumHeight(900);  // 增大最大高度，保证内容显示完整
+    recentActivitiesFrame->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
 }
 
 void ModernMainWindow::createDashboard()
@@ -2732,7 +2702,7 @@ void ModernMainWindow::createDashboard()
     scrollLayout->addWidget(coreTitle);
 
     // 核心功能卡片与标题之间的紧凑间距
-    scrollLayout->addSpacing(4);
+    scrollLayout->addSpacing(-6);  // 使用负间距，让标题和按钮极紧密
 
     // 核心功能卡片
     createCoreFeatures();
@@ -2764,14 +2734,16 @@ void ModernMainWindow::createDashboard()
     QVBoxLayout *rightStack = new QVBoxLayout();
     rightStack->setContentsMargins(0, 0, 0, 0);
     rightStack->setSpacing(32);
+    rightStack->setAlignment(Qt::AlignTop);
 
     if (recentActivitiesFrame) {
-        rightStack->addWidget(recentActivitiesFrame, 1);  // stretch factor = 1
+        rightStack->addWidget(recentActivitiesFrame, 0);  // stretch factor = 0，防止过长扩展
     }
 
-    if (chartsContainer) {
-        rightStack->addWidget(chartsContainer, 0);  // stretch factor = 0
-    }
+    // 移除图表容器（三维评分对比和知识点掌握分布）
+    // if (chartsContainer) {
+    //     rightStack->addWidget(chartsContainer, 0);  // stretch factor = 0
+    // }
 
     // 放入网格
     grid->addWidget(leftStackFrame, 0, 0, Qt::AlignTop | Qt::AlignLeft);
@@ -2779,7 +2751,7 @@ void ModernMainWindow::createDashboard()
     // 为右侧布局创建一个widget容器
     QWidget *rightWidget = new QWidget();
     rightWidget->setLayout(rightStack);
-    grid->addWidget(rightWidget, 0, 1);
+    grid->addWidget(rightWidget, 0, 1, Qt::AlignTop | Qt::AlignLeft);
 
     // 配置网格行拉伸以支持高度分布
     grid->setRowStretch(0, 1);     // 允许行垂直拉伸
