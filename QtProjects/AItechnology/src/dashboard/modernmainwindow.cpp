@@ -1424,52 +1424,100 @@ void ModernMainWindow::createCoreFeatures()
 
 void ModernMainWindow::createRecentCourses()
 {
+    // 1️⃣ 单卡片容器 - 圆角12px + 阴影 + 白色背景
     recentCoursesFrame = new QFrame();
-    recentCoursesFrame->setStyleSheet(buildCardStyle("QFrame"));
-    applyCardShadow(recentCoursesFrame, 24.0, 10.0);
-    new FrameHoverAnimator(recentCoursesFrame, recentCoursesFrame, 5);
+    recentCoursesFrame->setMinimumWidth(460);  // 最小宽度460px，填满网格左列
+    recentCoursesFrame->setFixedHeight(120);   // 紧凑高度固定
+    recentCoursesFrame->setStyleSheet(
+        "QFrame {"
+        "  background-color: #FFFFFF;"
+        "  border-radius: 12px;"
+        "  border: none;"
+        "}"
+    );
+    applyCardShadow(recentCoursesFrame, 10.0, 0.0);  // (blurRadius, yOffset)
 
-    QVBoxLayout *coursesLayout = new QVBoxLayout(recentCoursesFrame);
-    coursesLayout->setSpacing(24);
+    // 2️⃣ 主布局容器 - 水平排列
+    QHBoxLayout *mainLayout = new QHBoxLayout(recentCoursesFrame);
+    mainLayout->setContentsMargins(20, 16, 20, 16);  // 左右20px内边距
+    mainLayout->setSpacing(16);
+    mainLayout->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 
-    QLabel *coursesTitle = new QLabel("近期课程");
-    coursesTitle->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 18px; font-weight: bold;");
+    // 3️⃣ 左侧内容区域（垂直排列的3行信息）
+    QVBoxLayout *contentLayout = new QVBoxLayout();
+    contentLayout->setContentsMargins(0, 0, 0, 0);
+    contentLayout->setSpacing(4);  // 行距4px
 
-    QHBoxLayout *courseInfoLayout = new QHBoxLayout();
-    courseInfoLayout->setSpacing(20);
+    // 标题行
+    QLabel *titleLabel = new QLabel("近期课程");
+    titleLabel->setStyleSheet(
+        "color: #4A4A4A;"
+        "font-size: 16px;"
+        "font-weight: 600;"
+        "margin-bottom: 8px;"  // 标题与内容间距8px
+    );
 
-    QVBoxLayout *infoLayout = new QVBoxLayout();
-    infoLayout->setSpacing(6);
-
+    // 时间行
     QLabel *timeLabel = new QLabel("今日, 10:00 AM");
-    timeLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 14px;");
+    timeLabel->setStyleSheet(
+        "color: #8B8B8B;"
+        "font-size: 14px;"
+        "font-weight: 400;"
+    );
 
-    QLabel *courseTitle = new QLabel("当代思潮与青年担当");
-    courseTitle->setStyleSheet("color: " + PATRIOTIC_RED + "; font-size: 20px; font-weight: bold;");
+    // 课程名行（核心强调）
+    QLabel *courseTitleLabel = new QLabel("当代思潮与青年担当");
+    courseTitleLabel->setStyleSheet(
+        "color: #B81919;"
+        "font-size: 16px;"
+        "font-weight: 700;"
+    );
 
-    QLabel *classLabel = new QLabel("高二 (2) 班");
-    classLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 14px;");
+    // 班级行
+    QLabel *classLabel = new QLabel("高二（2）班");
+    classLabel->setStyleSheet(
+        "color: #8B8B8B;"
+        "font-size: 14px;"
+        "font-weight: 400;"
+    );
 
-    infoLayout->addWidget(timeLabel);
-    infoLayout->addWidget(courseTitle);
-    infoLayout->addWidget(classLabel);
+    contentLayout->addWidget(titleLabel);
+    contentLayout->addWidget(timeLabel);
+    contentLayout->addWidget(courseTitleLabel);
+    contentLayout->addWidget(classLabel);
+    contentLayout->addStretch();  // 填充剩余空间
 
+    // 4️⃣ 右侧按钮 - 固定尺寸 + 渐变
     enterClassBtn = new QPushButton("进入课堂");
-    enterClassBtn->setStyleSheet(QString(
-        BUTTON_PRIMARY_STYLE
-    ).arg(PRIMARY_BUTTON_GRADIENT,
-          PRIMARY_BUTTON_HOVER_GRADIENT,
-          PRIMARY_BUTTON_PRESSED_GRADIENT));
+    enterClassBtn->setFixedSize(120, 36);  // 高度36px
+    enterClassBtn->setStyleSheet(
+        "QPushButton {"
+        "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
+        "                             stop:0 #BE2A2A, stop:1 #D94C4C);"
+        "  color: white;"
+        "  border: none;"
+        "  border-radius: 8px;"
+        "  font-size: 14px;"
+        "  font-weight: 600;"
+        "}"
+        "QPushButton:hover {"
+        "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
+        "                             stop:0 #E35A5A, stop:1 #E66B6B);"
+        "}"
+        "QPushButton:pressed {"
+        "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
+        "                             stop:0 #A81F1F, stop:1 #C93A3A);"
+        "}"
+    );
+    enterClassBtn->setCursor(Qt::PointingHandCursor);
 
-    connect(enterClassBtn, &QPushButton::clicked, this, &ModernMainWindow::onEnterClassClicked);
-    new ButtonHoverAnimator(enterClassBtn, enterClassBtn, 3);
+    // 5️⃣ 组装主布局
+    mainLayout->addLayout(contentLayout, 1);  // 内容区域拉伸
+    mainLayout->addWidget(enterClassBtn, 0, Qt::AlignRight | Qt::AlignVCenter);
 
-    courseInfoLayout->addLayout(infoLayout);
-    courseInfoLayout->addStretch();
-    courseInfoLayout->addWidget(enterClassBtn);
-
-    coursesLayout->addWidget(coursesTitle);
-    coursesLayout->addLayout(courseInfoLayout);
+    // 信号连接
+    connect(enterClassBtn, &QPushButton::clicked,
+            this, &ModernMainWindow::onEnterClassClicked);
 
     // 设置SizePolicy以避免被高卡片撑出空白
     recentCoursesFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
