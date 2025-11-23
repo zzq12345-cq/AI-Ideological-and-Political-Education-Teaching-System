@@ -1427,7 +1427,7 @@ void ModernMainWindow::createRecentCourses()
     // 1️⃣ 单卡片容器 - 圆角12px + 阴影 + 白色背景
     recentCoursesFrame = new QFrame();
     recentCoursesFrame->setMinimumWidth(460);  // 最小宽度460px，填满网格左列
-    recentCoursesFrame->setFixedHeight(120);   // 紧凑高度固定
+    recentCoursesFrame->setFixedHeight(140);   // 增加高度给上下更多空间
     recentCoursesFrame->setStyleSheet(
         "QFrame {"
         "  background-color: #FFFFFF;"
@@ -1439,7 +1439,7 @@ void ModernMainWindow::createRecentCourses()
 
     // 2️⃣ 主布局容器 - 水平排列
     QHBoxLayout *mainLayout = new QHBoxLayout(recentCoursesFrame);
-    mainLayout->setContentsMargins(20, 16, 20, 16);  // 左右20px内边距
+    mainLayout->setContentsMargins(20, 24, 20, 24);  // 增加上下内边距到24px
     mainLayout->setSpacing(16);
     mainLayout->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 
