@@ -85,7 +85,7 @@ const QString CARD_BORDER_ACTIVE = "#d0d0d0";
 const int CARD_CORNER_RADIUS = 16;
 const int CARD_PADDING_PX = 24;
 
-// 现代化按钮样式系统
+// 现代化按钮样式系统 - 简化版，移除不支持的CSS动画
 const QString BUTTON_PRIMARY_STYLE =
     R"(QPushButton {
         background: %1;
@@ -95,18 +95,12 @@ const QString BUTTON_PRIMARY_STYLE =
         padding: 12px 24px;
         font-size: 14px;
         font-weight: 600;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     QPushButton:hover {
         background: %2;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
     QPushButton:pressed {
         background: %3;
-        transform: translateY(0px);
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-        transition-duration: 0.1s;
     })";
 
 const QString BUTTON_SECONDARY_STYLE =
@@ -118,19 +112,13 @@ const QString BUTTON_SECONDARY_STYLE =
         padding: 10px 22px;
         font-size: 14px;
         font-weight: 600;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     QPushButton:hover {
         background: %1;
         color: white;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
     QPushButton:pressed {
         background: %2;
-        transform: translateY(0px);
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-        transition-duration: 0.1s;
     })";
 
 // 按钮渐变
@@ -316,7 +304,7 @@ public:
         baseYOffset = shadowEffect->yOffset();
         baseShadowColor = shadowEffect->color();
 
-        liftAnimation = new QPropertyAnimation(button, "pos", this);
+        liftAnimation = new QPropertyAnimation(button, "geometry", this);
         liftAnimation->setDuration(180);
         liftAnimation->setEasingCurve(QEasingCurve::OutCubic);
 
@@ -392,18 +380,19 @@ private:
             return;
         }
 
-        QPoint currentPos = button->pos();
-        QPoint targetPos = basePos;
+        QRect currentGeo = button->geometry();
+        QRect targetGeo = currentGeo;
+        targetGeo.moveTop(basePos.y());
         if (hovered) {
-            targetPos -= QPoint(0, hoverLift);
+            targetGeo.moveTop(basePos.y() - hoverLift);
         }
         if (pressed) {
-            targetPos += QPoint(0, pressDrop);
+            targetGeo.moveTop(basePos.y() + pressDrop);
         }
 
         liftAnimation->stop();
-        liftAnimation->setStartValue(currentPos);
-        liftAnimation->setEndValue(targetPos);
+        liftAnimation->setStartValue(currentGeo);
+        liftAnimation->setEndValue(targetGeo);
         liftAnimation->start();
 
         blurAnimation->stop();
@@ -457,6 +446,62 @@ private:
     const int pressDrop = 2;
     bool hovered = false;
     bool pressed = false;
+};
+
+// 简单的卡片悬停事件过滤器 - 仅用于设置cardState属性
+class SimpleCardHoverFilter : public QObject
+{
+public:
+    explicit SimpleCardHoverFilter(QPushButton *target, QObject *parent = nullptr)
+        : QObject(parent)
+        , button(target)
+    {
+        if (button) {
+            button->setProperty("cardState", "base");
+        }
+    }
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (watched != button || !event) {
+            return QObject::eventFilter(watched, event);
+        }
+
+        switch (event->type()) {
+        case QEvent::Enter:
+            button->setProperty("cardState", "hover");
+            button->style()->unpolish(button);
+            button->style()->polish(button);
+            button->update();
+            break;
+        case QEvent::Leave:
+            button->setProperty("cardState", "base");
+            button->style()->unpolish(button);
+            button->style()->polish(button);
+            button->update();
+            break;
+        case QEvent::MouseButtonPress:
+            button->setProperty("cardState", "pressed");
+            button->style()->unpolish(button);
+            button->style()->polish(button);
+            button->update();
+            break;
+        case QEvent::MouseButtonRelease:
+            button->setProperty("cardState", "hover");
+            button->style()->unpolish(button);
+            button->style()->polish(button);
+            button->update();
+            break;
+        default:
+            break;
+        }
+
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    QPointer<QPushButton> button;
 };
 
 class ButtonHoverAnimator : public QObject
@@ -1330,7 +1375,6 @@ void ModernMainWindow::createCoreFeatures()
         cards[i]->setMinimumHeight(140);
         cards[i]->setFixedHeight(140);  // 确保所有卡片高度完全一致
         applyCardShadow(cards[i], 18.0, 6.0);
-        new CardHoverAnimator(cards[i], cards[i]);
     }
 
     coreFeaturesLayout->addWidget(psychologyCard, 0, 0);
@@ -1359,6 +1403,23 @@ void ModernMainWindow::createCoreFeatures()
         // 暂时使用已有的方法或添加新方法
         onLearningAnalysisClicked();
     });
+
+    // 添加悬停支持和工具提示
+    QStringList tooltips = {
+        "智能分析教学内容中的思政元素，确保价值导向正确",
+        "AI智能生成教学PPT和试卷，提高备课效率",
+        "丰富的课堂互动工具，打造活跃的思政课堂",
+        "精选权威教学资源，构建高质量题库"
+    };
+
+    for (int i = 0; i < cards.size(); ++i) {
+        cards[i]->setAttribute(Qt::WA_Hover, true);
+        cards[i]->setToolTip(tooltips[i]);
+        cards[i]->setCursor(Qt::PointingHandCursor);
+
+        // 添加简单的hover事件处理器来设置cardState属性
+        cards[i]->installEventFilter(new SimpleCardHoverFilter(cards[i]));
+    }
 }
 
 void ModernMainWindow::createRecentCourses()
@@ -2570,7 +2631,7 @@ void ModernMainWindow::createRecentActivities()
     listLayout->addStretch();
 
     activitiesLayout->addWidget(listContainer);
-    activitiesLayout->addStretch();
+    // 移除底部留白 - 减少近期活动信息下的空白空间
 
     recentActivitiesFrame->setMaximumWidth(420);
     recentActivitiesFrame->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
