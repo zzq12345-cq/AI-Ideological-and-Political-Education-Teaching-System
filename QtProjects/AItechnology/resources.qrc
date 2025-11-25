@@ -167,4 +167,7 @@
         <file>resources/QtTheme/icon/chevron_right/#f57c00.svg</file>
         <file>resources/QtTheme/icon/chevron_down/#f57c00.svg</file>
     </qresource>
+    <qresource prefix="/qml">
+        <file>resources/qml/LearningAnalyticsCard.qml</file>
+    </qresource>
 </RCC>
