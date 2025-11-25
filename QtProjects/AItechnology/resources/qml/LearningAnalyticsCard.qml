@@ -1,7 +1,6 @@
-import QtQuick 2.15
-import QtQuick.Layouts 1.15
-import QtQuick.Shapes 1.15
-import QtQuick.Effects 1.15
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Shapes
 
 Rectangle {
     id: root
@@ -12,14 +11,26 @@ Rectangle {
     readonly property real ringWidth: 16
     readonly property real progress: 0.85
 
-    DropShadow {
-        anchors.fill: card
-        source: card
-        horizontalOffset: 0
-        verticalOffset: 10
-        radius: 24
-        samples: 32
-        color: "#1A000000"
+    Rectangle {
+        id: shadowGlow
+        anchors.centerIn: card
+        width: card.width + 12
+        height: card.height + 12
+        radius: card.radius + 6
+        color: "#12000000"
+        antialiasing: true
+    }
+
+    Rectangle {
+        id: shadowEdge
+        anchors.centerIn: card
+        width: card.width + 6
+        height: card.height + 6
+        radius: card.radius + 3
+        color: "transparent"
+        border.color: "#1A000000"
+        border.width: 1
+        antialiasing: true
     }
 
     Rectangle {

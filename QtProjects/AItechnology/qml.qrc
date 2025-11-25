@@ -6,5 +6,6 @@
         <file>src/ui/qml/questionbank/Badge.qml</file>
         <file>src/ui/qml/questionbank/OptionItem.qml</file>
         <file>src/ui/qml/questionbank/QuestionView.qml</file>
+        <file>resources/qml/LearningAnalyticsCard.qml</file>
     </qresource>
 </RCC>
