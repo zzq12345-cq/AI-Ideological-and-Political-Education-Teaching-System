@@ -15,21 +15,21 @@ Rectangle {
     Rectangle {
         id: card
         anchors.fill: parent
-        anchors.margins: 12
+        anchors.margins: 0  // 去除边距，让白色卡片填满整个区域
         radius: 12
         color: "#FFFFFF"
         antialiasing: true
         border.width: 0
 
-        // 柔和的阴影效果 - 模拟DropShadow
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 16  // 增加阴影范围，radius: 16
-            radius: 12
-            color: "#000000"
-            opacity: 0.08  // 增强阴影效果，color: "#15000000" 对应 opacity: 0.08
-            z: -1
-        }
+        // 去除阴影效果，确保没有任何黑色背景
+        // Rectangle {
+        //     anchors.fill: parent
+        //     anchors.margins: 16
+        //     radius: 12
+        //     color: "#000000"
+        //     opacity: 0.08
+        //     z: -1
+        // }
 
         ColumnLayout {
             anchors.fill: parent
