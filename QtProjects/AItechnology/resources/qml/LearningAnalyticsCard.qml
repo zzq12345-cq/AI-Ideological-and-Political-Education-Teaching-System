@@ -5,9 +5,10 @@ import QtQuick.Shapes
 Rectangle {
     id: root
     width: 820
-    height: 360
+    height: 320  // 减少整体高度，从360改为320
     color: "transparent"  // 确保根节点透明，去除黑色尖角
     Layout.alignment: Qt.AlignHCenter
+    clip: true  // 添加裁切，确保圆角效果干净
 
     readonly property real ringWidth: 16
     readonly property real progress: 0.85
@@ -20,6 +21,7 @@ Rectangle {
         color: "#FFFFFF"
         antialiasing: true
         border.width: 0
+        clip: true  // 确保内容也被裁切，跟随圆角
 
         // 去除阴影效果，确保没有任何黑色背景
         // Rectangle {
@@ -33,8 +35,8 @@ Rectangle {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 28
-            spacing: 20
+            anchors.margins: 20  // 大幅减少内边距，从28改为20
+            spacing: 12  // 减少标题与内容区域的间距，从20改为12
 
             RowLayout {
                 Layout.fillWidth: true
@@ -213,6 +215,7 @@ Rectangle {
                                 color: "#F9F9F9"
                                 radius: 8
                                 antialiasing: true
+                                clip: true  // 确保数据卡片内容也被裁切
 
                                 RowLayout {
                                     anchors.fill: parent
