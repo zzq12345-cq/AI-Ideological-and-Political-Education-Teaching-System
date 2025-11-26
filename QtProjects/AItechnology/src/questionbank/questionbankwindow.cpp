@@ -1,4 +1,5 @@
 #include "questionbankwindow.h"
+#include "../ui/moderncheckbox.h"
 
 #include <QAbstractButton>
 #include <QButtonGroup>
@@ -36,12 +37,12 @@ const QColor kPrimaryColor("#D9001B");
 const QColor kSidebarShadowColor(18, 24, 38, 30);
 const QColor kButtonShadowColor(217, 0, 27, 90);
 
-QFrame *resolveOptionFrame(QObject *node)
+QWidget *resolveOptionFrame(QObject *node)
 {
     QObject *current = node;
     while (current) {
         if (current->property("role").toString() == QLatin1String("optionItem")) {
-            return qobject_cast<QFrame *>(current);
+            return qobject_cast<QWidget *>(current);
         }
         current = current->parent();
     }
@@ -509,51 +510,79 @@ QWidget *QuestionBankWindow::createTagRow()
 
 QWidget *QuestionBankWindow::createOptionItem(const QString &key, const QString &text)
 {
-    auto *row = new QFrame(this);
-    row->setProperty("role", "optionItem");
-    row->setProperty("hovered", false);
-    row->setProperty("selected", false);
-    row->setCursor(Qt::PointingHandCursor);
-    row->setMinimumHeight(kOptionMinHeight);
-    row->setMouseTracking(true);
+    auto *container = new QWidget(this);
+    container->setProperty("role", "optionItem");
+    container->setProperty("hovered", false);
+    container->setProperty("selected", false);
+    container->setCursor(Qt::PointingHandCursor);
+    container->setMinimumHeight(kOptionMinHeight);
+    container->setMouseTracking(true);
 
-    auto *layout = new QHBoxLayout(row);
-    layout->setContentsMargins(20, 12, 20, 12);
-    layout->setSpacing(12);
+    auto *layout = new QHBoxLayout(container);
+    layout->setContentsMargins(20, 12, 20, 12);  // 默认边距
+    layout->setSpacing(16);
 
-    auto *radio = new QRadioButton(row);
-    radio->setProperty("role", "optionRadio");
-    radio->setCursor(Qt::PointingHandCursor);
-    m_optionGroup->addButton(radio);
+    // 现代化复选框
+    auto *checkbox = new ModernCheckBox(container);
+    checkbox->setProperty("role", "optionCheckbox");
+    checkbox->setCursor(Qt::PointingHandCursor);
+    m_optionGroup->addButton(checkbox);
+    checkbox->setAutoExclusive(true);
 
-    auto *keyLabel = new QLabel(key, row);
+    // 选项标签（A, B, C, D）
+    auto *keyLabel = new QLabel(key, container);
     keyLabel->setProperty("role", "optionKey");
+    keyLabel->setAlignment(Qt::AlignCenter);
+    keyLabel->setFixedSize(32, 32);
+    keyLabel->setStyleSheet(QString(
+        "QLabel[role=\"optionKey\"] {"
+        "  background: #F8F9FA;"
+        "  color: #495057;"
+        "  border-radius: 16px;"
+        "  font-weight: 600;"
+        "  font-size: 14px;"
+        "}"
+    ));
 
-    auto *textLabel = new QLabel(text, row);
+    // 选项文本
+    auto *textLabel = new QLabel(text, container);
     textLabel->setProperty("role", "optionText");
     textLabel->setWordWrap(true);
+    textLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 
-    layout->addWidget(radio, 0, Qt::AlignTop);
+    layout->addWidget(checkbox, 0, Qt::AlignTop);
     layout->addWidget(keyLabel, 0, Qt::AlignTop);
     layout->addWidget(textLabel, 1);
 
-    row->installEventFilter(this);
-    radio->installEventFilter(this);
-    keyLabel->installEventFilter(this);
-    textLabel->installEventFilter(this);
+    // 连接选择信号
+    connect(checkbox, &QCheckBox::toggled, this, [this, container, layout, key, text](bool checked) {
+        container->setProperty("selected", checked);
 
-    connect(radio, &QRadioButton::toggled, this, [this, row, key, text](bool checked) {
-        row->setProperty("selected", checked);
-        row->style()->unpolish(row);
-        row->style()->polish(row);
-        row->update();
+        // 调整选中状态的边距（4px留白效果）
+        if (checked) {
+            layout->setContentsMargins(16, 8, 16, 8);  // 缩小4px形成留白
+        } else {
+            layout->setContentsMargins(20, 12, 20, 12);  // 恢复默认边距
+        }
+
+        // 强制样式重绘
+        container->style()->unpolish(container);
+        container->style()->polish(container);
+        container->update();
+
         if (checked) {
             qInfo() << "Selected option" << key << text;
         }
     });
 
-    m_optionFrames.append(row);
-    return row;
+    // 安装事件过滤器用于hover效果
+    container->installEventFilter(this);
+    checkbox->installEventFilter(this);
+    keyLabel->installEventFilter(this);
+    textLabel->installEventFilter(this);
+
+    m_optionFrames.append(container);
+    return container;
 }
 
 QFrame *QuestionBankWindow::createAnswerSection()
@@ -720,7 +749,7 @@ void QuestionBankWindow::loadStyleSheet()
     qDebug() << "Loaded question bank stylesheet from primary path";
 }
 
-void QuestionBankWindow::refreshOptionFrame(QFrame *frame, bool hovered)
+void QuestionBankWindow::refreshOptionFrame(QWidget *frame, bool hovered)
 {
     if (!frame) {
         return;
@@ -758,8 +787,9 @@ bool QuestionBankWindow::eventFilter(QObject *watched, QEvent *event)
         } else if (event->type() == QEvent::Leave) {
             refreshOptionFrame(optionFrame, false);
         } else if (event->type() == QEvent::MouseButtonRelease) {
-            if (auto *radio = optionFrame->findChild<QRadioButton *>()) {
-                radio->setChecked(true);
+            // 点击容器时触发现代化复选框点击
+            if (auto *checkbox = optionFrame->findChild<ModernCheckBox *>()) {
+                checkbox->setChecked(true);
             }
         }
     }

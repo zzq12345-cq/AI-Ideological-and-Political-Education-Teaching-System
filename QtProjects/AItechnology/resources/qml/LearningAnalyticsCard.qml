@@ -6,163 +6,229 @@ Rectangle {
     id: root
     width: 840
     height: 360
-    color: "#F5F6FA"
+    color: "#F5F7FA"
 
     readonly property real ringWidth: 16
     readonly property real progress: 0.85
 
     Rectangle {
-        id: shadowGlow
-        anchors.centerIn: card
-        width: card.width + 12
-        height: card.height + 12
-        radius: card.radius + 6
-        color: "#12000000"
-        antialiasing: true
-    }
-
-    Rectangle {
-        id: shadowEdge
-        anchors.centerIn: card
-        width: card.width + 6
-        height: card.height + 6
-        radius: card.radius + 3
-        color: "transparent"
-        border.color: "#1A000000"
-        border.width: 1
-        antialiasing: true
-    }
-
-    Rectangle {
         id: card
-        anchors.centerIn: parent
-        width: parent.width - 72
-        height: parent.height - 48
+        anchors.fill: parent
+        anchors.margins: 0
         radius: 16
         color: "#FFFFFF"
         antialiasing: true
-        border.color: "#F0F0F0"
+        border.width: 1
+        border.color: "#E5E7EB"
 
-        RowLayout {
+        ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 24
-            spacing: 32
+            anchors.margins: 28
+            spacing: 20
 
-            Item {
-                id: chartArea
-                Layout.preferredWidth: 240
-                Layout.fillHeight: true
+            RowLayout {
+                Layout.fillWidth: true
 
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 16
-
-                    Item {
-                        id: donutFrame
-                        width: 200
-                        height: 200
-
-                        Shape {
-                            id: donut
-                            anchors.fill: parent
-                            antialiasing: true
-
-                            ShapePath {
-                                strokeWidth: ringWidth
-                                strokeColor: "#EEEEEE"
-                                capStyle: ShapePath.RoundCap
-                                fillColor: "transparent"
-                                PathAngleArc {
-                                    centerX: donut.width / 2
-                                    centerY: donut.height / 2
-                                    radiusX: (donut.width - ringWidth) / 2
-                                    radiusY: (donut.height - ringWidth) / 2
-                                    startAngle: -90
-                                    sweepAngle: 360
-                                }
-                            }
-
-                            ShapePath {
-                                strokeWidth: ringWidth
-                                strokeColor: "#D32F2F"
-                                capStyle: ShapePath.RoundCap
-                                fillColor: "transparent"
-                                PathAngleArc {
-                                    centerX: donut.width / 2
-                                    centerY: donut.height / 2
-                                    radiusX: (donut.width - ringWidth) / 2
-                                    radiusY: (donut.height - ringWidth) / 2
-                                    startAngle: -90
-                                    sweepAngle: 360 * progress
-                                }
-                            }
-                        }
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "85%"
-                            color: "#111827"
-                            font.pixelSize: 48
-                            font.bold: true
-                        }
-                    }
-
-                    Text {
-                        anchors.horizontalCenter: donutFrame.horizontalCenter
-                        text: "整体学习进度"
-                        color: "#6B7280"
-                        font.pixelSize: 14
-                        font.weight: Font.Medium
-                    }
+                Text {
+                    text: "学情分析"
+                    color: "#1F2937"
+                    font.pixelSize: 18
+                    font.bold: true
+                    Layout.fillWidth: true
                 }
             }
 
-            GridLayout {
-                id: metricsLayout
+            Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                Layout.alignment: Qt.AlignVCenter
-                columns: 2
-                columnSpacing: 28
-                rowSpacing: 18
 
-                property var metrics: [
-                    { color: "#4285F4", label: "课堂参与度", value: "92%" },
-                    { color: "#34A853", label: "专注度", value: "88%" },
-                    { color: "#FBBC05", label: "测验正确率", value: "79%" },
-                    { color: "#EA4335", label: "提问次数", value: "12" }
-                ]
+                RowLayout {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 32
 
-                Repeater {
-                    model: metricsLayout.metrics
-                    delegate: RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 12
+                    Item {
+                        id: chartArea
+                        Layout.preferredWidth: 240
+                        Layout.fillHeight: true
 
-                        Rectangle {
-                            width: 12
-                            height: 12
-                            radius: 6
-                            color: modelData.color
-                            Layout.alignment: Qt.AlignVCenter
-                        }
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 16
 
-                        ColumnLayout {
-                            spacing: 4
-                            Layout.fillWidth: true
+                            Item {
+                                id: donutFrame
+                                width: 200
+                                height: 200
+                                property bool tooltipVisible: false
 
-                            Text {
-                                text: modelData.label
-                                color: "#6B7280"
-                                font.pixelSize: 13
-                                font.weight: Font.Medium
+                                Shape {
+                                    id: donut
+                                    anchors.fill: parent
+                                    antialiasing: true
+
+                                    ShapePath {
+                                        strokeWidth: ringWidth
+                                        strokeColor: "#E5E7EB"
+                                        capStyle: ShapePath.RoundCap
+                                        fillColor: "transparent"
+                                        PathAngleArc {
+                                            centerX: donut.width / 2
+                                            centerY: donut.height / 2
+                                            radiusX: (donut.width - ringWidth) / 2
+                                            radiusY: (donut.height - ringWidth) / 2
+                                            startAngle: -90
+                                            sweepAngle: 360
+                                        }
+                                    }
+
+                                    ShapePath {
+                                        strokeWidth: ringWidth
+                                        strokeColor: "#2563EB"
+                                        capStyle: ShapePath.RoundCap
+                                        fillColor: "transparent"
+                                        PathAngleArc {
+                                            centerX: donut.width / 2
+                                            centerY: donut.height / 2
+                                            radiusX: (donut.width - ringWidth) / 2
+                                            radiusY: (donut.height - ringWidth) / 2
+                                            startAngle: -90
+                                            sweepAngle: 360 * progress
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "85%"
+                                    color: "#111827"
+                                    font.pixelSize: 48
+                                    font.bold: true
+                                }
+
+                                // 悬停显示加权计算公式提示
+                                Rectangle {
+                                    id: tooltipBubble
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: -20
+                                    anchors.bottom: parent.top
+                                    anchors.bottomMargin: 12
+                                    color: "#2C2C2C"
+                                    radius: 6
+                                    z: 100
+                                    opacity: donutFrame.tooltipVisible ? 1 : 0
+                                    visible: opacity > 0
+                                    implicitWidth: tooltipText.implicitWidth + 24
+                                    implicitHeight: tooltipText.implicitHeight + 16
+                                    Behavior on opacity {
+                                        NumberAnimation { duration: 200 }
+                                    }
+
+                                    Text {
+                                        id: tooltipText
+                                        anchors.centerIn: parent
+                                        text: "计算公式：\n(课堂参与 92% + 专注度 88% + 测验 79% + 提问转化分 81%) ÷ 4 = 85%"
+                                        color: "#FFFFFF"
+                                        font.pixelSize: 13
+                                        lineHeight: 1.2
+                                        wrapMode: Text.Wrap
+                                        horizontalAlignment: Text.AlignHCenter
+                                    }
+                                }
+
+                                Shape {
+                                    id: tooltipArrow
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    anchors.top: tooltipBubble.bottom
+                                    width: 16
+                                    height: 8
+                                    visible: tooltipBubble.visible
+                                    opacity: tooltipBubble.opacity
+                                    z: tooltipBubble.z
+                                    antialiasing: true
+
+                                    ShapePath {
+                                        strokeWidth: 0
+                                        fillColor: "#2C2C2C"
+                                        startX: 0
+                                        startY: 0
+                                        PathLine { x: tooltipArrow.width / 2; y: tooltipArrow.height }
+                                        PathLine { x: tooltipArrow.width; y: 0 }
+                                        PathLine { x: 0; y: 0 }
+                                    }
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onEntered: donutFrame.tooltipVisible = true
+                                    onExited: donutFrame.tooltipVisible = false
+                                }
                             }
 
                             Text {
-                                text: modelData.value
-                                color: "#1F2937"
-                                font.pixelSize: 20
-                                font.weight: Font.DemiBold
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                width: parent.width
+                                text: "整体学习进度"
+                                color: "#6B7280"
+                                font.pixelSize: 14
+                                font.weight: Font.Normal
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+                        }
+                    }
+
+                    GridLayout {
+                        id: metricsLayout
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.alignment: Qt.AlignVCenter
+                        columns: 2
+                        columnSpacing: 28
+                        rowSpacing: 20
+
+                        property var metrics: [
+                            { color: "#4285F4", label: "课堂参与度", value: "92%" },
+                            { color: "#34A853", label: "专注度", value: "88%" },
+                            { color: "#FBBC05", label: "测验正确率", value: "79%" },
+                            { color: "#EA4335", label: "提问转化分", value: "81%" }
+                        ]
+
+                        Repeater {
+                            model: metricsLayout.metrics
+                            delegate: RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 12
+
+                                Rectangle {
+                                    width: 12
+                                    height: 12
+                                    radius: 6
+                                    color: modelData.color
+                                    border.color: "#1A000000"
+                                    border.width: 1
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+
+                                ColumnLayout {
+                                    spacing: 4
+                                    Layout.fillWidth: true
+
+                                    Text {
+                                        text: modelData.label
+                                        color: "#4B5563"
+                                        font.pixelSize: 13
+                                        font.weight: Font.Medium
+                                    }
+
+                                    Text {
+                                        text: modelData.value
+                                        color: "#1F2937"
+                                        font.pixelSize: 20
+                                        font.weight: Font.DemiBold
+                                    }
+                                }
                             }
                         }
                     }

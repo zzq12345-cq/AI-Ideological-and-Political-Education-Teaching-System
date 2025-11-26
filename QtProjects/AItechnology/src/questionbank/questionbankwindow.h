@@ -44,11 +44,11 @@ private:
     void connectFilterButton(QButtonGroup *group, const QString &labelText);
     void updateProgress(int delta);
     void loadStyleSheet();
-    void refreshOptionFrame(QFrame *frame, bool hovered);
+    void refreshOptionFrame(QWidget *frame, bool hovered);
 
     QList<QComboBox *> m_filterCombos;
     QList<QButtonGroup *> m_filterGroups;
-    QList<QFrame *> m_optionFrames;
+    QList<QWidget *> m_optionFrames;
 
     QButtonGroup *m_optionGroup = nullptr;
     QLabel *m_progressValueLabel = nullptr;
