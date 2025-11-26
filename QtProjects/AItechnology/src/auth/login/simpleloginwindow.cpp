@@ -316,26 +316,18 @@ void SimpleLoginWindow::setupUI()
 
     // 记住我和忘记密码 - 重新设计平衡布局
     QHBoxLayout *optionsLayout = new QHBoxLayout();
-    rememberMeCheck = new QCheckBox("记住我");
-    rememberMeCheck->setStyleSheet(
-        "QCheckBox {"
-        "  color: #0F172A;"
-        "  font-size: 14px;"
-        "}"
-        "QCheckBox::indicator {"
-        "  width: 18px;"
-        "  height: 18px;"
-        "  border-radius: 4px;"
-        "  border: 1px solid #CFD7E7;"
-        "  background-color: white;"
-        "}"
-        "QCheckBox::indicator:checked {"
-        "  background-color: #C62828;"
-        "  border-color: #C62828;"
-        "}"
-    );
 
-    forgotPasswordBtn = new QPushButton("忘记密码?");
+    auto *rememberLayout = new QHBoxLayout();
+    rememberLayout->setContentsMargins(0, 0, 0, 0);
+    rememberLayout->setSpacing(8);
+
+    rememberMeCheck = new QCheckBox("记住我", this);
+
+    rememberLayout->addWidget(rememberMeCheck);
+
+    // 创建忘记密码按钮
+    forgotPasswordBtn = new QPushButton("忘记密码？", this);
+
     forgotPasswordBtn->setStyleSheet(
         "QPushButton {"
         "  color: #C62828;"
@@ -351,7 +343,7 @@ void SimpleLoginWindow::setupUI()
     );
 
     // 平衡布局：左侧记住我，右侧忘记密码，中间弹簧
-    optionsLayout->addWidget(rememberMeCheck);
+    optionsLayout->addLayout(rememberLayout);
     optionsLayout->addStretch();
     optionsLayout->addWidget(forgotPasswordBtn);
 
@@ -479,7 +471,7 @@ void SimpleLoginWindow::setupUI()
 void SimpleLoginWindow::setupStyle()
 {
     setStyleSheet(
-        "QDialog {"
+        "QWidget {"
         "  background-color: white;"
         "}"
         "QFrame#leftPanel {"

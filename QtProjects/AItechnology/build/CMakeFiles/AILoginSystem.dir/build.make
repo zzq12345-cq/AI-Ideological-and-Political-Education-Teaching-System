@@ -69,20 +69,13 @@ include CMakeFiles/AILoginSystem.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/AILoginSystem.dir/flags.make
 
-AILoginSystem_autogen/timestamp: /Users/zhouzhiqi/Qt/6.9.3/macos/libexec/moc
-AILoginSystem_autogen/timestamp: /Users/zhouzhiqi/Qt/6.9.3/macos/libexec/uic
-AILoginSystem_autogen/timestamp: CMakeFiles/AILoginSystem.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Automatic MOC and UIC for target AILoginSystem"
-	/opt/homebrew/bin/cmake -E cmake_autogen /Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles/AILoginSystem_autogen.dir/AutogenInfo.json Debug
-	/opt/homebrew/bin/cmake -E touch /Users/zhouzhiqi/QtProjects/AItechnology/build/AILoginSystem_autogen/timestamp
-
 CMakeFiles/AILoginSystem.dir/codegen:
 .PHONY : CMakeFiles/AILoginSystem.dir/codegen
 
 CMakeFiles/AILoginSystem.dir/AILoginSystem_autogen/mocs_compilation.cpp.o: CMakeFiles/AILoginSystem.dir/flags.make
 CMakeFiles/AILoginSystem.dir/AILoginSystem_autogen/mocs_compilation.cpp.o: AILoginSystem_autogen/mocs_compilation.cpp
 CMakeFiles/AILoginSystem.dir/AILoginSystem_autogen/mocs_compilation.cpp.o: CMakeFiles/AILoginSystem.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/AILoginSystem.dir/AILoginSystem_autogen/mocs_compilation.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/AILoginSystem.dir/AILoginSystem_autogen/mocs_compilation.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/AILoginSystem.dir/AILoginSystem_autogen/mocs_compilation.cpp.o -MF CMakeFiles/AILoginSystem.dir/AILoginSystem_autogen/mocs_compilation.cpp.o.d -o CMakeFiles/AILoginSystem.dir/AILoginSystem_autogen/mocs_compilation.cpp.o -c /Users/zhouzhiqi/QtProjects/AItechnology/build/AILoginSystem_autogen/mocs_compilation.cpp
 
 CMakeFiles/AILoginSystem.dir/AILoginSystem_autogen/mocs_compilation.cpp.i: cmake_force
@@ -93,110 +86,14 @@ CMakeFiles/AILoginSystem.dir/AILoginSystem_autogen/mocs_compilation.cpp.s: cmake
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/AILoginSystem.dir/AILoginSystem_autogen/mocs_compilation.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/zhouzhiqi/QtProjects/AItechnology/build/AILoginSystem_autogen/mocs_compilation.cpp -o CMakeFiles/AILoginSystem.dir/AILoginSystem_autogen/mocs_compilation.cpp.s
 
-CMakeFiles/AILoginSystem.dir/src/main/main.cpp.o: CMakeFiles/AILoginSystem.dir/flags.make
-CMakeFiles/AILoginSystem.dir/src/main/main.cpp.o: /Users/zhouzhiqi/QtProjects/AItechnology/src/main/main.cpp
-CMakeFiles/AILoginSystem.dir/src/main/main.cpp.o: CMakeFiles/AILoginSystem.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/AILoginSystem.dir/src/main/main.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/AILoginSystem.dir/src/main/main.cpp.o -MF CMakeFiles/AILoginSystem.dir/src/main/main.cpp.o.d -o CMakeFiles/AILoginSystem.dir/src/main/main.cpp.o -c /Users/zhouzhiqi/QtProjects/AItechnology/src/main/main.cpp
-
-CMakeFiles/AILoginSystem.dir/src/main/main.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/AILoginSystem.dir/src/main/main.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/zhouzhiqi/QtProjects/AItechnology/src/main/main.cpp > CMakeFiles/AILoginSystem.dir/src/main/main.cpp.i
-
-CMakeFiles/AILoginSystem.dir/src/main/main.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/AILoginSystem.dir/src/main/main.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/zhouzhiqi/QtProjects/AItechnology/src/main/main.cpp -o CMakeFiles/AILoginSystem.dir/src/main/main.cpp.s
-
-CMakeFiles/AILoginSystem.dir/src/auth/login/simpleloginwindow.cpp.o: CMakeFiles/AILoginSystem.dir/flags.make
-CMakeFiles/AILoginSystem.dir/src/auth/login/simpleloginwindow.cpp.o: /Users/zhouzhiqi/QtProjects/AItechnology/src/auth/login/simpleloginwindow.cpp
-CMakeFiles/AILoginSystem.dir/src/auth/login/simpleloginwindow.cpp.o: CMakeFiles/AILoginSystem.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/AILoginSystem.dir/src/auth/login/simpleloginwindow.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/AILoginSystem.dir/src/auth/login/simpleloginwindow.cpp.o -MF CMakeFiles/AILoginSystem.dir/src/auth/login/simpleloginwindow.cpp.o.d -o CMakeFiles/AILoginSystem.dir/src/auth/login/simpleloginwindow.cpp.o -c /Users/zhouzhiqi/QtProjects/AItechnology/src/auth/login/simpleloginwindow.cpp
-
-CMakeFiles/AILoginSystem.dir/src/auth/login/simpleloginwindow.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/AILoginSystem.dir/src/auth/login/simpleloginwindow.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/zhouzhiqi/QtProjects/AItechnology/src/auth/login/simpleloginwindow.cpp > CMakeFiles/AILoginSystem.dir/src/auth/login/simpleloginwindow.cpp.i
-
-CMakeFiles/AILoginSystem.dir/src/auth/login/simpleloginwindow.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/AILoginSystem.dir/src/auth/login/simpleloginwindow.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/zhouzhiqi/QtProjects/AItechnology/src/auth/login/simpleloginwindow.cpp -o CMakeFiles/AILoginSystem.dir/src/auth/login/simpleloginwindow.cpp.s
-
-CMakeFiles/AILoginSystem.dir/src/auth/login/signupwindow.cpp.o: CMakeFiles/AILoginSystem.dir/flags.make
-CMakeFiles/AILoginSystem.dir/src/auth/login/signupwindow.cpp.o: /Users/zhouzhiqi/QtProjects/AItechnology/src/auth/login/signupwindow.cpp
-CMakeFiles/AILoginSystem.dir/src/auth/login/signupwindow.cpp.o: CMakeFiles/AILoginSystem.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/AILoginSystem.dir/src/auth/login/signupwindow.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/AILoginSystem.dir/src/auth/login/signupwindow.cpp.o -MF CMakeFiles/AILoginSystem.dir/src/auth/login/signupwindow.cpp.o.d -o CMakeFiles/AILoginSystem.dir/src/auth/login/signupwindow.cpp.o -c /Users/zhouzhiqi/QtProjects/AItechnology/src/auth/login/signupwindow.cpp
-
-CMakeFiles/AILoginSystem.dir/src/auth/login/signupwindow.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/AILoginSystem.dir/src/auth/login/signupwindow.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/zhouzhiqi/QtProjects/AItechnology/src/auth/login/signupwindow.cpp > CMakeFiles/AILoginSystem.dir/src/auth/login/signupwindow.cpp.i
-
-CMakeFiles/AILoginSystem.dir/src/auth/login/signupwindow.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/AILoginSystem.dir/src/auth/login/signupwindow.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/zhouzhiqi/QtProjects/AItechnology/src/auth/login/signupwindow.cpp -o CMakeFiles/AILoginSystem.dir/src/auth/login/signupwindow.cpp.s
-
-CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseclient.cpp.o: CMakeFiles/AILoginSystem.dir/flags.make
-CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseclient.cpp.o: /Users/zhouzhiqi/QtProjects/AItechnology/src/auth/supabase/supabaseclient.cpp
-CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseclient.cpp.o: CMakeFiles/AILoginSystem.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseclient.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseclient.cpp.o -MF CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseclient.cpp.o.d -o CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseclient.cpp.o -c /Users/zhouzhiqi/QtProjects/AItechnology/src/auth/supabase/supabaseclient.cpp
-
-CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseclient.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseclient.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/zhouzhiqi/QtProjects/AItechnology/src/auth/supabase/supabaseclient.cpp > CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseclient.cpp.i
-
-CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseclient.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseclient.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/zhouzhiqi/QtProjects/AItechnology/src/auth/supabase/supabaseclient.cpp -o CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseclient.cpp.s
-
-CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseconfig.cpp.o: CMakeFiles/AILoginSystem.dir/flags.make
-CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseconfig.cpp.o: /Users/zhouzhiqi/QtProjects/AItechnology/src/auth/supabase/supabaseconfig.cpp
-CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseconfig.cpp.o: CMakeFiles/AILoginSystem.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseconfig.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseconfig.cpp.o -MF CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseconfig.cpp.o.d -o CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseconfig.cpp.o -c /Users/zhouzhiqi/QtProjects/AItechnology/src/auth/supabase/supabaseconfig.cpp
-
-CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseconfig.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseconfig.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/zhouzhiqi/QtProjects/AItechnology/src/auth/supabase/supabaseconfig.cpp > CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseconfig.cpp.i
-
-CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseconfig.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseconfig.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/zhouzhiqi/QtProjects/AItechnology/src/auth/supabase/supabaseconfig.cpp -o CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseconfig.cpp.s
-
-CMakeFiles/AILoginSystem.dir/src/dashboard/modernmainwindow.cpp.o: CMakeFiles/AILoginSystem.dir/flags.make
-CMakeFiles/AILoginSystem.dir/src/dashboard/modernmainwindow.cpp.o: /Users/zhouzhiqi/QtProjects/AItechnology/src/dashboard/modernmainwindow.cpp
-CMakeFiles/AILoginSystem.dir/src/dashboard/modernmainwindow.cpp.o: CMakeFiles/AILoginSystem.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/AILoginSystem.dir/src/dashboard/modernmainwindow.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/AILoginSystem.dir/src/dashboard/modernmainwindow.cpp.o -MF CMakeFiles/AILoginSystem.dir/src/dashboard/modernmainwindow.cpp.o.d -o CMakeFiles/AILoginSystem.dir/src/dashboard/modernmainwindow.cpp.o -c /Users/zhouzhiqi/QtProjects/AItechnology/src/dashboard/modernmainwindow.cpp
-
-CMakeFiles/AILoginSystem.dir/src/dashboard/modernmainwindow.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/AILoginSystem.dir/src/dashboard/modernmainwindow.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/zhouzhiqi/QtProjects/AItechnology/src/dashboard/modernmainwindow.cpp > CMakeFiles/AILoginSystem.dir/src/dashboard/modernmainwindow.cpp.i
-
-CMakeFiles/AILoginSystem.dir/src/dashboard/modernmainwindow.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/AILoginSystem.dir/src/dashboard/modernmainwindow.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/zhouzhiqi/QtProjects/AItechnology/src/dashboard/modernmainwindow.cpp -o CMakeFiles/AILoginSystem.dir/src/dashboard/modernmainwindow.cpp.s
-
 # Object files for target AILoginSystem
 AILoginSystem_OBJECTS = \
-"CMakeFiles/AILoginSystem.dir/AILoginSystem_autogen/mocs_compilation.cpp.o" \
-"CMakeFiles/AILoginSystem.dir/src/main/main.cpp.o" \
-"CMakeFiles/AILoginSystem.dir/src/auth/login/simpleloginwindow.cpp.o" \
-"CMakeFiles/AILoginSystem.dir/src/auth/login/signupwindow.cpp.o" \
-"CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseclient.cpp.o" \
-"CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseconfig.cpp.o" \
-"CMakeFiles/AILoginSystem.dir/src/dashboard/modernmainwindow.cpp.o"
+"CMakeFiles/AILoginSystem.dir/AILoginSystem_autogen/mocs_compilation.cpp.o"
 
 # External object files for target AILoginSystem
 AILoginSystem_EXTERNAL_OBJECTS =
 
 AILoginSystem.app/Contents/MacOS/AILoginSystem: CMakeFiles/AILoginSystem.dir/AILoginSystem_autogen/mocs_compilation.cpp.o
-AILoginSystem.app/Contents/MacOS/AILoginSystem: CMakeFiles/AILoginSystem.dir/src/main/main.cpp.o
-AILoginSystem.app/Contents/MacOS/AILoginSystem: CMakeFiles/AILoginSystem.dir/src/auth/login/simpleloginwindow.cpp.o
-AILoginSystem.app/Contents/MacOS/AILoginSystem: CMakeFiles/AILoginSystem.dir/src/auth/login/signupwindow.cpp.o
-AILoginSystem.app/Contents/MacOS/AILoginSystem: CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseclient.cpp.o
-AILoginSystem.app/Contents/MacOS/AILoginSystem: CMakeFiles/AILoginSystem.dir/src/auth/supabase/supabaseconfig.cpp.o
-AILoginSystem.app/Contents/MacOS/AILoginSystem: CMakeFiles/AILoginSystem.dir/src/dashboard/modernmainwindow.cpp.o
 AILoginSystem.app/Contents/MacOS/AILoginSystem: CMakeFiles/AILoginSystem.dir/build.make
 AILoginSystem.app/Contents/MacOS/AILoginSystem: /Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtNetwork.framework/Versions/A/QtNetwork
 AILoginSystem.app/Contents/MacOS/AILoginSystem: /Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtCharts.framework/Versions/A/QtCharts
@@ -206,7 +103,7 @@ AILoginSystem.app/Contents/MacOS/AILoginSystem: /Users/zhouzhiqi/Qt/6.9.3/macos/
 AILoginSystem.app/Contents/MacOS/AILoginSystem: /Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtGui.framework/Versions/A/QtGui
 AILoginSystem.app/Contents/MacOS/AILoginSystem: /Users/zhouzhiqi/Qt/6.9.3/macos/lib/QtCore.framework/Versions/A/QtCore
 AILoginSystem.app/Contents/MacOS/AILoginSystem: CMakeFiles/AILoginSystem.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Linking CXX executable AILoginSystem.app/Contents/MacOS/AILoginSystem"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX executable AILoginSystem.app/Contents/MacOS/AILoginSystem"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/AILoginSystem.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -217,7 +114,7 @@ CMakeFiles/AILoginSystem.dir/clean:
 	$(CMAKE_COMMAND) -P CMakeFiles/AILoginSystem.dir/cmake_clean.cmake
 .PHONY : CMakeFiles/AILoginSystem.dir/clean
 
-CMakeFiles/AILoginSystem.dir/depend: AILoginSystem_autogen/timestamp
+CMakeFiles/AILoginSystem.dir/depend:
 	cd /Users/zhouzhiqi/QtProjects/AItechnology/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /Users/zhouzhiqi/QtProjects/AItechnology /Users/zhouzhiqi/QtProjects/AItechnology /Users/zhouzhiqi/QtProjects/AItechnology/build /Users/zhouzhiqi/QtProjects/AItechnology/build /Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles/AILoginSystem.dir/DependInfo.cmake "--color=$(COLOR)"
 .PHONY : CMakeFiles/AILoginSystem.dir/depend
 

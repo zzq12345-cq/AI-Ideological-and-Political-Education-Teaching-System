@@ -254,55 +254,35 @@ QLabel#questionStem {
     line-height: 1.7;
 }
 
-QFrame[role="optionItem"] {
-    border: 1px solid #e8eaf6;
-    border-radius: 16px;
+/* 现代化选项容器样式 */
+QWidget[role="optionItem"] {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    margin: 2px 4px;
+}
+
+QWidget[role="optionItem"]:hover {
+    background: #F5FAFF;
+    border-color: #E8F4FF;
+}
+
+QWidget[role="optionItem"][selected="true"] {
     background: #FFFFFF;
+    border: 1px solid #2A7BFF;
+    border-radius: 8px;
 }
 
-QFrame[role="optionItem"][hovered="true"] {
-    background: #FFFFFF;
+QWidget[role="optionItem"][selected="true"] QLabel[role="optionKey"] {
+    background: #2A7BFF;
+    color: #FFFFFF;
 }
 
-QFrame[role="optionItem"][selected="true"] {
-    border-color: #1976d2;
-    background: rgba(25, 118, 210, 0.12);
+QWidget[role="optionItem"][selected="true"] QLabel[role="optionText"] {
+    color: #2C3E50;
+    font-weight: 500;
 }
 
-QRadioButton[role="optionRadio"]::indicator {
-    width: 18px;
-    height: 18px;
-    border-radius: 999px;
-    border: 2px solid #e8eaf6;
-    background: #FFFFFF;
-    margin: 0;
-    padding: 0;
-}
-
-QRadioButton[role="optionRadio"]::indicator:hover {
-    border-color: #1976d2;
-}
-
-QRadioButton[role="optionRadio"]::indicator:checked {
-    border: 6px solid #FFFFFF;
-    background: #1976d2;
-}
-
-QLabel[role="optionKey"] {
-    font-size: 16px;
-    font-weight: 700;
-    color: #424242;
-}
-
-QLabel[role="optionText"] {
-    font-size: 15px;
-    color: #424242;
-}
-
-QFrame[role="optionItem"][selected="true"] QLabel[role="optionKey"],
-QFrame[role="optionItem"][selected="true"] QLabel[role="optionText"] {
-    color: #1976d2;
-}
 
 QFrame#answerSection {
     background: rgba(56, 142, 60, 0.12);

@@ -476,39 +476,7 @@
 	"CROSS_CONFIG" : false,
 	"DEP_FILE" : "/Users/zhouzhiqi/QtProjects/AItechnology/build/AILoginSystem_autogen/deps",
 	"DEP_FILE_RULE_NAME" : "AILoginSystem_autogen/timestamp",
-	"HEADERS" : 
-	[
-		[
-			"/Users/zhouzhiqi/QtProjects/AItechnology/src/auth/login/signupwindow.h",
-			"MU",
-			"T3ZCATHARN/moc_signupwindow.cpp",
-			null
-		],
-		[
-			"/Users/zhouzhiqi/QtProjects/AItechnology/src/auth/login/simpleloginwindow.h",
-			"MU",
-			"T3ZCATHARN/moc_simpleloginwindow.cpp",
-			null
-		],
-		[
-			"/Users/zhouzhiqi/QtProjects/AItechnology/src/auth/supabase/supabaseclient.h",
-			"MU",
-			"X7NQBL527T/moc_supabaseclient.cpp",
-			null
-		],
-		[
-			"/Users/zhouzhiqi/QtProjects/AItechnology/src/auth/supabase/supabaseconfig.h",
-			"MU",
-			"X7NQBL527T/moc_supabaseconfig.cpp",
-			null
-		],
-		[
-			"/Users/zhouzhiqi/QtProjects/AItechnology/src/dashboard/modernmainwindow.h",
-			"MU",
-			"TBGBFLAEGA/moc_modernmainwindow.cpp",
-			null
-		]
-	],
+	"HEADERS" : [],
 	"HEADER_EXTENSIONS" : [ "h", "hh", "h++", "hm", "hpp", "hxx", "in", "txx" ],
 	"INCLUDE_DIR" : "/Users/zhouzhiqi/QtProjects/AItechnology/build/AILoginSystem_autogen/include",
 	"MOC_COMPILATION_FILE" : "/Users/zhouzhiqi/QtProjects/AItechnology/build/AILoginSystem_autogen/mocs_compilation.cpp",
@@ -584,39 +552,7 @@
 	"QT_VERSION_MAJOR" : 6,
 	"QT_VERSION_MINOR" : 9,
 	"SETTINGS_FILE" : "/Users/zhouzhiqi/QtProjects/AItechnology/build/CMakeFiles/AILoginSystem_autogen.dir/AutogenUsed.txt",
-	"SOURCES" : 
-	[
-		[
-			"/Users/zhouzhiqi/QtProjects/AItechnology/src/auth/login/signupwindow.cpp",
-			"MU",
-			null
-		],
-		[
-			"/Users/zhouzhiqi/QtProjects/AItechnology/src/auth/login/simpleloginwindow.cpp",
-			"MU",
-			null
-		],
-		[
-			"/Users/zhouzhiqi/QtProjects/AItechnology/src/auth/supabase/supabaseclient.cpp",
-			"MU",
-			null
-		],
-		[
-			"/Users/zhouzhiqi/QtProjects/AItechnology/src/auth/supabase/supabaseconfig.cpp",
-			"MU",
-			null
-		],
-		[
-			"/Users/zhouzhiqi/QtProjects/AItechnology/src/dashboard/modernmainwindow.cpp",
-			"MU",
-			null
-		],
-		[
-			"/Users/zhouzhiqi/QtProjects/AItechnology/src/main/main.cpp",
-			"MU",
-			null
-		]
-	],
+	"SOURCES" : [],
 	"UIC_OPTIONS" : [],
 	"UIC_SEARCH_PATHS" : [],
 	"UIC_SKIP" : [],

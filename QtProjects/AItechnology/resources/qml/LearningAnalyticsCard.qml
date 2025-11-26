@@ -4,10 +4,9 @@ import QtQuick.Shapes
 
 Rectangle {
     id: root
-    width: 800
+    width: 820
     height: 360
-    color: "#F5F7FA"
-    Layout.maximumWidth: 820
+    color: "transparent"
     Layout.alignment: Qt.AlignHCenter
 
     readonly property real ringWidth: 16
@@ -16,12 +15,21 @@ Rectangle {
     Rectangle {
         id: card
         anchors.fill: parent
-        anchors.margins: 8
-        radius: 16
+        anchors.margins: 12
+        radius: 12
         color: "#FFFFFF"
         antialiasing: true
-        border.width: 1
-        border.color: "#E5E7EB"
+        border.width: 0
+
+        // 简单的阴影效果
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: 6
+            radius: 12
+            color: "#000000"
+            opacity: 0.05
+            z: -1
+        }
 
         ColumnLayout {
             anchors.fill: parent

@@ -9,6 +9,7 @@
 #include "../../../src/auth/supabase/supabaseclient.h"
 #include <QtNetwork/QSslError>
 #include <QtCore/qmetatype.h>
+#include <QtCore/QList>
 
 #include <QtCore/qtmochelpers.h>
 
@@ -55,6 +56,12 @@ template <> constexpr inline auto SupabaseClient::qt_create_metaobjectdata<qt_me
         "onReplyFinished",
         "QNetworkReply*",
         "reply",
+        "onNetworkError",
+        "QNetworkReply::NetworkError",
+        "error",
+        "onSslErrors",
+        "QList<QSslError>",
+        "errors",
         "onAuthRequired",
         "QAuthenticator*",
         "authenticator"
@@ -89,9 +96,17 @@ template <> constexpr inline auto SupabaseClient::qt_create_metaobjectdata<qt_me
         QtMocHelpers::SlotData<void(QNetworkReply *)>(13, 2, QMC::AccessPrivate, QMetaType::Void, {{
             { 0x80000000 | 14, 15 },
         }}),
+        // Slot 'onNetworkError'
+        QtMocHelpers::SlotData<void(QNetworkReply::NetworkError)>(16, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { 0x80000000 | 17, 18 },
+        }}),
+        // Slot 'onSslErrors'
+        QtMocHelpers::SlotData<void(const QList<QSslError> &)>(19, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { 0x80000000 | 20, 21 },
+        }}),
         // Slot 'onAuthRequired'
-        QtMocHelpers::SlotData<void(QNetworkReply *, QAuthenticator *)>(16, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { 0x80000000 | 14, 15 }, { 0x80000000 | 17, 18 },
+        QtMocHelpers::SlotData<void(QNetworkReply *, QAuthenticator *)>(22, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { 0x80000000 | 14, 15 }, { 0x80000000 | 23, 24 },
         }}),
     };
     QtMocHelpers::UintData qt_properties {
@@ -123,7 +138,9 @@ void SupabaseClient::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _
         case 4: _t->userExists((*reinterpret_cast< std::add_pointer_t<bool>>(_a[1]))); break;
         case 5: _t->userCheckFailed((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1]))); break;
         case 6: _t->onReplyFinished((*reinterpret_cast< std::add_pointer_t<QNetworkReply*>>(_a[1]))); break;
-        case 7: _t->onAuthRequired((*reinterpret_cast< std::add_pointer_t<QNetworkReply*>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QAuthenticator*>>(_a[2]))); break;
+        case 7: _t->onNetworkError((*reinterpret_cast< std::add_pointer_t<QNetworkReply::NetworkError>>(_a[1]))); break;
+        case 8: _t->onSslErrors((*reinterpret_cast< std::add_pointer_t<QList<QSslError>>>(_a[1]))); break;
+        case 9: _t->onAuthRequired((*reinterpret_cast< std::add_pointer_t<QNetworkReply*>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QAuthenticator*>>(_a[2]))); break;
         default: ;
         }
     }
@@ -138,6 +155,20 @@ void SupabaseClient::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _
             }
             break;
         case 7:
+            switch (*reinterpret_cast<int*>(_a[1])) {
+            default: *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType(); break;
+            case 0:
+                *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType::fromType< QNetworkReply::NetworkError >(); break;
+            }
+            break;
+        case 8:
+            switch (*reinterpret_cast<int*>(_a[1])) {
+            default: *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType(); break;
+            case 0:
+                *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType::fromType< QList<QSslError> >(); break;
+            }
+            break;
+        case 9:
             switch (*reinterpret_cast<int*>(_a[1])) {
             default: *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType(); break;
             case 0:
@@ -181,14 +212,14 @@ int SupabaseClient::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 8)
+        if (_id < 10)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 8;
+        _id -= 10;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 8)
+        if (_id < 10)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 8;
+        _id -= 10;
     }
     return _id;
 }
