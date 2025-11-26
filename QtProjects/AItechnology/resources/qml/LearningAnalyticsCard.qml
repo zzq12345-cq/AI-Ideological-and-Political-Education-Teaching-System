@@ -4,9 +4,11 @@ import QtQuick.Shapes
 
 Rectangle {
     id: root
-    width: 840
+    width: 800
     height: 360
     color: "#F5F7FA"
+    Layout.maximumWidth: 820
+    Layout.alignment: Qt.AlignHCenter
 
     readonly property real ringWidth: 16
     readonly property real progress: 0.85
@@ -14,7 +16,7 @@ Rectangle {
     Rectangle {
         id: card
         anchors.fill: parent
-        anchors.margins: 0
+        anchors.margins: 8
         radius: 16
         color: "#FFFFFF"
         antialiasing: true
@@ -46,7 +48,7 @@ Rectangle {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 32
+                    spacing: 72
 
                     Item {
                         id: chartArea
@@ -185,8 +187,8 @@ Rectangle {
                         Layout.fillHeight: true
                         Layout.alignment: Qt.AlignVCenter
                         columns: 2
-                        columnSpacing: 28
-                        rowSpacing: 20
+                        columnSpacing: 64
+                        rowSpacing: 48
 
                         property var metrics: [
                             { color: "#4285F4", label: "课堂参与度", value: "92%" },
@@ -206,8 +208,8 @@ Rectangle {
                                     height: 12
                                     radius: 6
                                     color: modelData.color
-                                    border.color: "#1A000000"
-                                    border.width: 1
+                                    border.color: "#E5E7EB"
+                                    border.width: 2
                                     Layout.alignment: Qt.AlignVCenter
                                 }
 
