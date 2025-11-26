@@ -6,7 +6,7 @@ Rectangle {
     id: root
     width: 820
     height: 320  // 减少整体高度，从360改为320
-    color: "transparent"  // 确保根节点透明，去除黑色尖角
+    color: "#F3F4F6"  // 与主背景色一致，彻底解决黑色尖角问题
     Layout.alignment: Qt.AlignHCenter
     clip: true  // 添加裁切，确保圆角效果干净
 
