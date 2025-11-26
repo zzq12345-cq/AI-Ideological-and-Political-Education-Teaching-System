@@ -216,8 +216,7 @@ Rectangle {
                                     height: 12
                                     radius: 6
                                     color: modelData.color
-                                    border.color: "#E5E7EB"
-                                    border.width: 2
+                                    border.width: 0
                                     Layout.alignment: Qt.AlignVCenter
                                 }
 
