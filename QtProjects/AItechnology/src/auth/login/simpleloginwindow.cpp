@@ -84,11 +84,11 @@ void SimpleLoginWindow::setupUI()
 
     // 口号标签 - 使用暗金色点缀，体现庄重与典雅
     mottoLabel = new QLabel("\"不忘初心，牢记使命\"");
-    mottoLabel->setStyleSheet("color: #C9A64E; font-size: 32px; font-weight: 900; text-align: center;");
+    mottoLabel->setStyleSheet("color: #C9A64E; font-size: 32px; font-weight: 900; text-align: center; background-color: transparent;");
 
     // 英文翻译 - 使用浅色调搭配暗金色标题
     QLabel *mottoEnglish = new QLabel("\"Remain true to our original aspiration and keep our mission firmly in mind.\"");
-    mottoEnglish->setStyleSheet("color: #E8D5B5; font-size: 18px; font-weight: 500; text-align: center;");
+    mottoEnglish->setStyleSheet("color: #E8D5B5; font-size: 18px; font-weight: 500; text-align: center; background-color: transparent;");
 
     // 分隔线 - 使用暗金色边框体现典雅
     QFrame *separator = new QFrame();
@@ -97,21 +97,22 @@ void SimpleLoginWindow::setupUI()
 
     // 引言 - 使用暗金色标题，突出主题
     quoteLabel = new QLabel("\"为中华之崛起而读书\"");
-    quoteLabel->setStyleSheet("color: #C9A64E; font-size: 28px; font-weight: bold; text-align: center;");
+    quoteLabel->setStyleSheet("color: #C9A64E; font-size: 28px; font-weight: bold; text-align: center; background-color: transparent;");
 
     // 作者 - 使用浅色调
     authorLabel = new QLabel("—— 周恩来 (Zhou Enlai)");
-    authorLabel->setStyleSheet("color: #E8D5B5; font-size: 16px; font-weight: 500; font-style: italic;");
+    authorLabel->setStyleSheet("color: #E8D5B5; font-size: 16px; font-weight: 500; font-style: italic; background-color: transparent;");
 
     // 英文翻译 - 使用淡雅色调
     translationLabel = new QLabel("\"Study for the rise of China.\"");
-    translationLabel->setStyleSheet("color: #D4C5A0; font-size: 14px;");
+    translationLabel->setStyleSheet("color: #D4C5A0; font-size: 14px; background-color: transparent;");
 
     // 添加小logo图片到左上方
     QLabel *imageLabel = new QLabel();
     imageLabel->setFixedSize(160, 160); // 放大到160x80
     imageLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     imageLabel->setScaledContents(true);
+    imageLabel->setStyleSheet("background-color: transparent; border: none;"); // 确保Logo区域透明
 
     // 加载实际图片
     QPixmap pixmap(":/images/download.png");
@@ -131,9 +132,8 @@ void SimpleLoginWindow::setupUI()
                 "QLabel {"
                 "  color: #C9A64E;"
                 "  font-size: 12px;"
-                "  background-color: rgba(255, 255, 255, 0.2);"
-                "  border: 1px solid #C9A64E;"
-                "  border-radius: 4px;"
+                "  background-color: transparent;"
+                "  border: none;"
                 "  padding: 5px;"
                 "}"
             );
