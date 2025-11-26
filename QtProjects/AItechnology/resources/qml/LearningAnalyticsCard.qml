@@ -6,7 +6,7 @@ Rectangle {
     id: root
     width: 820
     height: 360
-    color: "transparent"
+    color: "#F5F7FA"  // 设置页面背景色，去除黑色区域
     Layout.alignment: Qt.AlignHCenter
 
     readonly property real ringWidth: 16
@@ -21,13 +21,13 @@ Rectangle {
         antialiasing: true
         border.width: 0
 
-        // 简单的阴影效果
+        // 柔和的阴影效果 - 模拟DropShadow
         Rectangle {
             anchors.fill: parent
-            anchors.margins: 6
+            anchors.margins: 16  // 增加阴影范围，radius: 16
             radius: 12
             color: "#000000"
-            opacity: 0.05
+            opacity: 0.08  // 增强阴影效果，color: "#15000000" 对应 opacity: 0.08
             z: -1
         }
 
@@ -95,7 +95,7 @@ Rectangle {
 
                                     ShapePath {
                                         strokeWidth: ringWidth
-                                        strokeColor: "#2563EB"
+                                        strokeColor: "#D32F2F"  // 改为深红色，与按钮颜色一致
                                         capStyle: ShapePath.RoundCap
                                         fillColor: "transparent"
                                         PathAngleArc {
