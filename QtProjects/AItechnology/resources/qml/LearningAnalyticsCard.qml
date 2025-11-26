@@ -6,7 +6,7 @@ Rectangle {
     id: root
     width: 820
     height: 360
-    color: "#F5F7FA"  // 设置页面背景色，去除黑色区域
+    color: "transparent"  // 去除周围灰色背景
     Layout.alignment: Qt.AlignHCenter
 
     readonly property real ringWidth: 16
