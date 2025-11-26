@@ -6,7 +6,7 @@ Rectangle {
     id: root
     width: 820
     height: 360
-    color: "transparent"  // 去除周围灰色背景
+    color: "transparent"  // 确保根节点透明，去除黑色尖角
     Layout.alignment: Qt.AlignHCenter
 
     readonly property real ringWidth: 16
@@ -195,8 +195,8 @@ Rectangle {
                         Layout.fillHeight: true
                         Layout.alignment: Qt.AlignVCenter
                         columns: 2
-                        columnSpacing: 64
-                        rowSpacing: 48
+                        rowSpacing: 15
+                        columnSpacing: 15
 
                         property var metrics: [
                             { color: "#4285F4", label: "课堂参与度", value: "92%" },
@@ -207,35 +207,46 @@ Rectangle {
 
                         Repeater {
                             model: metricsLayout.metrics
-                            delegate: RowLayout {
+                            delegate: Rectangle {
                                 Layout.fillWidth: true
-                                spacing: 12
+                                height: 70
+                                color: "#F9F9F9"
+                                radius: 8
+                                antialiasing: true
 
-                                Rectangle {
-                                    width: 12
-                                    height: 12
-                                    radius: 6
-                                    color: modelData.color
-                                    border.width: 0
-                                    Layout.alignment: Qt.AlignVCenter
-                                }
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 12
+                                    spacing: 10
 
-                                ColumnLayout {
-                                    spacing: 4
-                                    Layout.fillWidth: true
-
-                                    Text {
-                                        text: modelData.label
-                                        color: "#4B5563"
-                                        font.pixelSize: 13
-                                        font.weight: Font.Medium
+                                    Rectangle {
+                                        width: 12
+                                        height: 12
+                                        radius: 6
+                                        color: modelData.color
+                                        border.width: 0
+                                        Layout.alignment: Qt.AlignVCenter
                                     }
 
-                                    Text {
-                                        text: modelData.value
-                                        color: "#1F2937"
-                                        font.pixelSize: 20
-                                        font.weight: Font.DemiBold
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 4
+
+                                        Text {
+                                            text: modelData.label
+                                            color: "#6B7280"
+                                            font.pixelSize: 12
+                                            font.weight: Font.Medium
+                                            Layout.fillWidth: true
+                                        }
+
+                                        Text {
+                                            text: modelData.value
+                                            color: "#111827"
+                                            font.pixelSize: 18
+                                            font.weight: Font.DemiBold
+                                            Layout.fillWidth: true
+                                        }
                                     }
                                 }
                             }
