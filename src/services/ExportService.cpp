@@ -218,27 +218,27 @@ QString ExportService::generateHtmlContent(const QString &paperTitle, const QLis
 QString ExportService::generateQuestionHtml(const Question &question, int index)
 {
     QString typeText;
-    switch(question.type.toLower().toLatin1().data()[0]) {
-        case 's': typeText = "单选题"; break;
-        case 'm': typeText = "多选题"; break;
-        case 't': typeText = "判断题"; break;
-        case 'h': typeText = "简答题"; break;
+    switch(question.type) {
+        case QuestionType::SingleChoice: typeText = "单选题"; break;
+        case QuestionType::MultiChoice: typeText = "多选题"; break;
+        case QuestionType::TrueFalse: typeText = "判断题"; break;
+        case QuestionType::ShortAnswer: typeText = "简答题"; break;
         default: typeText = "未知题型"; break;
     }
 
     QString difficultyText;
-    switch(question.difficulty.toLower().toLatin1().data()[0]) {
-        case 'e': difficultyText = "简单"; break;
-        case 'm': difficultyText = "中等"; break;
-        case 'h': difficultyText = "困难"; break;
+    switch(question.difficulty) {
+        case Difficulty::Easy: difficultyText = "简单"; break;
+        case Difficulty::Medium: difficultyText = "中等"; break;
+        case Difficulty::Hard: difficultyText = "困难"; break;
         default: difficultyText = "未知难度"; break;
     }
 
     QString difficultyClass;
-    switch(question.difficulty.toLower().toLatin1().data()[0]) {
-        case 'e': difficultyClass = "badge-difficulty-easy"; break;
-        case 'm': difficultyClass = "badge-difficulty-medium"; break;
-        case 'h': difficultyClass = "badge-difficulty-hard"; break;
+    switch(question.difficulty) {
+        case Difficulty::Easy: difficultyClass = "badge-difficulty-easy"; break;
+        case Difficulty::Medium: difficultyClass = "badge-difficulty-medium"; break;
+        case Difficulty::Hard: difficultyClass = "badge-difficulty-hard"; break;
         default: difficultyClass = ""; break;
     }
 

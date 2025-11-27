@@ -105,7 +105,7 @@ QComboBox[role="filterSelect"] {
 }
 
 QComboBox[role="filterSelect"]:hover {
-    border-color: #1976d2;
+    border-color: #ef5350;
 }
 
 QComboBox[role="filterSelect"]:focus {
@@ -219,7 +219,7 @@ QProgressBar#progressBar {
 }
 
 QProgressBar#progressBar::chunk {
-    background: #1976d2;
+    background: #ef5350;
     border-radius: 999px;
 }
 
@@ -239,7 +239,7 @@ QLabel#tagType {
 
 QLabel#tagDifficulty {
     background: transparent;
-    color: #1976d2;
+    color: #ef5350;
 }
 
 QLabel#tagChapter {
@@ -263,18 +263,18 @@ QWidget[role="optionItem"] {
 }
 
 QWidget[role="optionItem"]:hover {
-    background: #F5FAFF;
-    border-color: #E8F4FF;
+    background: #fff5f5;
+    border-color: #ffebee;
 }
 
 QWidget[role="optionItem"][selected="true"] {
     background: #FFFFFF;
-    border: 1px solid #2A7BFF;
+    border: 1px solid #ef5350;
     border-radius: 8px;
 }
 
 QWidget[role="optionItem"][selected="true"] QLabel[role="optionKey"] {
-    background: #2A7BFF;
+    background: #ef5350;
     color: #FFFFFF;
 }
 
@@ -318,7 +318,7 @@ QFrame#analysisSection {
 QLabel#analysisTitle {
     font-size: 13px;
     font-weight: 700;
-    color: #1976d2;
+    color: #c62828;
     letter-spacing: 0.6px;
 }
 
@@ -358,10 +358,10 @@ QPushButton#secondaryButton:hover {
 
 QPushButton#ghostButton {
     background: transparent;
-    border: 1px dashed #1976d2;
-    color: #1976d2;
+    border: 1px dashed #ef5350;
+    color: #ef5350;
 }
 
 QPushButton#ghostButton:hover {
-    background: rgba(25, 118, 210, 0.12);
+    background: rgba(239, 83, 80, 0.12);
 }

@@ -729,12 +729,12 @@ void QuestionBankWindow::updateProgress(int delta)
 
 void QuestionBankWindow::loadStyleSheet()
 {
-    QFile file(QStringLiteral(":/styles/question_bank.qss"));
+    QFile file(QStringLiteral(":/styles/resources/styles/question_bank.qss"));
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qWarning() << "Unable to load question bank stylesheet from :/styles/question_bank.qss";
+        qWarning() << "Unable to load question bank stylesheet from :/styles/resources/styles/question_bank.qss";
 
-        // 尝试备用路径
-        QFile fallbackFile(QStringLiteral(":/styles/resources/styles/question_bank.qss"));
+        // 尝试备用路径 (兼容旧的资源结构)
+        QFile fallbackFile(QStringLiteral(":/styles/question_bank.qss"));
         if (!fallbackFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
             qWarning() << "Unable to load question bank stylesheet from fallback path";
             return;

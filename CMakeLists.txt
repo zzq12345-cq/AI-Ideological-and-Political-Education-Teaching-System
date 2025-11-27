@@ -16,12 +16,26 @@ set(PROJECT_SOURCES
     src/main/main.cpp
     src/auth/login/simpleloginwindow.cpp
     src/auth/login/simpleloginwindow.h
+    src/auth/signup/signupwindow.cpp
+    src/auth/signup/signupwindow.h
     src/auth/supabase/supabaseclient.cpp
     src/auth/supabase/supabaseclient.h
     src/auth/supabase/supabaseconfig.cpp
     src/auth/supabase/supabaseconfig.h
     src/dashboard/modernmainwindow.cpp
     src/dashboard/modernmainwindow.h
+    src/questionbank/questionbankwindow.cpp
+    src/questionbank/questionbankwindow.h
+    src/questionbank/QuestionRepository.cpp
+    src/questionbank/QuestionRepository.h
+    src/ui/aipreparationwidget.cpp
+    src/ui/aipreparationwidget.h
+    src/ui/moderncheckbox.cpp
+    src/ui/moderncheckbox.h
+    src/services/ExportService.cpp
+    src/services/ExportService.h
+    resources.qrc
+    resources/QtTheme/QtTheme.qrc
 )
 
 qt_add_executable(AILoginSystem

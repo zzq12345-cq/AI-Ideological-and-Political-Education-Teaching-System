@@ -5,18 +5,7 @@
 #include <QList>
 #include <QJsonArray>
 #include <QJsonObject>
-
-// 题目数据结构（与QuestionRepository保持一致）
-struct Question {
-    QString id;
-    QString type;          // "single", "multi", "truefalse", "short"
-    QString difficulty;    // "easy", "medium", "hard"
-    QString stem;          // 题干
-    QStringList options;   // 选项
-    QString answer;        // 答案
-    QString explain;       // 解析
-    QStringList tags;      // 标签
-};
+#include "../questionbank/QuestionRepository.h"
 
 // 导出服务类
 class ExportService : public QObject
