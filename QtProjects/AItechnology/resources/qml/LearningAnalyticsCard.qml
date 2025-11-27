@@ -5,7 +5,7 @@ import QtQuick.Shapes
 Rectangle {
     id: root
     width: 820
-    height: 320  // 减少整体高度，从360改为320
+    height: 240
     color: "#F3F4F6"  // 与主背景色一致，彻底解决黑色尖角问题
     Layout.alignment: Qt.AlignHCenter
     clip: true  // 添加裁切，确保圆角效果干净
@@ -35,11 +35,15 @@ Rectangle {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 20  // 大幅减少内边距，从28改为20
-            spacing: 12  // 减少标题与内容区域的间距，从20改为12
+            anchors.topMargin: 20
+            anchors.leftMargin: 24
+            anchors.rightMargin: 24
+            anchors.bottomMargin: 16
+            spacing: 8
 
             RowLayout {
                 Layout.fillWidth: true
+                Layout.alignment: Qt.AlignLeft | Qt.AlignTop
 
                 Text {
                     text: "学情分析"
@@ -58,12 +62,13 @@ Rectangle {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 72
+                    spacing: 40
 
                     Item {
                         id: chartArea
-                        Layout.preferredWidth: 240
+                        Layout.preferredWidth: 220
                         Layout.fillHeight: true
+                        Layout.alignment: Qt.AlignVCenter
 
                         Column {
                             anchors.centerIn: parent
@@ -71,8 +76,8 @@ Rectangle {
 
                             Item {
                                 id: donutFrame
-                                width: 200
-                                height: 200
+                                width: 180
+                                height: 180
                                 property bool tooltipVisible: false
 
                                 Shape {
@@ -197,8 +202,8 @@ Rectangle {
                         Layout.fillHeight: true
                         Layout.alignment: Qt.AlignVCenter
                         columns: 2
-                        rowSpacing: 15
-                        columnSpacing: 15
+                        rowSpacing: 12
+                        columnSpacing: 12
 
                         property var metrics: [
                             { color: "#4285F4", label: "课堂参与度", value: "92%" },
@@ -211,7 +216,7 @@ Rectangle {
                             model: metricsLayout.metrics
                             delegate: Rectangle {
                                 Layout.fillWidth: true
-                                height: 70
+                                height: 60
                                 color: "#F9F9F9"
                                 radius: 8
                                 antialiasing: true
@@ -219,8 +224,8 @@ Rectangle {
 
                                 RowLayout {
                                     anchors.fill: parent
-                                    anchors.margins: 12
-                                    spacing: 10
+                                    anchors.margins: 10
+                                    spacing: 8
 
                                     Rectangle {
                                         width: 12
