@@ -1,0 +1,367 @@
+/* QtTheme融合配色方案 - 安全应用 */
+QuestionBankWindow#questionBankWindow {
+    background: #fafafa; /* QtTheme主背景色 */
+    font-family: "Lexend", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    color: #424242; /* QtTheme主文本色 */
+    font-size: 14px;
+}
+
+/* 全局样式重置 - 移除所有装饰性元素 */
+QLabel {
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+}
+
+/* 确保选项文本样式正确 - QtTheme融合 */
+QLabel[role="optionText"] {
+    font-size: 15px;
+    color: #424242; /* QtTheme主文本色 */
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+}
+
+QWidget#pageContainer,
+QWidget#scrollWrapper,
+QFrame#mainBody,
+QScrollArea#contentScrollArea {
+    background: transparent;
+}
+
+QFrame#pageHeader {
+    background: #FFFFFF;
+    border-radius: 16px;
+    border: 1px solid #e8eaf6;
+}
+
+/* QtTheme融合的返回按钮样式 */
+QPushButton#backButton {
+    background: #ffebee;
+    color: #c62828;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 600;
+}
+
+QPushButton#backButton:hover {
+    background: rgba(229, 57, 53, 0.16);
+    color: #e53935;
+}
+
+QPushButton#backButton:pressed {
+    background: rgba(198, 40, 40, 0.22);
+    color: #c62828;
+}
+
+QLabel#pageTitle {
+    font-size: 26px;
+    font-weight: 700;
+    color: #212121;
+}
+
+QLabel#pageSubtitle {
+    font-size: 15px;
+    color: #757575;
+}
+
+QFrame#filterSidebar {
+    background: #FFFFFF;
+    border: 1px solid #e8eaf6;
+    border-radius: 12px;
+}
+
+QLabel#sidebarTitle {
+    font-size: 18px;
+    font-weight: 700;
+    color: #212121;
+}
+
+QLabel#sidebarHint {
+    font-size: 13px;
+    color: #757575;
+    line-height: 1.5;
+}
+
+QLabel[role="comboLabel"] {
+    font-size: 13px;
+    font-weight: 600;
+    color: #424242;
+}
+
+QComboBox[role="filterSelect"] {
+    background: #FFFFFF;
+    border: 1px solid #e8eaf6;
+    border-radius: 8px;
+    padding: 0 12px;
+    padding-right: 32px;
+    min-height: 48px;
+    max-height: 48px;
+    font-size: 14px;
+    color: #424242;
+}
+
+QComboBox[role="filterSelect"]:hover {
+    border-color: #1976d2;
+}
+
+QComboBox[role="filterSelect"]:focus {
+    border-color: #e53935;
+}
+
+QComboBox[role="filterSelect"]::drop-down {
+    border: none;
+    width: 0px;
+    height: 0px;
+}
+
+QComboBox[role="filterSelect"]::down-arrow {
+    image: none;
+    width: 0px;
+    height: 0px;
+}
+
+QPushButton[role="filterButton"] {
+    background: #FFFFFF;
+    color: #424242;
+    border-radius: 5px;
+    border: 1px solid transparent;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 0 12px;
+    min-height: 40px;
+}
+
+QPushButton[role="filterButton"]:hover {
+    background: #FFFFFF;
+}
+
+QPushButton[role="filterButton"]:checked {
+    background: rgba(229, 57, 53, 0.14);
+    color: #e53935;
+    border-color: rgba(229, 57, 53, 0.45);
+}
+
+QPushButton[role="filterButton"]:checked:hover {
+    background: rgba(229, 57, 53, 0.22);
+}
+
+/* QtTheme融合的生成按钮样式 - Primary配色 */
+QPushButton#generateButton {
+    background: #ef5350; /* QtTheme Primary主色 */
+    color: #ffffff; /* QtTheme Primary文本色 */
+    border-radius: 4px; /* QtTheme圆角设计 */
+    border: none; /* QtTheme无边框设计 */
+    font-size: 16px;
+    font-weight: 700;
+    min-height: 56px;
+    max-height: 56px;
+    letter-spacing: 0.4px;
+    padding: 8px 16px; /* QtTheme标准按钮内边距 */
+}
+
+QPushButton#generateButton[hovered="true"] {
+    background: #e53935; /* QtTheme Primary悬停色 */
+    color: #ffffff;
+}
+
+QPushButton#generateButton:pressed {
+    background: #c62828; /* QtTheme Primary按下色 */
+    color: #ffffff;
+}
+
+QPushButton#generateButton:disabled {
+    background: rgba(229, 57, 53, 0.35);
+    color: #ffffff;
+}
+
+QFrame#questionCard {
+    background: #FFFFFF;
+    border-radius: 24px;
+    border: 1px solid #e8eaf6;
+}
+
+QFrame#cardHeader {
+    border-bottom: 1px solid #e8eaf6;
+    padding-bottom: 12px;
+}
+
+QLabel#cardTitle {
+    font-size: 22px;
+    font-weight: 700;
+    color: #212121;
+}
+
+QLabel#cardSubtitle {
+    font-size: 14px;
+    color: #757575;
+}
+
+QLabel#progressLabel {
+    font-size: 12px;
+    color: #9e9e9e;
+}
+
+QLabel#progressValue {
+    font-size: 14px;
+    font-weight: 600;
+    color: #424242;
+}
+
+QProgressBar#progressBar {
+    background: #e8eaf6;
+    border: none;
+    border-radius: 999px;
+    height: 8px;
+}
+
+QProgressBar#progressBar::chunk {
+    background: #1976d2;
+    border-radius: 999px;
+}
+
+QFrame#tagRow QLabel {
+    padding: 0;
+    border-radius: 0;
+    font-size: 13px;
+    font-weight: 600;
+    background: transparent;
+    color: #424242;
+}
+
+QLabel#tagType {
+    background: transparent;
+    color: #e53935;
+}
+
+QLabel#tagDifficulty {
+    background: transparent;
+    color: #1976d2;
+}
+
+QLabel#tagChapter {
+    background: transparent;
+    color: #7b1fa2;
+}
+
+QLabel#questionStem {
+    font-size: 18px;
+    font-weight: 600;
+    color: #212121;
+    line-height: 1.7;
+}
+
+/* 现代化选项容器样式 */
+QWidget[role="optionItem"] {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    margin: 2px 4px;
+}
+
+QWidget[role="optionItem"]:hover {
+    background: #F5FAFF;
+    border-color: #E8F4FF;
+}
+
+QWidget[role="optionItem"][selected="true"] {
+    background: #FFFFFF;
+    border: 1px solid #2A7BFF;
+    border-radius: 8px;
+}
+
+QWidget[role="optionItem"][selected="true"] QLabel[role="optionKey"] {
+    background: #2A7BFF;
+    color: #FFFFFF;
+}
+
+QWidget[role="optionItem"][selected="true"] QLabel[role="optionText"] {
+    color: #2C3E50;
+    font-weight: 500;
+}
+
+
+QFrame#answerSection {
+    background: rgba(56, 142, 60, 0.12);
+    border: 1px solid rgba(56, 142, 60, 0.4);
+    border-radius: 18px;
+}
+
+QLabel#answerTitle {
+    font-size: 13px;
+    font-weight: 700;
+    color: #388e3c;
+    letter-spacing: 0.6px;
+}
+
+QLabel#answerValue {
+    font-size: 26px;
+    font-weight: 700;
+    color: #388e3c;
+}
+
+QLabel#answerDescription {
+    font-size: 14px;
+    color: rgba(56, 142, 60, 0.85);
+    line-height: 1.6;
+}
+
+QFrame#analysisSection {
+    background: #FFFFFF;
+    border: 1px dashed #e8eaf6;
+    border-radius: 18px;
+}
+
+QLabel#analysisTitle {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1976d2;
+    letter-spacing: 0.6px;
+}
+
+QLabel#analysisDescription {
+    font-size: 14px;
+    color: #424242;
+    line-height: 1.7;
+}
+
+QFrame#actionRow QPushButton {
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 24px;
+}
+
+QPushButton#primaryActionButton {
+    background: #e53935;
+    color: #FFFFFF;
+    border: 1px solid #e53935;
+}
+
+QPushButton#primaryActionButton:hover {
+    background: #c62828;
+    border-color: #c62828;
+}
+
+QPushButton#secondaryButton {
+    background: #FFFFFF;
+    border: 1px solid #e53935;
+    color: #e53935;
+}
+
+QPushButton#secondaryButton:hover {
+    background: rgba(229, 57, 53, 0.1);
+}
+
+QPushButton#ghostButton {
+    background: transparent;
+    border: 1px dashed #1976d2;
+    color: #1976d2;
+}
+
+QPushButton#ghostButton:hover {
+    background: rgba(25, 118, 210, 0.12);
+}

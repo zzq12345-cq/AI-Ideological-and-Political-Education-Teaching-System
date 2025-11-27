@@ -1,0 +1,174 @@
+SignUpWindow#signupWindow {
+    background-color: #F4F6FB;
+    font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Source Han Sans SC", "Helvetica Neue", Arial;
+    color: #0F172A;
+}
+
+QFrame#contentCard {
+    background-color: rgba(255, 255, 255, 0.94);
+    border-radius: 28px;
+    border: 1px solid rgba(226, 232, 240, 0.65);
+}
+
+QFrame#heroPanel {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                stop:0 #C92B2B,
+                                stop:0.5 #D84541,
+                                stop:1 #9E1F2C);
+    border-top-left-radius: 28px;
+    border-bottom-left-radius: 28px;
+}
+
+QFrame#heroPanel QLabel {
+    color: rgba(255, 255, 255, 0.95);
+}
+
+QLabel#heroTitle {
+    font-size: 42px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+QLabel#heroSubtitle {
+    font-size: 30px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+QLabel#heroDescription {
+    font-size: 16px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 16px;
+}
+
+QLabel#heroFootnote {
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+QFrame#formPanel {
+    background: transparent;
+    border-top-right-radius: 28px;
+    border-bottom-right-radius: 28px;
+}
+
+QWidget#formWrapper {
+    background-color: #FFFFFF;
+    border-radius: 24px;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    padding: 40px 48px;
+}
+
+QLabel#formTitle {
+    font-size: 28px;
+    font-weight: 700;
+    color: #101828;
+}
+
+QLabel#formSubtitle {
+    font-size: 16px;
+    font-weight: 600;
+    color: #4A90E2;
+    margin-bottom: 4px;
+}
+
+QLabel#formTagline {
+    font-size: 13px;
+    font-weight: 500;
+    color: #475467;
+}
+
+QLabel#formDescription {
+    font-size: 12.5px;
+    color: #5F6B7A;
+    margin-bottom: 12px;
+}
+
+QLabel[role="fieldLabel"] {
+    color: #1F2937;
+    font-size: 13.5px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+QFrame[role="inputGroup"] {
+    background-color: #F8FAFC;
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    border-radius: 14px;
+}
+
+QFrame[role="inputGroup"]:hover {
+    border-color: rgba(74, 144, 226, 0.85);
+}
+
+QLineEdit[role="inputField"] {
+    border: none;
+    background: transparent;
+    color: #0F172A;
+    font-size: 14px;
+    padding: 12px 0;
+}
+
+QLineEdit[role="inputField"]:focus {
+    color: #0B1220;
+}
+
+QLineEdit[role="inputField"]::placeholder {
+    color: #94A3B8;
+}
+
+QPushButton#passwordToggle {
+    border: none;
+    background: transparent;
+    color: #94A3B8;
+    font-size: 18px;
+}
+
+QPushButton#passwordToggle:hover {
+    color: #4A90E2;
+}
+
+QPushButton#primaryButton {
+    background-color: #C92B2B;
+    border: none;
+    border-radius: 16px;
+    color: #FFFFFF;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 16px 0;
+    margin-top: 8px;
+}
+
+QPushButton#primaryButton:hover {
+    background-color: #B1262A;
+}
+
+QPushButton#primaryButton:pressed {
+    background-color: #9A1F25;
+}
+
+QPushButton#primaryButton:disabled {
+    background-color: rgba(201, 43, 43, 0.4);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+QLabel#helperText {
+    color: #94A3B8;
+    font-size: 13px;
+}
+
+QPushButton#linkButton {
+    color: #4A90E2;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    background: transparent;
+    text-decoration: underline;
+    padding: 0;
+}
+
+QPushButton#linkButton:hover {
+    color: #C92B2B;
+}

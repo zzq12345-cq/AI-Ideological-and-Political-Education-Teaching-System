@@ -1,0 +1,8 @@
+#include "supabaseconfig.h"
+
+const QString SupabaseConfig::SUPABASE_URL = "https://sbp-7wa5y7wjcyw0cpry.supabase.opentrust.net";
+const QString SupabaseConfig::SUPABASE_ANON_KEY = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNicC03d2E1eTd3amN5dzBjcHJ5IiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NjIwNjQ3MDMsImV4cCI6MjA3NzY0MDcwM30.fMSY0_1ybuN2wdGnd8MWA0aWqXOdY79brqtwgpXaqE8";
+const QString SupabaseConfig::SUPABASE_SERVICE_KEY = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwicmVmIjoic2JwLTd3YTV5N3dqY3l3MGNwcnkiLCJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc2MjA2NDcwMywiZXhwIjoyMDc3NjQwNzAzfQ.P8K4hOWHovwYBHtdYuX51V3ybc5TpegYIfHCUe95Wao";
+
+const QString SupabaseConfig::USERS_TABLE = "teachers";
+const QString SupabaseConfig::AUTH_HEADER_NAME = "Authorization";

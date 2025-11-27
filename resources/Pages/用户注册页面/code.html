@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>注册 - 智慧思政课堂</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;700&amp;family=Noto+Sans+SC:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#C92B2B",
+                        "secondary": "#F5EEDA",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                        "text-light": "#333333",
+                        "text-dark": "#E0E0E0"
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "Noto Sans SC", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24
+        }
+    </style>
+</head>
+<body class="font-display">
+<div class="relative flex h-auto min-h-screen w-full flex-col items-center justify-center bg-background-light dark:bg-background-dark group/design-root overflow-hidden p-4 sm:p-6 lg:p-8" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBYRNhE4J6PgK5by03Hk6QR3b8_CbL9tFDNXaVeYGZtXpOU5iIIvv4fcTPX2q81I5Ryh6fOOA0mTM1BmlIDvum1CNVtPyQlCwosP4Xhef0CcCp-S9p7dmnEDrt9ns8S4IiYK41vC9CYMg5tUwjW0LGJuY-3bx-KY4piQO0C_TMmj0P8BOh8nPFQmqE-MFw8vMFJXZDfn3pvTe9qOMAoCFZeniJ6juSjxzUD3g6opUt14C8bR2HqLY1LIFllYLtlw1ubkzkOeM3wnQg'); background-size: cover; background-position: center;">
+<div class="absolute inset-0 bg-background-light/80 dark:bg-background-dark/90 backdrop-blur-sm"></div>
+<div class="relative z-10 flex w-full max-w-md flex-col items-center rounded-xl bg-white/60 dark:bg-black/20 p-8 shadow-2xl backdrop-blur-md">
+<div class="layout-content-container flex flex-col w-full">
+<h1 class="text-text-light dark:text-text-dark tracking-light text-[32px] font-bold leading-tight text-center pb-2">开启智慧思政新篇章</h1>
+<h2 class="text-[#4A90E2] text-[22px] font-bold leading-tight tracking-[-0.015em] text-center pb-8">创建新账户</h2>
+<form class="flex flex-col gap-4">
+<label class="flex flex-col w-full">
+<p class="text-text-light dark:text-text-dark text-base font-medium leading-normal pb-2">用户名</p>
+<div class="relative flex w-full items-center">
+<span class="material-symbols-outlined absolute left-4 text-gray-400 dark:text-gray-500">person</span>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-text-light dark:text-text-dark focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 h-14 placeholder:text-gray-500 dark:placeholder:text-gray-400 pl-12 pr-4 text-base font-normal leading-normal focus:border-primary" placeholder="请输入您的用户名" type="text" value=""/>
+</div>
+</label>
+<label class="flex flex-col w-full">
+<p class="text-text-light dark:text-text-dark text-base font-medium leading-normal pb-2">电子邮件地址</p>
+<div class="relative flex w-full items-center">
+<span class="material-symbols-outlined absolute left-4 text-gray-400 dark:text-gray-500">mail</span>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-text-light dark:text-text-dark focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 h-14 placeholder:text-gray-500 dark:placeholder:text-gray-400 pl-12 pr-4 text-base font-normal leading-normal focus:border-primary" placeholder="请输入您的电子邮件地址" type="email" value=""/>
+</div>
+</label>
+<label class="flex flex-col w-full">
+<p class="text-text-light dark:text-text-dark text-base font-medium leading-normal pb-2">密码</p>
+<div class="relative flex w-full items-center">
+<span class="material-symbols-outlined absolute left-4 text-gray-400 dark:text-gray-500">lock</span>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-text-light dark:text-text-dark focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 h-14 placeholder:text-gray-500 dark:placeholder:text-gray-400 pl-12 pr-12 text-base font-normal leading-normal focus:border-primary" placeholder="请输入您的密码" type="password" value=""/>
+<button class="absolute right-4 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" type="button">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</div>
+</label>
+<label class="flex flex-col w-full">
+<p class="text-text-light dark:text-text-dark text-base font-medium leading-normal pb-2">确认密码</p>
+<div class="relative flex w-full items-center">
+<span class="material-symbols-outlined absolute left-4 text-gray-400 dark:text-gray-500">lock</span>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-text-light dark:text-text-dark focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 h-14 placeholder:text-gray-500 dark:placeholder:text-gray-400 pl-12 pr-4 text-base font-normal leading-normal focus:border-primary" placeholder="请再次输入您的密码" type="password" value=""/>
+</div>
+</label>
+<button class="flex items-center justify-center whitespace-nowrap h-14 mt-6 rounded-lg bg-primary text-white text-base font-bold leading-normal tracking-wide w-full hover:bg-primary/90 transition-colors duration-200">立即注册</button>
+<p class="text-center text-sm text-text-light dark:text-text-dark pt-4">已有账号？ <a class="font-semibold text-[#4A90E2] hover:text-primary/80 transition-colors" href="#">去登录</a></p>
+</form>
+</div>
+</div>
+</div>
+</body></html>
