@@ -22,6 +22,7 @@
 #include <QFont>
 #include <QQuickWidget>
 #include <QQmlContext>
+#include <QTextEdit>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class ModernMainWindow; }
@@ -32,6 +33,7 @@ class SimpleLoginWindow;
 class AIPreparationWidget;
 class QuestionRepository;
 class QuestionBankWindow;
+class DifyService;
 
 class ModernMainWindow : public QMainWindow
 {
@@ -53,6 +55,14 @@ private slots:
     void onStartClassClicked();
     void onEnterClassClicked();
 
+    // AI 对话相关槽函数
+    void onSendChatMessage();
+    void onAIResponseReceived(const QString &response);
+    void onAIStreamChunk(const QString &chunk);
+    void onAIError(const QString &error);
+    void onAIRequestStarted();
+    void onAIRequestFinished();
+
 private:
     void initUI();
     void setupMenuBar();
@@ -70,6 +80,12 @@ private:
     void applyPatrioticRedTheme();
     void applySidebarIcons();
     QIcon loadSidebarIcon(const QString &themeName, QStyle::StandardPixmap fallback) const;
+    
+    // 新版 UI 组件创建方法
+    void createWelcomeCard();       // 欢迎卡片
+    void createQuickAccessCard();   // 快捷入口卡片
+    void createAIChatWidget();      // AI 对话组件
+    void appendChatMessage(const QString &sender, const QString &message, bool isUser);
 
     // 创建指标项组件 - 紧凑单行信息
     QWidget* createMetricItem(const QString& name,
@@ -90,13 +106,16 @@ private:
     QFrame *profileWidget;
 
     // 侧边栏导航按钮
-    QPushButton *teacherCenterBtn;
-    QPushButton *contentAnalysisBtn;
-    QPushButton *aiPreparationBtn;
-    QPushButton *resourceManagementBtn;
-    QPushButton *learningAnalysisBtn;
-    QPushButton *settingsBtn;
-    QPushButton *helpBtn;
+    QPushButton *teacherCenterBtn;      // 教师中心
+    QPushButton *contentAnalysisBtn;    // 智能内容分析
+    QPushButton *aiPreparationBtn;      // AI智能备课
+    QPushButton *resourceManagementBtn; // 资源库管理
+    QPushButton *learningAnalysisBtn;   // 学情与教评
+    QPushButton *dataAnalysisBtn;       // 数据分析报告 (新)
+    
+    // 底部菜单
+    QPushButton *settingsBtn;           // 系统设置
+    QPushButton *helpBtn;               // 帮助中心
 
     // 主内容区域
     QStackedWidget *contentStack;
@@ -121,27 +140,19 @@ private:
     QLabel *subtitleLabel;
 
     // 核心功能卡片
-    QFrame *coreFeaturesFrame;
-    QGridLayout *coreFeaturesLayout;
-    QPushButton *psychologyCard;
-    QPushButton *editDocumentCard;
-    QPushButton *slideshowCard;
-    QPushButton *folderOpenCard;
+    QFrame *welcomeCard;
+    QFrame *quickAccessCard;
+    
+    // 移除旧版组件变量
+    // QFrame *coreFeaturesFrame; ...
 
-    // 近期课程和学情分析
-    QFrame *coursesAnalyticsFrame;
-    QGridLayout *coursesAnalyticsLayout;
-    QFrame *recentCoursesFrame;
-    QFrame *learningAnalyticsFrame;
-    QPushButton *enterClassBtn;
-
-    // 近期活动
-    QFrame *recentActivitiesFrame;
-    QVBoxLayout *recentActivitiesLayout;
-
-    // 新布局：双行网格
-    QFrame *analyticsRowFrame;
-    QWidget *chartsContainer;
+    // AI 对话组件
+    DifyService *m_difyService;
+    QFrame *m_chatWidget;
+    QTextEdit *m_chatDisplay;
+    QLineEdit *m_chatInput;
+    QPushButton *m_sendBtn;
+    QString m_currentAIResponse;  // 累积流式响应
 
     // 数据
     QString currentUserRole;

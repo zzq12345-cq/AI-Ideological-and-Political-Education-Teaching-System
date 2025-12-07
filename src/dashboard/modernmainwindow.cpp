@@ -3,6 +3,7 @@
 #include "../ui/aipreparationwidget.h"
 #include "../questionbank/QuestionRepository.h"
 #include "../questionbank/questionbankwindow.h"
+#include "../services/DifyService.h"
 #include <QApplication>
 #include <QMessageBox>
 #include <QFile>
@@ -31,6 +32,7 @@
 #include <QtMath>
 #include <QToolTip>
 #include <QCursor>
+#include <QScrollBar>
 #include <QSharedPointer>
 #include <QDialog>
 #include <QEvent>
@@ -779,6 +781,17 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     questionRepository = new QuestionRepository(this);
     questionRepository->loadQuestions("data/questions.json");
 
+    // 初始化 Dify AI 服务
+    m_difyService = new DifyService(this);
+    m_difyService->setApiKey("app-ohNvxW8RFmbFVEBBrwMWyOfz");
+    
+    // 连接 Dify 服务信号
+    connect(m_difyService, &DifyService::streamChunkReceived, this, &ModernMainWindow::onAIStreamChunk);
+    connect(m_difyService, &DifyService::messageReceived, this, &ModernMainWindow::onAIResponseReceived);
+    connect(m_difyService, &DifyService::errorOccurred, this, &ModernMainWindow::onAIError);
+    connect(m_difyService, &DifyService::requestStarted, this, &ModernMainWindow::onAIRequestStarted);
+    connect(m_difyService, &DifyService::requestFinished, this, &ModernMainWindow::onAIRequestFinished);
+
     initUI();
     setupMenuBar();
     setupStatusBar();
@@ -1242,609 +1255,24 @@ void ModernMainWindow::createHeaderWidget()
 }
 
 
-void ModernMainWindow::createCoreFeatures()
-{
-    coreFeaturesFrame = new QFrame();
-    coreFeaturesLayout = new QGridLayout(coreFeaturesFrame);
-    coreFeaturesLayout->setHorizontalSpacing(36);
-    coreFeaturesLayout->setVerticalSpacing(28);
+// 旧版核心功能卡片 - 已废弃
+void ModernMainWindow::createCoreFeatures() {}
 
-    // 四个核心功能卡片
-    psychologyCard = new QPushButton();
-    editDocumentCard = new QPushButton();
-    slideshowCard = new QPushButton();
-    folderOpenCard = new QPushButton();
+// 旧版近期课程 - 已废弃
+void ModernMainWindow::createRecentCourses() {}
 
-    QString cardStyle = QString(
-        "QPushButton {"
-        "  background: %1;"
-        "  border: 1px solid %2;"
-        "  border-radius: %3px;"
-        "  padding: %4px;"
-        "  text-align: left;"
-        "}"
-        "QPushButton[cardState=\"hover\"] {"
-        "  border: 1px solid %5;"
-        "  background: %6;"
-        "}"
-        "QPushButton[cardState=\"pressed\"] {"
-        "  border: 1px solid %5;"
-        "  background: %7;"
-        "}"
-    ).arg(CARD_GRADIENT)
-     .arg(CARD_BORDER_COLOR)
-     .arg(CARD_CORNER_RADIUS)
-     .arg(CARD_PADDING_PX)
-     .arg(CARD_BORDER_HIGHLIGHT)
-     .arg(CARD_HOVER_GRADIENT)
-     .arg(PATRIOTIC_RED_GRADIENT);
+// 旧版学情分析 - 已废弃
+void ModernMainWindow::createLearningAnalytics() {}
 
-    QStringList icons = {"💡", "📝", "📊", "📁"};
-    QStringList titles = {"智能内容分析", "AI智能备课", "互动教学工具", "试题库"};
-    QStringList descriptions = {
-        "深挖思政元素，把握正确导向",
-        "按章节自动生成PPT，一键生成试卷",
-        "创新互动形式，激活红色课堂",
-        "汇聚权威材料，构筑精神高地"
-    };
-
-    QList<QPushButton*> cards = {psychologyCard, editDocumentCard, slideshowCard, folderOpenCard};
-    QStringList accentColors = {PATRIOTIC_RED, WISDOM_BLUE, CULTURE_GOLD, ACADEMIC_PURPLE};
-
-    for (int i = 0; i < 4; ++i) {
-        QVBoxLayout *cardLayout = new QVBoxLayout(cards[i]);
-        cardLayout->setSpacing(8);  // 减小间距，避免灰色背景条
-        cardLayout->setContentsMargins(16, 16, 16, 16);  // 统一边距
-
-        QLabel *iconLabel = new QLabel(icons[i]);
-        iconLabel->setStyleSheet("color: " + accentColors[qMin(i, accentColors.size() - 1)] + "; font-size: 24px; font-weight: bold; background: transparent;");
-        iconLabel->setAlignment(Qt::AlignCenter);
-
-        QLabel *titleLabel = new QLabel(titles[i]);
-        titleLabel->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 16px; font-weight: bold; background: transparent; border: none;");
-        titleLabel->setAlignment(Qt::AlignCenter);
-        titleLabel->setMinimumHeight(20);  // 确保标题区域一致
-
-        QLabel *descLabel = new QLabel(descriptions[i]);
-        descLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 14px; background: transparent;");
-        descLabel->setWordWrap(true);
-        descLabel->setAlignment(Qt::AlignCenter);
-        descLabel->setMinimumHeight(40);  // 确保描述区域一致
-
-        cardLayout->addWidget(iconLabel);
-        cardLayout->addWidget(titleLabel);
-        cardLayout->addWidget(descLabel);
-        cardLayout->addStretch();
-
-        cards[i]->setStyleSheet(cardStyle + " QLabel { background: transparent; border: none; }");
-        cards[i]->setMinimumHeight(140);
-        cards[i]->setFixedHeight(140);  // 确保所有卡片高度完全一致
-        applyCardShadow(cards[i], 18.0, 6.0);
-    }
-
-    coreFeaturesLayout->addWidget(psychologyCard, 0, 0);
-    coreFeaturesLayout->addWidget(editDocumentCard, 0, 1);
-    coreFeaturesLayout->addWidget(slideshowCard, 0, 2);
-    coreFeaturesLayout->addWidget(folderOpenCard, 0, 3);
-
-    // 连接核心功能卡片的点击事件
-    connect(folderOpenCard, &QPushButton::clicked, this, [=]() {
-        qDebug() << "试题库卡片被点击";
-        onResourceManagementClicked();
-    });
-
-    connect(editDocumentCard, &QPushButton::clicked, this, [=]() {
-        qDebug() << "AI智能备课卡片被点击";
-        onAIPreparationClicked();
-    });
-
-    connect(psychologyCard, &QPushButton::clicked, this, [=]() {
-        qDebug() << "智能内容分析卡片被点击";
-        onContentAnalysisClicked();
-    });
-
-    connect(slideshowCard, &QPushButton::clicked, this, [=]() {
-        qDebug() << "互动教学工具卡片被点击";
-        // 暂时使用已有的方法或添加新方法
-        onLearningAnalysisClicked();
-    });
-
-    // 添加悬停支持和工具提示
-    QStringList tooltips = {
-        "智能分析教学内容中的思政元素，确保价值导向正确",
-        "AI智能生成教学PPT和试卷，提高备课效率",
-        "丰富的课堂互动工具，打造活跃的思政课堂",
-        "精选权威教学资源，构建高质量题库"
-    };
-
-    for (int i = 0; i < cards.size(); ++i) {
-        cards[i]->setAttribute(Qt::WA_Hover, true);
-        cards[i]->setToolTip(tooltips[i]);
-        cards[i]->setCursor(Qt::PointingHandCursor);
-
-        // 添加简单的hover事件处理器来设置cardState属性
-        cards[i]->installEventFilter(new SimpleCardHoverFilter(cards[i]));
-    }
-}
-
-void ModernMainWindow::createRecentCourses()
-{
-    // 1️⃣ 单卡片容器 - 圆角12px + 阴影 + 白色背景
-    recentCoursesFrame = new QFrame();
-    recentCoursesFrame->setMinimumWidth(460);  // 最小宽度460px，填满网格左列
-    recentCoursesFrame->setFixedHeight(140);   // 增加高度给上下更多空间
-    recentCoursesFrame->setStyleSheet(
-        "QFrame {"
-        "  background-color: #FFFFFF;"
-        "  border-radius: 12px;"
-        "  border: none;"
-        "}"
-    );
-    applyCardShadow(recentCoursesFrame, 10.0, 0.0);  // (blurRadius, yOffset)
-
-    // 2️⃣ 主布局容器 - 水平排列
-    QHBoxLayout *mainLayout = new QHBoxLayout(recentCoursesFrame);
-    mainLayout->setContentsMargins(20, 24, 20, 24);  // 增加上下内边距到24px
-    mainLayout->setSpacing(16);
-    mainLayout->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-
-    // 3️⃣ 左侧内容区域（垂直排列的3行信息）
-    QVBoxLayout *contentLayout = new QVBoxLayout();
-    contentLayout->setContentsMargins(0, 0, 0, 0);
-    contentLayout->setSpacing(4);  // 行距4px
-
-    // 标题行
-    QLabel *titleLabel = new QLabel("近期课程");
-    titleLabel->setStyleSheet(
-        "color: #4A4A4A;"
-        "font-size: 16px;"
-        "font-weight: 600;"
-        "margin-bottom: 8px;"  // 标题与内容间距8px
-    );
-
-    // 时间行
-    QLabel *timeLabel = new QLabel("今日, 10:00 AM");
-    timeLabel->setStyleSheet(
-        "color: #8B8B8B;"
-        "font-size: 14px;"
-        "font-weight: 400;"
-    );
-
-    // 课程名行（核心强调）
-    QLabel *courseTitleLabel = new QLabel("当代思潮与青年担当");
-    courseTitleLabel->setStyleSheet(
-        "color: #B81919;"
-        "font-size: 16px;"
-        "font-weight: 700;"
-    );
-
-    // 班级行
-    QLabel *classLabel = new QLabel("高二（2）班");
-    classLabel->setStyleSheet(
-        "color: #8B8B8B;"
-        "font-size: 14px;"
-        "font-weight: 400;"
-    );
-
-    contentLayout->addWidget(titleLabel);
-    contentLayout->addWidget(timeLabel);
-    contentLayout->addWidget(courseTitleLabel);
-    contentLayout->addWidget(classLabel);
-    contentLayout->addStretch();  // 填充剩余空间
-
-    // 4️⃣ 右侧按钮 - 固定尺寸 + 渐变
-    enterClassBtn = new QPushButton("进入课堂");
-    enterClassBtn->setFixedSize(120, 36);  // 高度36px
-    enterClassBtn->setStyleSheet(
-        "QPushButton {"
-        "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
-        "                             stop:0 #BE2A2A, stop:1 #D94C4C);"
-        "  color: white;"
-        "  border: none;"
-        "  border-radius: 8px;"
-        "  font-size: 14px;"
-        "  font-weight: 600;"
-        "}"
-        "QPushButton:hover {"
-        "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
-        "                             stop:0 #E35A5A, stop:1 #E66B6B);"
-        "}"
-        "QPushButton:pressed {"
-        "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
-        "                             stop:0 #A81F1F, stop:1 #C93A3A);"
-        "}"
-    );
-    enterClassBtn->setCursor(Qt::PointingHandCursor);
-
-    // 5️⃣ 组装主布局
-    mainLayout->addLayout(contentLayout, 1);  // 内容区域拉伸
-    mainLayout->addWidget(enterClassBtn, 0, Qt::AlignRight | Qt::AlignVCenter);
-
-    // 信号连接
-    connect(enterClassBtn, &QPushButton::clicked,
-            this, &ModernMainWindow::onEnterClassClicked);
-
-    // 设置SizePolicy以避免被高卡片撑出空白
-    recentCoursesFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-}
+// 旧版近期活动 - 已废弃
+void ModernMainWindow::createRecentActivities() {}
 
 // 创建指标项组件 - 紧凑的单行信息
-QWidget* ModernMainWindow::createMetricItem(const QString& name,
-                                            const QString& value,
-                                            const QString& color,
-                                            const QString& tooltip,
-                                            const QString& changeText,
-                                            int trendDirection)
-{
-    // 容器：单行、高度56px、圆角10、轻底色
-    QWidget *row = new QWidget();
-    row->setObjectName("metricItem");
-    row->setFixedHeight(56);
-    row->setAutoFillBackground(false);  // 禁止自动填充背景
-    row->setAttribute(Qt::WA_NoSystemBackground, true);  // 禁用系统背景
-    row->setStyleSheet(QString(
-        "QWidget#metricItem {"
-        "  background-color: %1;"
-        "  border-radius: 10px;"
-        "  padding: 0 12px;"
-        "}"
-        "QWidget#metricItem:hover {"
-        "  background-color: rgba(25, 118, 210, 0.08);"
-        "}"
-    ).arg(PATRIOTIC_RED_LIGHT));
-
-    row->setToolTip(tooltip);
-
-    // 水平布局
-    QHBoxLayout *rowLayout = new QHBoxLayout(row);
-    rowLayout->setContentsMargins(12, 0, 12, 0);
-    rowLayout->setSpacing(8);
-
-    // 左侧：彩色圆点 + 名称
-    QHBoxLayout *leftLayout = new QHBoxLayout();
-    leftLayout->setSpacing(8);
-
-    // 彩色圆点
-    QLabel *dotLabel = new QLabel();
-    dotLabel->setFixedSize(10, 10);
-    dotLabel->setStyleSheet(QString("background-color: %1; border-radius: 5px;").arg(color));
-
-    // 名称 - 降一阶与中灰
-    QLabel *nameLabel = new QLabel(name);
-    nameLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 13px;");
-    nameLabel->setToolTip(tooltip);
-
-    leftLayout->addWidget(dotLabel);
-    leftLayout->addWidget(nameLabel);
-    leftLayout->addStretch();
-
-    // 右侧：数值 - 等宽字体、右对齐、深色
-    QLabel *valueLabel = new QLabel(value);
-    valueLabel->setObjectName("valueLabel");
-    valueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    valueLabel->setAutoFillBackground(false);  // 确保数值标签也无背景
-
-    // 使用系统默认字体避免崩溃
-    QFont valueFont = QFont();
-    valueFont.setPointSize(20);
-    valueFont.setBold(true);
-    valueLabel->setFont(valueFont);
-    valueLabel->setStyleSheet("color: " + PRIMARY_TEXT + ";");
-
-    QLabel *trendArrowLabel = new QLabel();
-    trendArrowLabel->setObjectName("trendArrowLabel");
-    trendArrowLabel->setFixedSize(22, 22);
-    trendArrowLabel->setAlignment(Qt::AlignCenter);
-    trendArrowLabel->setStyleSheet(QString(
-        "QLabel#trendArrowLabel {"
-        "  border-radius: 11px;"
-        "  background-color: rgba(117, 117, 117, 0.15);"
-        "  color: %1;"
-        "  font-size: 12px;"
-        "  font-weight: bold;"
-        "}"
-    ).arg(SECONDARY_TEXT));
-
-    QLabel *trendLabel = new QLabel();
-    trendLabel->setObjectName("trendLabel");
-    QString trendColor = SECONDARY_TEXT;
-    if (trendDirection > 0) {
-        trendColor = GROWTH_GREEN;
-        trendArrowLabel->setText("↑");
-        trendArrowLabel->setStyleSheet(QString(
-            "QLabel#trendArrowLabel {"
-            "  border-radius: 11px;"
-            "  background-color: rgba(56, 142, 60, 0.15);"
-            "  color: %1;"
-            "  font-size: 12px;"
-            "  font-weight: bold;"
-        "}"
-        ).arg(GROWTH_GREEN));
-    } else if (trendDirection < 0) {
-        trendColor = PATRIOTIC_RED;
-        trendArrowLabel->setText("↓");
-        trendArrowLabel->setStyleSheet(QString(
-            "QLabel#trendArrowLabel {"
-            "  border-radius: 11px;"
-            "  background-color: rgba(229, 57, 53, 0.15);"
-            "  color: %1;"
-            "  font-size: 12px;"
-            "  font-weight: bold;"
-        "}"
-        ).arg(PATRIOTIC_RED));
-    } else {
-        trendArrowLabel->setText("→");
-    }
-
-    QString trendText = changeText.isEmpty() ? QStringLiteral("持平") : changeText;
-    trendLabel->setText(trendText);
-    trendLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    trendLabel->setStyleSheet(QString("color: %1; font-size: 12px; font-weight: 600;").arg(trendColor));
-
-    QVBoxLayout *valueLayout = new QVBoxLayout();
-    valueLayout->setContentsMargins(0, 8, 0, 8);
-    valueLayout->setSpacing(0);
-    valueLayout->addWidget(valueLabel);
-    QHBoxLayout *trendLayout = new QHBoxLayout();
-    trendLayout->setContentsMargins(0, 0, 0, 0);
-    trendLayout->setSpacing(6);
-    trendLayout->addStretch();
-    trendLayout->addWidget(trendArrowLabel);
-    trendLayout->addWidget(trendLabel);
-    valueLayout->addLayout(trendLayout);
-
-    // 添加到行布局
-    rowLayout->addLayout(leftLayout, 1);
-    rowLayout->addLayout(valueLayout);
-
-    return row;
-}
-
-void ModernMainWindow::createLearningAnalytics()
-{
-    learningAnalyticsFrame = new QFrame();
-    learningAnalyticsFrame->setObjectName("learningAnalyticsQmlContainer");
-    learningAnalyticsFrame->setAttribute(Qt::WA_StyledBackground, true);
-    learningAnalyticsFrame->setStyleSheet(
-        "QFrame#learningAnalyticsQmlContainer {"
-        "  background: transparent;"
-        "  border: none;"
-        "}"
-    );
-    learningAnalyticsFrame->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-
-    auto *analyticsLayout = new QVBoxLayout(learningAnalyticsFrame);
-    analyticsLayout->setContentsMargins(12, 12, 12, 12);
-    analyticsLayout->setSpacing(0);
-
-    QQuickWidget *qmlWidget = new QQuickWidget(learningAnalyticsFrame);
-    qmlWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
-    qmlWidget->setClearColor(Qt::transparent);
-    qmlWidget->setSource(QUrl(QStringLiteral("qrc:/resources/qml/LearningAnalyticsCard.qml")));
-    qmlWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    qmlWidget->setMinimumHeight(360);
-
-    if (qmlWidget->status() == QQuickWidget::Error) {
-        const auto errors = qmlWidget->errors();
-        QStringList errorMessages;
-        errorMessages.reserve(errors.size());
-        for (const auto &error : errors) {
-            errorMessages << error.toString();
-        }
-
-        qWarning() << "Failed to load LearningAnalyticsCard.qml:" << errorMessages;
-        QLabel *errorFallback = new QLabel(tr("学情分析组件加载失败：%1").arg(errorMessages.join("\n")));
-        errorFallback->setWordWrap(true);
-        errorFallback->setStyleSheet("color: #d32f2f; font-size: 13px; font-weight: 600;");
-        analyticsLayout->addWidget(errorFallback);
-        qmlWidget->deleteLater();
-        chartsContainer = nullptr;
-        return;
-    }
-
-    analyticsLayout->addWidget(qmlWidget);
-    chartsContainer = nullptr;
-}
-
-void ModernMainWindow::createRecentActivities()
-{
-    recentActivitiesFrame = new QFrame();
-    recentActivitiesFrame->setObjectName("recentActivitiesCard");
-    recentActivitiesFrame->setAttribute(Qt::WA_StyledBackground, true);
-    recentActivitiesFrame->setStyleSheet(QString(
-        "QFrame#recentActivitiesCard {"
-        "  background: #FFFFFF;"
-        "  border-radius: 32px;"
-        "  border: 1px solid rgba(0, 0, 0, 0.1);"
-        "  padding: 12px;"
-        "}"
-        "QFrame#recentActivitiesCard:hover {"
-        "  border-color: rgba(0, 0, 0, 0.2);"
-        "  box-shadow: 0 20px 38px rgba(15, 23, 42, 0.16);"
-        "  transform: translateY(-2px);"
-        "}"
-    ));
-    applyCardShadow(recentActivitiesFrame, 32.0, 10.0);
-    new FrameHoverAnimator(recentActivitiesFrame, recentActivitiesFrame, 5);
-
-    QVBoxLayout *activitiesLayout = new QVBoxLayout(recentActivitiesFrame);
-    activitiesLayout->setSpacing(20);
-    activitiesLayout->setContentsMargins(28, 28, 28, 28);
-
-    QHBoxLayout *titleLayout = new QHBoxLayout();
-    titleLayout->setSpacing(12);
-
-    QLabel *activitiesTitle = new QLabel("近期活动");
-    activitiesTitle->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 16px; font-weight: 600; letter-spacing: 0.4px;");
-
-    QLabel *liveBadge = new QLabel("实时");
-    liveBadge->setAlignment(Qt::AlignCenter);
-    liveBadge->setStyleSheet(
-        "QLabel {"
-        "  background: rgba(229, 57, 53, 0.12);"
-        "  color: " + PATRIOTIC_RED + ";"
-        "  border-radius: 12px;"
-        "  padding: 4px 12px;"
-        "  font-size: 11px;"
-        "  font-weight: 600;"
-        "}"
-    );
-
-    titleLayout->addWidget(activitiesTitle);
-    titleLayout->addWidget(liveBadge);
-    titleLayout->addStretch();
-
-    QPushButton *viewAllBtn = new QPushButton("查看全部");
-    viewAllBtn->setCursor(Qt::PointingHandCursor);
-    viewAllBtn->setStyleSheet(QString(
-        "QPushButton {"
-        "  background: transparent;"
-        "  color: %1;"
-        "  border: 1px solid rgba(229, 57, 53, 0.35);"
-        "  border-radius: 14px;"
-        "  padding: 6px 14px;"
-        "  font-size: 12px;"
-        "  font-weight: 600;"
-        "}"
-        "QPushButton:hover {"
-        "  background: rgba(229, 57, 53, 0.08);"
-        "}"
-        "QPushButton:pressed {"
-        "  background: rgba(229, 57, 53, 0.14);"
-        "}"
-    ).arg(PATRIOTIC_RED));
-    connect(viewAllBtn, &QPushButton::clicked, this, [this]() {
-        this->statusBar()->showMessage("即将进入活动中心（示例）", 3000);
-    });
-
-    titleLayout->addWidget(viewAllBtn);
-
-    QVBoxLayout *headerBlock = new QVBoxLayout();
-    headerBlock->setSpacing(6);
-    headerBlock->addLayout(titleLayout);
-
-    QLabel *subtitle = new QLabel("课堂动态、资源更新与学生行为将在此处同步");
-    subtitle->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 13px; letter-spacing: 0.3px;");
-    headerBlock->addWidget(subtitle);
-
-    activitiesLayout->addLayout(headerBlock);
-
-    QFrame *listContainer = new QFrame();
-    listContainer->setObjectName("recentActivitiesList");
-    listContainer->setStyleSheet(
-        "QFrame#recentActivitiesList {"
-        "  background: transparent;"
-        "  border-radius: 0px;"
-        "  border: none;"
-        "  padding: 0px;"
-        "}"
-    );
-
-    QVBoxLayout *listLayout = new QVBoxLayout(listContainer);
-    listLayout->setContentsMargins(4, 8, 4, 20);
-    listLayout->setSpacing(16);
-
-    struct ActivityEntry {
-        QString title;
-        QString time;
-        QString meta;
-        QString icon;
-        QString accentColor;
-        QString accentBackground;
-        QString badge;
-    };
-
-    const QList<ActivityEntry> activityData = {
-        {QStringLiteral("《全球化与民族主义》的教案已创建"), QStringLiteral("2小时前"), QStringLiteral("教学资源 · 备课"), QStringLiteral("📄"), PATRIOTIC_RED, PATRIOTIC_RED_SOFT_LAYER, QStringLiteral("备课")},
-        {QStringLiteral("新生 \"李明\" 已加入高二(2)班"), QStringLiteral("昨天 · 16:30"), QStringLiteral("班级成员 · 学籍"), QStringLiteral("👤"), GROWTH_GREEN, "rgba(56, 142, 60, 0.15)", QStringLiteral("学籍")},
-        {QStringLiteral("已有15名学生提交 \"历史分析论文\" 作业"), QStringLiteral("昨天 · 11:00"), QStringLiteral("课堂作业 · 批阅"), QStringLiteral("📤"), PATRIOTIC_RED_DARK, "rgba(229, 57, 53, 0.12)", QStringLiteral("作业")},
-        {QStringLiteral("\"冷战纪录片\" 已添加至资源库"), QStringLiteral("2天前"), QStringLiteral("资源更新 · 视频"), QStringLiteral("📹"), CULTURE_GOLD, "rgba(218, 165, 32, 0.18)", QStringLiteral("资源")}
-    };
-
-    for (int i = 0; i < activityData.size(); ++i) {
-        const ActivityEntry &entry = activityData[i];
-
-        QString itemObject = QStringLiteral("activityItem_%1").arg(i);
-        QFrame *activityItem = new QFrame();
-        activityItem->setObjectName(itemObject);
-        activityItem->setStyleSheet(QString(
-            "QFrame#%1 {"
-            "  background: transparent;"
-            "  border-radius: 0px;"
-            "  border: none;"
-            "  padding: 0px;"
-            "}"
-            "QFrame#%1:hover {"
-            "  background: transparent;"
-            "  border-radius: 0px;"
-            "  border: none;"
-            "}"
-        ).arg(itemObject));
-
-        QHBoxLayout *activityLayout = new QHBoxLayout(activityItem);
-        activityLayout->setSpacing(12);  // 图标与文字之间12px间距
-        activityLayout->setContentsMargins(0, 0, 0, 0);  // 移除内边距，避免产生背景区域
-
-        QString iconObject = QStringLiteral("activityIcon_%1").arg(i);
-        QFrame *iconWrapper = new QFrame();
-        iconWrapper->setObjectName(iconObject);
-        iconWrapper->setFixedSize(48, 48);
-        iconWrapper->setStyleSheet(QString(
-            "QFrame#%1 {"
-            "  background: transparent;"
-            "  border-radius: 18px;"
-            "  border: 1px solid rgba(255, 255, 255, 0.55);"
-            "}"
-        ).arg(iconObject));
-
-        QVBoxLayout *iconLayout = new QVBoxLayout(iconWrapper);
-        iconLayout->setContentsMargins(0, 0, 0, 0);
-        QLabel *iconLabel = new QLabel(entry.icon);
-        iconLabel->setAlignment(Qt::AlignCenter);
-        iconLabel->setStyleSheet(QString("color: %1; font-size: 22px;").arg(entry.accentColor));
-        iconLayout->addWidget(iconLabel);
-
-        activityLayout->addWidget(iconWrapper);
-
-        QVBoxLayout *contentLayout = new QVBoxLayout();
-        contentLayout->setSpacing(4);
-        contentLayout->setContentsMargins(0, 0, 0, 0);
-
-        // 标题行 - 14px, #4A4A4A, 600字重
-        QLabel *titleLabel = new QLabel(entry.title);
-        titleLabel->setWordWrap(true);
-        titleLabel->setStyleSheet("color: #4A4A4A; font-size: 14px; font-weight: 600;");
-
-        // 时间行 - 14px, #8B8B8B
-        QLabel *timeLabel = new QLabel(entry.time);
-        timeLabel->setStyleSheet("color: #8B8B8B; font-size: 14px;");
-
-        contentLayout->addWidget(titleLabel);
-        contentLayout->addWidget(timeLabel);
-
-        activityLayout->addLayout(contentLayout, 1);
-
-        // 添加弹性空间，确保文字不被遮挡
-        activityLayout->addStretch();
-
-        listLayout->addWidget(activityItem);
-    }
-
-    listLayout->addStretch();
-
-    activitiesLayout->addWidget(listContainer);
-    // 移除底部留白 - 减少近期活动信息下的空白空间
-
-    recentActivitiesFrame->setMaximumWidth(420);
-    recentActivitiesFrame->setMaximumHeight(900);  // 增大最大高度，保证内容显示完整
-    recentActivitiesFrame->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
-}
-
 void ModernMainWindow::createDashboard()
 {
     QVBoxLayout *dashboardLayout = new QVBoxLayout(dashboardWidget);
-    dashboardLayout->setContentsMargins(24, 24, 24, 24);
-    dashboardLayout->setSpacing(20);
+    dashboardLayout->setContentsMargins(0, 0, 0, 0);
+    dashboardLayout->setSpacing(0);
 
     // 创建顶部工具栏
     createHeaderWidget();
@@ -1857,106 +1285,34 @@ void ModernMainWindow::createDashboard()
 
     QWidget *scrollContent = new QWidget();
     QVBoxLayout *scrollLayout = new QVBoxLayout(scrollContent);
-    scrollLayout->setContentsMargins(56, 44, 56, 64);
-    scrollLayout->setSpacing(36);
+    scrollLayout->setContentsMargins(40, 32, 40, 32);
+    scrollLayout->setSpacing(24);
 
-    // 欢迎标题
-    QHBoxLayout *welcomeLayout = new QHBoxLayout();
-    welcomeLayout->setSpacing(16);
+    // 1. 欢迎卡片 (含智能建议) - 消息气泡风格
+    createWelcomeCard();
+    scrollLayout->addWidget(welcomeCard);
 
-    welcomeLabel = new QLabel("欢迎回来，王老师！");
-    welcomeLabel->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 32px; font-weight: bold;");
-
-    subtitleLabel = new QLabel("这是您的课堂活动与教学工具概览。");
-    subtitleLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 16px;");
-
-    QVBoxLayout *titleLayout = new QVBoxLayout();
-    titleLayout->setSpacing(6);
-    titleLayout->addWidget(welcomeLabel);
-    titleLayout->addWidget(subtitleLabel);
-
-    welcomeLayout->addLayout(titleLayout);
-    welcomeLayout->addStretch();
-
-    scrollLayout->addLayout(welcomeLayout);
-
-    
-    // 核心功能标题
-    QLabel *coreTitle = new QLabel("核心功能");
-    coreTitle->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 22px; font-weight: bold;");
-    scrollLayout->addWidget(coreTitle);
-
-    // 核心功能卡片与标题之间的紧凑间距
-    scrollLayout->addSpacing(-6);  // 使用负间距，让标题和按钮极紧密
-
-    // 核心功能卡片
-    createCoreFeatures();
-    scrollLayout->addWidget(coreFeaturesFrame);
-
-    // 按顺序创建组件
-    createRecentCourses();         // 左列上侧卡片
-    createLearningAnalytics();     // 左列下侧卡片
-    createRecentActivities();      // 右列侧栏卡片
-
-    // 创建两列网格：左列堆叠两个卡片，右列一个侧栏
-    QFrame *dashboardGridFrame = new QFrame();
-    QGridLayout *grid = new QGridLayout(dashboardGridFrame);
-    grid->setContentsMargins(0, 0, 0, 0);
-    grid->setHorizontalSpacing(36);
-    grid->setVerticalSpacing(36);
-    grid->setColumnStretch(0, 2);   // 左列：占2份宽度（近期课程+学情分析垂直堆叠）
-    grid->setColumnStretch(1, 1);   // 右列：占1份宽度（近期活动侧栏）
-
-    // 左列：垂直堆叠容器
-    QFrame *leftStackFrame = new QFrame();
-    QVBoxLayout *leftStack = new QVBoxLayout(leftStackFrame);
-    leftStack->setContentsMargins(0, 0, 0, 0);
-    leftStack->setSpacing(36);
-    leftStack->addWidget(recentCoursesFrame);
-    leftStack->addWidget(learningAnalyticsFrame);
-
-    // 右列：近期活动卡片 + 图表
-    QVBoxLayout *rightStack = new QVBoxLayout();
-    rightStack->setContentsMargins(0, 0, 0, 0);
-    rightStack->setSpacing(32);
-    rightStack->setAlignment(Qt::AlignTop);
-
-    if (recentActivitiesFrame) {
-        rightStack->addWidget(recentActivitiesFrame, 0);  // stretch factor = 0，防止过长扩展
-    }
-
-    // 移除图表容器（三维评分对比和知识点掌握分布）
-    // if (chartsContainer) {
-    //     rightStack->addWidget(chartsContainer, 0);  // stretch factor = 0
-    // }
-
-    // 放入网格
-    grid->addWidget(leftStackFrame, 0, 0, Qt::AlignTop | Qt::AlignLeft);
-
-    // 为右侧布局创建一个widget容器
-    QWidget *rightWidget = new QWidget();
-    rightWidget->setLayout(rightStack);
-    grid->addWidget(rightWidget, 0, 1, Qt::AlignTop | Qt::AlignLeft);
-
-    // 配置网格行拉伸以支持高度分布
-    grid->setRowStretch(0, 1);     // 允许行垂直拉伸
-
-    // 设置容器大小策略以支持拉伸
-    leftStackFrame->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    rightWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-
-    // 添加到滚动布局
-    scrollLayout->addWidget(dashboardGridFrame);
-
-    // 设置滚动布局间距
-    scrollLayout->setSpacing(36);
-
-    // 不在底部重复显示近期活动
+    // 2. 核心功能快捷入口 - 消息气泡风格
+    // 标题已移入 createQuickAccessCard 的气泡中
+    createQuickAccessCard();
+    scrollLayout->addWidget(quickAccessCard);
 
     scrollLayout->addStretch();
 
     dashboardScrollArea->setWidget(scrollContent);
     dashboardLayout->addWidget(dashboardScrollArea);
+
+    // 3. AI 对话栏 (底部固定)
+    createAIChatWidget();
+    
+    // 添加聊天显示区域 (默认隐藏，直到有对话)
+    // 注意：m_chatDisplay 在 createAIChatWidget 中初始化
+    if (m_chatDisplay) {
+        dashboardLayout->addWidget(m_chatDisplay);
+        m_chatDisplay->setVisible(false); // 默认隐藏
+    }
+    
+    dashboardLayout->addWidget(m_chatWidget);
 }
 
 void ModernMainWindow::setupStyles()
@@ -2122,4 +1478,424 @@ void ModernMainWindow::onStartClassClicked()
 void ModernMainWindow::onEnterClassClicked()
 {
     QMessageBox::information(this, "进入课堂", "进入课堂功能正在开发中...");
+}
+
+// ==================== 新版 UI 组件实现 ====================
+
+void ModernMainWindow::createWelcomeCard()
+{
+    // 1. 创建行容器 (Row Widget)
+    welcomeCard = new QFrame();
+    welcomeCard->setObjectName("welcomeRow");
+    welcomeCard->setStyleSheet("background: transparent;");
+    
+    QHBoxLayout *rowLayout = new QHBoxLayout(welcomeCard);
+    rowLayout->setContentsMargins(0, 0, 0, 0);
+    rowLayout->setSpacing(16);
+    rowLayout->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    
+    // 2. 左侧头像 (红色圆形)
+    QLabel *avatar = new QLabel("✨");
+    avatar->setFixedSize(40, 40);
+    avatar->setStyleSheet(
+        "background: #e53935;"
+        "border-radius: 20px;"
+        "color: white;"
+        "font-size: 20px;"
+        "qproperty-alignment: AlignCenter;"
+    );
+    rowLayout->addWidget(avatar, 0, Qt::AlignTop);
+    
+    // 3. 右侧气泡 (白色圆角)
+    QFrame *bubble = new QFrame();
+    bubble->setObjectName("welcomeBubble");
+    bubble->setStyleSheet(
+        "QFrame#welcomeBubble {"
+        "   background-color: white;"
+        "   border-radius: 10px;"
+        "   border: 1px solid #e0e0e0;"
+        "}"
+    );
+    
+    QVBoxLayout *bubbleLayout = new QVBoxLayout(bubble);
+    bubbleLayout->setContentsMargins(24, 24, 24, 24);
+    bubbleLayout->setSpacing(16);
+    
+    // 欢迎语
+    QLabel *title = new QLabel("欢迎回来，" + currentUsername + "！");
+    title->setStyleSheet("font-size: 20px; font-weight: bold; color: " + PRIMARY_TEXT + ";");
+    
+    QLabel *desc = new QLabel("我是您的AI教学助手，很高兴为您服务。您可以直接向我提问，或者点击下方的快捷功能按钮，快速开始您的教学工作。\n今天您有什么教学计划？比如：");
+    desc->setWordWrap(true);
+    desc->setStyleSheet("font-size: 15px; color: " + SECONDARY_TEXT + "; line-height: 1.6;");
+    
+    bubbleLayout->addWidget(title);
+    bubbleLayout->addWidget(desc);
+    
+    // 智能建议列表
+    QStringList suggestions = {
+        "开始智能备课",
+        "查看近期课程安排",
+        "分析高二(2)班的学情",
+        "查找关于“当代思潮”的教学资源"
+    };
+    
+    for (const QString &text : suggestions) {
+        QPushButton *btn = new QPushButton("• " + text);
+        btn->setCursor(Qt::PointingHandCursor);
+        btn->setStyleSheet(
+            "QPushButton {"
+            "   text-align: left;"
+            "   border: none;"
+            "   background: transparent;"
+            "   color: #e53935;"
+            "   font-size: 15px;"
+            "   font-weight: 500;"
+            "   padding: 4px 0;"
+            "}"
+            "QPushButton:hover {"
+            "   text-decoration: underline;"
+            "}"
+        );
+        bubbleLayout->addWidget(btn);
+        
+        connect(btn, &QPushButton::clicked, this, [this, text]() {
+            QString query = text;
+            if (query.startsWith("• ")) query = query.mid(2);
+            m_chatInput->setText(query);
+            m_chatInput->setFocus();
+        });
+    }
+    
+    rowLayout->addWidget(bubble);
+    rowLayout->addStretch(); // 确保气泡靠左，不占满全宽
+}
+
+void ModernMainWindow::createQuickAccessCard()
+{
+    // 1. 创建行容器
+    quickAccessCard = new QFrame();
+    quickAccessCard->setObjectName("quickAccessRow");
+    quickAccessCard->setStyleSheet("background: transparent;");
+    
+    QHBoxLayout *rowLayout = new QHBoxLayout(quickAccessCard);
+    rowLayout->setContentsMargins(0, 0, 0, 0);
+    rowLayout->setSpacing(16);
+    rowLayout->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    
+    // 2. 左侧头像 (红色圆形)
+    QLabel *avatar = new QLabel("✨");
+    avatar->setFixedSize(40, 40);
+    avatar->setStyleSheet(
+        "background: #e53935;"
+        "border-radius: 20px;"
+        "color: white;"
+        "font-size: 20px;"
+        "qproperty-alignment: AlignCenter;"
+    );
+    rowLayout->addWidget(avatar, 0, Qt::AlignTop);
+    
+    // 3. 右侧气泡
+    QFrame *bubble = new QFrame();
+    bubble->setObjectName("quickAccessBubble");
+    bubble->setStyleSheet(
+        "QFrame#quickAccessBubble {"
+        "   background-color: white;"
+        "   border-radius: 10px;"
+        "   border: 1px solid #e0e0e0;"
+        "}"
+    );
+    
+    QVBoxLayout *bubbleLayout = new QVBoxLayout(bubble);
+    bubbleLayout->setContentsMargins(24, 24, 24, 24);
+    bubbleLayout->setSpacing(20);
+    
+    // 标题 (移入气泡内)
+    QLabel *title = new QLabel("这里是您的核心功能快捷入口：");
+    title->setStyleSheet("font-size: 16px; font-weight: bold; color: " + PRIMARY_TEXT + ";");
+    bubbleLayout->addWidget(title);
+    
+    // 按钮网格
+    QGridLayout *gridLayout = new QGridLayout();
+    gridLayout->setContentsMargins(0, 0, 0, 0);
+    gridLayout->setSpacing(16);
+    
+    struct QuickAction {
+        QString title;
+        QString icon;
+        QString color;
+    };
+    
+    QList<QuickAction> actions = {
+        {"智能内容分析", "🔍", "#f5f5f5"},
+        {"AI智能备课", "📝", "#f5f5f5"},
+        {"互动教学工具", "▶️", "#f5f5f5"},
+        {"资源库管理", "📂", "#f5f5f5"}
+    };
+    
+    int row = 0;
+    int col = 0;
+    
+    for (const auto &action : actions) {
+        QPushButton *card = new QPushButton();
+        card->setFixedSize(220, 70); // 稍微调小一点以适应气泡
+        card->setCursor(Qt::PointingHandCursor);
+        
+        QHBoxLayout *cardLayout = new QHBoxLayout(card);
+        cardLayout->setContentsMargins(16, 0, 16, 0);
+        cardLayout->setSpacing(12);
+        
+        QLabel *icon = new QLabel(action.icon);
+        icon->setStyleSheet("font-size: 22px; background: transparent;");
+        
+        QLabel *text = new QLabel(action.title);
+        text->setStyleSheet("font-size: 15px; font-weight: 600; color: " + PRIMARY_TEXT + "; background: transparent;");
+        
+        cardLayout->addWidget(icon);
+        cardLayout->addWidget(text);
+        cardLayout->addStretch();
+        
+        card->setStyleSheet(
+            "QPushButton {"
+            "   background-color: " + action.color + ";"
+            "   border-radius: 10px;"
+            "   border: none;"
+            "}"
+            "QPushButton:hover {"
+            "   background-color: #eeeeee;"
+            "}"
+        );
+        
+        gridLayout->addWidget(card, row, col);
+        
+        col++;
+        if (col > 1) {
+            col = 0;
+            row++;
+        }
+    }
+    
+    bubbleLayout->addLayout(gridLayout);
+    
+    rowLayout->addWidget(bubble);
+    rowLayout->addStretch();
+}
+
+// ==================== AI 对话功能实现 ====================
+
+void ModernMainWindow::createAIChatWidget()
+{
+    // 1. 初始化聊天显示区域
+    m_chatDisplay = new QTextEdit();
+    m_chatDisplay->setReadOnly(true);
+    m_chatDisplay->setObjectName("chatDisplay");
+    m_chatDisplay->setStyleSheet(
+        "QTextEdit#chatDisplay {"
+        "   background-color: " + BACKGROUND_LIGHT + ";"
+        "   border: none;"
+        "   padding: 20px;"
+        "   font-size: 16px;"
+        "   line-height: 1.6;"
+        "}"
+    );
+    
+    // 2. 初始化底部输入栏容器
+    m_chatWidget = new QFrame();
+    m_chatWidget->setObjectName("chatWidget");
+    m_chatWidget->setStyleSheet("background: transparent;");
+    m_chatWidget->setFixedHeight(110); // 增加高度以容纳免责声明
+    
+    QVBoxLayout *mainLayout = new QVBoxLayout(m_chatWidget);
+    mainLayout->setContentsMargins(40, 0, 40, 10); // 左右留白，底部留白
+    mainLayout->setSpacing(8);
+    
+    // 输入框容器 (白色悬浮框)
+    QFrame *inputContainer = new QFrame();
+    inputContainer->setObjectName("inputContainer");
+    inputContainer->setStyleSheet(
+        "QFrame#inputContainer {"
+        "   background: #ffffff;"
+        "   border-radius: 12px;"
+        "   border: 1px solid #e0e0e0;"
+        "}"
+    );
+    inputContainer->setFixedHeight(64);
+    
+    // 添加阴影效果
+    QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect(inputContainer);
+    shadow->setBlurRadius(20);
+    shadow->setOffset(0, 4);
+    shadow->setColor(QColor(0, 0, 0, 15));
+    inputContainer->setGraphicsEffect(shadow);
+    
+    QHBoxLayout *inputLayout = new QHBoxLayout(inputContainer);
+    inputLayout->setContentsMargins(16, 8, 16, 8);
+    inputLayout->setSpacing(16);
+    
+    // 添加按钮 (+)
+    QPushButton *addBtn = new QPushButton("+");
+    addBtn->setFixedSize(36, 36);
+    addBtn->setCursor(Qt::PointingHandCursor);
+    addBtn->setStyleSheet(
+        "QPushButton {"
+        "   background: #9e9e9e;" // 灰色圆形
+        "   border-radius: 18px;"
+        "   color: white;"
+        "   font-size: 24px;"
+        "   border: none;"
+        "   padding-bottom: 2px;"
+        "}"
+        "QPushButton:hover {"
+        "   background: #757575;"
+        "}"
+    );
+    inputLayout->addWidget(addBtn);
+    
+    // 输入框
+    m_chatInput = new QLineEdit();
+    m_chatInput->setPlaceholderText("向AI助手发送信息...");
+    m_chatInput->setFixedHeight(40);
+    m_chatInput->setStyleSheet(
+        "QLineEdit {"
+        "   background: transparent;"
+        "   border: none;"
+        "   font-size: 15px;"
+        "   color: " + PRIMARY_TEXT + ";"
+        "}"
+    );
+    inputLayout->addWidget(m_chatInput);
+    
+    // 发送按钮 (红色圆形箭头)
+    m_sendBtn = new QPushButton("↑");
+    m_sendBtn->setFixedSize(36, 36);
+    m_sendBtn->setCursor(Qt::PointingHandCursor);
+    m_sendBtn->setStyleSheet(
+        "QPushButton {"
+        "   background: #e53935;" // 红色圆形
+        "   border-radius: 18px;"
+        "   color: white;"
+        "   font-size: 20px;"
+        "   font-weight: bold;"
+        "   border: none;"
+        "}"
+        "QPushButton:hover {"
+        "   background: #d32f2f;"
+        "}"
+        "QPushButton:pressed {"
+        "   background: #b71c1c;"
+        "}"
+    );
+    inputLayout->addWidget(m_sendBtn);
+    
+    mainLayout->addWidget(inputContainer);
+    
+    // 免责声明
+    QLabel *disclaimerLabel = new QLabel("AI可能产生错误信息，请核实重要内容。");
+    disclaimerLabel->setAlignment(Qt::AlignCenter);
+    disclaimerLabel->setStyleSheet("color: #9e9e9e; font-size: 12px;");
+    mainLayout->addWidget(disclaimerLabel);
+    
+    // 连接信号
+    connect(m_sendBtn, &QPushButton::clicked, this, &ModernMainWindow::onSendChatMessage);
+    connect(m_chatInput, &QLineEdit::returnPressed, this, &ModernMainWindow::onSendChatMessage);
+}
+
+void ModernMainWindow::appendChatMessage(const QString &sender, const QString &message, bool isUser)
+{
+    if (!m_chatDisplay) return;
+
+    if (!m_chatDisplay->isVisible()) {
+        m_chatDisplay->setVisible(true);
+        // 可以设置一个最大高度，避免占据太多空间
+        m_chatDisplay->setMaximumHeight(400);
+    }
+
+    QString color = isUser ? WISDOM_BLUE : PATRIOTIC_RED;
+    QString html = QString(
+        "<div style='margin-bottom: 12px;'>"
+        "<span style='color: %1; font-weight: bold;'>%2：</span>"
+        "<span style='color: %3;'>%4</span>"
+        "</div>"
+    ).arg(color, sender, PRIMARY_TEXT, message.toHtmlEscaped().replace("\n", "<br>"));
+    
+    m_chatDisplay->append(html);
+    
+    // 滚动到底部
+    QScrollBar *scrollBar = m_chatDisplay->verticalScrollBar();
+    scrollBar->setValue(scrollBar->maximum());
+}
+
+void ModernMainWindow::onSendChatMessage()
+{
+    QString message = m_chatInput->text().trimmed();
+    if (message.isEmpty()) {
+        return;
+    }
+    
+    // 显示用户消息
+    appendChatMessage("您", message, true);
+    
+    // 清空输入框
+    m_chatInput->clear();
+    
+    // 清空累积响应
+    m_currentAIResponse.clear();
+    
+    // 发送到 Dify
+    m_difyService->sendMessage(message);
+}
+
+void ModernMainWindow::onAIStreamChunk(const QString &chunk)
+{
+    if (!m_chatDisplay) return;
+
+    // 累积响应
+    m_currentAIResponse += chunk;
+    
+    // 更新显示（实时流式效果）
+    // 移除之前的 AI 响应行（如果有）并重新添加
+    // QString displayHtml = m_chatDisplay->toHtml();
+    
+    // 简单方案：直接更新最后一条消息
+    // 这里为了简单起见，我们在完整响应后再显示
+}
+
+void ModernMainWindow::onAIResponseReceived(const QString &response)
+{
+    // 显示完整的 AI 回复
+    appendChatMessage("AI 助手", response, false);
+    m_currentAIResponse.clear();
+}
+
+void ModernMainWindow::onAIError(const QString &error)
+{
+    if (!m_chatDisplay) return;
+
+    if (!m_chatDisplay->isVisible()) {
+        m_chatDisplay->setVisible(true);
+        m_chatDisplay->setMaximumHeight(400);
+    }
+
+    QString errorHtml = QString(
+        "<div style='margin-bottom: 12px; color: #c62828;'>"
+        "<span style='font-weight: bold;'>⚠️ 错误：</span>%1"
+        "</div>"
+    ).arg(error.toHtmlEscaped());
+    
+    m_chatDisplay->append(errorHtml);
+}
+
+void ModernMainWindow::onAIRequestStarted()
+{
+    m_sendBtn->setEnabled(false);
+    m_sendBtn->setText("发送中...");
+    m_chatInput->setEnabled(false);
+}
+
+void ModernMainWindow::onAIRequestFinished()
+{
+    m_sendBtn->setEnabled(true);
+    m_sendBtn->setText("发送");
+    m_chatInput->setEnabled(true);
+    m_chatInput->setFocus();
 }

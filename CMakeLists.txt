@@ -34,6 +34,8 @@ set(PROJECT_SOURCES
     src/ui/moderncheckbox.h
     src/services/ExportService.cpp
     src/services/ExportService.h
+    src/services/DifyService.cpp
+    src/services/DifyService.h
     resources.qrc
     resources/QtTheme/QtTheme.qrc
 )
