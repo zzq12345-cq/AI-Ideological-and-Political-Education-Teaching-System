@@ -121,3 +121,11 @@ app.log
 # Cache
 .cache/
 *.cache
+
+# Environment variables and secrets
+.env
+.env.local
+.env.production
+*.key
+*.pem
+config/secrets/
