@@ -34,6 +34,7 @@ class AIPreparationWidget;
 class QuestionRepository;
 class QuestionBankWindow;
 class DifyService;
+class AIChatDialog;
 
 class ModernMainWindow : public QMainWindow
 {
@@ -148,8 +149,9 @@ private:
 
     // AI 对话组件
     DifyService *m_difyService;
-    QFrame *m_chatWidget;
-    QTextEdit *m_chatDisplay;
+    AIChatDialog *m_chatDialog;  // AI 对话框（备用）
+    class ChatWidget *m_bubbleChatWidget;  // 气泡样式聊天组件（主面板用）
+    QFrame *m_chatWidget;        // 输入框容器
     QLineEdit *m_chatInput;
     QPushButton *m_sendBtn;
     QString m_currentAIResponse;  // 累积流式响应

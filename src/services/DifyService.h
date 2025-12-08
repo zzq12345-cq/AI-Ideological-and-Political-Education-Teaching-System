@@ -100,6 +100,7 @@ private:
     QString m_conversationId;
     QString m_userId;
     QString m_fullResponse;  // 累积完整响应
+    QString m_streamBuffer;  // SSE 残留缓冲
 };
 
 #endif // DIFYSERVICE_H
