@@ -31,6 +31,11 @@ void DifyService::setBaseUrl(const QString &baseUrl)
     m_baseUrl = baseUrl;
 }
 
+void DifyService::setModel(const QString &model)
+{
+    m_model = model;
+}
+
 QString DifyService::currentConversationId() const
 {
     return m_conversationId;
@@ -81,6 +86,12 @@ void DifyService::sendMessage(const QString &message, const QString &conversatio
     body["query"] = message;
     body["response_mode"] = "streaming";  // 使用流式响应
     body["user"] = m_userId;
+
+    // 如果指定了模型，添加到请求中
+    if (!m_model.isEmpty()) {
+        body["model"] = m_model;
+        qDebug() << "[DifyService] Using model:" << m_model;
+    }
 
     // 如果有会话 ID，添加到请求中
     QString convId = conversationId.isEmpty() ? m_conversationId : conversationId;

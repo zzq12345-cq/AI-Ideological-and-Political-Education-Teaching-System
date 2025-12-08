@@ -41,6 +41,12 @@ public:
     void setBaseUrl(const QString &baseUrl);
 
     /**
+     * @brief 设置要使用的模型
+     * @param model 模型名称（如 "glm-4", "gpt-4", "claude-3" 等）
+     */
+    void setModel(const QString &model);
+
+    /**
      * @brief 获取当前会话 ID
      */
     QString currentConversationId() const;
@@ -97,6 +103,7 @@ private:
     QNetworkReply *m_currentReply;
     QString m_apiKey;
     QString m_baseUrl;
+    QString m_model;
     QString m_conversationId;
     QString m_userId;
     QString m_fullResponse;  // 累积完整响应

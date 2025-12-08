@@ -785,7 +785,16 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
 
     // 初始化 Dify AI 服务
     m_difyService = new DifyService(this);
-    m_difyService->setApiKey("app-97Se5IKQ5IkC41sQoVeqxI9M");
+
+    // 从环境变量获取 API Key，提高安全性
+    QString apiKey = qgetenv("DIFY_API_KEY");
+    if (apiKey.isEmpty()) {
+        // 如果环境变量未设置，使用占位符提醒用户配置
+        apiKey = "YOUR_DIFY_API_KEY_HERE";
+        qDebug() << "[Security Warning] DIFY_API_KEY environment variable not set. Please configure it.";
+    }
+    m_difyService->setApiKey(apiKey);
+    m_difyService->setModel("glm-4.6");  // 使用 GLM-4.6 模型
 
     // 不再使用独立的 AI 对话框，直接在主页面显示
     // m_chatDialog = new AIChatDialog(m_difyService, this);
@@ -1302,19 +1311,20 @@ void ModernMainWindow::createDashboard()
     createQuickAccessCard();
     scrollLayout->addWidget(quickAccessCard);
 
-    scrollLayout->addStretch();
+    // 3. AI 气泡聊天组件 (整合到滚动区域内)
+    createAIChatWidget();
+
+    // 添加气泡聊天组件到滚动布局
+    if (m_bubbleChatWidget) {
+        m_bubbleChatWidget->setMinimumHeight(300);
+        scrollLayout->addWidget(m_bubbleChatWidget);
+    }
+
+    // 移除 stretch，让聊天组件自然占据剩余空间
+    // scrollLayout->addStretch();
 
     dashboardScrollArea->setWidget(scrollContent);
     dashboardLayout->addWidget(dashboardScrollArea);
-
-    // 3. AI 气泡聊天组件 (主面板直接显示)
-    createAIChatWidget();
-    
-    // 添加气泡聊天组件到布局（占据主要空间）
-    if (m_bubbleChatWidget) {
-        m_bubbleChatWidget->setMinimumHeight(300);
-        dashboardLayout->addWidget(m_bubbleChatWidget, 1); // stretch = 1 让它占据可用空间
-    }
 }
 
 void ModernMainWindow::setupStyles()
