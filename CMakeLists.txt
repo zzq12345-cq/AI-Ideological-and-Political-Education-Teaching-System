@@ -36,6 +36,10 @@ set(PROJECT_SOURCES
     src/services/ExportService.h
     src/services/DifyService.cpp
     src/services/DifyService.h
+    src/ui/ChatWidget.cpp
+    src/ui/ChatWidget.h
+    src/ui/AIChatDialog.cpp
+    src/ui/AIChatDialog.h
     resources.qrc
     resources/QtTheme/QtTheme.qrc
 )

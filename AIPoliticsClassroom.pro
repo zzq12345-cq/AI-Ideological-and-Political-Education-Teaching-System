@@ -17,9 +17,12 @@ SOURCES += \
     src/dashboard/modernmainwindow.cpp \
     src/ui/aipreparationwidget.cpp \
     src/ui/moderncheckbox.cpp \
+    src/ui/AIChatDialog.cpp \
+    src/ui/ChatWidget.cpp \
     src/questionbank/questionbankwindow.cpp \
     src/questionbank/QuestionRepository.cpp \
-    src/services/ExportService.cpp
+    src/services/ExportService.cpp \
+    src/services/DifyService.cpp
 
 # 头文件
 HEADERS += \
@@ -30,9 +33,12 @@ HEADERS += \
     src/dashboard/modernmainwindow.h \
     src/ui/aipreparationwidget.h \
     src/ui/moderncheckbox.h \
+    src/ui/AIChatDialog.h \
+    src/ui/ChatWidget.h \
     src/questionbank/questionbankwindow.h \
     src/questionbank/QuestionRepository.h \
-    src/services/ExportService.h
+    src/services/ExportService.h \
+    src/services/DifyService.h
 
 # UI文件
 FORMS += \

@@ -4,6 +4,8 @@
 #include "../questionbank/QuestionRepository.h"
 #include "../questionbank/questionbankwindow.h"
 #include "../services/DifyService.h"
+#include "../ui/AIChatDialog.h"
+#include "../ui/ChatWidget.h"
 #include <QApplication>
 #include <QMessageBox>
 #include <QFile>
@@ -783,9 +785,12 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
 
     // 初始化 Dify AI 服务
     m_difyService = new DifyService(this);
-    m_difyService->setApiKey("app-ohNvxW8RFmbFVEBBrwMWyOfz");
-    
-    // 连接 Dify 服务信号
+    m_difyService->setApiKey("app-97Se5IKQ5IkC41sQoVeqxI9M");
+
+    // 不再使用独立的 AI 对话框，直接在主页面显示
+    // m_chatDialog = new AIChatDialog(m_difyService, this);
+
+    // 连接 Dify 服务的信号到主窗口的处理函数
     connect(m_difyService, &DifyService::streamChunkReceived, this, &ModernMainWindow::onAIStreamChunk);
     connect(m_difyService, &DifyService::messageReceived, this, &ModernMainWindow::onAIResponseReceived);
     connect(m_difyService, &DifyService::errorOccurred, this, &ModernMainWindow::onAIError);
@@ -1302,17 +1307,14 @@ void ModernMainWindow::createDashboard()
     dashboardScrollArea->setWidget(scrollContent);
     dashboardLayout->addWidget(dashboardScrollArea);
 
-    // 3. AI 对话栏 (底部固定)
+    // 3. AI 气泡聊天组件 (主面板直接显示)
     createAIChatWidget();
     
-    // 添加聊天显示区域 (默认隐藏，直到有对话)
-    // 注意：m_chatDisplay 在 createAIChatWidget 中初始化
-    if (m_chatDisplay) {
-        dashboardLayout->addWidget(m_chatDisplay);
-        m_chatDisplay->setVisible(false); // 默认隐藏
+    // 添加气泡聊天组件到布局（占据主要空间）
+    if (m_bubbleChatWidget) {
+        m_bubbleChatWidget->setMinimumHeight(300);
+        dashboardLayout->addWidget(m_bubbleChatWidget, 1); // stretch = 1 让它占据可用空间
     }
-    
-    dashboardLayout->addWidget(m_chatWidget);
 }
 
 void ModernMainWindow::setupStyles()
@@ -1562,8 +1564,22 @@ void ModernMainWindow::createWelcomeCard()
         connect(btn, &QPushButton::clicked, this, [this, text]() {
             QString query = text;
             if (query.startsWith("• ")) query = query.mid(2);
-            m_chatInput->setText(query);
-            m_chatInput->setFocus();
+
+            qDebug() << "[ModernMainWindow] Smart suggestion clicked:" << query;
+
+            if (!m_bubbleChatWidget) {
+                qDebug() << "[ModernMainWindow] Error: m_bubbleChatWidget is null!";
+                return;
+            }
+
+            if (!m_bubbleChatWidget->inputText().isEmpty()) {
+                qDebug() << "[ModernMainWindow] Warning: Input not empty, current text:" << m_bubbleChatWidget->inputText();
+            }
+
+            m_bubbleChatWidget->setInputText(query);
+            m_bubbleChatWidget->focusInput();
+
+            qDebug() << "[ModernMainWindow] Smart suggestion processed successfully";
         });
     }
     
@@ -1685,217 +1701,137 @@ void ModernMainWindow::createQuickAccessCard()
 
 void ModernMainWindow::createAIChatWidget()
 {
-    // 1. 初始化聊天显示区域
-    m_chatDisplay = new QTextEdit();
-    m_chatDisplay->setReadOnly(true);
-    m_chatDisplay->setObjectName("chatDisplay");
-    m_chatDisplay->setStyleSheet(
-        "QTextEdit#chatDisplay {"
-        "   background-color: " + BACKGROUND_LIGHT + ";"
-        "   border: none;"
-        "   padding: 20px;"
-        "   font-size: 16px;"
-        "   line-height: 1.6;"
-        "}"
-    );
+    // 创建气泡样式聊天组件
+    m_bubbleChatWidget = new ChatWidget();
+    m_bubbleChatWidget->setPlaceholderText("向AI助手发送信息...");
     
-    // 2. 初始化底部输入栏容器
-    m_chatWidget = new QFrame();
-    m_chatWidget->setObjectName("chatWidget");
-    m_chatWidget->setStyleSheet("background: transparent;");
-    m_chatWidget->setFixedHeight(110); // 增加高度以容纳免责声明
-    
-    QVBoxLayout *mainLayout = new QVBoxLayout(m_chatWidget);
-    mainLayout->setContentsMargins(40, 0, 40, 10); // 左右留白，底部留白
-    mainLayout->setSpacing(8);
-    
-    // 输入框容器 (白色悬浮框)
-    QFrame *inputContainer = new QFrame();
-    inputContainer->setObjectName("inputContainer");
-    inputContainer->setStyleSheet(
-        "QFrame#inputContainer {"
-        "   background: #ffffff;"
-        "   border-radius: 12px;"
-        "   border: 1px solid #e0e0e0;"
-        "}"
-    );
-    inputContainer->setFixedHeight(64);
-    
-    // 添加阴影效果
-    QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect(inputContainer);
-    shadow->setBlurRadius(20);
-    shadow->setOffset(0, 4);
-    shadow->setColor(QColor(0, 0, 0, 15));
-    inputContainer->setGraphicsEffect(shadow);
-    
-    QHBoxLayout *inputLayout = new QHBoxLayout(inputContainer);
-    inputLayout->setContentsMargins(16, 8, 16, 8);
-    inputLayout->setSpacing(16);
-    
-    // 添加按钮 (+)
-    QPushButton *addBtn = new QPushButton("+");
-    addBtn->setFixedSize(36, 36);
-    addBtn->setCursor(Qt::PointingHandCursor);
-    addBtn->setStyleSheet(
-        "QPushButton {"
-        "   background: #9e9e9e;" // 灰色圆形
-        "   border-radius: 18px;"
-        "   color: white;"
-        "   font-size: 24px;"
-        "   border: none;"
-        "   padding-bottom: 2px;"
-        "}"
-        "QPushButton:hover {"
-        "   background: #757575;"
-        "}"
-    );
-    inputLayout->addWidget(addBtn);
-    
-    // 输入框
-    m_chatInput = new QLineEdit();
-    m_chatInput->setPlaceholderText("向AI助手发送信息...");
-    m_chatInput->setFixedHeight(40);
-    m_chatInput->setStyleSheet(
-        "QLineEdit {"
-        "   background: transparent;"
-        "   border: none;"
-        "   font-size: 15px;"
-        "   color: " + PRIMARY_TEXT + ";"
-        "}"
-    );
-    inputLayout->addWidget(m_chatInput);
-    
-    // 发送按钮 (红色圆形箭头)
-    m_sendBtn = new QPushButton("↑");
-    m_sendBtn->setFixedSize(36, 36);
-    m_sendBtn->setCursor(Qt::PointingHandCursor);
-    m_sendBtn->setStyleSheet(
-        "QPushButton {"
-        "   background: #e53935;" // 红色圆形
-        "   border-radius: 18px;"
-        "   color: white;"
-        "   font-size: 20px;"
-        "   font-weight: bold;"
-        "   border: none;"
-        "}"
-        "QPushButton:hover {"
-        "   background: #d32f2f;"
-        "}"
-        "QPushButton:pressed {"
-        "   background: #b71c1c;"
-        "}"
-    );
-    inputLayout->addWidget(m_sendBtn);
-    
-    mainLayout->addWidget(inputContainer);
-    
-    // 免责声明
-    QLabel *disclaimerLabel = new QLabel("AI可能产生错误信息，请核实重要内容。");
-    disclaimerLabel->setAlignment(Qt::AlignCenter);
-    disclaimerLabel->setStyleSheet("color: #9e9e9e; font-size: 12px;");
-    mainLayout->addWidget(disclaimerLabel);
-    
-    // 连接信号
-    connect(m_sendBtn, &QPushButton::clicked, this, &ModernMainWindow::onSendChatMessage);
-    connect(m_chatInput, &QLineEdit::returnPressed, this, &ModernMainWindow::onSendChatMessage);
+    // 连接消息发送信号到 Dify 服务
+    connect(m_bubbleChatWidget, &ChatWidget::messageSent, this, [this](const QString &message) {
+        if (message.trimmed().isEmpty()) return;
+        
+        // 显示用户消息
+        m_bubbleChatWidget->addMessage(message, true);
+        
+        // 清空累积响应
+        m_currentAIResponse.clear();
+        
+        // 发送到 Dify
+        if (m_difyService) {
+            m_difyService->sendMessage(message);
+        }
+    });
 }
 
 void ModernMainWindow::appendChatMessage(const QString &sender, const QString &message, bool isUser)
 {
-    if (!m_chatDisplay) return;
-
-    if (!m_chatDisplay->isVisible()) {
-        m_chatDisplay->setVisible(true);
-        // 可以设置一个最大高度，避免占据太多空间
-        m_chatDisplay->setMaximumHeight(400);
+    // 直接在主页面的聊天组件中显示消息
+    if (m_bubbleChatWidget) {
+        m_bubbleChatWidget->addMessage(message, isUser);
     }
-
-    QString color = isUser ? WISDOM_BLUE : PATRIOTIC_RED;
-    QString html = QString(
-        "<div style='margin-bottom: 12px;'>"
-        "<span style='color: %1; font-weight: bold;'>%2：</span>"
-        "<span style='color: %3;'>%4</span>"
-        "</div>"
-    ).arg(color, sender, PRIMARY_TEXT, message.toHtmlEscaped().replace("\n", "<br>"));
-    
-    m_chatDisplay->append(html);
-    
-    // 滚动到底部
-    QScrollBar *scrollBar = m_chatDisplay->verticalScrollBar();
-    scrollBar->setValue(scrollBar->maximum());
 }
 
 void ModernMainWindow::onSendChatMessage()
 {
+    if (!m_chatInput) {
+        return;
+    }
+
     QString message = m_chatInput->text().trimmed();
     if (message.isEmpty()) {
         return;
     }
-    
+
     // 显示用户消息
     appendChatMessage("您", message, true);
-    
+
     // 清空输入框
     m_chatInput->clear();
-    
+
     // 清空累积响应
     m_currentAIResponse.clear();
-    
+
     // 发送到 Dify
-    m_difyService->sendMessage(message);
+    if (m_difyService) {
+        m_difyService->sendMessage(message);
+    }
 }
 
 void ModernMainWindow::onAIStreamChunk(const QString &chunk)
 {
-    if (!m_chatDisplay) return;
+    qDebug() << "[ModernMainWindow] Stream chunk received:" << chunk.left(50) + "...";
+
+    if (!m_bubbleChatWidget) {
+        qDebug() << "[ModernMainWindow] Error: m_bubbleChatWidget is null!";
+        return;
+    }
 
     // 累积响应
     m_currentAIResponse += chunk;
-    
-    // 更新显示（实时流式效果）
-    // 移除之前的 AI 响应行（如果有）并重新添加
-    // QString displayHtml = m_chatDisplay->toHtml();
-    
-    // 简单方案：直接更新最后一条消息
-    // 这里为了简单起见，我们在完整响应后再显示
+    qDebug() << "[ModernMainWindow] Current response length:" << m_currentAIResponse.length();
+
+    // 如果是第一个 chunk，先添加一个空的 AI 消息
+    if (m_currentAIResponse.length() == chunk.length()) {
+        qDebug() << "[ModernMainWindow] Adding first AI message placeholder";
+        m_bubbleChatWidget->addMessage("", false); // 添加空的 AI 消息占位
+    }
+
+    // 实时更新最后一条 AI 消息
+    m_bubbleChatWidget->updateLastAIMessage(m_currentAIResponse);
 }
 
 void ModernMainWindow::onAIResponseReceived(const QString &response)
 {
-    // 显示完整的 AI 回复
-    appendChatMessage("AI 助手", response, false);
+    qDebug() << "[ModernMainWindow] AI Response received, length:" << response.length();
+    qDebug() << "[ModernMainWindow] Current accumulated response length:" << m_currentAIResponse.length();
+
+    // 如果没有累积的响应，直接显示
+    if (m_currentAIResponse.isEmpty()) {
+        qDebug() << "[ModernMainWindow] No accumulated response, adding new message";
+        appendChatMessage("AI 助手", response, false);
+    } else {
+        // 更新最后的 AI 消息为完整响应
+        if (m_bubbleChatWidget) {
+            qDebug() << "[ModernMainWindow] Updating final AI message";
+            m_bubbleChatWidget->updateLastAIMessage(response);
+        } else {
+            qDebug() << "[ModernMainWindow] Error: m_bubbleChatWidget is null!";
+        }
+    }
     m_currentAIResponse.clear();
 }
 
 void ModernMainWindow::onAIError(const QString &error)
 {
-    if (!m_chatDisplay) return;
+    // 添加调试输出
+    qDebug() << "[ModernMainWindow] AI Error occurred:" << error;
 
-    if (!m_chatDisplay->isVisible()) {
-        m_chatDisplay->setVisible(true);
-        m_chatDisplay->setMaximumHeight(400);
+    // 直接在主页面聊天组件中显示错误消息
+    QString errorMessage = QString("⚠️ 错误：%1").arg(error);
+    if (m_bubbleChatWidget) {
+        m_bubbleChatWidget->addMessage(errorMessage, false);
     }
-
-    QString errorHtml = QString(
-        "<div style='margin-bottom: 12px; color: #c62828;'>"
-        "<span style='font-weight: bold;'>⚠️ 错误：</span>%1"
-        "</div>"
-    ).arg(error.toHtmlEscaped());
-    
-    m_chatDisplay->append(errorHtml);
 }
 
 void ModernMainWindow::onAIRequestStarted()
 {
-    m_sendBtn->setEnabled(false);
-    m_sendBtn->setText("发送中...");
-    m_chatInput->setEnabled(false);
+    // 添加调试输出
+    qDebug() << "[ModernMainWindow] AI Request started";
+
+    // 通过 ChatWidget 的公共方法来控制状态
+    if (m_bubbleChatWidget) {
+        m_bubbleChatWidget->setInputEnabled(false);
+        qDebug() << "[ModernMainWindow] Input disabled";
+        // 注意：暂时无法设置发送按钮文本，因为 ChatWidget 没有提供这个方法
+    } else {
+        qDebug() << "[ModernMainWindow] m_bubbleChatWidget is null!";
+    }
 }
 
 void ModernMainWindow::onAIRequestFinished()
 {
-    m_sendBtn->setEnabled(true);
-    m_sendBtn->setText("发送");
-    m_chatInput->setEnabled(true);
-    m_chatInput->setFocus();
+    // 通过 ChatWidget 的公共方法来控制状态
+    if (m_bubbleChatWidget) {
+        m_bubbleChatWidget->setInputEnabled(true);
+        m_bubbleChatWidget->focusInput();
+    }
 }

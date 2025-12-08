@@ -62,6 +62,7 @@ void DifyService::sendMessage(const QString &message, const QString &conversatio
 
     // 清空累积响应
     m_fullResponse.clear();
+    m_streamBuffer.clear();
 
     // 构建请求 URL
     QUrl url(m_baseUrl + "/chat-messages");
@@ -70,6 +71,9 @@ void DifyService::sendMessage(const QString &message, const QString &conversatio
     // 设置请求头
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+
+    // 设置超时时间
+    request.setTransferTimeout(30000);  // 30秒超时
 
     // 构建请求体
     QJsonObject body;
@@ -89,6 +93,7 @@ void DifyService::sendMessage(const QString &message, const QString &conversatio
 
     qDebug() << "[DifyService] Sending message:" << message;
     qDebug() << "[DifyService] Request URL:" << url.toString();
+    qDebug() << "[DifyService] API Key:" << m_apiKey.left(10) + "...";
 
     emit requestStarted();
 
@@ -111,11 +116,19 @@ void DifyService::onReadyRead()
 
 void DifyService::onReplyFinished()
 {
-    if (!m_currentReply) return;
+    qDebug() << "[DifyService] Reply finished, checking for errors...";
+
+    if (!m_currentReply) {
+        qDebug() << "[DifyService] No current reply";
+        return;
+    }
 
     if (m_currentReply->error() != QNetworkReply::NoError) {
         QString errorMsg = m_currentReply->errorString();
+        int httpStatus = m_currentReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         QByteArray responseData = m_currentReply->readAll();
+
+        qDebug() << "[DifyService] HTTP Error:" << httpStatus << "Error:" << errorMsg;
 
         // 尝试解析错误响应
         QJsonDocument errorDoc = QJsonDocument::fromJson(responseData);
@@ -126,12 +139,20 @@ void DifyService::onReplyFinished()
             }
         }
 
+        if (httpStatus > 0) {
+            errorMsg = QString("%1 (HTTP %2)").arg(errorMsg).arg(httpStatus);
+        }
+
         qDebug() << "[DifyService] Error:" << errorMsg;
         emit errorOccurred(errorMsg);
     } else {
         // 发送完整响应
+        qDebug() << "[DifyService] Request successful, accumulated response length:" << m_fullResponse.length();
         if (!m_fullResponse.isEmpty()) {
+            qDebug() << "[DifyService] Emitting messageReceived with content:" << m_fullResponse.left(100) + "...";
             emit messageReceived(m_fullResponse);
+        } else {
+            qDebug() << "[DifyService] Warning: Full response is empty!";
         }
     }
 
@@ -154,19 +175,27 @@ void DifyService::onSslErrors(const QList<QSslError> &errors)
 
 void DifyService::parseStreamResponse(const QByteArray &data)
 {
-    // Dify 使用 SSE (Server-Sent Events) 格式
-    // 每行以 "data: " 开头，后跟 JSON 数据
-    QString dataStr = QString::fromUtf8(data);
-    QStringList lines = dataStr.split('\n', Qt::SkipEmptyParts);
+    // Dify 使用 SSE (Server-Sent Events) 格式，部分 JSON 可能跨分片
+    QString buffer = m_streamBuffer + QString::fromUtf8(data);
+    QStringList lines = buffer.split('\n');
+    m_streamBuffer.clear();
 
-    for (const QString &line : lines) {
+    // 如果最后一行不完整，暂存到缓冲区，等待下一个分片
+    if (!buffer.endsWith('\n') && !lines.isEmpty()) {
+        QString lastLine = lines.takeLast();
+        if (!lastLine.trimmed().isEmpty()) {
+            m_streamBuffer = lastLine;
+        }
+    }
+
+    for (QString line : lines) {
+        line = line.trimmed();
         if (!line.startsWith("data: ")) {
             continue;
         }
 
         QString jsonStr = line.mid(6);  // 去掉 "data: " 前缀
-
-        if (jsonStr.trimmed().isEmpty()) {
+        if (jsonStr.isEmpty() || jsonStr == "[DONE]") {
             continue;
         }
 
