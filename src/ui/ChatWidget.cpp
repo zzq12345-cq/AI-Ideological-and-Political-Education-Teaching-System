@@ -61,30 +61,59 @@ void ChatWidget::setupUI()
     mainLayout->addWidget(m_scrollArea, 1);
     
     // ========== 底部输入区域 ==========
-    QFrame *inputFrame = new QFrame();
-    inputFrame->setObjectName("inputFrame");
-    inputFrame->setFixedHeight(80);
+    QWidget *bottomWidget = new QWidget();
+    bottomWidget->setObjectName("bottomWidget");
+    QVBoxLayout *bottomLayout = new QVBoxLayout(bottomWidget);
+    bottomLayout->setContentsMargins(20, 10, 20, 10);
+    bottomLayout->setSpacing(8);
+
+    // 输入框容器（胶囊状）
+    QFrame *inputContainer = new QFrame();
+    inputContainer->setObjectName("inputContainer");
+    inputContainer->setFixedHeight(56); // 增加高度以适应胶囊形状
     
-    QHBoxLayout *inputLayout = new QHBoxLayout(inputFrame);
-    inputLayout->setContentsMargins(20, 16, 20, 16);
-    inputLayout->setSpacing(12);
-    
+    // 添加阴影效果
+    QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect(this);
+    shadow->setBlurRadius(20);
+    shadow->setColor(QColor(0, 0, 0, 20));
+    shadow->setOffset(0, 4);
+    inputContainer->setGraphicsEffect(shadow);
+
+    QHBoxLayout *containerLayout = new QHBoxLayout(inputContainer);
+    containerLayout->setContentsMargins(12, 8, 12, 8);
+    containerLayout->setSpacing(12);
+
+    // 加号按钮
+    QPushButton *plusBtn = new QPushButton("+");
+    plusBtn->setObjectName("plusBtn");
+    plusBtn->setFixedSize(32, 32);
+    plusBtn->setCursor(Qt::PointingHandCursor);
+
     // 输入框
     m_inputEdit = new QLineEdit();
     m_inputEdit->setObjectName("chatInputEdit");
-    m_inputEdit->setPlaceholderText("输入消息...");
-    m_inputEdit->setFixedHeight(48);
+    m_inputEdit->setPlaceholderText("向AI助手发送信息...");
+    m_inputEdit->setFixedHeight(40);
     
     // 发送按钮
-    m_sendBtn = new QPushButton("发送");
+    m_sendBtn = new QPushButton("↑"); // 使用向上箭头
     m_sendBtn->setObjectName("chatSendBtn");
-    m_sendBtn->setFixedSize(80, 48);
+    m_sendBtn->setFixedSize(32, 32);
     m_sendBtn->setCursor(Qt::PointingHandCursor);
     
-    inputLayout->addWidget(m_inputEdit);
-    inputLayout->addWidget(m_sendBtn);
+    containerLayout->addWidget(plusBtn);
+    containerLayout->addWidget(m_inputEdit);
+    containerLayout->addWidget(m_sendBtn);
     
-    mainLayout->addWidget(inputFrame);
+    // 底部提示文字
+    QLabel *tipLabel = new QLabel("AI可能产生错误信息，请核实重要内容。");
+    tipLabel->setObjectName("tipLabel");
+    tipLabel->setAlignment(Qt::AlignCenter);
+    
+    bottomLayout->addWidget(inputContainer);
+    bottomLayout->addWidget(tipLabel);
+    
+    mainLayout->addWidget(bottomWidget);
     
     // 连接信号
     connect(m_sendBtn, &QPushButton::clicked, this, &ChatWidget::onSendClicked);
@@ -132,24 +161,39 @@ void ChatWidget::setupStyles()
             height: 0;
         }
         
-        /* 输入框区域 */
-        QFrame#inputFrame {
+        /* 底部区域 */
+        QWidget#bottomWidget {
+            background-color: #f5f7fa;
+        }
+
+        /* 输入框容器 */
+        QFrame#inputContainer {
             background-color: #ffffff;
-            border-top: 1px solid #e5e7eb;
+            border-radius: 28px; /* 高度56的一半 */
+            border: 1px solid #e5e7eb;
         }
         
+        /* 加号按钮 */
+        QPushButton#plusBtn {
+            background-color: #9ca3af;
+            color: #ffffff;
+            border-radius: 16px;
+            border: none;
+            font-size: 20px;
+            font-weight: bold;
+            padding-bottom: 2px;
+        }
+        QPushButton#plusBtn:hover {
+            background-color: #6b7280;
+        }
+
         /* 输入框 */
         QLineEdit#chatInputEdit {
-            background-color: #f3f4f6;
-            border: 1px solid #e5e7eb;
-            border-radius: 24px;
-            padding: 0 20px;
+            background-color: transparent;
+            border: none;
+            padding: 0 10px;
             font-size: 15px;
             color: #1a1a1a;
-        }
-        QLineEdit#chatInputEdit:focus {
-            border-color: #2b7de9;
-            background-color: #ffffff;
         }
         QLineEdit#chatInputEdit::placeholder {
             color: #9ca3af;
@@ -157,21 +201,28 @@ void ChatWidget::setupStyles()
         
         /* 发送按钮 */
         QPushButton#chatSendBtn {
-            background-color: #2b7de9;
+            background-color: #dc2626; /* 红色 */
             color: #ffffff;
             border: none;
-            border-radius: 24px;
-            font-size: 15px;
-            font-weight: 600;
+            border-radius: 16px;
+            font-size: 18px;
+            font-weight: bold;
         }
         QPushButton#chatSendBtn:hover {
-            background-color: #1e6fd9;
+            background-color: #b91c1c;
         }
         QPushButton#chatSendBtn:pressed {
-            background-color: #1a5fc4;
+            background-color: #991b1b;
         }
         QPushButton#chatSendBtn:disabled {
-            background-color: #9ca3af;
+            background-color: #e5e7eb;
+            color: #9ca3af;
+        }
+
+        /* 提示文字 */
+        QLabel#tipLabel {
+            color: #9ca3af;
+            font-size: 12px;
         }
     )");
 }
