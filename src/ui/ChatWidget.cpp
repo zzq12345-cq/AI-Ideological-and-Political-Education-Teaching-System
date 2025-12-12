@@ -1,4 +1,5 @@
 #include "ChatWidget.h"
+#include "../utils/MarkdownRenderer.h"
 #include <QScrollBar>
 #include <QTimer>
 #include <QGraphicsDropShadowEffect>
@@ -21,7 +22,15 @@ ChatWidget::ChatWidget(QWidget *parent)
     , m_inputEdit(nullptr)
     , m_sendBtn(nullptr)
     , m_lastAIMessageLabel(nullptr)
+    , m_markdownRenderer(nullptr)
+    , m_markdownEnabled(true)  // 默认启用Markdown
 {
+    // 初始化Markdown渲染器
+    m_markdownRenderer = std::make_unique<MarkdownRenderer>();
+
+    // 设置代码块主题
+    m_markdownRenderer->setCodeTheme(QColor("#f6f8fa"), QColor("#d73a49"));
+
     setupUI();
     setupStyles();
 }
@@ -273,11 +282,15 @@ QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
     bubbleLayout->setSpacing(0);
     
     // 消息文本
-    QLabel *textLabel = new QLabel(text);
+    QLabel *textLabel = new QLabel();
     textLabel->setWordWrap(true);
     textLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     textLabel->setOpenExternalLinks(true);
     textLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
+
+    // 渲染消息内容
+    QString renderedText = renderMessage(text, isUser);
+    textLabel->setText(renderedText);
     
     // 根据用户/AI设置不同样式
     if (isUser) {
@@ -381,7 +394,9 @@ void ChatWidget::updateLastAIMessage(const QString &text)
         QString currentText = m_lastAIMessageLabel->text();
         qDebug() << "[ChatWidget] Current label text length:" << currentText.length();
 
-        m_lastAIMessageLabel->setText(text);
+        // 渲染Markdown内容
+        QString renderedText = renderMessage(text, false); // AI消息，isUser=false
+        m_lastAIMessageLabel->setText(renderedText);
         qDebug() << "[ChatWidget] Text updated, new length:" << m_lastAIMessageLabel->text().length();
 
         scrollToBottom();
@@ -469,4 +484,35 @@ void ChatWidget::scrollToBottom()
             );
         }
     });
+}
+
+void ChatWidget::setMarkdownEnabled(bool enabled)
+{
+    m_markdownEnabled = enabled;
+}
+
+QString ChatWidget::renderMessage(const QString &text, bool isUser)
+{
+    if (!m_markdownEnabled || isUser) {
+        // 用户消息或不启用Markdown时，返回纯文本
+        return text;
+    }
+
+    if (!m_markdownRenderer) {
+        qDebug() << "[ChatWidget] MarkdownRenderer is null, returning plain text";
+        return text;
+    }
+
+    try {
+        QString html = m_markdownRenderer->renderToHtml(text);
+        qDebug() << "[ChatWidget] Markdown rendered successfully, input length:"
+                 << text.length() << "output length:" << html.length();
+        return html;
+    } catch (const std::exception& e) {
+        qDebug() << "[ChatWidget] Markdown rendering error:" << e.what();
+        return text; // 渲染失败时返回纯文本
+    } catch (...) {
+        qDebug() << "[ChatWidget] Unknown Markdown rendering error";
+        return text; // 渲染失败时返回纯文本
+    }
 }

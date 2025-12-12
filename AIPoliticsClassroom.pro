@@ -5,7 +5,10 @@ TARGET = AIPoliticsClassroom
 TEMPLATE = app
 
 # 定义
-DEFINES += QT_DEPRECATED_WARNINGS
+DEFINES += QT_DEPRECATED_WARNINGS MD4C_USE_UTF8
+
+# 添加MD4C包含路径
+INCLUDEPATH += third_party/md4c/src
 
 # 源文件
 SOURCES += \
@@ -22,7 +25,10 @@ SOURCES += \
     src/questionbank/questionbankwindow.cpp \
     src/questionbank/QuestionRepository.cpp \
     src/services/ExportService.cpp \
-    src/services/DifyService.cpp
+    src/services/DifyService.cpp \
+    src/utils/MarkdownRenderer.cpp \
+    third_party/md4c/src/md4c.c \
+    third_party/md4c/src/entity.c
 
 # 头文件
 HEADERS += \
@@ -38,7 +44,10 @@ HEADERS += \
     src/questionbank/questionbankwindow.h \
     src/questionbank/QuestionRepository.h \
     src/services/ExportService.h \
-    src/services/DifyService.h
+    src/services/DifyService.h \
+    src/utils/MarkdownRenderer.h \
+    third_party/md4c/src/md4c.h \
+    third_party/md4c/src/entity.h
 
 # UI文件
 FORMS += \

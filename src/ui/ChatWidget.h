@@ -9,6 +9,11 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QPropertyAnimation>
+#include <QTextDocument>
+#include <memory>
+
+// 前向声明
+class MarkdownRenderer;
 
 /**
  * @brief 现代化气泡对话风格的聊天组件
@@ -46,6 +51,12 @@ public:
      * @brief 设置输入框占位符文本
      */
     void setPlaceholderText(const QString &text);
+
+    /**
+     * @brief 启用/禁用Markdown渲染
+     * @param enabled true=启用Markdown渲染，false=纯文本模式
+     */
+    void setMarkdownEnabled(bool enabled);
 
     /**
      * @brief 预填输入框文本
@@ -88,6 +99,9 @@ private:
     QWidget* createMessageBubble(const QString &text, bool isUser);
     void scrollToBottom();
 
+    // Markdown渲染相关
+    QString renderMessage(const QString &text, bool isUser);
+
     // UI 组件
     QScrollArea *m_scrollArea;
     QWidget *m_messageContainer;
@@ -97,6 +111,12 @@ private:
 
     // 用于流式更新的最后一条 AI 消息
     QLabel *m_lastAIMessageLabel;
+
+    // Markdown渲染器
+    std::unique_ptr<MarkdownRenderer> m_markdownRenderer;
+
+    // Markdown渲染开关
+    bool m_markdownEnabled;
     
     // 样式常量
     static const QString USER_BUBBLE_COLOR;

@@ -790,9 +790,8 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     // 从环境变量获取 API Key，提高安全性
     QString apiKey = qgetenv("DIFY_API_KEY");
     if (apiKey.isEmpty()) {
-        // 如果环境变量未设置，使用占位符提醒用户配置
-        apiKey = "YOUR_DIFY_API_KEY_HERE";
-        qDebug() << "[Security Warning] DIFY_API_KEY environment variable not set. Please configure it.";
+        qDebug() << "[Error] DIFY_API_KEY environment variable not set. Please set it and restart the application.";
+        return;  // 直接返回，不使用硬编码密钥
     }
     m_difyService->setApiKey(apiKey);
     m_difyService->setModel("glm-4.6");  // 使用 GLM-4.6 模型
@@ -2029,9 +2028,10 @@ void ModernMainWindow::createAIChatWidget()
         // 清空累积响应
         m_currentAIResponse.clear();
         
-        // 发送到 Dify
+        // 发送到 Dify，强制简洁回复
         if (m_difyService) {
-            m_difyService->sendMessage(message);
+            QString conciseMessage = "回答必须：1.一句话 2.最多20字 3.直接回答 问题：" + message;
+            m_difyService->sendMessage(conciseMessage);
         }
     });
 }
