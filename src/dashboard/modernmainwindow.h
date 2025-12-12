@@ -155,6 +155,10 @@ private:
     QLineEdit *m_chatInput;
     QPushButton *m_sendBtn;
     QString m_currentAIResponse;  // 累积流式响应
+    
+    // 欢迎面板（首页显示，对话后隐藏）
+    QWidget *m_welcomePanel;
+    bool m_isConversationStarted;  // 是否已开始对话
 
     // 数据
     QString currentUserRole;

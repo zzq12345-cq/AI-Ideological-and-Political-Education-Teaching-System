@@ -13,6 +13,7 @@
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QGridLayout>
+#include <QStackedLayout>
 #include <QScrollArea>
 #include <QLabel>
 #include <QPushButton>
@@ -1292,39 +1293,323 @@ void ModernMainWindow::createDashboard()
     createHeaderWidget();
     dashboardLayout->addWidget(headerWidget);
 
-    // 创建滚动区域
-    dashboardScrollArea = new QScrollArea();
-    dashboardScrollArea->setWidgetResizable(true);
-    dashboardScrollArea->setStyleSheet("QScrollArea { border: none; background-color: " + BACKGROUND_LIGHT + "; }");
+    // ========== 主内容区域 ==========
+    QWidget *contentArea = new QWidget();
 
-    QWidget *scrollContent = new QWidget();
-    QVBoxLayout *scrollLayout = new QVBoxLayout(scrollContent);
-    scrollLayout->setContentsMargins(40, 32, 40, 32);
-    scrollLayout->setSpacing(24);
+    // ========== 欢迎面板（默认显示）==========
+    m_welcomePanel = new QWidget();
+    m_welcomePanel->setObjectName("welcomePanel");
+    m_isConversationStarted = false;
 
-    // 1. 欢迎卡片 (含智能建议) - 消息气泡风格
-    createWelcomeCard();
-    scrollLayout->addWidget(welcomeCard);
+    QVBoxLayout *welcomeLayout = new QVBoxLayout(m_welcomePanel);
+    welcomeLayout->setContentsMargins(40, 60, 40, 40);
+    welcomeLayout->setSpacing(30);
+    welcomeLayout->setAlignment(Qt::AlignTop | Qt::AlignHCenter);
 
-    // 2. 核心功能快捷入口 - 消息气泡风格
-    // 标题已移入 createQuickAccessCard 的气泡中
-    createQuickAccessCard();
-    scrollLayout->addWidget(quickAccessCard);
+    // 顶部图标
+    QLabel *iconLabel = new QLabel();
+    iconLabel->setFixedSize(64, 64);
+    iconLabel->setAlignment(Qt::AlignCenter);
+    iconLabel->setStyleSheet(R"(
+        QLabel {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fecaca, stop:1 #fca5a5);
+            border-radius: 16px;
+            font-size: 32px;
+        }
+    )");
+    iconLabel->setText("🎓");
+    
+    // 标题
+    QLabel *titleLabel = new QLabel("思政智慧课堂助手");
+    titleLabel->setAlignment(Qt::AlignCenter);
+    titleLabel->setStyleSheet(R"(
+        QLabel {
+            font-size: 28px;
+            font-weight: bold;
+            color: #1a1a1a;
+        }
+    )");
 
-    // 3. AI 气泡聊天组件 (整合到滚动区域内)
+    // 副标题
+    QLabel *subtitleLabel = new QLabel("协助教师备课、学情分析及教学资源管理");
+    subtitleLabel->setAlignment(Qt::AlignCenter);
+    subtitleLabel->setStyleSheet(R"(
+        QLabel {
+            font-size: 15px;
+            color: #6b7280;
+        }
+    )");
+
+    // 功能卡片容器
+    QWidget *cardsContainer = new QWidget();
+    QGridLayout *cardsLayout = new QGridLayout(cardsContainer);
+    cardsLayout->setContentsMargins(0, 20, 0, 0);
+    cardsLayout->setSpacing(16);
+
+    // 创建四个功能卡片
+    // 创建功能卡片 - 带有颜色图标背景和悬停效果
+    auto createFeatureCard = [this](const QString &icon, const QString &title, const QString &desc, const QString &iconBgColor) -> QPushButton* {
+        QPushButton *card = new QPushButton();
+        card->setFixedSize(260, 80);
+        card->setCursor(Qt::PointingHandCursor);
+        card->setStyleSheet(QString(R"(
+            QPushButton {
+                background-color: #ffffff;
+                border: 1px solid #e5e7eb;
+                border-radius: 16px;
+                text-align: left;
+            }
+            QPushButton:hover {
+                background-color: #fafafa;
+                border-color: #d1d5db;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            }
+            QPushButton:pressed {
+                background-color: #f5f5f5;
+                border-color: #c0c0c0;
+            }
+        )"));
+
+        QHBoxLayout *cardLayout = new QHBoxLayout(card);
+        cardLayout->setContentsMargins(16, 12, 16, 12);
+        cardLayout->setSpacing(14);
+
+        // 图标容器 - 带彩色背景
+        QLabel *iconLbl = new QLabel(icon);
+        iconLbl->setFixedSize(44, 44);
+        iconLbl->setAlignment(Qt::AlignCenter);
+        iconLbl->setStyleSheet(QString(R"(
+            QLabel {
+                background-color: %1;
+                border-radius: 10px;
+                font-size: 22px;
+            }
+        )").arg(iconBgColor));
+
+        // 文字区域
+        QWidget *textArea = new QWidget();
+        textArea->setStyleSheet("background: transparent;");
+        QVBoxLayout *textLayout = new QVBoxLayout(textArea);
+        textLayout->setContentsMargins(0, 0, 0, 0);
+        textLayout->setSpacing(4);
+
+        QLabel *titleLbl = new QLabel(title);
+        titleLbl->setStyleSheet("font-size: 15px; font-weight: 600; color: #1f2937; background: transparent;");
+        
+        QLabel *descLbl = new QLabel(desc);
+        descLbl->setStyleSheet("font-size: 12px; color: #9ca3af; background: transparent;");
+
+        textLayout->addWidget(titleLbl);
+        textLayout->addWidget(descLbl);
+
+        cardLayout->addWidget(iconLbl);
+        cardLayout->addWidget(textArea, 1);
+
+        // 添加阴影效果
+        QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect(card);
+        shadow->setBlurRadius(12);
+        shadow->setColor(QColor(0, 0, 0, 25));
+        shadow->setOffset(0, 2);
+        card->setGraphicsEffect(shadow);
+
+        return card;
+    };
+
+    // 四个功能卡片，使用不同的柔和背景色
+    QPushButton *card1 = createFeatureCard("📊", "智能内容分析", "深度解析教材内容，提炼核心知识点", "#fef3c7");  // 淡黄
+    QPushButton *card2 = createFeatureCard("📝", "AI智能备课", "一键生成PPT", "#fce7f3");  // 淡粉
+    QPushButton *card3 = createFeatureCard("📚", "试题库", "海量思政习题，智能组卷测评", "#dbeafe");  // 淡蓝
+    QPushButton *card4 = createFeatureCard("📈", "数据分析报告", "可视化展示教学成果与趋势", "#d1fae5");  // 淡绿
+
+    // 连接卡片点击事件
+    connect(card1, &QPushButton::clicked, this, &ModernMainWindow::onContentAnalysisClicked);
+    connect(card2, &QPushButton::clicked, this, &ModernMainWindow::onAIPreparationClicked);
+    connect(card3, &QPushButton::clicked, this, &ModernMainWindow::onResourceManagementClicked);
+    connect(card4, &QPushButton::clicked, this, &ModernMainWindow::onLearningAnalysisClicked);
+
+    cardsLayout->addWidget(card1, 0, 0);
+    cardsLayout->addWidget(card2, 0, 1);
+    cardsLayout->addWidget(card3, 1, 0);
+    cardsLayout->addWidget(card4, 1, 1);
+
+    welcomeLayout->addWidget(iconLabel, 0, Qt::AlignHCenter);
+    welcomeLayout->addWidget(titleLabel);
+    welcomeLayout->addWidget(subtitleLabel);
+    welcomeLayout->addWidget(cardsContainer, 0, Qt::AlignHCenter);
+    welcomeLayout->addStretch();
+
+    m_welcomePanel->setStyleSheet("QWidget#welcomePanel { background-color: #f5f7fa; }");
+
+    // ========== AI 对话组件 ==========
     createAIChatWidget();
 
-    // 添加气泡聊天组件到滚动布局
+    // 主布局
+    QVBoxLayout *contentAreaLayout = new QVBoxLayout(contentArea);
+    contentAreaLayout->setContentsMargins(0, 0, 0, 0);
+    contentAreaLayout->setSpacing(0);
+
+    // 使用 QStackedWidget 来切换欢迎面板和聊天消息区域
+    QStackedWidget *mainStack = new QStackedWidget();
+    mainStack->setObjectName("mainContentStack");
+    mainStack->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    
+    // 页面0：欢迎面板（不含输入框）
+    mainStack->addWidget(m_welcomePanel);
+    
+    // 页面1：聊天组件（完整的，含消息区和输入框）
     if (m_bubbleChatWidget) {
-        m_bubbleChatWidget->setMinimumHeight(300);
-        scrollLayout->addWidget(m_bubbleChatWidget);
+        m_bubbleChatWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        mainStack->addWidget(m_bubbleChatWidget);
+        
+        // 监听消息发送，开始对话后切换到聊天页面
+        connect(m_bubbleChatWidget, &ChatWidget::messageSent, this, [this, mainStack](const QString &message) {
+            Q_UNUSED(message);
+            if (!m_isConversationStarted) {
+                m_isConversationStarted = true;
+            }
+            // 每次发送消息都确保显示聊天页面
+            mainStack->setCurrentWidget(m_bubbleChatWidget);
+        });
     }
+    
+    // 默认显示欢迎面板
+    mainStack->setCurrentWidget(m_welcomePanel);
+    
+    contentAreaLayout->addWidget(mainStack, 1);
+    
+    // ========== 底部独立输入框（欢迎页面时显示）==========
+    QWidget *welcomeInputWidget = new QWidget();
+    welcomeInputWidget->setObjectName("welcomeInputWidget");
+    welcomeInputWidget->setFixedHeight(100);
+    welcomeInputWidget->setStyleSheet("QWidget#welcomeInputWidget { background-color: #f5f7fa; }");
+    
+    QVBoxLayout *welcomeInputLayout = new QVBoxLayout(welcomeInputWidget);
+    welcomeInputLayout->setContentsMargins(40, 10, 40, 20);
+    welcomeInputLayout->setSpacing(8);
+    
+    // 输入框容器
+    QFrame *inputContainer = new QFrame();
+    inputContainer->setObjectName("welcomeInputContainer");
+    inputContainer->setFixedHeight(56);
+    inputContainer->setStyleSheet(R"(
+        QFrame#welcomeInputContainer {
+            background-color: #ffffff;
+            border-radius: 28px;
+            border: 1px solid #e5e7eb;
+        }
+    )");
+    
+    // 添加阴影
+    QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect();
+    shadow->setBlurRadius(20);
+    shadow->setColor(QColor(0, 0, 0, 20));
+    shadow->setOffset(0, 4);
+    inputContainer->setGraphicsEffect(shadow);
+    
+    QHBoxLayout *inputLayout = new QHBoxLayout(inputContainer);
+    inputLayout->setContentsMargins(12, 8, 12, 8);
+    inputLayout->setSpacing(12);
+    
+    // 加号按钮
+    QPushButton *plusBtn = new QPushButton("+");
+    plusBtn->setFixedSize(32, 32);
+    plusBtn->setCursor(Qt::PointingHandCursor);
+    plusBtn->setStyleSheet(R"(
+        QPushButton {
+            background-color: #9ca3af;
+            color: #ffffff;
+            border-radius: 16px;
+            border: none;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        QPushButton:hover { background-color: #6b7280; }
+    )");
+    
+    // 输入框
+    QLineEdit *welcomeInput = new QLineEdit();
+    welcomeInput->setPlaceholderText("向AI助手发送信息...");
+    welcomeInput->setFixedHeight(40);
+    welcomeInput->setStyleSheet(R"(
+        QLineEdit {
+            background-color: transparent;
+            border: none;
+            padding: 0 10px;
+            font-size: 15px;
+            color: #1a1a1a;
+        }
+        QLineEdit::placeholder { color: #9ca3af; }
+    )");
+    
+    // 发送按钮
+    QPushButton *sendBtn = new QPushButton("↑");
+    sendBtn->setFixedSize(32, 32);
+    sendBtn->setCursor(Qt::PointingHandCursor);
+    sendBtn->setStyleSheet(R"(
+        QPushButton {
+            background-color: #dc2626;
+            color: #ffffff;
+            border: none;
+            border-radius: 16px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        QPushButton:hover { background-color: #b91c1c; }
+    )");
+    
+    inputLayout->addWidget(plusBtn);
+    inputLayout->addWidget(welcomeInput, 1);
+    inputLayout->addWidget(sendBtn);
+    
+    // 提示文字
+    QLabel *tipLabel = new QLabel("AI可能产生错误信息，请核实重要内容。");
+    tipLabel->setAlignment(Qt::AlignCenter);
+    tipLabel->setStyleSheet("color: #9ca3af; font-size: 12px;");
+    
+    welcomeInputLayout->addWidget(inputContainer);
+    welcomeInputLayout->addWidget(tipLabel);
+    
+    contentAreaLayout->addWidget(welcomeInputWidget);
+    
+    // 连接欢迎页面输入框的发送功能
+    auto sendFromWelcome = [this, mainStack, welcomeInput, welcomeInputWidget]() {
+        QString text = welcomeInput->text().trimmed();
+        if (text.isEmpty()) return;
+        
+        // 切换到聊天页面
+        m_isConversationStarted = true;
+        mainStack->setCurrentWidget(m_bubbleChatWidget);
+        welcomeInputWidget->hide();
+        
+        // 在聊天组件中设置文本并发送
+        if (m_bubbleChatWidget) {
+            m_bubbleChatWidget->setInputText(text);
+            // 触发发送（模拟回车）
+            QTimer::singleShot(50, [this]() {
+                if (m_bubbleChatWidget) {
+                    // 手动触发发送
+                    QString msg = m_bubbleChatWidget->inputText();
+                    if (!msg.isEmpty()) {
+                        m_bubbleChatWidget->clearInput();
+                        emit m_bubbleChatWidget->messageSent(msg);
+                    }
+                }
+            });
+        }
+        
+        welcomeInput->clear();
+    };
+    
+    connect(sendBtn, &QPushButton::clicked, this, sendFromWelcome);
+    connect(welcomeInput, &QLineEdit::returnPressed, this, sendFromWelcome);
+    
+    // 当切换到聊天页面时，隐藏欢迎输入框
+    connect(mainStack, &QStackedWidget::currentChanged, this, [welcomeInputWidget, mainStack, this](int index) {
+        // index 0 = 欢迎页面, index 1 = 聊天页面
+        welcomeInputWidget->setVisible(index == 0);
+    });
 
-    // 移除 stretch，让聊天组件自然占据剩余空间
-    // scrollLayout->addStretch();
-
-    dashboardScrollArea->setWidget(scrollContent);
-    dashboardLayout->addWidget(dashboardScrollArea);
+    dashboardLayout->addWidget(contentArea, 1);
 }
 
 void ModernMainWindow::setupStyles()
