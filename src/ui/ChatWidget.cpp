@@ -63,21 +63,24 @@ void ChatWidget::setupUI()
     // ========== 底部输入区域 ==========
     QWidget *bottomWidget = new QWidget();
     bottomWidget->setObjectName("bottomWidget");
+    bottomWidget->setAttribute(Qt::WA_TranslucentBackground); // 确保背景透明
     QVBoxLayout *bottomLayout = new QVBoxLayout(bottomWidget);
-    bottomLayout->setContentsMargins(20, 10, 20, 10);
-    bottomLayout->setSpacing(8);
+    bottomLayout->setContentsMargins(20, 10, 20, 5);
+    bottomLayout->setSpacing(4);
 
     // 输入框容器（胶囊状）
     QFrame *inputContainer = new QFrame();
     inputContainer->setObjectName("inputContainer");
     inputContainer->setFixedHeight(56); // 增加高度以适应胶囊形状
     
-    // 添加阴影效果
+    // 移除阴影效果，避免产生底部阴影长方形
+    /*
     QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect(this);
-    shadow->setBlurRadius(20);
-    shadow->setColor(QColor(0, 0, 0, 20));
-    shadow->setOffset(0, 4);
+    shadow->setBlurRadius(8);
+    shadow->setColor(QColor(0, 0, 0, 15));
+    shadow->setOffset(0, 2);
     inputContainer->setGraphicsEffect(shadow);
+    */
 
     QHBoxLayout *containerLayout = new QHBoxLayout(inputContainer);
     containerLayout->setContentsMargins(12, 8, 12, 8);
@@ -163,7 +166,8 @@ void ChatWidget::setupStyles()
         
         /* 底部区域 */
         QWidget#bottomWidget {
-            background-color: #f5f7fa;
+            background: transparent;
+            border: none;
         }
 
         /* 输入框容器 */
@@ -223,6 +227,12 @@ void ChatWidget::setupStyles()
         QLabel#tipLabel {
             color: #9ca3af;
             font-size: 12px;
+            background: transparent;
+        }
+
+        /* 底部区域 - 透明背景 */
+        QWidget#bottomWidget {
+            background: transparent;
         }
     )");
 }

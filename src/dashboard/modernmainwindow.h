@@ -158,7 +158,9 @@ private:
     
     // 欢迎面板（首页显示，对话后隐藏）
     QWidget *m_welcomePanel;
-    bool m_isConversationStarted;  // 是否已开始对话
+    QWidget *m_welcomeInputWidget;  // 欢迎页面底部输入框
+    QStackedWidget *m_mainStack;    // 主内容切换栈
+    bool m_isConversationStarted;   // 是否已开始对话
 
     // 数据
     QString currentUserRole;
