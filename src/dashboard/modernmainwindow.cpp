@@ -1327,6 +1327,7 @@ void ModernMainWindow::createDashboard()
             font-size: 28px;
             font-weight: bold;
             color: #1a1a1a;
+            background: transparent;
         }
     )");
 
@@ -1337,6 +1338,7 @@ void ModernMainWindow::createDashboard()
         QLabel {
             font-size: 15px;
             color: #6b7280;
+            background: transparent;
         }
     )");
 
@@ -1350,7 +1352,7 @@ void ModernMainWindow::createDashboard()
     // 创建功能卡片 - 带有颜色图标背景和悬停效果
     auto createFeatureCard = [this](const QString &icon, const QString &title, const QString &desc, const QString &iconBgColor) -> QPushButton* {
         QPushButton *card = new QPushButton();
-        card->setFixedSize(260, 80);
+        card->setFixedSize(320, 100); // 保持较大的按钮尺寸
         card->setCursor(Qt::PointingHandCursor);
         card->setStyleSheet(QString(R"(
             QPushButton {
@@ -1362,7 +1364,6 @@ void ModernMainWindow::createDashboard()
             QPushButton:hover {
                 background-color: #fafafa;
                 border-color: #d1d5db;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
             }
             QPushButton:pressed {
                 background-color: #f5f5f5;
@@ -1438,7 +1439,8 @@ void ModernMainWindow::createDashboard()
     welcomeLayout->addWidget(cardsContainer, 0, Qt::AlignHCenter);
     welcomeLayout->addStretch();
 
-    m_welcomePanel->setStyleSheet("QWidget#welcomePanel { background-color: #f5f7fa; }");
+    // 设置背景透明，使按钮缝隙显示为主页面背景色
+    m_welcomePanel->setStyleSheet("QWidget#welcomePanel { background-color: transparent; }");
 
     // ========== AI 对话组件 ==========
     createAIChatWidget();
@@ -1449,41 +1451,45 @@ void ModernMainWindow::createDashboard()
     contentAreaLayout->setSpacing(0);
 
     // 使用 QStackedWidget 来切换欢迎面板和聊天消息区域
-    QStackedWidget *mainStack = new QStackedWidget();
-    mainStack->setObjectName("mainContentStack");
-    mainStack->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    m_mainStack = new QStackedWidget();
+    m_mainStack->setObjectName("mainContentStack");
+    m_mainStack->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     
     // 页面0：欢迎面板（不含输入框）
-    mainStack->addWidget(m_welcomePanel);
+    m_mainStack->addWidget(m_welcomePanel);
     
     // 页面1：聊天组件（完整的，含消息区和输入框）
     if (m_bubbleChatWidget) {
         m_bubbleChatWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-        mainStack->addWidget(m_bubbleChatWidget);
+        m_mainStack->addWidget(m_bubbleChatWidget);
         
         // 监听消息发送，开始对话后切换到聊天页面
-        connect(m_bubbleChatWidget, &ChatWidget::messageSent, this, [this, mainStack](const QString &message) {
+        connect(m_bubbleChatWidget, &ChatWidget::messageSent, this, [this](const QString &message) {
             Q_UNUSED(message);
             if (!m_isConversationStarted) {
                 m_isConversationStarted = true;
             }
             // 每次发送消息都确保显示聊天页面
-            mainStack->setCurrentWidget(m_bubbleChatWidget);
+            m_mainStack->setCurrentWidget(m_bubbleChatWidget);
+            // 隐藏欢迎页面输入框
+            if (m_welcomeInputWidget) {
+                m_welcomeInputWidget->hide();
+            }
         });
     }
     
     // 默认显示欢迎面板
-    mainStack->setCurrentWidget(m_welcomePanel);
+    m_mainStack->setCurrentWidget(m_welcomePanel);
     
-    contentAreaLayout->addWidget(mainStack, 1);
+    contentAreaLayout->addWidget(m_mainStack, 1);
     
     // ========== 底部独立输入框（欢迎页面时显示）==========
-    QWidget *welcomeInputWidget = new QWidget();
-    welcomeInputWidget->setObjectName("welcomeInputWidget");
-    welcomeInputWidget->setFixedHeight(100);
-    welcomeInputWidget->setStyleSheet("QWidget#welcomeInputWidget { background-color: #f5f7fa; }");
+    m_welcomeInputWidget = new QWidget();
+    m_welcomeInputWidget->setObjectName("welcomeInputWidget");
+    m_welcomeInputWidget->setFixedHeight(100);
+    m_welcomeInputWidget->setStyleSheet("QWidget#welcomeInputWidget { background-color: #f5f7fa; }");
     
-    QVBoxLayout *welcomeInputLayout = new QVBoxLayout(welcomeInputWidget);
+    QVBoxLayout *welcomeInputLayout = new QVBoxLayout(m_welcomeInputWidget);
     welcomeInputLayout->setContentsMargins(40, 10, 40, 20);
     welcomeInputLayout->setSpacing(8);
     
@@ -1569,17 +1575,17 @@ void ModernMainWindow::createDashboard()
     welcomeInputLayout->addWidget(inputContainer);
     welcomeInputLayout->addWidget(tipLabel);
     
-    contentAreaLayout->addWidget(welcomeInputWidget);
+    contentAreaLayout->addWidget(m_welcomeInputWidget);
     
     // 连接欢迎页面输入框的发送功能
-    auto sendFromWelcome = [this, mainStack, welcomeInput, welcomeInputWidget]() {
+    auto sendFromWelcome = [this, welcomeInput]() {
         QString text = welcomeInput->text().trimmed();
         if (text.isEmpty()) return;
         
         // 切换到聊天页面
         m_isConversationStarted = true;
-        mainStack->setCurrentWidget(m_bubbleChatWidget);
-        welcomeInputWidget->hide();
+        m_mainStack->setCurrentWidget(m_bubbleChatWidget);
+        m_welcomeInputWidget->hide();
         
         // 在聊天组件中设置文本并发送
         if (m_bubbleChatWidget) {
@@ -1604,9 +1610,11 @@ void ModernMainWindow::createDashboard()
     connect(welcomeInput, &QLineEdit::returnPressed, this, sendFromWelcome);
     
     // 当切换到聊天页面时，隐藏欢迎输入框
-    connect(mainStack, &QStackedWidget::currentChanged, this, [welcomeInputWidget, mainStack, this](int index) {
+    connect(m_mainStack, &QStackedWidget::currentChanged, this, [this](int index) {
         // index 0 = 欢迎页面, index 1 = 聊天页面
-        welcomeInputWidget->setVisible(index == 0);
+        if (m_welcomeInputWidget) {
+            m_welcomeInputWidget->setVisible(index == 0);
+        }
     });
 
     dashboardLayout->addWidget(contentArea, 1);
@@ -1689,9 +1697,20 @@ void ModernMainWindow::onTeacherCenterClicked()
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-      teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
 
     contentStack->setCurrentWidget(dashboardWidget);
+    
+    // 回到欢迎页面，显示欢迎面板和输入框
+    if (m_mainStack && m_welcomePanel) {
+        m_mainStack->setCurrentWidget(m_welcomePanel);
+    }
+    if (m_welcomeInputWidget) {
+        m_welcomeInputWidget->show();
+    }
+    // 重置对话状态（可选：如果你想保留对话历史，可以注释掉下面这行）
+    // m_isConversationStarted = false;
+    
     this->statusBar()->showMessage("教师中心");
 }
 
