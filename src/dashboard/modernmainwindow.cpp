@@ -792,8 +792,8 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     const bool hasApiKey = !apiKey.isEmpty();
     if (!hasApiKey) {
         qDebug() << "[Warn] DIFY_API_KEY environment variable not set. AI chat will be unavailable until configured.";
-        // 临时硬编码密钥用于测试（生产环境请使用环境变量）
-        apiKey = "app-4oFxsxMqCp4EYv0t77scpGDA";
+        // 生产环境请使用环境变量设置 API Key，不要硬编码
+        apiKey = "";  // 移除硬编码的 API Key
         if (!apiKey.isEmpty()) {
             m_difyService->setApiKey(apiKey);
             // 暂时不设置模型，使用 Dify 默认配置
