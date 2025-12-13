@@ -3,6 +3,10 @@
 #include <QJsonArray>
 #include <QUuid>
 #include <QDebug>
+#include <QRegularExpression>
+#include <QSslConfiguration>
+#include <QSslSocket>
+#include <QtGlobal>
 
 DifyService::DifyService(QObject *parent)
     : QObject(parent)
@@ -68,6 +72,7 @@ void DifyService::sendMessage(const QString &message, const QString &conversatio
     // 清空累积响应
     m_fullResponse.clear();
     m_streamBuffer.clear();
+    resetStreamFilters();
 
     // 构建请求 URL
     QUrl url(m_baseUrl + "/chat-messages");
@@ -76,22 +81,33 @@ void DifyService::sendMessage(const QString &message, const QString &conversatio
     // 设置请求头
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+    
+    // 配置 SSL
+    QSslConfiguration sslConfig = request.sslConfiguration();
+    sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);  // 暂时禁用 SSL 验证用于调试
+    request.setSslConfiguration(sslConfig);
 
     // 设置超时时间
-    request.setTransferTimeout(30000);  // 30秒超时
+    request.setTransferTimeout(60000);  // 60秒超时
 
-    // 构建请求体
+#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+#endif
+
+    // 构建请求体 - Agent 应用使用 streaming 模式
     QJsonObject body;
-    body["inputs"] = QJsonObject();
     body["query"] = message;
-    body["response_mode"] = "streaming";  // 使用流式响应
+    body["response_mode"] = "streaming";
     body["user"] = m_userId;
+    body["inputs"] = QJsonObject();  // Agent 应用的 inputs 可以是空对象
+    
+    const bool useStreaming = true;  // Agent 应用强制使用 streaming 模式
 
-    // 如果指定了模型，添加到请求中
-    if (!m_model.isEmpty()) {
-        body["model"] = m_model;
-        qDebug() << "[DifyService] Using model:" << m_model;
-    }
+    // 暂时移除模型参数，让 Dify 使用默认配置
+    // if (!m_model.isEmpty()) {
+    //     body["model"] = m_model;
+    //     qDebug() << "[DifyService] Using model:" << m_model;
+    // }
 
     // 如果有会话 ID，添加到请求中
     QString convId = conversationId.isEmpty() ? m_conversationId : conversationId;
@@ -105,6 +121,7 @@ void DifyService::sendMessage(const QString &message, const QString &conversatio
     qDebug() << "[DifyService] Sending message:" << message;
     qDebug() << "[DifyService] Request URL:" << url.toString();
     qDebug() << "[DifyService] API Key:" << m_apiKey.left(10) + "...";
+    qDebug() << "[DifyService] Request body:" << doc.toJson(QJsonDocument::Compact);
 
     emit requestStarted();
 
@@ -113,7 +130,9 @@ void DifyService::sendMessage(const QString &message, const QString &conversatio
 
     // 连接信号
     connect(m_currentReply, &QNetworkReply::finished, this, &DifyService::onReplyFinished);
-    connect(m_currentReply, &QNetworkReply::readyRead, this, &DifyService::onReadyRead);
+    if (useStreaming) {
+        connect(m_currentReply, &QNetworkReply::readyRead, this, &DifyService::onReadyRead);
+    }
     connect(m_currentReply, &QNetworkReply::sslErrors, this, &DifyService::onSslErrors);
 }
 
@@ -140,6 +159,17 @@ void DifyService::onReplyFinished()
         QByteArray responseData = m_currentReply->readAll();
 
         qDebug() << "[DifyService] HTTP Error:" << httpStatus << "Error:" << errorMsg;
+        qDebug() << "[DifyService] Network error code:" << m_currentReply->error();
+        qDebug() << "[DifyService] Response data:" << responseData;
+        qDebug() << "[DifyService] Response data (as string):" << QString::fromUtf8(responseData);
+
+        // 特殊处理连接错误
+        if (m_currentReply->error() == QNetworkReply::ConnectionRefusedError ||
+            m_currentReply->error() == QNetworkReply::RemoteHostClosedError ||
+            m_currentReply->error() == QNetworkReply::NetworkSessionFailedError) {
+            qDebug() << "[DifyService] Connection error detected - possible network or SSL issues";
+            errorMsg = QString("网络连接错误: %1\n请检查网络连接或API配置（API Key/代理/防火墙）").arg(errorMsg);
+        }
 
         // 尝试解析错误响应
         QJsonDocument errorDoc = QJsonDocument::fromJson(responseData);
@@ -158,12 +188,39 @@ void DifyService::onReplyFinished()
         emit errorOccurred(errorMsg);
     } else {
         // 发送完整响应
-        qDebug() << "[DifyService] Request successful, accumulated response length:" << m_fullResponse.length();
-        if (!m_fullResponse.isEmpty()) {
-            qDebug() << "[DifyService] Emitting messageReceived with content:" << m_fullResponse.left(100) + "...";
-            emit messageReceived(m_fullResponse);
+        QByteArray responseData = m_currentReply->readAll();
+        qDebug() << "[DifyService] Request successful, response data length:" << responseData.length();
+
+        // 对于 blocking 模式，直接解析响应
+        if (!responseData.isEmpty()) {
+            // 尝试解析 JSON 响应
+            QJsonDocument responseDoc = QJsonDocument::fromJson(responseData);
+            if (!responseDoc.isNull() && responseDoc.isObject()) {
+                QJsonObject responseObj = responseDoc.object();
+                const QString convId = responseObj["conversation_id"].toString();
+                if (!convId.isEmpty() && convId != m_conversationId) {
+                    m_conversationId = convId;
+                    emit conversationCreated(convId);
+                }
+                QString answer = responseObj["answer"].toString();
+                if (!answer.isEmpty()) {
+                    // 过滤 think/analysis 标签
+                    QString filteredAnswer = filterThinkTagsStreaming(answer);
+                    qDebug() << "[DifyService] Emitting messageReceived with content:" << filteredAnswer.left(100) + "...";
+                    emit messageReceived(filteredAnswer);
+                } else {
+                    qDebug() << "[DifyService] Warning: No answer field in response!";
+                    qDebug() << "[DifyService] Full response:" << responseData;
+                    if (responseObj.contains("message")) {
+                        emit errorOccurred(responseObj["message"].toString());
+                    }
+                }
+            } else {
+                qDebug() << "[DifyService] Failed to parse JSON response, using raw data";
+                emit messageReceived(QString::fromUtf8(responseData));
+            }
         } else {
-            qDebug() << "[DifyService] Warning: Full response is empty!";
+            qDebug() << "[DifyService] Warning: Response data is empty!";
         }
     }
 
@@ -175,13 +232,102 @@ void DifyService::onReplyFinished()
 
 void DifyService::onSslErrors(const QList<QSslError> &errors)
 {
+    qDebug() << "[DifyService] SSL Errors occurred:";
     for (const QSslError &error : errors) {
         qDebug() << "[DifyService] SSL Error:" << error.errorString();
+        qDebug() << "[DifyService] SSL Error certificate:" << error.certificate().subjectInfo(QSslCertificate::CommonName);
     }
+
     // 忽略 SSL 错误（仅用于开发环境）
     if (m_currentReply) {
-        m_currentReply->ignoreSslErrors();
+        m_currentReply->ignoreSslErrors(errors);
+        qDebug() << "[DifyService] Ignoring SSL errors and continuing...";
     }
+}
+
+void DifyService::resetStreamFilters()
+{
+    m_tagRemainder.clear();
+    m_hiddenTagName.clear();
+    m_ignoreFurtherContent = false;
+    m_hasTruncated = false;
+}
+
+static int partialSuffixLength(const QString &text, const QStringList &tokens)
+{
+    int best = 0;
+    for (const QString &token : tokens) {
+        const int tokenLen = token.length();
+        const int maxK = qMin(tokenLen - 1, text.length());
+        for (int k = maxK; k > best; --k) {
+            if (text.endsWith(token.left(k), Qt::CaseInsensitive)) {
+                best = k;
+                break;
+            }
+        }
+    }
+    return best;
+}
+
+QString DifyService::filterThinkTagsStreaming(const QString &text)
+{
+    static const QStringList hiddenTags = {"think", "analysis"};
+    static const QStringList allTokens = {"<think>", "</think>", "<analysis>", "</analysis>"};
+
+    QString input = m_tagRemainder + text;
+    m_tagRemainder.clear();
+
+    QString output;
+    int i = 0;
+
+    auto startTokenFor = [](const QString &tag) { return QString("<%1>").arg(tag); };
+    auto endTokenFor = [](const QString &tag) { return QString("</%1>").arg(tag); };
+
+    while (i < input.length()) {
+        if (!m_hiddenTagName.isEmpty()) {
+            const QString endToken = endTokenFor(m_hiddenTagName);
+            const int endIdx = input.indexOf(endToken, i, Qt::CaseInsensitive);
+            if (endIdx == -1) {
+                break;
+            }
+            i = endIdx + endToken.length();
+            m_hiddenTagName.clear();
+            continue;
+        }
+
+        int bestStartIdx = -1;
+        QString bestTag;
+        for (const QString &tag : hiddenTags) {
+            const QString startToken = startTokenFor(tag);
+            const int idx = input.indexOf(startToken, i, Qt::CaseInsensitive);
+            if (idx != -1 && (bestStartIdx == -1 || idx < bestStartIdx)) {
+                bestStartIdx = idx;
+                bestTag = tag;
+            }
+        }
+
+        if (bestStartIdx == -1) {
+            output += input.mid(i);
+            i = input.length();
+            break;
+        }
+
+        output += input.mid(i, bestStartIdx - i);
+        i = bestStartIdx + startTokenFor(bestTag).length();
+        m_hiddenTagName = bestTag;
+    }
+
+    const int keep = partialSuffixLength(input, allTokens);
+    if (keep > 0) {
+        m_tagRemainder = input.right(keep);
+        if (output.endsWith(m_tagRemainder, Qt::CaseInsensitive)) {
+            output.chop(keep);
+        }
+    }
+
+    output.replace(QRegularExpression("[ \\t]+"), " ");
+    output.replace(QRegularExpression("\\n{3,}"), "\n\n");
+    return output.trimmed();
 }
 
 void DifyService::parseStreamResponse(const QByteArray &data)
@@ -220,9 +366,38 @@ void DifyService::parseStreamResponse(const QByteArray &data)
 
         if (event == "message") {
             // 普通消息块
+            if (m_ignoreFurtherContent) {
+                continue;
+            }
             QString answer = obj["answer"].toString();
-            m_fullResponse += answer;
-            emit streamChunkReceived(answer);
+            // 过滤 think/analysis 标签（支持跨 chunk）
+            QString filteredAnswer = filterThinkTagsStreaming(answer);
+            if (filteredAnswer.isEmpty()) {
+                continue;
+            }
+
+            const int remaining = m_maxResponseChars - m_fullResponse.length();
+            if (remaining <= 0) {
+                if (!m_hasTruncated) {
+                    m_fullResponse += "…";
+                    emit streamChunkReceived("…");
+                    m_hasTruncated = true;
+                }
+                m_ignoreFurtherContent = true;
+                continue;
+            }
+
+            if (filteredAnswer.length() > remaining) {
+                const QString clipped = filteredAnswer.left(remaining);
+                m_fullResponse += clipped + "…";
+                emit streamChunkReceived(clipped + "…");
+                m_hasTruncated = true;
+                m_ignoreFurtherContent = true;
+                continue;
+            }
+
+            m_fullResponse += filteredAnswer;
+            emit streamChunkReceived(filteredAnswer);
 
         } else if (event == "message_end") {
             // 消息结束
@@ -239,9 +414,38 @@ void DifyService::parseStreamResponse(const QByteArray &data)
 
         } else if (event == "agent_message") {
             // Agent 消息（如果使用 Agent 类型应用）
+            if (m_ignoreFurtherContent) {
+                continue;
+            }
             QString answer = obj["answer"].toString();
-            m_fullResponse += answer;
-            emit streamChunkReceived(answer);
+            // 过滤 think/analysis 标签（支持跨 chunk）
+            QString filteredAnswer = filterThinkTagsStreaming(answer);
+            if (filteredAnswer.isEmpty()) {
+                continue;
+            }
+
+            const int remaining = m_maxResponseChars - m_fullResponse.length();
+            if (remaining <= 0) {
+                if (!m_hasTruncated) {
+                    m_fullResponse += "…";
+                    emit streamChunkReceived("…");
+                    m_hasTruncated = true;
+                }
+                m_ignoreFurtherContent = true;
+                continue;
+            }
+
+            if (filteredAnswer.length() > remaining) {
+                const QString clipped = filteredAnswer.left(remaining);
+                m_fullResponse += clipped + "…";
+                emit streamChunkReceived(clipped + "…");
+                m_hasTruncated = true;
+                m_ignoreFurtherContent = true;
+                continue;
+            }
+
+            m_fullResponse += filteredAnswer;
+            emit streamChunkReceived(filteredAnswer);
         }
     }
 }

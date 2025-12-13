@@ -287,6 +287,7 @@ QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
     textLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     textLabel->setOpenExternalLinks(true);
     textLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
+    textLabel->setTextFormat((!m_markdownEnabled || isUser) ? Qt::PlainText : Qt::RichText);
 
     // 渲染消息内容
     QString renderedText = renderMessage(text, isUser);
@@ -391,6 +392,7 @@ void ChatWidget::updateLastAIMessage(const QString &text)
     qDebug() << "[ChatWidget] m_lastAIMessageLabel is null?" << (m_lastAIMessageLabel == nullptr);
 
     if (m_lastAIMessageLabel) {
+        m_lastAIMessageLabel->setTextFormat(m_markdownEnabled ? Qt::RichText : Qt::PlainText);
         QString currentText = m_lastAIMessageLabel->text();
         qDebug() << "[ChatWidget] Current label text length:" << currentText.length();
 

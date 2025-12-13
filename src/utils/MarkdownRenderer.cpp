@@ -87,6 +87,22 @@ void MarkdownRenderer::processMarkdown(const QString &markdown, RenderData &data
     QStringList lines = markdown.split('\n');
     QString codeBlockLanguage;
     bool inParagraph = false;
+    bool inList = false;
+    bool listIsOrdered = false;
+
+    auto closeParagraph = [&]() {
+        if (inParagraph) {
+            data.html += "</p>";
+            inParagraph = false;
+        }
+    };
+
+    auto closeList = [&]() {
+        if (inList) {
+            data.html += listIsOrdered ? "</ol>" : "</ul>";
+            inList = false;
+        }
+    };
 
     for (int i = 0; i < lines.size(); ++i) {
         QString line = lines[i];
@@ -105,6 +121,8 @@ void MarkdownRenderer::processMarkdown(const QString &markdown, RenderData &data
                 lineProcessed = true;
             }
         } else if (isCodeBlockStart(line, codeBlockLanguage)) {
+            closeParagraph();
+            closeList();
             data.inCodeBlock = true;
             data.currentText.clear();
             lineProcessed = true;
@@ -114,19 +132,18 @@ void MarkdownRenderer::processMarkdown(const QString &markdown, RenderData &data
         if (!lineProcessed && !data.inCodeBlock) {
             // 处理空行
             if (line.trimmed().isEmpty()) {
-                if (inParagraph) {
-                    data.html += "<br>";
-                    inParagraph = false;
-                }
+                closeParagraph();
+                closeList();
                 continue;
             }
 
             // 处理标题
             int headingLevel;
             if (isHeaderLine(line, headingLevel)) {
+                closeParagraph();
+                closeList();
                 QString headingText = stripMarkdownMarkers(line);
                 data.html += generateHtmlForHeading(headingText, headingLevel);
-                inParagraph = false;
                 continue;
             }
 
@@ -136,20 +153,30 @@ void MarkdownRenderer::processMarkdown(const QString &markdown, RenderData &data
             bool isUnordered = !isOrdered && isUnorderedListLine(line, listContent);
 
             if (isOrdered || isUnordered) {
+                closeParagraph();
+
+                if (!inList || listIsOrdered != isOrdered) {
+                    closeList();
+                    listIsOrdered = isOrdered;
+                    data.html += listIsOrdered ? "<ol style=\"margin: 8px 0; padding-left: 20px;\">" : "<ul style=\"margin: 8px 0; padding-left: 20px;\">";
+                    inList = true;
+                }
                 data.html += generateHtmlForListItem(listContent, isOrdered, 1);
-                inParagraph = false;
                 continue;
             }
 
             // 处理引用块
             if (line.startsWith("> ")) {
+                closeParagraph();
+                closeList();
                 QString quoteText = line.mid(2);
+                processInlineFormatting(quoteText, data);
                 data.html += "<blockquote style=\"border-left: 4px solid #dfe2e5; padding-left: 16px; margin: 8px 0; color: #6a737d;\">" + quoteText + "</blockquote>";
-                inParagraph = false;
                 continue;
             }
 
             // 处理普通文本段落
+            closeList();
             if (!inParagraph) {
                 data.html += "<p style=\"margin: 8px 0;\">";
                 inParagraph = true;
@@ -157,13 +184,18 @@ void MarkdownRenderer::processMarkdown(const QString &markdown, RenderData &data
 
             QString processedLine = line;
             processInlineFormatting(processedLine, data);
-            data.html += escapeHtml(processedLine) + " ";
+            data.html += processedLine + " ";
         }
     }
 
     // 结束未关闭的段落
     if (inParagraph) {
         data.html += "</p>";
+    }
+
+    // 结束未关闭的列表
+    if (inList) {
+        data.html += listIsOrdered ? "</ol>" : "</ul>";
     }
 
     // 结束未关闭的代码块
@@ -174,6 +206,8 @@ void MarkdownRenderer::processMarkdown(const QString &markdown, RenderData &data
 
 void MarkdownRenderer::processInlineFormatting(QString &text, RenderData &data)
 {
+    text = escapeHtml(text);
+
     // 处理行内代码
     QRegularExpression inlineCodeRegex("`([^`]+)`");
     QRegularExpressionMatchIterator it = inlineCodeRegex.globalMatch(text);
@@ -189,7 +223,7 @@ void MarkdownRenderer::processInlineFormatting(QString &text, RenderData &data)
     while (it.hasNext()) {
         QRegularExpressionMatch match = it.next();
         QString boldText = match.captured(1);
-        text.replace(match.captured(0), "<strong>" + escapeHtml(boldText) + "</strong>");
+        text.replace(match.captured(0), "<strong>" + boldText + "</strong>");
     }
 
     // 处理斜体
@@ -198,7 +232,7 @@ void MarkdownRenderer::processInlineFormatting(QString &text, RenderData &data)
     while (it.hasNext()) {
         QRegularExpressionMatch match = it.next();
         QString italicText = match.captured(1);
-        text.replace(match.captured(0), "<em>" + escapeHtml(italicText) + "</em>");
+        text.replace(match.captured(0), "<em>" + italicText + "</em>");
     }
 
     // 处理删除线
@@ -207,7 +241,7 @@ void MarkdownRenderer::processInlineFormatting(QString &text, RenderData &data)
     while (it.hasNext()) {
         QRegularExpressionMatch match = it.next();
         QString strikeText = match.captured(1);
-        text.replace(match.captured(0), "<del>" + escapeHtml(strikeText) + "</del>");
+        text.replace(match.captured(0), "<del>" + strikeText + "</del>");
     }
 
     // 处理链接
@@ -267,11 +301,10 @@ QString MarkdownRenderer::generateHtmlForCodeBlock(const QString &text) const
 
 QString MarkdownRenderer::generateHtmlForInlineCode(const QString &text) const
 {
-    QString escapedText = escapeHtml(text);
     QString style = QString("background-color: %1; color: %2; padding: 2px 4px; border-radius: 3px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;")
                      .arg(m_codeBackgroundColor.name())
                      .arg(m_codeTextColor.name());
-    return QString("<code style=\"%1\">%2</code>").arg(style).arg(escapedText);
+    return QString("<code style=\"%1\">%2</code>").arg(style).arg(text);
 }
 
 QString MarkdownRenderer::generateHtmlForLink(const QString &text, const QString &url) const
