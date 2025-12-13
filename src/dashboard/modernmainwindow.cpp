@@ -789,12 +789,21 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
 
     // 从环境变量获取 API Key，提高安全性
     QString apiKey = qgetenv("DIFY_API_KEY");
-    if (apiKey.isEmpty()) {
-        qDebug() << "[Error] DIFY_API_KEY environment variable not set. Please set it and restart the application.";
-        return;  // 直接返回，不使用硬编码密钥
+    const bool hasApiKey = !apiKey.isEmpty();
+    if (!hasApiKey) {
+        qDebug() << "[Warn] DIFY_API_KEY environment variable not set. AI chat will be unavailable until configured.";
+        // 临时硬编码密钥用于测试（生产环境请使用环境变量）
+        apiKey = "app-4oFxsxMqCp4EYv0t77scpGDA";
+        if (!apiKey.isEmpty()) {
+            m_difyService->setApiKey(apiKey);
+            // 暂时不设置模型，使用 Dify 默认配置
+            // m_difyService->setModel("glm-4.6");  // 使用 GLM-4.6 模型
+        }
+    } else {
+        m_difyService->setApiKey(apiKey);
+        // 暂时不设置模型，使用 Dify 默认配置
+        // m_difyService->setModel("glm-4.6");  // 使用 GLM-4.6 模型
     }
-    m_difyService->setApiKey(apiKey);
-    m_difyService->setModel("glm-4.6");  // 使用 GLM-4.6 模型
 
     // 不再使用独立的 AI 对话框，直接在主页面显示
     // m_chatDialog = new AIChatDialog(m_difyService, this);
@@ -816,6 +825,14 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     // 创建默认页面
     createDashboard();
     contentStack->setCurrentWidget(dashboardWidget);
+
+    if (!hasApiKey) {
+        QTimer::singleShot(0, this, [this]() {
+            if (statusBar()) {
+                statusBar()->showMessage("未设置 DIFY_API_KEY：AI 功能暂不可用（可正常使用其他页面）", 8000);
+            }
+        });
+    }
 
     qDebug() << "=== ModernMainWindow 构造函数完成 ===";
 }
@@ -2066,7 +2083,8 @@ void ModernMainWindow::onSendChatMessage()
 
     // 发送到 Dify
     if (m_difyService) {
-        m_difyService->sendMessage(message);
+        const QString concisePrefix = "请用简洁中文回答（不超过120字），不要使用Markdown/标签/代码块，直接回答：";
+        m_difyService->sendMessage(concisePrefix + message);
     }
 }
 

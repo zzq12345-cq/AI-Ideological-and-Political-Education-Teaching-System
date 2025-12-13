@@ -145,7 +145,8 @@ void AIChatDialog::onUserSendMessage(const QString &message)
     
     // 发送到 Dify
     if (m_difyService) {
-        m_difyService->sendMessage(message);
+        const QString concisePrefix = "请用简洁中文回答（不超过120字），不要使用Markdown/标签/代码块，直接回答：";
+        m_difyService->sendMessage(concisePrefix + message);
     }
 }
 

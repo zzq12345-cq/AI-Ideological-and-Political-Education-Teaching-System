@@ -98,6 +98,8 @@ private slots:
 
 private:
     void parseStreamResponse(const QByteArray &data);
+    QString filterThinkTagsStreaming(const QString &text);
+    void resetStreamFilters();
 
     QNetworkAccessManager *m_networkManager;
     QNetworkReply *m_currentReply;
@@ -108,6 +110,11 @@ private:
     QString m_userId;
     QString m_fullResponse;  // 累积完整响应
     QString m_streamBuffer;  // SSE 残留缓冲
+    QString m_tagRemainder;  // 跨 chunk 的标签残留缓冲
+    QString m_hiddenTagName; // 当前隐藏块标签名（如 think/analysis）
+    bool m_ignoreFurtherContent = false;
+    bool m_hasTruncated = false;
+    int m_maxResponseChars = 600;
 };
 
 #endif // DIFYSERVICE_H
