@@ -22,6 +22,9 @@ ChatWidget::ChatWidget(QWidget *parent)
     , m_inputEdit(nullptr)
     , m_sendBtn(nullptr)
     , m_lastAIMessageLabel(nullptr)
+    , m_lastAIThinkingWidget(nullptr)
+    , m_lastAIThinkingLabel(nullptr)
+    , m_lastAIThinkingToggle(nullptr)
     , m_markdownRenderer(nullptr)
     , m_markdownEnabled(true)  // 默认启用Markdown
 {
@@ -330,6 +333,77 @@ QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
             "}"
         ).arg(AI_TEXT_COLOR));
         
+        // 为 AI 消息添加可折叠的思考过程区域
+        m_lastAIThinkingWidget = new QWidget();
+        m_lastAIThinkingWidget->setVisible(false); // 默认隐藏
+        QVBoxLayout *thinkingLayout = new QVBoxLayout(m_lastAIThinkingWidget);
+        thinkingLayout->setContentsMargins(0, 8, 0, 0);
+        thinkingLayout->setSpacing(4);
+        
+        // 思考过程标题和折叠按钮
+        QWidget *thinkingHeaderWidget = new QWidget();
+        QHBoxLayout *thinkingHeaderLayout = new QHBoxLayout(thinkingHeaderWidget);
+        thinkingHeaderLayout->setContentsMargins(0, 0, 0, 0);
+        thinkingHeaderLayout->setSpacing(4);
+        
+        m_lastAIThinkingToggle = new QPushButton("▼");
+        m_lastAIThinkingToggle->setFixedSize(20, 20);
+        m_lastAIThinkingToggle->setStyleSheet(
+            "QPushButton {"
+            "   background: transparent;"
+            "   border: none;"
+            "   color: #6b7280;"
+            "   font-size: 12px;"
+            "   padding: 0;"
+            "}"
+            "QPushButton:hover {"
+            "   color: #2b7de9;"
+            "}"
+        );
+        
+        QLabel *thinkingTitleLabel = new QLabel("思考过程");
+        thinkingTitleLabel->setStyleSheet(
+            "QLabel {"
+            "   color: #6b7280;"
+            "   font-size: 13px;"
+            "   font-weight: 500;"
+            "   background: transparent;"
+            "}"
+        );
+        
+        thinkingHeaderLayout->addWidget(m_lastAIThinkingToggle);
+        thinkingHeaderLayout->addWidget(thinkingTitleLabel);
+        thinkingHeaderLayout->addStretch();
+        
+        // 思考内容标签
+        m_lastAIThinkingLabel = new QLabel();
+        m_lastAIThinkingLabel->setWordWrap(true);
+        m_lastAIThinkingLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        m_lastAIThinkingLabel->setVisible(false); // 默认折叠
+        m_lastAIThinkingLabel->setStyleSheet(
+            "QLabel {"
+            "   color: #6b7280;"
+            "   font-size: 13px;"
+            "   line-height: 1.4;"
+            "   background-color: #f9fafb;"
+            "   border: 1px solid #e5e7eb;"
+            "   border-radius: 8px;"
+            "   padding: 8px;"
+            "}"
+        );
+        
+        thinkingLayout->addWidget(thinkingHeaderWidget);
+        thinkingLayout->addWidget(m_lastAIThinkingLabel);
+        
+        bubbleLayout->addWidget(m_lastAIThinkingWidget);
+        
+        // 连接折叠按钮点击事件
+        connect(m_lastAIThinkingToggle, &QPushButton::clicked, [this]() {
+            bool isVisible = m_lastAIThinkingLabel->isVisible();
+            m_lastAIThinkingLabel->setVisible(!isVisible);
+            m_lastAIThinkingToggle->setText(isVisible ? "▶" : "▼");
+        });
+        
         // 保存引用用于流式更新
         m_lastAIMessageLabel = textLabel;
         qDebug() << "[ChatWidget] createMessageBubble: Set m_lastAIMessageLabel to" << (void*)textLabel << "for AI message";
@@ -408,6 +482,30 @@ void ChatWidget::updateLastAIMessage(const QString &text)
     }
 }
 
+void ChatWidget::updateLastAIThinking(const QString &thought)
+{
+    qDebug() << "[ChatWidget] updateLastAIThinking called with thought length:" << thought.length();
+    
+    if (m_lastAIThinkingLabel && m_lastAIThinkingWidget) {
+        // 显示思考过程区域
+        m_lastAIThinkingWidget->setVisible(true);
+        
+        // 追加新的思考内容
+        QString currentThought = m_lastAIThinkingLabel->text();
+        if (!currentThought.isEmpty()) {
+            currentThought += "\n";
+        }
+        currentThought += thought;
+        m_lastAIThinkingLabel->setText(currentThought);
+        
+        qDebug() << "[ChatWidget] Thinking content updated, total length:" << currentThought.length();
+        
+        scrollToBottom();
+    } else {
+        qDebug() << "[ChatWidget] Error: Thinking widgets are null, cannot update!";
+    }
+}
+
 void ChatWidget::clearMessages()
 {
     // 清除所有消息组件
@@ -423,6 +521,9 @@ void ChatWidget::clearMessages()
     m_messageLayout->addStretch();
     
     m_lastAIMessageLabel = nullptr;
+    m_lastAIThinkingWidget = nullptr;
+    m_lastAIThinkingLabel = nullptr;
+    m_lastAIThinkingToggle = nullptr;
 }
 
 void ChatWidget::setPlaceholderText(const QString &text)

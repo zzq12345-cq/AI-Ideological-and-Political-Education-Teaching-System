@@ -87,8 +87,8 @@ void DifyService::sendMessage(const QString &message, const QString &conversatio
     sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);  // 暂时禁用 SSL 验证用于调试
     request.setSslConfiguration(sslConfig);
 
-    // 设置超时时间
-    request.setTransferTimeout(60000);  // 60秒超时
+    // 设置超时时间（给 AI 足够的思考时间）
+    request.setTransferTimeout(120000);  // 120秒超时
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
@@ -140,8 +140,11 @@ void DifyService::onReadyRead()
 {
     if (!m_currentReply) return;
 
+    // 立即读取所有可用数据
     QByteArray data = m_currentReply->readAll();
-    parseStreamResponse(data);
+    if (!data.isEmpty()) {
+        parseStreamResponse(data);
+    }
 }
 
 void DifyService::onReplyFinished()
@@ -353,16 +356,19 @@ void DifyService::parseStreamResponse(const QByteArray &data)
 
         QString jsonStr = line.mid(6);  // 去掉 "data: " 前缀
         if (jsonStr.isEmpty() || jsonStr == "[DONE]") {
+            qDebug() << "[DifyService] Stream finished [DONE]";
             continue;
         }
 
         QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
         if (doc.isNull() || !doc.isObject()) {
+            qDebug() << "[DifyService] Failed to parse JSON:" << jsonStr.left(100);
             continue;
         }
 
         QJsonObject obj = doc.object();
         QString event = obj["event"].toString();
+        qDebug() << "[DifyService] Event:" << event;
 
         if (event == "message") {
             // 普通消息块
@@ -412,6 +418,15 @@ void DifyService::parseStreamResponse(const QByteArray &data)
             QString errorMsg = obj["message"].toString();
             emit errorOccurred(errorMsg);
 
+        } else if (event == "agent_thought") {
+            // Agent 思考过程
+            qDebug() << "[DifyService] Processing agent thought event";
+            QString thought = obj["thought"].toString();
+            if (!thought.isEmpty()) {
+                emit thinkingChunkReceived(thought);
+            }
+            continue;
+            
         } else if (event == "agent_message") {
             // Agent 消息（如果使用 Agent 类型应用）
             if (m_ignoreFurtherContent) {
@@ -446,6 +461,11 @@ void DifyService::parseStreamResponse(const QByteArray &data)
 
             m_fullResponse += filteredAnswer;
             emit streamChunkReceived(filteredAnswer);
+            
+        } else if (event == "workflow_started" || event == "node_started" || event == "node_finished") {
+            // 跳过工作流相关事件
+            qDebug() << "[DifyService] Skipping workflow event:" << event;
+            continue;
         }
     }
 }

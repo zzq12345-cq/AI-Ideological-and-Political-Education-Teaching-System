@@ -43,6 +43,12 @@ public:
     void updateLastAIMessage(const QString &text);
 
     /**
+     * @brief 更新最后一条 AI 消息的思考过程
+     * @param thought 思考内容
+     */
+    void updateLastAIThinking(const QString &thought);
+
+    /**
      * @brief 清空所有消息
      */
     void clearMessages();
@@ -111,6 +117,11 @@ private:
 
     // 用于流式更新的最后一条 AI 消息
     QLabel *m_lastAIMessageLabel;
+    
+    // 用于显示思考过程的组件
+    QWidget *m_lastAIThinkingWidget;
+    QLabel *m_lastAIThinkingLabel;
+    QPushButton *m_lastAIThinkingToggle;
 
     // Markdown渲染器
     std::unique_ptr<MarkdownRenderer> m_markdownRenderer;

@@ -60,6 +60,7 @@ private slots:
     void onSendChatMessage();
     void onAIResponseReceived(const QString &response);
     void onAIStreamChunk(const QString &chunk);
+    void onAIThinkingChunk(const QString &thought);
     void onAIError(const QString &error);
     void onAIRequestStarted();
     void onAIRequestFinished();

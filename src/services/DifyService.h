@@ -70,6 +70,12 @@ signals:
     void streamChunkReceived(const QString &chunk);
 
     /**
+     * @brief 收到思考过程时发出
+     * @param thought 思考内容片段
+     */
+    void thinkingChunkReceived(const QString &thought);
+
+    /**
      * @brief 新会话创建时发出
      * @param conversationId 新会话的 ID
      */
