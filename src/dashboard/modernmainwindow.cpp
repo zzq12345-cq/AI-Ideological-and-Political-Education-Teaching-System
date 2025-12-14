@@ -792,8 +792,8 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     const bool hasApiKey = !apiKey.isEmpty();
     if (!hasApiKey) {
         qDebug() << "[Warn] DIFY_API_KEY environment variable not set. AI chat will be unavailable until configured.";
-        // 生产环境请使用环境变量设置 API Key，不要硬编码
-        apiKey = "";  // 移除硬编码的 API Key
+        // 临时硬编码密钥用于测试（生产环境请使用环境变量）
+        apiKey = "app-t48AWmobuKHqc6oDO7dcPeBf";
         if (!apiKey.isEmpty()) {
             m_difyService->setApiKey(apiKey);
             // 暂时不设置模型，使用 Dify 默认配置
@@ -810,6 +810,7 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
 
     // 连接 Dify 服务的信号到主窗口的处理函数
     connect(m_difyService, &DifyService::streamChunkReceived, this, &ModernMainWindow::onAIStreamChunk);
+    connect(m_difyService, &DifyService::thinkingChunkReceived, this, &ModernMainWindow::onAIThinkingChunk);
     connect(m_difyService, &DifyService::messageReceived, this, &ModernMainWindow::onAIResponseReceived);
     connect(m_difyService, &DifyService::errorOccurred, this, &ModernMainWindow::onAIError);
     connect(m_difyService, &DifyService::requestStarted, this, &ModernMainWindow::onAIRequestStarted);
@@ -2035,9 +2036,19 @@ void ModernMainWindow::createAIChatWidget()
     m_bubbleChatWidget = new ChatWidget();
     m_bubbleChatWidget->setPlaceholderText("向AI助手发送信息...");
     
+    // 显示开场白
+    QString openingMessage = "老师您好！欢迎使用AI政治课堂助教系统！我可以为您提供课程设计、教学资源、互动活动、学情分析等全方位支持，让我们一起打造更精彩的政治课堂吧！请问有什么可以帮到您的？\n\n**您可以尝试询问：**\n\"如何设计一堂吸引学生的思政课？请提供具体方案。\"\n\n\"您希望这节课采用什么样的教学方式？比如讲授式、讨论式、案例分析等，我来帮您设计相应的教学方案。\"";
+    m_bubbleChatWidget->addMessage(openingMessage, false);
+    
     // 连接消息发送信号到 Dify 服务
     connect(m_bubbleChatWidget, &ChatWidget::messageSent, this, [this](const QString &message) {
         if (message.trimmed().isEmpty()) return;
+        
+        // 首次发送消息时，切换到聊天界面
+        if (m_mainStack && m_mainStack->currentWidget() != m_bubbleChatWidget) {
+            m_mainStack->setCurrentWidget(m_bubbleChatWidget);
+            m_isConversationStarted = true;
+        }
         
         // 显示用户消息
         m_bubbleChatWidget->addMessage(message, true);
@@ -2045,10 +2056,9 @@ void ModernMainWindow::createAIChatWidget()
         // 清空累积响应
         m_currentAIResponse.clear();
         
-        // 发送到 Dify，强制简洁回复
+        // 直接发送到 Dify，使用 Dify 中配置的提示词
         if (m_difyService) {
-            QString conciseMessage = "回答必须：1.一句话 2.最多20字 3.直接回答 问题：" + message;
-            m_difyService->sendMessage(conciseMessage);
+            m_difyService->sendMessage(message);
         }
     });
 }
@@ -2109,6 +2119,19 @@ void ModernMainWindow::onAIStreamChunk(const QString &chunk)
 
     // 实时更新最后一条 AI 消息
     m_bubbleChatWidget->updateLastAIMessage(m_currentAIResponse);
+}
+
+void ModernMainWindow::onAIThinkingChunk(const QString &thought)
+{
+    qDebug() << "[ModernMainWindow] Thinking chunk received:" << thought.left(50) + "...";
+
+    if (!m_bubbleChatWidget) {
+        qDebug() << "[ModernMainWindow] Error: m_bubbleChatWidget is null!";
+        return;
+    }
+
+    // 更新思考过程
+    m_bubbleChatWidget->updateLastAIThinking(thought);
 }
 
 void ModernMainWindow::onAIResponseReceived(const QString &response)
