@@ -791,16 +791,13 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     QString apiKey = qgetenv("DIFY_API_KEY");
     const bool hasApiKey = !apiKey.isEmpty();
     if (!hasApiKey) {
-        qDebug() << "[Warn] DIFY_API_KEY environment variable not set. AI chat will be unavailable until configured.";
-        // 临时硬编码密钥用于测试（生产环境请使用环境变量）
-        apiKey = "app-t48AWmobuKHqc6oDO7dcPeBf";
-        if (!apiKey.isEmpty()) {
-            m_difyService->setApiKey(apiKey);
-            // 暂时不设置模型，使用 Dify 默认配置
-            // m_difyService->setModel("glm-4.6");  // 使用 GLM-4.6 模型
-        }
+        qDebug() << "[Error] DIFY_API_KEY environment variable not set!";
+        qDebug() << "[Info] Please set the environment variable before running the application.";
+        qDebug() << "[Info] Example: export DIFY_API_KEY=your-api-key-here";
+        // 不再使用硬编码密钥，必须通过环境变量配置
     } else {
         m_difyService->setApiKey(apiKey);
+        qDebug() << "[Info] Dify API Key loaded from environment variable.";
         // 暂时不设置模型，使用 Dify 默认配置
         // m_difyService->setModel("glm-4.6");  // 使用 GLM-4.6 模型
     }
