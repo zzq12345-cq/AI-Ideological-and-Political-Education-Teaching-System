@@ -49,6 +49,16 @@ public:
     void updateLastAIThinking(const QString &thought);
 
     /**
+     * @brief 折叠思考过程区域
+     */
+    void collapseThinking();
+
+    /**
+     * @brief 展开思考过程区域
+     */
+    void expandThinking();
+
+    /**
      * @brief 清空所有消息
      */
     void clearMessages();
