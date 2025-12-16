@@ -35,6 +35,7 @@ class QuestionRepository;
 class QuestionBankWindow;
 class DifyService;
 class AIChatDialog;
+class ChatHistoryWidget;
 
 class ModernMainWindow : public QMainWindow
 {
@@ -88,6 +89,8 @@ private:
     void createQuickAccessCard();   // 快捷入口卡片
     void createAIChatWidget();      // AI 对话组件
     void appendChatMessage(const QString &sender, const QString &message, bool isUser);
+    void swapToHistorySidebar();    // 切换到历史记录侧边栏
+    void swapToNavSidebar();        // 切换回导航侧边栏
 
     // 创建指标项组件 - 紧凑单行信息
     QWidget* createMetricItem(const QString& name,
@@ -152,6 +155,9 @@ private:
     DifyService *m_difyService;
     AIChatDialog *m_chatDialog;  // AI 对话框（备用）
     class ChatWidget *m_bubbleChatWidget;  // 气泡样式聊天组件（主面板用）
+    ChatHistoryWidget *m_chatHistoryWidget;  // 历史记录侧边栏
+    QWidget *m_chatContainer;  // 聊天容器
+    QStackedWidget *m_sidebarStack;  // 侧边栏切换栈
     QFrame *m_chatWidget;        // 输入框容器
     QLineEdit *m_chatInput;
     QPushButton *m_sendBtn;

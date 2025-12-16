@@ -42,6 +42,8 @@ set(PROJECT_SOURCES
     src/ui/AIChatDialog.h
     src/utils/MarkdownRenderer.cpp
     src/utils/MarkdownRenderer.h
+    src/ui/ChatHistoryWidget.cpp
+    src/ui/ChatHistoryWidget.h
     resources.qrc
     resources/QtTheme/QtTheme.qrc
 )

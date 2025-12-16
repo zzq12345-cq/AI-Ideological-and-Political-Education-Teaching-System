@@ -6,6 +6,7 @@
 #include "../services/DifyService.h"
 #include "../ui/AIChatDialog.h"
 #include "../ui/ChatWidget.h"
+#include "../ui/ChatHistoryWidget.h"
 #include <QApplication>
 #include <QMessageBox>
 #include <QFile>
@@ -997,6 +998,20 @@ void ModernMainWindow::setupCentralWidget()
     sidebarLayout->addWidget(settingsBtn);
     sidebarLayout->addWidget(helpBtn);
 
+    // 创建侧边栏堆栈（用于在导航和历史记录之间切换）
+    m_sidebarStack = new QStackedWidget();
+    m_sidebarStack->setMinimumWidth(240);
+    m_sidebarStack->setMaximumWidth(300);
+    m_sidebarStack->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+    m_sidebarStack->addWidget(sidebar);  // 页面0：导航侧边栏
+    
+    // 创建历史记录侧边栏（将在createAIChatWidget中配置信号）
+    m_chatHistoryWidget = new ChatHistoryWidget();
+    m_sidebarStack->addWidget(m_chatHistoryWidget);  // 页面1：历史记录侧边栏
+    
+    // 确保初始显示导航侧边栏
+    m_sidebarStack->setCurrentIndex(0);
+
     // 创建内容堆栈窗口
     contentStack = new QStackedWidget();
     contentStack->setStyleSheet("background-color: " + BACKGROUND_LIGHT + ";");
@@ -1013,7 +1028,7 @@ void ModernMainWindow::setupCentralWidget()
     contentStack->addWidget(questionBankWindow);
 
     // 添加到主布局
-    contentLayout->addWidget(sidebar);
+    contentLayout->addWidget(m_sidebarStack);  // 使用侧边栏堆栈
     contentLayout->addWidget(contentStack);
 
     mainLayout->addLayout(contentLayout);
@@ -1472,10 +1487,10 @@ void ModernMainWindow::createDashboard()
     // 页面0：欢迎面板（不含输入框）
     m_mainStack->addWidget(m_welcomePanel);
     
-    // 页面1：聊天组件（完整的，含消息区和输入框）
-    if (m_bubbleChatWidget) {
-        m_bubbleChatWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-        m_mainStack->addWidget(m_bubbleChatWidget);
+    // 页面1：聊天容器（侧边栏 + 聊天组件）
+    if (m_chatContainer) {
+        m_chatContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        m_mainStack->addWidget(m_chatContainer);
         
         // 监听消息发送，开始对话后切换到聊天页面
         connect(m_bubbleChatWidget, &ChatWidget::messageSent, this, [this](const QString &message) {
@@ -1484,7 +1499,7 @@ void ModernMainWindow::createDashboard()
                 m_isConversationStarted = true;
             }
             // 每次发送消息都确保显示聊天页面
-            m_mainStack->setCurrentWidget(m_bubbleChatWidget);
+            m_mainStack->setCurrentWidget(m_chatContainer);
             // 隐藏欢迎页面输入框
             if (m_welcomeInputWidget) {
                 m_welcomeInputWidget->hide();
@@ -1598,7 +1613,8 @@ void ModernMainWindow::createDashboard()
         
         // 切换到聊天页面
         m_isConversationStarted = true;
-        m_mainStack->setCurrentWidget(m_bubbleChatWidget);
+        m_mainStack->setCurrentWidget(m_chatContainer);
+        swapToHistorySidebar();  // 切换到历史记录侧边栏
         m_welcomeInputWidget->hide();
         
         // 在聊天组件中设置文本并发送
@@ -2029,9 +2045,55 @@ void ModernMainWindow::createQuickAccessCard()
 
 void ModernMainWindow::createAIChatWidget()
 {
+    // 创建聊天容器（仅聊天组件，侧边栏在主布局中切换）
+    m_chatContainer = new QWidget();
+    QHBoxLayout *containerLayout = new QHBoxLayout(m_chatContainer);
+    containerLayout->setContentsMargins(0, 0, 0, 0);
+    containerLayout->setSpacing(0);
+    
+    // 连接历史记录侧边栏信号（m_chatHistoryWidget 已在 setupCentralWidget 中创建）
+    connect(m_chatHistoryWidget, &ChatHistoryWidget::newChatRequested, this, [this]() {
+        // 清空聊天并重置 Dify 会话
+        if (m_bubbleChatWidget) {
+            m_bubbleChatWidget->clearMessages();
+            QString openingMessage = "老师您好！欢迎使用AI政治课堂助教系统！我可以为您提供课程设计、教学资源、互动活动、学情分析等全方位支持，让我们一起打造更精彩的政治课堂吧！请问有什么可以帮到您的？";
+            m_bubbleChatWidget->addMessage(openingMessage, false);
+        }
+        if (m_difyService) {
+            m_difyService->clearConversation();
+        }
+    });
+    
+    connect(m_chatHistoryWidget, &ChatHistoryWidget::backRequested, this, [this]() {
+        // 返回欢迎页面并恢复导航侧边栏
+        if (m_mainStack && m_welcomePanel) {
+            m_mainStack->setCurrentWidget(m_welcomePanel);
+            if (m_welcomeInputWidget) m_welcomeInputWidget->show();
+        }
+        swapToNavSidebar();
+        m_isConversationStarted = false;
+    });
+    
+    connect(m_chatHistoryWidget, &ChatHistoryWidget::historyItemSelected, this, [this](const QString &id) {
+        // 切换历史记录（模拟功能）
+        if (m_bubbleChatWidget) {
+            m_bubbleChatWidget->clearMessages();
+            m_bubbleChatWidget->addMessage(QString("已切换到历史对话: %1 (模拟功能)").arg(id), false);
+        }
+    });
+    
+    // 加载模拟历史数据
+    m_chatHistoryWidget->addHistoryItem("chat_1", "思政课教学设计 对话 6", "12月12日 15:12");
+    m_chatHistoryWidget->addHistoryItem("chat_2", "课程资源推荐 对话 5", "12月12日 15:11");
+    m_chatHistoryWidget->addHistoryItem("chat_3", "学情分析报告 对话 4", "12月11日 22:41");
+    m_chatHistoryWidget->addHistoryItem("chat_4", "互动活动设计 对话 3", "12月11日 22:05");
+    m_chatHistoryWidget->addHistoryItem("chat_5", "教案生成 对话 2", "11月27日 21:36");
+    m_chatHistoryWidget->addHistoryItem("chat_6", "课堂导入设计 对话", "11月27日 21:35");
+    
     // 创建气泡样式聊天组件
     m_bubbleChatWidget = new ChatWidget();
     m_bubbleChatWidget->setPlaceholderText("向AI助手发送信息...");
+    containerLayout->addWidget(m_bubbleChatWidget, 1);
     
     // 显示开场白
     QString openingMessage = "老师您好！欢迎使用AI政治课堂助教系统！我可以为您提供课程设计、教学资源、互动活动、学情分析等全方位支持，让我们一起打造更精彩的政治课堂吧！请问有什么可以帮到您的？\n\n**您可以尝试询问：**\n\"如何设计一堂吸引学生的思政课？请提供具体方案。\"\n\n\"您希望这节课采用什么样的教学方式？比如讲授式、讨论式、案例分析等，我来帮您设计相应的教学方案。\"";
@@ -2041,9 +2103,10 @@ void ModernMainWindow::createAIChatWidget()
     connect(m_bubbleChatWidget, &ChatWidget::messageSent, this, [this](const QString &message) {
         if (message.trimmed().isEmpty()) return;
         
-        // 首次发送消息时，切换到聊天界面
-        if (m_mainStack && m_mainStack->currentWidget() != m_bubbleChatWidget) {
-            m_mainStack->setCurrentWidget(m_bubbleChatWidget);
+        // 首次发送消息时，切换到聊天界面并切换侧边栏
+        if (m_mainStack && m_mainStack->currentWidget() != m_chatContainer) {
+            m_mainStack->setCurrentWidget(m_chatContainer);
+            swapToHistorySidebar();  // 切换到历史记录侧边栏
             m_isConversationStarted = true;
         }
         
@@ -2058,6 +2121,20 @@ void ModernMainWindow::createAIChatWidget()
             m_difyService->sendMessage(message);
         }
     });
+}
+
+void ModernMainWindow::swapToHistorySidebar()
+{
+    if (m_sidebarStack) {
+        m_sidebarStack->setCurrentIndex(1);  // 历史记录侧边栏
+    }
+}
+
+void ModernMainWindow::swapToNavSidebar()
+{
+    if (m_sidebarStack) {
+        m_sidebarStack->setCurrentIndex(0);  // 导航侧边栏
+    }
 }
 
 void ModernMainWindow::appendChatMessage(const QString &sender, const QString &message, bool isUser)
