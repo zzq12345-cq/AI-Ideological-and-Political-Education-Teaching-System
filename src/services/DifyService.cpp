@@ -90,6 +90,9 @@ void DifyService::sendMessage(const QString &message, const QString &conversatio
     // 设置超时时间（给 AI 足够的思考时间）
     request.setTransferTimeout(120000);  // 120秒超时
 
+    // 强制使用 HTTP/1.1 避免 HTTP/2 协议错误
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+
 #if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
 #endif
@@ -156,7 +159,9 @@ void DifyService::onReplyFinished()
         return;
     }
 
-    if (m_currentReply->error() != QNetworkReply::NoError) {
+    // 对于流式响应，RemoteHostClosedError 是正常的（服务器完成发送后关闭连接）
+    QNetworkReply::NetworkError error = m_currentReply->error();
+    if (error != QNetworkReply::NoError && error != QNetworkReply::RemoteHostClosedError) {
         QString errorMsg = m_currentReply->errorString();
         int httpStatus = m_currentReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         QByteArray responseData = m_currentReply->readAll();
@@ -165,14 +170,6 @@ void DifyService::onReplyFinished()
         qDebug() << "[DifyService] Network error code:" << m_currentReply->error();
         qDebug() << "[DifyService] Response data:" << responseData;
         qDebug() << "[DifyService] Response data (as string):" << QString::fromUtf8(responseData);
-
-        // 特殊处理连接错误
-        if (m_currentReply->error() == QNetworkReply::ConnectionRefusedError ||
-            m_currentReply->error() == QNetworkReply::RemoteHostClosedError ||
-            m_currentReply->error() == QNetworkReply::NetworkSessionFailedError) {
-            qDebug() << "[DifyService] Connection error detected - possible network or SSL issues";
-            errorMsg = QString("网络连接错误: %1\n请检查网络连接或API配置（API Key/代理/防火墙）").arg(errorMsg);
-        }
 
         // 尝试解析错误响应
         QJsonDocument errorDoc = QJsonDocument::fromJson(responseData);

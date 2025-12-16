@@ -6,11 +6,13 @@
 AIChatDialog::AIChatDialog(DifyService *difyService, QWidget *parent)
     : QDialog(parent)
     , m_chatWidget(nullptr)
+    , m_historyWidget(nullptr)
     , m_difyService(difyService)
     , m_isStreaming(false)
 {
     setupUI();
     connectDifyService();
+    loadMockHistory();
 }
 
 AIChatDialog::~AIChatDialog()
@@ -21,8 +23,8 @@ void AIChatDialog::setupUI()
 {
     // 窗口属性
     setWindowTitle("AI 智能助手");
-    setMinimumSize(500, 600);
-    resize(600, 700);
+    setMinimumSize(800, 600); // 加宽以容纳侧边栏
+    resize(900, 700);
     setWindowFlags(windowFlags() | Qt::WindowStaysOnTopHint);
     
     // 主布局
@@ -68,11 +70,28 @@ void AIChatDialog::setupUI()
     
     mainLayout->addWidget(titleBar);
     
-    // 聊天组件
+    // 内容区域布局（侧边栏 + 聊天窗口）
+    QHBoxLayout *contentLayout = new QHBoxLayout();
+    contentLayout->setSpacing(0);
+    contentLayout->setContentsMargins(0, 0, 0, 0);
+
+    // 1. 侧边栏
+    m_historyWidget = new ChatHistoryWidget();
+    contentLayout->addWidget(m_historyWidget);
+    
+    // 2. 聊天组件
     m_chatWidget = new ChatWidget();
     m_chatWidget->setPlaceholderText("向AI助手提问...");
-    mainLayout->addWidget(m_chatWidget, 1);
+    contentLayout->addWidget(m_chatWidget, 1);
     
+    mainLayout->addLayout(contentLayout);
+    
+    // 连接侧边栏信号
+    connect(m_historyWidget, &ChatHistoryWidget::newChatRequested,
+            this, &AIChatDialog::onNewChatRequested);
+    connect(m_historyWidget, &ChatHistoryWidget::historyItemSelected,
+            this, &AIChatDialog::onHistoryItemSelected);
+
     // 连接聊天组件信号
     connect(m_chatWidget, &ChatWidget::messageSent, 
             this, &AIChatDialog::onUserSendMessage);
@@ -109,6 +128,38 @@ void AIChatDialog::connectDifyService()
             this, &AIChatDialog::onAIRequestStarted);
     connect(m_difyService, &DifyService::requestFinished,
             this, &AIChatDialog::onAIRequestFinished);
+}
+
+void AIChatDialog::loadMockHistory()
+{
+    if (!m_historyWidget) return;
+    
+    m_historyWidget->clearHistory();
+    
+    m_historyWidget->addHistoryItem("chat_1", "审批流程助手 对话 6", "12月12日 15:12");
+    m_historyWidget->addHistoryItem("chat_2", "审批流程助手 对话 5", "12月12日 15:11");
+    m_historyWidget->addHistoryItem("chat_3", "审批流程助手 对话 4", "12月11日 22:41");
+    m_historyWidget->addHistoryItem("chat_4", "审批流程助手 对话 3", "12月11日 22:05");
+    m_historyWidget->addHistoryItem("chat_5", "审批流程助手 对话 2", "11月27日 21:36");
+    m_historyWidget->addHistoryItem("chat_6", "审批流程助手 对话", "11月27日 21:35");
+}
+
+void AIChatDialog::onNewChatRequested()
+{
+    clearChat();
+    // 可以在这里触发 Dify 新建会话的逻辑，或仅重置 UI
+    // 目前 clearChat 会清除 Dify conversationId
+    // 可以在 UI 上添加一个新的空条目（可选）
+}
+
+void AIChatDialog::onHistoryItemSelected(const QString &conversationId)
+{
+    // 切换历史记录的逻辑
+    // 目前仅作演示，清空当前聊天并显示提示
+    m_chatWidget->clearMessages();
+    addAIMessage(QString("已切换到历史对话: %1 (模拟功能)").arg(conversationId));
+    
+    // 在真实场景中，这里应该调用 DifyService 获取历史记录接口
 }
 
 void AIChatDialog::addUserMessage(const QString &message)

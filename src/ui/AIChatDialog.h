@@ -3,6 +3,7 @@
 
 #include <QDialog>
 #include "ChatWidget.h"
+#include "ChatHistoryWidget.h"
 
 class DifyService;
 
@@ -45,12 +46,18 @@ private slots:
     void onAIError(const QString &error);
     void onAIRequestStarted();
     void onAIRequestFinished();
+    
+    // 侧边栏槽函数
+    void onNewChatRequested();
+    void onHistoryItemSelected(const QString &conversationId);
 
 private:
     void setupUI();
     void connectDifyService();
+    void loadMockHistory(); // 加载模拟数据
 
     ChatWidget *m_chatWidget;
+    ChatHistoryWidget *m_historyWidget;
     DifyService *m_difyService;
     QString m_currentResponse;  // 累积流式响应
     bool m_isStreaming;
