@@ -120,7 +120,7 @@ private:
     QString m_hiddenTagName; // 当前隐藏块标签名（如 think/analysis）
     bool m_ignoreFurtherContent = false;
     bool m_hasTruncated = false;
-    int m_maxResponseChars = 600;
+    int m_maxResponseChars = 10000;
 };
 
 #endif // DIFYSERVICE_H

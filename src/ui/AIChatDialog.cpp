@@ -99,6 +99,8 @@ void AIChatDialog::connectDifyService()
     
     connect(m_difyService, &DifyService::streamChunkReceived,
             this, &AIChatDialog::onAIStreamChunk);
+    connect(m_difyService, &DifyService::thinkingChunkReceived,
+            this, &AIChatDialog::onAIThinkingChunk);
     connect(m_difyService, &DifyService::messageReceived,
             this, &AIChatDialog::onAIResponseReceived);
     connect(m_difyService, &DifyService::errorOccurred,
@@ -163,6 +165,18 @@ void AIChatDialog::onAIStreamChunk(const QString &chunk)
     updateAIMessage(m_currentResponse);
 }
 
+void AIChatDialog::onAIThinkingChunk(const QString &thought)
+{
+    // 首次收到时，确保有 AI 消息气泡
+    if (!m_isStreaming) {
+        m_isStreaming = true;
+        addAIMessage("");
+    }
+    
+    // 更新思考过程区域
+    m_chatWidget->updateLastAIThinking(thought);
+}
+
 void AIChatDialog::onAIResponseReceived(const QString &response)
 {
     // 如果没有流式响应（非流式模式），直接添加完整消息
@@ -189,6 +203,9 @@ void AIChatDialog::onAIRequestStarted()
 
 void AIChatDialog::onAIRequestFinished()
 {
+    // 响应完成，自动折叠思考过程
+    m_chatWidget->collapseThinking();
+    
     m_chatWidget->setInputEnabled(true);
     m_chatWidget->focusInput();
 }

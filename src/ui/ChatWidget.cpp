@@ -490,6 +490,12 @@ void ChatWidget::updateLastAIThinking(const QString &thought)
         // 显示思考过程区域
         m_lastAIThinkingWidget->setVisible(true);
         
+        // 流式更新时自动展开思考面板
+        if (m_lastAIThinkingLabel && m_lastAIThinkingToggle) {
+            m_lastAIThinkingLabel->setVisible(true);
+            m_lastAIThinkingToggle->setText("▼");
+        }
+        
         // 追加新的思考内容
         QString currentThought = m_lastAIThinkingLabel->text();
         if (!currentThought.isEmpty()) {
@@ -503,6 +509,26 @@ void ChatWidget::updateLastAIThinking(const QString &thought)
         scrollToBottom();
     } else {
         qDebug() << "[ChatWidget] Error: Thinking widgets are null, cannot update!";
+    }
+}
+
+void ChatWidget::collapseThinking()
+{
+    qDebug() << "[ChatWidget] collapseThinking called";
+    if (m_lastAIThinkingLabel && m_lastAIThinkingToggle) {
+        m_lastAIThinkingLabel->setVisible(false);
+        m_lastAIThinkingToggle->setText("▶");
+        qDebug() << "[ChatWidget] Thinking collapsed";
+    }
+}
+
+void ChatWidget::expandThinking()
+{
+    qDebug() << "[ChatWidget] expandThinking called";
+    if (m_lastAIThinkingLabel && m_lastAIThinkingToggle) {
+        m_lastAIThinkingLabel->setVisible(true);
+        m_lastAIThinkingToggle->setText("▼");
+        qDebug() << "[ChatWidget] Thinking expanded";
     }
 }
 

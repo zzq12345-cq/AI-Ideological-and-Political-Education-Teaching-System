@@ -40,6 +40,7 @@ public:
 private slots:
     void onUserSendMessage(const QString &message);
     void onAIStreamChunk(const QString &chunk);
+    void onAIThinkingChunk(const QString &thought);
     void onAIResponseReceived(const QString &response);
     void onAIError(const QString &error);
     void onAIRequestStarted();

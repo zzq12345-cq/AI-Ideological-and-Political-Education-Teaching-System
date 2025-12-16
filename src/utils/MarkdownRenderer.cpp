@@ -29,7 +29,15 @@ QString MarkdownRenderer::renderToHtml(const QString &markdown)
 
     RenderData data;
     processMarkdown(markdown, data);
-    return data.html;
+    
+    // 用 div 包裹，设置行高和段落间距
+    QString wrappedHtml = QString(
+        "<div style=\"line-height: 1.8; font-size: 15px;\">"
+        "%1"
+        "</div>"
+    ).arg(data.html);
+    
+    return wrappedHtml;
 }
 
 QTextDocument* MarkdownRenderer::renderToDocument(const QString &markdown)
@@ -165,6 +173,62 @@ void MarkdownRenderer::processMarkdown(const QString &markdown, RenderData &data
                 continue;
             }
 
+            // 处理水平分割线 (---, ***, ___)
+            QString trimmedLine = line.trimmed();
+            if ((trimmedLine.startsWith("---") && trimmedLine.count('-') >= 3 && trimmedLine.count(QRegularExpression("[^-\\s]")) == 0) ||
+                (trimmedLine.startsWith("***") && trimmedLine.count('*') >= 3 && trimmedLine.count(QRegularExpression("[^*\\s]")) == 0) ||
+                (trimmedLine.startsWith("___") && trimmedLine.count('_') >= 3 && trimmedLine.count(QRegularExpression("[^_\\s]")) == 0)) {
+                closeParagraph();
+                closeList();
+                data.html += "<hr style=\"border: none; border-top: 1px solid #e1e4e8; margin: 16px 0;\">";
+                continue;
+            }
+
+            // 处理表格
+            if (line.contains('|') && line.trimmed().startsWith('|')) {
+                closeParagraph();
+                closeList();
+                
+                // 开始表格
+                data.html += "<table style=\"border-collapse: collapse; margin: 12px 0; width: 100%;\">";
+                
+                // 解析表头
+                QStringList cells = line.split('|', Qt::SkipEmptyParts);
+                data.html += "<thead><tr>";
+                for (const QString &cell : cells) {
+                    QString cellContent = cell.trimmed();
+                    processInlineFormatting(cellContent, data);
+                    data.html += QString("<th style=\"border: 1px solid #dfe2e5; padding: 8px 12px; background-color: #f6f8fa; font-weight: 600;\">%1</th>").arg(cellContent);
+                }
+                data.html += "</tr></thead><tbody>";
+                
+                // 跳过分隔行 (|---|---|)
+                if (i + 1 < lines.size() && lines[i + 1].contains("---")) {
+                    i++;
+                }
+                
+                // 解析表格内容行
+                while (i + 1 < lines.size()) {
+                    QString nextLine = lines[i + 1];
+                    if (!nextLine.contains('|') || nextLine.trimmed().isEmpty()) {
+                        break;
+                    }
+                    i++;
+                    
+                    QStringList rowCells = nextLine.split('|', Qt::SkipEmptyParts);
+                    data.html += "<tr>";
+                    for (const QString &cell : rowCells) {
+                        QString cellContent = cell.trimmed();
+                        processInlineFormatting(cellContent, data);
+                        data.html += QString("<td style=\"border: 1px solid #dfe2e5; padding: 8px 12px;\">%1</td>").arg(cellContent);
+                    }
+                    data.html += "</tr>";
+                }
+                
+                data.html += "</tbody></table>";
+                continue;
+            }
+
             // 处理引用块
             if (line.startsWith("> ")) {
                 closeParagraph();
@@ -178,13 +242,16 @@ void MarkdownRenderer::processMarkdown(const QString &markdown, RenderData &data
             // 处理普通文本段落
             closeList();
             if (!inParagraph) {
-                data.html += "<p style=\"margin: 8px 0;\">";
+                data.html += "<p style=\"margin: 12px 0;\">";
                 inParagraph = true;
+            } else {
+                // 段落内的换行使用 <br>
+                data.html += "<br>";
             }
 
             QString processedLine = line;
             processInlineFormatting(processedLine, data);
-            data.html += processedLine + " ";
+            data.html += processedLine;
         }
     }
 
