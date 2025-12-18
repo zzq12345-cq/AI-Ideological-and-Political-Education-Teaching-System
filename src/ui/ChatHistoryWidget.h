@@ -13,8 +13,14 @@ public:
     // 添加历史记录项
     void addHistoryItem(const QString &id, const QString &title, const QString &timeStr);
     
+    // 在指定位置插入历史记录项
+    void insertHistoryItem(int index, const QString &id, const QString &title, const QString &timeStr);
+    
     // 清空列表
     void clearHistory();
+    
+    // 清除选中状态
+    void clearSelection();
 
 signals:
     // 新建对话请求

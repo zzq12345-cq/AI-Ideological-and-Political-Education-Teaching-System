@@ -36,6 +36,8 @@ set(PROJECT_SOURCES
     src/services/ExportService.h
     src/services/DifyService.cpp
     src/services/DifyService.h
+    src/services/PPTXGenerator.cpp
+    src/services/PPTXGenerator.h
     src/ui/ChatWidget.cpp
     src/ui/ChatWidget.h
     src/ui/AIChatDialog.cpp

@@ -36,6 +36,7 @@ class QuestionBankWindow;
 class DifyService;
 class AIChatDialog;
 class ChatHistoryWidget;
+class PPTXGenerator;
 
 class ModernMainWindow : public QMainWindow
 {
@@ -162,6 +163,7 @@ private:
     QLineEdit *m_chatInput;
     QPushButton *m_sendBtn;
     QString m_currentAIResponse;  // 累积流式响应
+    PPTXGenerator *m_pptxGenerator;  // PPTX 生成器
     
     // 欢迎面板（首页显示，对话后隐藏）
     QWidget *m_welcomePanel;
