@@ -180,7 +180,27 @@ void ChatHistoryWidget::addHistoryItem(const QString &id, const QString &title, 
     m_listWidget->setItemWidget(item, widget);
 }
 
+void ChatHistoryWidget::insertHistoryItem(int index, const QString &id, const QString &title, const QString &timeStr)
+{
+    QListWidgetItem *item = new QListWidgetItem();
+    item->setData(Qt::UserRole, id);
+    
+    HistoryItemWidget *widget = new HistoryItemWidget(title, timeStr);
+    
+    // 设置item大小提示
+    item->setSizeHint(widget->sizeHint());
+    
+    // 在指定位置插入
+    m_listWidget->insertItem(index, item);
+    m_listWidget->setItemWidget(item, widget);
+}
+
 void ChatHistoryWidget::clearHistory()
 {
     m_listWidget->clear();
+}
+
+void ChatHistoryWidget::clearSelection()
+{
+    m_listWidget->clearSelection();
 }

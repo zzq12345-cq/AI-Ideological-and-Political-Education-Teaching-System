@@ -4,6 +4,7 @@
 #include "../questionbank/QuestionRepository.h"
 #include "../questionbank/questionbankwindow.h"
 #include "../services/DifyService.h"
+#include "../services/PPTXGenerator.h"
 #include "../ui/AIChatDialog.h"
 #include "../ui/ChatWidget.h"
 #include "../ui/ChatHistoryWidget.h"
@@ -39,6 +40,7 @@
 #include <QScrollBar>
 #include <QSharedPointer>
 #include <QDialog>
+#include <QFileDialog>
 #include <QEvent>
 #include <QMouseEvent>
 #include <QPropertyAnimation>
@@ -787,6 +789,9 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
 
     // 初始化 Dify AI 服务
     m_difyService = new DifyService(this);
+    
+    // 初始化 PPTX 生成器
+    m_pptxGenerator = new PPTXGenerator(this);
 
     // 从环境变量获取 API Key，提高安全性
     QString apiKey = qgetenv("DIFY_API_KEY");
@@ -2056,12 +2061,18 @@ void ModernMainWindow::createAIChatWidget()
         // 清空聊天并重置 Dify 会话
         if (m_bubbleChatWidget) {
             m_bubbleChatWidget->clearMessages();
-            QString openingMessage = "老师您好！欢迎使用AI政治课堂助教系统！我可以为您提供课程设计、教学资源、互动活动、学情分析等全方位支持，让我们一起打造更精彩的政治课堂吧！请问有什么可以帮到您的？";
-            m_bubbleChatWidget->addMessage(openingMessage, false);
+            m_bubbleChatWidget->addMessage("老师您好！我是智慧课堂助手，请问有什么可以帮你？", false);
         }
         if (m_difyService) {
             m_difyService->clearConversation();
         }
+        
+        // 清除选中状态（不再创建假的历史项，真实历史会在对话完成后自动刷新）
+        if (m_chatHistoryWidget) {
+            m_chatHistoryWidget->clearSelection();
+        }
+        // 重置对话开始标志
+        m_isConversationStarted = false;
     });
     
     connect(m_chatHistoryWidget, &ChatHistoryWidget::backRequested, this, [this]() {
@@ -2075,28 +2086,94 @@ void ModernMainWindow::createAIChatWidget()
     });
     
     connect(m_chatHistoryWidget, &ChatHistoryWidget::historyItemSelected, this, [this](const QString &id) {
-        // 切换历史记录（模拟功能）
-        if (m_bubbleChatWidget) {
-            m_bubbleChatWidget->clearMessages();
-            m_bubbleChatWidget->addMessage(QString("已切换到历史对话: %1 (模拟功能)").arg(id), false);
+        // 加载选中对话的消息历史
+        if (m_difyService) {
+            m_difyService->fetchMessages(id);
+            // 设置当前会话ID以便继续对话
+            // (需要在收到消息后处理)
         }
     });
     
-    // 加载模拟历史数据
-    m_chatHistoryWidget->addHistoryItem("chat_1", "思政课教学设计 对话 6", "12月12日 15:12");
-    m_chatHistoryWidget->addHistoryItem("chat_2", "课程资源推荐 对话 5", "12月12日 15:11");
-    m_chatHistoryWidget->addHistoryItem("chat_3", "学情分析报告 对话 4", "12月11日 22:41");
-    m_chatHistoryWidget->addHistoryItem("chat_4", "互动活动设计 对话 3", "12月11日 22:05");
-    m_chatHistoryWidget->addHistoryItem("chat_5", "教案生成 对话 2", "11月27日 21:36");
-    m_chatHistoryWidget->addHistoryItem("chat_6", "课堂导入设计 对话", "11月27日 21:35");
+    // 连接对话列表接收信号
+    connect(m_difyService, &DifyService::conversationsReceived, this, [this](const QJsonArray &conversations) {
+        if (!m_chatHistoryWidget) return;
+        
+        m_chatHistoryWidget->clearHistory();
+        
+        for (const QJsonValue &val : conversations) {
+            QJsonObject conv = val.toObject();
+            QString id = conv["id"].toString();
+            QString name = conv["name"].toString();
+            if (name.isEmpty()) {
+                // 如果没有名称，使用对话ID的前几个字符
+                name = QString("对话 %1").arg(id.left(8));
+            }
+            
+            // 获取更新时间并格式化
+            qint64 updatedAt = conv["updated_at"].toVariant().toLongLong();
+            QString timeStr;
+            if (updatedAt > 0) {
+                QDateTime dt = QDateTime::fromSecsSinceEpoch(updatedAt);
+                timeStr = dt.toString("M月d日 HH:mm");
+            } else {
+                timeStr = "未知时间";
+            }
+            
+            m_chatHistoryWidget->addHistoryItem(id, name, timeStr);
+        }
+        
+        qDebug() << "[ModernMainWindow] Loaded" << conversations.size() << "conversations";
+    });
+    
+    // 连接消息历史接收信号
+    connect(m_difyService, &DifyService::messagesReceived, this, [this](const QJsonArray &messages, const QString &conversationId) {
+        if (!m_bubbleChatWidget) return;
+        
+        m_bubbleChatWidget->clearMessages();
+        
+        // 消息是按时间倒序的，需要反转
+        QList<QJsonObject> msgList;
+        for (const QJsonValue &val : messages) {
+            msgList.prepend(val.toObject());
+        }
+        
+        for (const QJsonObject &msg : msgList) {
+            QString query = msg["query"].toString();
+            QString answer = msg["answer"].toString();
+            
+            if (!query.isEmpty()) {
+                m_bubbleChatWidget->addMessage(query, true);  // 用户消息
+            }
+            if (!answer.isEmpty()) {
+                m_bubbleChatWidget->addMessage(answer, false);  // AI 消息
+            }
+        }
+        
+        qDebug() << "[ModernMainWindow] Loaded" << messages.size() << "messages for conversation:" << conversationId;
+    });
+    
+    // 加载真实对话历史（如果有）
+    if (m_difyService) {
+        m_difyService->fetchConversations();
+        m_difyService->fetchAppInfo();  // 获取动态开场白
+    }
     
     // 创建气泡样式聊天组件
     m_bubbleChatWidget = new ChatWidget();
     m_bubbleChatWidget->setPlaceholderText("向AI助手发送信息...");
     containerLayout->addWidget(m_bubbleChatWidget, 1);
     
+    // 连接动态开场白信号
+    connect(m_difyService, &DifyService::appInfoReceived, this, [this](const QString &name, const QString &introduction) {
+        if (m_bubbleChatWidget && !introduction.isEmpty()) {
+            m_bubbleChatWidget->clearMessages();
+            m_bubbleChatWidget->addMessage(introduction, false);
+            qDebug() << "[ModernMainWindow] Loaded dynamic introduction from Dify:" << name;
+        }
+    });
+    
     // 显示开场白
-    QString openingMessage = "老师您好！欢迎使用AI政治课堂助教系统！我可以为您提供课程设计、教学资源、互动活动、学情分析等全方位支持，让我们一起打造更精彩的政治课堂吧！请问有什么可以帮到您的？\n\n**您可以尝试询问：**\n\"如何设计一堂吸引学生的思政课？请提供具体方案。\"\n\n\"您希望这节课采用什么样的教学方式？比如讲授式、讨论式、案例分析等，我来帮您设计相应的教学方案。\"";
+    QString openingMessage = "老师您好！我是智慧课堂助手，请问有什么可以帮你？";
     m_bubbleChatWidget->addMessage(openingMessage, false);
     
     // 连接消息发送信号到 Dify 服务
@@ -2262,5 +2339,44 @@ void ModernMainWindow::onAIRequestFinished()
     if (m_bubbleChatWidget) {
         m_bubbleChatWidget->setInputEnabled(true);
         m_bubbleChatWidget->focusInput();
+    }
+    
+    // 检测是否是 PPT 响应（包含 JSON 格式的 PPT 大纲）
+    if (m_pptxGenerator && !m_currentAIResponse.isEmpty()) {
+        QJsonObject pptJson = PPTXGenerator::parseJsonFromResponse(m_currentAIResponse);
+        
+        // 检查是否是 PPT 类型
+        if (!pptJson.isEmpty() && 
+            (pptJson.contains("slides") || pptJson["type"].toString() == "ppt")) {
+            
+            qDebug() << "[ModernMainWindow] Detected PPT JSON response, offering download";
+            
+            // 弹出保存对话框
+            QString defaultName = pptJson["title"].toString();
+            if (defaultName.isEmpty()) defaultName = "思政课PPT";
+            defaultName += ".pptx";
+            
+            QString filePath = QFileDialog::getSaveFileName(
+                this, 
+                "保存 PPT 文件", 
+                QDir::homePath() + "/Desktop/" + defaultName,
+                "PowerPoint 文件 (*.pptx)"
+            );
+            
+            if (!filePath.isEmpty()) {
+                if (m_pptxGenerator->generateFromJson(pptJson, filePath)) {
+                    QMessageBox::information(this, "成功", 
+                        QString("PPT 已生成！\n\n文件位置：%1").arg(filePath));
+                } else {
+                    QMessageBox::warning(this, "生成失败", 
+                        QString("PPT 生成失败：%1").arg(m_pptxGenerator->lastError()));
+                }
+            }
+        }
+    }
+    
+    // 刷新对话列表以显示新创建的对话
+    if (m_difyService) {
+        m_difyService->fetchConversations();
     }
 }

@@ -7,6 +7,7 @@
 #include <QSslConfiguration>
 #include <QSslSocket>
 #include <QtGlobal>
+#include <QUrlQuery>
 
 DifyService::DifyService(QObject *parent)
     : QObject(parent)
@@ -145,6 +146,10 @@ void DifyService::onReadyRead()
 
     // 立即读取所有可用数据
     QByteArray data = m_currentReply->readAll();
+    qDebug() << "[DifyService] onReadyRead called, bytes received:" << data.size();
+    if (data.size() > 0 && data.size() < 500) {
+        qDebug() << "[DifyService] Raw data:" << data;
+    }
     if (!data.isEmpty()) {
         parseStreamResponse(data);
     }
@@ -365,7 +370,13 @@ void DifyService::parseStreamResponse(const QByteArray &data)
 
         QJsonObject obj = doc.object();
         QString event = obj["event"].toString();
-        qDebug() << "[DifyService] Event:" << event;
+        
+        // 详细日志：打印完整事件数据（仅用于调试）
+        if (event != "workflow_started" && event != "node_started" && event != "node_finished" && event != "workflow_finished") {
+            qDebug() << "[DifyService] Event:" << event << "Full JSON:" << jsonStr.left(300);
+        } else {
+            qDebug() << "[DifyService] Event:" << event;
+        }
 
         if (event == "message") {
             // 普通消息块
@@ -459,10 +470,205 @@ void DifyService::parseStreamResponse(const QByteArray &data)
             m_fullResponse += filteredAnswer;
             emit streamChunkReceived(filteredAnswer);
             
-        } else if (event == "workflow_started" || event == "node_started" || event == "node_finished") {
+        } else if (event == "text_chunk") {
+            // 工作流应用的文本块事件
+            if (m_ignoreFurtherContent) {
+                continue;
+            }
+            // 工作流返回的文本在 data.text 中
+            QJsonObject dataObj = obj["data"].toObject();
+            QString text = dataObj["text"].toString();
+            if (text.isEmpty()) {
+                text = obj["text"].toString();  // 备用字段
+            }
+            
+            QString filteredText = filterThinkTagsStreaming(text);
+            if (filteredText.isEmpty()) {
+                continue;
+            }
+
+            const int remaining = m_maxResponseChars - m_fullResponse.length();
+            if (remaining <= 0) {
+                if (!m_hasTruncated) {
+                    m_fullResponse += "…";
+                    emit streamChunkReceived("…");
+                    m_hasTruncated = true;
+                }
+                m_ignoreFurtherContent = true;
+                continue;
+            }
+
+            m_fullResponse += filteredText;
+            emit streamChunkReceived(filteredText);
+            
+        } else if (event == "workflow_started" || event == "node_started" || event == "node_finished" || event == "workflow_finished") {
             // 跳过工作流相关事件
             qDebug() << "[DifyService] Skipping workflow event:" << event;
             continue;
         }
     }
+}
+
+void DifyService::fetchConversations(int limit)
+{
+    if (m_apiKey.isEmpty()) {
+        emit errorOccurred("API Key 未设置");
+        return;
+    }
+
+    QUrl url(m_baseUrl + "/conversations");
+    QUrlQuery query;
+    query.addQueryItem("user", m_userId);
+    query.addQueryItem("limit", QString::number(limit));
+    query.addQueryItem("sort_by", "-updated_at");
+    url.setQuery(query);
+
+    QNetworkRequest request(url);
+    request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+    request.setRawHeader("Content-Type", "application/json");
+
+    // 配置 SSL
+    QSslConfiguration sslConfig = request.sslConfiguration();
+    sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
+    request.setSslConfiguration(sslConfig);
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+
+    qDebug() << "[DifyService] Fetching conversations from:" << url.toString();
+
+    QNetworkReply *reply = m_networkManager->get(request);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        
+        if (reply->error() != QNetworkReply::NoError && 
+            reply->error() != QNetworkReply::RemoteHostClosedError) {
+            qDebug() << "[DifyService] Fetch conversations error:" << reply->errorString();
+            emit errorOccurred(QString("获取对话列表失败: %1").arg(reply->errorString()));
+            return;
+        }
+
+        QByteArray data = reply->readAll();
+        qDebug() << "[DifyService] Conversations response:" << data.left(500);
+
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (doc.isObject()) {
+            QJsonObject obj = doc.object();
+            if (obj.contains("data")) {
+                QJsonArray conversations = obj["data"].toArray();
+                qDebug() << "[DifyService] Received" << conversations.size() << "conversations";
+                emit conversationsReceived(conversations);
+            }
+        }
+    });
+}
+
+void DifyService::fetchMessages(const QString &conversationId, int limit)
+{
+    if (m_apiKey.isEmpty()) {
+        emit errorOccurred("API Key 未设置");
+        return;
+    }
+
+    if (conversationId.isEmpty()) {
+        emit errorOccurred("对话ID不能为空");
+        return;
+    }
+
+    QUrl url(m_baseUrl + "/messages");
+    QUrlQuery query;
+    query.addQueryItem("user", m_userId);
+    query.addQueryItem("conversation_id", conversationId);
+    query.addQueryItem("limit", QString::number(limit));
+    url.setQuery(query);
+
+    QNetworkRequest request(url);
+    request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+    request.setRawHeader("Content-Type", "application/json");
+
+    // 配置 SSL
+    QSslConfiguration sslConfig = request.sslConfiguration();
+    sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
+    request.setSslConfiguration(sslConfig);
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+
+    qDebug() << "[DifyService] Fetching messages for conversation:" << conversationId;
+
+    QNetworkReply *reply = m_networkManager->get(request);
+    QString convId = conversationId; // 捕获变量
+    connect(reply, &QNetworkReply::finished, this, [this, reply, convId]() {
+        reply->deleteLater();
+        
+        if (reply->error() != QNetworkReply::NoError && 
+            reply->error() != QNetworkReply::RemoteHostClosedError) {
+            qDebug() << "[DifyService] Fetch messages error:" << reply->errorString();
+            emit errorOccurred(QString("获取消息历史失败: %1").arg(reply->errorString()));
+            return;
+        }
+
+        QByteArray data = reply->readAll();
+        qDebug() << "[DifyService] Messages response:" << data.left(500);
+
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (doc.isObject()) {
+            QJsonObject obj = doc.object();
+            if (obj.contains("data")) {
+                QJsonArray messages = obj["data"].toArray();
+                qDebug() << "[DifyService] Received" << messages.size() << "messages";
+                emit messagesReceived(messages, convId);
+            }
+        }
+    });
+}
+
+void DifyService::fetchAppInfo()
+{
+    if (m_apiKey.isEmpty()) {
+        emit errorOccurred("API Key 未设置");
+        return;
+    }
+
+    // Dify API: GET /meta 获取应用元数据信息
+    QUrl url(m_baseUrl + "/meta");
+    QUrlQuery query;
+    query.addQueryItem("user", m_userId);
+    url.setQuery(query);
+
+    QNetworkRequest request(url);
+    request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+    request.setRawHeader("Content-Type", "application/json");
+
+    // 配置 SSL
+    QSslConfiguration sslConfig = request.sslConfiguration();
+    sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
+    request.setSslConfiguration(sslConfig);
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+
+    qDebug() << "[DifyService] Fetching app info from:" << url.toString();
+
+    QNetworkReply *reply = m_networkManager->get(request);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        
+        if (reply->error() != QNetworkReply::NoError && 
+            reply->error() != QNetworkReply::RemoteHostClosedError) {
+            qDebug() << "[DifyService] Fetch app info error:" << reply->errorString();
+            return;
+        }
+
+        QByteArray data = reply->readAll();
+        qDebug() << "[DifyService] App info response:" << data.left(500);
+
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (doc.isObject()) {
+            QJsonObject obj = doc.object();
+            QString name = obj["name"].toString();
+            QString introduction = obj["opening_statement"].toString();
+            
+            if (introduction.isEmpty()) {
+                introduction = obj["user_input_form"].toString();
+            }
+            
+            qDebug() << "[DifyService] App name:" << name << "Introduction:" << introduction.left(50);
+            emit appInfoReceived(name, introduction);
+        }
+    });
 }

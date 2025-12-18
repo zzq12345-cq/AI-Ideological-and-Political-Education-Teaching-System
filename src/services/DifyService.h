@@ -7,6 +7,7 @@
 #include <QNetworkReply>
 #include <QJsonObject>
 #include <QJsonDocument>
+#include <QJsonArray>
 
 /**
  * @brief Dify Cloud API 服务类
@@ -56,6 +57,24 @@ public:
      */
     void clearConversation();
 
+    /**
+     * @brief 获取对话列表
+     * @param limit 返回数量限制（默认20）
+     */
+    void fetchConversations(int limit = 20);
+
+    /**
+     * @brief 获取指定对话的消息历史
+     * @param conversationId 对话ID
+     * @param limit 返回数量限制（默认100）
+     */
+    void fetchMessages(const QString &conversationId, int limit = 100);
+
+    /**
+     * @brief 获取应用信息（包含开场白）
+     */
+    void fetchAppInfo();
+
 signals:
     /**
      * @brief 收到完整响应时发出
@@ -96,6 +115,26 @@ signals:
      * @param error 错误信息
      */
     void errorOccurred(const QString &error);
+
+    /**
+     * @brief 收到对话列表时发出
+     * @param conversations 对话列表 JSON 数组
+     */
+    void conversationsReceived(const QJsonArray &conversations);
+
+    /**
+     * @brief 收到消息历史时发出
+     * @param messages 消息列表 JSON 数组
+     * @param conversationId 对话ID
+     */
+    void messagesReceived(const QJsonArray &messages, const QString &conversationId);
+
+    /**
+     * @brief 收到应用信息时发出
+     * @param name 应用名称
+     * @param introduction 开场白介绍
+     */
+    void appInfoReceived(const QString &name, const QString &introduction);
 
 private slots:
     void onReplyFinished();
