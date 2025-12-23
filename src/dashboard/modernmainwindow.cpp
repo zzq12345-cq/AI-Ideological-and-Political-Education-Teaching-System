@@ -8,6 +8,8 @@
 #include "../ui/AIChatDialog.h"
 #include "../ui/ChatWidget.h"
 #include "../ui/ChatHistoryWidget.h"
+#include "../ui/HotspotTrackingWidget.h"
+#include "../services/HotspotService.h"
 #include <QApplication>
 #include <QMessageBox>
 #include <QFile>
@@ -793,6 +795,9 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     // 初始化 PPTX 生成器
     m_pptxGenerator = new PPTXGenerator(this);
 
+    // 初始化热点追踪服务
+    m_hotspotService = new HotspotService(this);
+
     // 从环境变量获取 API Key，提高安全性
     QString apiKey = qgetenv("DIFY_API_KEY");
     const bool hasApiKey = !apiKey.isEmpty();
@@ -946,10 +951,10 @@ void ModernMainWindow::setupCentralWidget()
 
     // 创建导航菜单
     teacherCenterBtn = new QPushButton("教师中心");
-    contentAnalysisBtn = new QPushButton("智能内容分析");
     aiPreparationBtn = new QPushButton("AI智能备课");
     resourceManagementBtn = new QPushButton("试题库");
     learningAnalysisBtn = new QPushButton("学情与教评");
+    hotspotTrackingBtn = new QPushButton("政治热点追踪");
   
     // 底部按钮
     settingsBtn = new QPushButton("系统设置");
@@ -957,10 +962,10 @@ void ModernMainWindow::setupCentralWidget()
 
     // 确保所有按钮都可见
     teacherCenterBtn->setVisible(true);
-    contentAnalysisBtn->setVisible(true);
     aiPreparationBtn->setVisible(true);
     resourceManagementBtn->setVisible(true);
     learningAnalysisBtn->setVisible(true);
+    hotspotTrackingBtn->setVisible(true);
     settingsBtn->setVisible(true);
     helpBtn->setVisible(true);
 
@@ -968,19 +973,19 @@ void ModernMainWindow::setupCentralWidget()
 
     // 设置侧边栏按钮样式 - 使用统一样式常量
     teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    hotspotTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
     // 连接信号
     connect(teacherCenterBtn, &QPushButton::clicked, this, [=]() { qDebug() << "教师中心按钮被点击"; onTeacherCenterClicked(); });
-    connect(contentAnalysisBtn, &QPushButton::clicked, this, [=]() { qDebug() << "智能内容分析按钮被点击"; onContentAnalysisClicked(); });
     connect(aiPreparationBtn, &QPushButton::clicked, this, [=]() { qDebug() << "AI智能备课按钮被点击"; onAIPreparationClicked(); });
     connect(resourceManagementBtn, &QPushButton::clicked, this, [=]() { qDebug() << "试题库按钮被点击"; onResourceManagementClicked(); });
     connect(learningAnalysisBtn, &QPushButton::clicked, this, [=]() { qDebug() << "学情与教评按钮被点击"; onLearningAnalysisClicked(); });
+    connect(hotspotTrackingBtn, &QPushButton::clicked, this, [=]() { qDebug() << "政治热点追踪按钮被点击"; onHotspotTrackingClicked(); });
     connect(settingsBtn, &QPushButton::clicked, this, [=]() { qDebug() << "系统设置按钮被点击"; onSettingsClicked(); });
     connect(helpBtn, &QPushButton::clicked, this, [=]() { qDebug() << "帮助中心按钮被点击"; onHelpClicked(); });
 
@@ -995,10 +1000,10 @@ void ModernMainWindow::setupCentralWidget()
 
     // 添加按钮到侧边栏
     sidebarLayout->addWidget(teacherCenterBtn);
-    sidebarLayout->addWidget(contentAnalysisBtn);
     sidebarLayout->addWidget(aiPreparationBtn);
     sidebarLayout->addWidget(resourceManagementBtn);
     sidebarLayout->addWidget(learningAnalysisBtn);
+    sidebarLayout->addWidget(hotspotTrackingBtn);
     sidebarLayout->addStretch();
     sidebarLayout->addWidget(settingsBtn);
     sidebarLayout->addWidget(helpBtn);
@@ -1032,6 +1037,12 @@ void ModernMainWindow::setupCentralWidget()
     questionBankWindow = new QuestionBankWindow(this);
     contentStack->addWidget(questionBankWindow);
 
+    // 创建政治热点追踪页面
+    m_hotspotWidget = new HotspotTrackingWidget();
+    m_hotspotWidget->setHotspotService(m_hotspotService);
+    m_hotspotWidget->setDifyService(m_difyService);
+    contentStack->addWidget(m_hotspotWidget);
+
     // 添加到主布局
     contentLayout->addWidget(m_sidebarStack);  // 使用侧边栏堆栈
     contentLayout->addWidget(contentStack);
@@ -1050,10 +1061,10 @@ void ModernMainWindow::applySidebarIcons()
     };
 
     setIcon(teacherCenterBtn, "user-identity", QStyle::SP_ComputerIcon);
-    setIcon(contentAnalysisBtn, "view-statistics", QStyle::SP_FileDialogContentsView);
     setIcon(aiPreparationBtn, "system-run", QStyle::SP_MediaPlay);
     setIcon(resourceManagementBtn, "folder", QStyle::SP_DirIcon);
     setIcon(learningAnalysisBtn, "view-list-details", QStyle::SP_FileDialogDetailedView);
+    setIcon(hotspotTrackingBtn, "globe", QStyle::SP_DriveNetIcon);
     setIcon(settingsBtn, "settings-configure", QStyle::SP_FileDialogDetailedView);
     setIcon(helpBtn, "help-browser", QStyle::SP_MessageBoxQuestion);
 }
@@ -1451,13 +1462,14 @@ void ModernMainWindow::createDashboard()
     };
 
     // 四个功能卡片，使用不同的柔和背景色
-    QPushButton *card1 = createFeatureCard("📊", "智能内容分析", "深度解析教材内容，提炼核心知识点", "#fef3c7");  // 淡黄
+    // 四个功能卡片，使用不同的柔和背景色
+    QPushButton *card1 = createFeatureCard("🔥", "政治热点追踪", "实时追踪时政热点，生成教学案例", "#fef3c7");  // 淡黄
     QPushButton *card2 = createFeatureCard("📝", "AI智能备课", "一键生成PPT", "#fce7f3");  // 淡粉
     QPushButton *card3 = createFeatureCard("📚", "试题库", "海量思政习题，智能组卷测评", "#dbeafe");  // 淡蓝
     QPushButton *card4 = createFeatureCard("📈", "数据分析报告", "可视化展示教学成果与趋势", "#d1fae5");  // 淡绿
 
     // 连接卡片点击事件
-    connect(card1, &QPushButton::clicked, this, &ModernMainWindow::onContentAnalysisClicked);
+    connect(card1, &QPushButton::clicked, this, &ModernMainWindow::onHotspotTrackingClicked);
     connect(card2, &QPushButton::clicked, this, &ModernMainWindow::onAIPreparationClicked);
     connect(card3, &QPushButton::clicked, this, &ModernMainWindow::onResourceManagementClicked);
     connect(card4, &QPushButton::clicked, this, &ModernMainWindow::onLearningAnalysisClicked);
@@ -1728,7 +1740,6 @@ void ModernMainWindow::applyPatrioticRedTheme()
 void ModernMainWindow::onTeacherCenterClicked()
 {
     // 重置所有按钮样式
-    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
@@ -1749,19 +1760,14 @@ void ModernMainWindow::onTeacherCenterClicked()
     this->statusBar()->showMessage("教师中心");
 }
 
-void ModernMainWindow::onContentAnalysisClicked()
-{
-    onTeacherCenterClicked();
-    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-    this->statusBar()->showMessage("智能内容分析");
-}
+
 
 void ModernMainWindow::onAIPreparationClicked()
 {
     qDebug() << "AI智能备课按钮被点击";
 
     // 重置所有按钮样式
-    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    // contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
@@ -1782,7 +1788,7 @@ void ModernMainWindow::onResourceManagementClicked()
     qDebug() << "试题库按钮被点击";
 
     // 重置所有按钮样式
-    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    // contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
@@ -1805,6 +1811,24 @@ void ModernMainWindow::onLearningAnalysisClicked()
     this->statusBar()->showMessage("学情与教评");
 }
 
+void ModernMainWindow::onHotspotTrackingClicked()
+{
+    // 重置所有侧边栏按钮样式
+    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    hotspotTrackingBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+    
+    // 切换到热点追踪页面
+    if (m_hotspotWidget) {
+        qDebug() << "切换到政治热点追踪页面";
+        contentStack->setCurrentWidget(m_hotspotWidget);
+        m_hotspotWidget->refresh();  // 刷新数据
+        this->statusBar()->showMessage("政治热点追踪");
+    } else {
+        qDebug() << "错误：m_hotspotWidget为空";
+    }
+}
 
 void ModernMainWindow::onSettingsClicked()
 {
