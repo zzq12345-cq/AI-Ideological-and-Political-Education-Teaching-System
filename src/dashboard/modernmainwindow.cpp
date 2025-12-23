@@ -2242,10 +2242,9 @@ void ModernMainWindow::onSendChatMessage()
     // 清空累积响应
     m_currentAIResponse.clear();
 
-    // 发送到 Dify
+    // 发送到 Dify（不添加额外前缀，让 AI 自由使用 Markdown 格式回复）
     if (m_difyService) {
-        const QString concisePrefix = "请用简洁中文回答（不超过120字），不要使用Markdown/标签/代码块，直接回答：";
-        m_difyService->sendMessage(concisePrefix + message);
+        m_difyService->sendMessage(message);
     }
 }
 
