@@ -46,6 +46,14 @@ set(PROJECT_SOURCES
     src/utils/MarkdownRenderer.h
     src/ui/ChatHistoryWidget.cpp
     src/ui/ChatHistoryWidget.h
+    src/ui/HotspotTrackingWidget.cpp
+    src/ui/HotspotTrackingWidget.h
+    src/services/HotspotService.cpp
+    src/services/HotspotService.h
+    src/hotspot/NewsItem.h
+    src/hotspot/INewsProvider.h
+    src/hotspot/MockNewsProvider.cpp
+    src/hotspot/MockNewsProvider.h
     resources.qrc
     resources/QtTheme/QtTheme.qrc
 )
