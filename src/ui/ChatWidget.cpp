@@ -143,15 +143,41 @@ void ChatWidget::setupStyles()
             background-color: #f5f7fa;
         }
         
-        /* 滚动区域 */
+        /* 滚动区域 - 透明背景 */
         QScrollArea#chatScrollArea {
-            background-color: #f5f7fa;
+            background-color: transparent;
             border: none;
         }
         
-        /* 消息容器 */
+        /* 滚动区域视口 - 透明背景 */
+        QScrollArea#chatScrollArea > QWidget > QWidget {
+            background-color: transparent;
+        }
+        
+        /* 消息容器 - 透明背景 */
         QWidget#messageContainer {
-            background-color: #f5f7fa;
+            background-color: transparent;
+        }
+        
+        /* 所有列表项和子控件 - 透明背景 */
+        QWidget#messageContainer QWidget {
+            background-color: transparent;
+        }
+        
+        /* 确保列表/视图无斑马纹 */
+        QListView, QTreeView, QTableView {
+            background-color: transparent;
+            alternate-background-color: transparent;
+            selection-background-color: transparent;
+        }
+        QListView::item, QTreeView::item, QTableView::item {
+            background-color: transparent;
+        }
+        QListView::item:alternate, QTreeView::item:alternate {
+            background-color: transparent;
+        }
+        QListView::item:selected, QTreeView::item:selected {
+            background-color: rgba(220, 38, 38, 0.1);
         }
         
         /* 滚动条样式 */
@@ -251,8 +277,10 @@ void ChatWidget::setupStyles()
 
 QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
 {
-    // 消息行容器
+    // 消息行容器 - 设置透明背景
     QWidget *rowWidget = new QWidget();
+    rowWidget->setAttribute(Qt::WA_TranslucentBackground);
+    rowWidget->setStyleSheet("background: transparent;");
     QHBoxLayout *rowLayout = new QHBoxLayout(rowWidget);
     rowLayout->setContentsMargins(0, 0, 0, 0);
     rowLayout->setSpacing(12);
