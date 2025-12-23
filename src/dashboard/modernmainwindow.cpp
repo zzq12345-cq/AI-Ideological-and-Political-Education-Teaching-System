@@ -1773,13 +1773,37 @@ void ModernMainWindow::onAIPreparationClicked()
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
       teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
-    // 切换到AI智能备课页面
-    if (aiPreparationWidget) {
-        qDebug() << "切换到AI智能备课页面";
-        contentStack->setCurrentWidget(aiPreparationWidget);
-        this->statusBar()->showMessage("AI智能备课");
-    } else {
-        qDebug() << "错误：aiPreparationWidget为空";
+    // 新流程：直接跳转到教师中心（AI 助手页面）
+    qDebug() << "AI智能备课 -> 跳转到教师中心，AI 引导生成 PPT";
+    contentStack->setCurrentWidget(dashboardWidget);
+    this->statusBar()->showMessage("AI智能备课");
+    
+    // 切换侧边栏到历史记录面板（页面1）
+    if (m_sidebarStack) {
+        m_sidebarStack->setCurrentIndex(1);
+    }
+    
+    // 切换到聊天区域（而不是欢迎页面）
+    if (m_mainStack && m_chatContainer) {
+        m_mainStack->setCurrentWidget(m_chatContainer);
+    }
+    
+    // 使用静态变量避免每次点击都发送欢迎消息
+    static bool aiPreparationWelcomeSent = false;
+    if (!aiPreparationWelcomeSent && m_bubbleChatWidget) {
+        // 发送 AI 欢迎消息引导用户
+        QString welcomeMessage = 
+            "🎓 **您好！我是 AI 备课助手**\n\n"
+            "我可以帮您快速生成精美的思政课 PPT。请告诉我您需要什么主题？\n\n"
+            "**例如：**\n"
+            "• 新时代爱国主义教育\n"
+            "• 社会主义核心价值观\n"
+            "• 中华优秀传统文化\n"
+            "• 民族团结进步教育\n\n"
+            "您也可以直接说：*帮我做一份关于XX的PPT，大约10页*";
+        
+        m_bubbleChatWidget->addMessage(welcomeMessage, false);
+        aiPreparationWelcomeSent = true;
     }
 }
 
