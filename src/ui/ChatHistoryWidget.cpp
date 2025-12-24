@@ -5,6 +5,7 @@
 #include <QPainter>
 #include <QDateTime>
 #include <QListWidgetItem>
+#include <QFontMetrics>
 
 // 自定义列表项组件
 class HistoryItemWidget : public QWidget {
@@ -33,9 +34,14 @@ public:
         textLayout->setSpacing(3);
         textLayout->setContentsMargins(0, 0, 0, 0);
         
-        QLabel *titleLabel = new QLabel(title);
+        QLabel *titleLabel = new QLabel();
         titleLabel->setStyleSheet("font-weight: 500; font-size: 14px; color: #1C1C1E; border: none; background: transparent;");
         titleLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+        titleLabel->setMaximumWidth(220);  // 限制最大宽度
+        // 使用省略号显示过长的文字
+        QFontMetrics fm(titleLabel->font());
+        QString elidedTitle = fm.elidedText(title, Qt::ElideRight, 220);
+        titleLabel->setText(elidedTitle);
         
         QLabel *timeLabel = new QLabel(timeStr);
         timeLabel->setStyleSheet("color: #8E8E93; font-size: 12px; border: none; background: transparent;"); 
@@ -58,7 +64,7 @@ ChatHistoryWidget::ChatHistoryWidget(QWidget *parent)
 
 void ChatHistoryWidget::setupUI()
 {
-    setFixedWidth(260); //稍微加宽一点适应内容
+    setFixedWidth(300); //加宽侧边栏适应内容
     // 整体背景色 #F7F7F8，右侧边框
     setStyleSheet("ChatHistoryWidget { background-color: #F7F7F8; border-right: 1px solid #E5E5E5; }");
 
