@@ -616,6 +616,8 @@ bool PPTXGenerator::extractTemplate(const QString &templatePath, const QString &
 
 bool PPTXGenerator::replaceSlideContent(const QString &slideXmlPath, const QString &title, const QStringList &content)
 {
+    Q_UNUSED(content);  // 暂时不替换内容，只替换标题
+    
     QFile file(slideXmlPath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qDebug() << "[PPTXGenerator] Cannot open slide:" << slideXmlPath;
@@ -625,51 +627,35 @@ bool PPTXGenerator::replaceSlideContent(const QString &slideXmlPath, const QStri
     QString xmlContent = QString::fromUtf8(file.readAll());
     file.close();
     
-    // 使用正则表达式找到并替换文本框中的内容
-    // OOXML 中文本在 <a:t>文本</a:t> 标签内
-    
-    // 查找所有文本内容
-    QRegularExpression textRegex("<a:t>([^<]*)</a:t>");
+    // 查找所有文本内容及其位置
+    QRegularExpression textRegex("<a:t>([^<]+)</a:t>");
     QRegularExpressionMatchIterator it = textRegex.globalMatch(xmlContent);
     
-    QStringList foundTexts;
+    // 找出最长的文本（通常是标题）
+    QString longestText;
     while (it.hasNext()) {
         QRegularExpressionMatch match = it.next();
         QString text = match.captured(1).trimmed();
-        if (!text.isEmpty() && text.length() > 1) {
-            foundTexts << text;
+        // 跳过单字符和数字
+        if (text.length() > longestText.length() && text.length() > 2 && !text.isEmpty()) {
+            // 跳过纯数字或常见装饰文字
+            bool isDecorative = (text == "01" || text == "02" || text == "03" || 
+                                 text == "目录" || text == "CONTENTS" || text == "谢谢");
+            if (!isDecorative) {
+                longestText = text;
+            }
         }
     }
     
-    qDebug() << "[PPTXGenerator] Found texts in slide:" << foundTexts.size();
-    
-    // 策略：替换第一个较长的文本为标题，后续文本替换为内容
-    bool titleReplaced = false;
-    int contentIndex = 0;
-    
-    for (const QString &oldText : foundTexts) {
-        // 跳过很短的文本（可能是标点或装饰）
-        if (oldText.length() < 2) {
-            continue;
-        }
-        
-        QString newText;
-        if (!titleReplaced && !title.isEmpty()) {
-            // 第一个长文本替换为标题
-            newText = title;
-            titleReplaced = true;
-        } else if (contentIndex < content.size()) {
-            // 后续文本替换为内容
-            newText = content[contentIndex];
-            contentIndex++;
-        } else {
-            // 没有更多内容，保留原文本
-            continue;
-        }
-        
-        // 执行替换
-        xmlContent = replaceTextInXml(xmlContent, oldText, newText);
+    if (longestText.isEmpty() || title.isEmpty()) {
+        qDebug() << "[PPTXGenerator] No suitable text found or title empty";
+        return true;  // 不做任何修改
     }
+    
+    qDebug() << "[PPTXGenerator] Replacing:" << longestText << "->" << title;
+    
+    // 只替换这一个最长的文本（作为标题）
+    xmlContent = replaceTextInXml(xmlContent, longestText, title);
     
     // 写回文件
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {

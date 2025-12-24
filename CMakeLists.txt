@@ -54,6 +54,8 @@ set(PROJECT_SOURCES
     src/hotspot/INewsProvider.h
     src/hotspot/MockNewsProvider.cpp
     src/hotspot/MockNewsProvider.h
+    src/services/XunfeiPPTService.cpp
+    src/services/XunfeiPPTService.h
     resources.qrc
     resources/QtTheme/QtTheme.qrc
 )

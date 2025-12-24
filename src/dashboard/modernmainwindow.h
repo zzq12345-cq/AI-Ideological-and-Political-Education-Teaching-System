@@ -39,6 +39,7 @@ class ChatHistoryWidget;
 class PPTXGenerator;
 class HotspotTrackingWidget;
 class HotspotService;
+class XunfeiPPTService;
 
 class ModernMainWindow : public QMainWindow
 {
@@ -166,6 +167,7 @@ private:
     QPushButton *m_sendBtn;
     QString m_currentAIResponse;  // 累积流式响应
     PPTXGenerator *m_pptxGenerator;  // PPTX 生成器
+    XunfeiPPTService *m_xunfeiPPTService;  // 讯飞智文 PPT 服务
     HotspotTrackingWidget *m_hotspotWidget;  // 热点追踪组件
     HotspotService *m_hotspotService;  // 热点服务
     
@@ -174,6 +176,7 @@ private:
     QWidget *m_welcomeInputWidget;  // 欢迎页面底部输入框
     QStackedWidget *m_mainStack;    // 主内容切换栈
     bool m_isConversationStarted;   // 是否已开始对话
+    bool m_ignoreDifyResponse;      // 是否忽略 Dify 返回（预存 PPT 时使用）
 
     // 数据
     QString currentUserRole;
