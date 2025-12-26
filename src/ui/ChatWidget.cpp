@@ -465,15 +465,24 @@ QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
 void ChatWidget::addMessage(const QString &text, bool isUser)
 {
     qDebug() << "[ChatWidget] addMessage called with text length:" << text.length() << "isUser:" << isUser;
+    
+    // 安全检查
+    if (!m_messageLayout) {
+        qDebug() << "[ChatWidget] Error: m_messageLayout is null!";
+        return;
+    }
+    
     // 注意：允许空的 AI 消息作为流式响应的占位符
     if (text.trimmed().isEmpty() && isUser) {
         qDebug() << "[ChatWidget] addMessage: text is empty for user message, returning";
         return;
     }
 
-    // 移除底部弹簧
-    QLayoutItem *stretch = m_messageLayout->takeAt(m_messageLayout->count() - 1);
-    if (stretch) delete stretch;
+    // 移除底部弹簧（安全检查）
+    if (m_messageLayout->count() > 0) {
+        QLayoutItem *stretch = m_messageLayout->takeAt(m_messageLayout->count() - 1);
+        if (stretch) delete stretch;
+    }
 
     // 创建并添加消息气泡
     qDebug() << "[ChatWidget] addMessage: About to create message bubble";

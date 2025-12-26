@@ -71,9 +71,21 @@ QuestionBankWindow::QuestionBankWindow(QWidget *parent)
     baseFont.setStyleHint(QFont::SansSerif);
     baseFont.setStyleStrategy(QFont::PreferAntialias);
     setFont(baseFont);
+    
+    // 初始化 PaperService
+    m_paperService = new PaperService(this);
+    
+    // 连接信号
+    connect(m_paperService, &PaperService::searchCompleted,
+            this, &QuestionBankWindow::onQuestionsReceived);
+    connect(m_paperService, &PaperService::questionError,
+            this, &QuestionBankWindow::onQuestionsError);
 
     setupLayout();
     loadStyleSheet();
+    
+    // 页面加载时自动获取题目
+    loadQuestions();
 }
 
 void QuestionBankWindow::setupLayout()
@@ -266,24 +278,30 @@ QWidget *QuestionBankWindow::buildSidebar()
 
 QWidget *QuestionBankWindow::buildContentArea()
 {
-    auto *scrollArea = new QScrollArea(this);
-    scrollArea->setObjectName("contentScrollArea");
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setFrameShape(QFrame::NoFrame);
-    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_questionScrollArea = new QScrollArea(this);
+    m_questionScrollArea->setObjectName("contentScrollArea");
+    m_questionScrollArea->setWidgetResizable(true);
+    m_questionScrollArea->setFrameShape(QFrame::NoFrame);
+    m_questionScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-    auto *scrollWidget = new QWidget(scrollArea);
+    auto *scrollWidget = new QWidget(m_questionScrollArea);
     scrollWidget->setObjectName("scrollWrapper");
 
-    auto *scrollLayout = new QVBoxLayout(scrollWidget);
-    scrollLayout->setContentsMargins(0, 0, 4, 0);
-    scrollLayout->setSpacing(16);
+    m_questionListLayout = new QVBoxLayout(scrollWidget);
+    m_questionListLayout->setContentsMargins(0, 0, 4, 0);
+    m_questionListLayout->setSpacing(16);
+    
+    // 状态提示标签
+    m_statusLabel = new QLabel("正在加载题目...", scrollWidget);
+    m_statusLabel->setObjectName("statusLabel");
+    m_statusLabel->setAlignment(Qt::AlignCenter);
+    m_statusLabel->setStyleSheet("QLabel { color: #6c757d; font-size: 14px; padding: 40px; }");
+    m_questionListLayout->addWidget(m_statusLabel);
 
-    scrollLayout->addWidget(createQuestionCard());
-    scrollLayout->addStretch(1);
+    m_questionListLayout->addStretch(1);
 
-    scrollArea->setWidget(scrollWidget);
-    return scrollArea;
+    m_questionScrollArea->setWidget(scrollWidget);
+    return m_questionScrollArea;
 }
 
 QWidget *QuestionBankWindow::createComboField(const QString &labelText, const QStringList &options)
@@ -373,269 +391,10 @@ QWidget *QuestionBankWindow::createFilterButtons(const QString &labelText,
     return section;
 }
 
-QWidget *QuestionBankWindow::createQuestionCard()
-{
-    auto *card = new QFrame(this);
-    card->setObjectName("questionCard");
-    applyShadow(card, 36, QPointF(0, 14), QColor(0, 0, 0, 18));
 
-    auto *layout = new QVBoxLayout(card);
-    layout->setContentsMargins(kCardPadding, kCardPadding, kCardPadding, kCardPadding);
-    layout->setSpacing(20);
+// 旧的静态版本方法已删除，使用新的带参数版本
 
-    auto *header = new QFrame(card);
-    header->setObjectName("cardHeader");
 
-    auto *headerLayout = new QHBoxLayout(header);
-    headerLayout->setContentsMargins(0, 0, 0, 0);
-    headerLayout->setSpacing(12);
-
-    auto *titleWrapper = new QWidget(header);
-    auto *titleLayout = new QVBoxLayout(titleWrapper);
-    titleLayout->setContentsMargins(0, 0, 0, 0);
-    titleLayout->setSpacing(6);
-
-    auto *title = new QLabel(QStringLiteral("智能出题中心"), titleWrapper);
-    title->setObjectName("cardTitle");
-
-    auto *subtitle = new QLabel(QStringLiteral("依据选择的教材和章节即时生成题目"), titleWrapper);
-    subtitle->setObjectName("cardSubtitle");
-
-    titleLayout->addWidget(title);
-    titleLayout->addWidget(subtitle);
-
-    auto *progressWrapper = new QWidget(header);
-    auto *progressLayout = new QVBoxLayout(progressWrapper);
-    progressLayout->setContentsMargins(0, 0, 0, 0);
-    progressLayout->setSpacing(6);
-    progressLayout->setAlignment(Qt::AlignRight);
-
-    auto *progressLabel = new QLabel(QStringLiteral("当前进度"), progressWrapper);
-    progressLabel->setObjectName("progressLabel");
-
-    m_progressBar = new QProgressBar(progressWrapper);
-    m_progressBar->setObjectName("progressBar");
-    m_progressBar->setRange(0, m_totalQuestions);
-    m_progressBar->setTextVisible(false);
-
-    m_progressValueLabel = new QLabel(progressWrapper);
-    m_progressValueLabel->setObjectName("progressValue");
-    m_progressValueLabel->setAlignment(Qt::AlignRight);
-
-    progressLayout->addWidget(progressLabel);
-    progressLayout->addWidget(m_progressBar);
-    progressLayout->addWidget(m_progressValueLabel);
-
-    headerLayout->addWidget(titleWrapper, 1);
-    headerLayout->addWidget(progressWrapper, 0, Qt::AlignTop);
-
-    layout->addWidget(header);
-    layout->addWidget(createTagRow());
-
-    auto *questionStem = new QLabel(
-        QStringLiteral("在智能备课系统中，如何确保生成的题目能够精准匹配教材章节与难度？"),
-        card);
-    questionStem->setObjectName("questionStem");
-    questionStem->setWordWrap(true);
-    layout->addWidget(questionStem);
-
-    auto *optionsPanel = new QFrame(card);
-    optionsPanel->setObjectName("optionsPanel");
-
-    auto *optionsLayout = new QVBoxLayout(optionsPanel);
-    optionsLayout->setContentsMargins(0, 0, 0, 0);
-    optionsLayout->setSpacing(12);
-
-    m_optionGroup = new QButtonGroup(optionsPanel);
-    m_optionGroup->setExclusive(true);
-
-    struct OptionDef {
-        QString key;
-        QString value;
-    };
-
-    const QList<OptionDef> options = {
-        {QStringLiteral("A"), QStringLiteral("先配置课程范围、版本、年级与章节后再生成")},
-        {QStringLiteral("B"), QStringLiteral("直接使用系统推荐而不进行任何筛选")},
-        {QStringLiteral("C"), QStringLiteral("只选择难度即可，其他参数忽略")},
-        {QStringLiteral("D"), QStringLiteral("在导出后再人工编辑匹配章节")}
-    };
-
-    for (int i = 0; i < options.size(); ++i) {
-        optionsLayout->addWidget(createOptionItem(options.at(i).key, options.at(i).value));
-        if (i == 0) {
-            const auto buttons = m_optionGroup->buttons();
-            if (!buttons.isEmpty()) {
-                buttons.constLast()->setChecked(true);
-            }
-        }
-    }
-
-    layout->addWidget(optionsPanel);
-
-    m_answerSection = createAnswerSection();
-    layout->addWidget(m_answerSection);
-
-    m_analysisSection = createAnalysisSection();
-    layout->addWidget(m_analysisSection);
-
-    layout->addWidget(createActionRow());
-
-    updateProgress(0);
-    return card;
-}
-
-QWidget *QuestionBankWindow::createTagRow()
-{
-    auto *tagRow = new QFrame(this);
-    tagRow->setObjectName("tagRow");
-
-    auto *layout = new QHBoxLayout(tagRow);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(8);
-
-    auto createTag = [tagRow](const QString &text, const QString &objectName) {
-        auto *label = new QLabel(text, tagRow);
-        label->setObjectName(objectName);
-        return label;
-    };
-
-    layout->addWidget(createTag(QStringLiteral("单选题"), QStringLiteral("tagType")));
-    layout->addWidget(createTag(QStringLiteral("难度 · 中等"), QStringLiteral("tagDifficulty")));
-    layout->addWidget(createTag(QStringLiteral("教材：第一单元"), QStringLiteral("tagChapter")));
-    layout->addStretch(1);
-
-    return tagRow;
-}
-
-QWidget *QuestionBankWindow::createOptionItem(const QString &key, const QString &text)
-{
-    auto *container = new QWidget(this);
-    container->setProperty("role", "optionItem");
-    container->setProperty("hovered", false);
-    container->setProperty("selected", false);
-    container->setCursor(Qt::PointingHandCursor);
-    container->setMinimumHeight(kOptionMinHeight);
-    container->setMouseTracking(true);
-
-    auto *layout = new QHBoxLayout(container);
-    layout->setContentsMargins(20, 12, 20, 12);  // 默认边距
-    layout->setSpacing(16);
-
-    // 现代化复选框
-    auto *checkbox = new ModernCheckBox(container);
-    checkbox->setProperty("role", "optionCheckbox");
-    checkbox->setCursor(Qt::PointingHandCursor);
-    m_optionGroup->addButton(checkbox);
-    checkbox->setAutoExclusive(true);
-
-    // 选项标签（A, B, C, D）
-    auto *keyLabel = new QLabel(key, container);
-    keyLabel->setProperty("role", "optionKey");
-    keyLabel->setAlignment(Qt::AlignCenter);
-    keyLabel->setFixedSize(32, 32);
-    keyLabel->setStyleSheet(QString(
-        "QLabel[role=\"optionKey\"] {"
-        "  background: #F8F9FA;"
-        "  color: #495057;"
-        "  border-radius: 16px;"
-        "  font-weight: 600;"
-        "  font-size: 14px;"
-        "}"
-    ));
-
-    // 选项文本
-    auto *textLabel = new QLabel(text, container);
-    textLabel->setProperty("role", "optionText");
-    textLabel->setWordWrap(true);
-    textLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-
-    layout->addWidget(checkbox, 0, Qt::AlignTop);
-    layout->addWidget(keyLabel, 0, Qt::AlignTop);
-    layout->addWidget(textLabel, 1);
-
-    // 连接选择信号
-    connect(checkbox, &QCheckBox::toggled, this, [this, container, layout, key, text](bool checked) {
-        container->setProperty("selected", checked);
-
-        // 调整选中状态的边距（4px留白效果）
-        if (checked) {
-            layout->setContentsMargins(16, 8, 16, 8);  // 缩小4px形成留白
-        } else {
-            layout->setContentsMargins(20, 12, 20, 12);  // 恢复默认边距
-        }
-
-        // 强制样式重绘
-        container->style()->unpolish(container);
-        container->style()->polish(container);
-        container->update();
-
-        if (checked) {
-            qInfo() << "Selected option" << key << text;
-        }
-    });
-
-    // 安装事件过滤器用于hover效果
-    container->installEventFilter(this);
-    checkbox->installEventFilter(this);
-    keyLabel->installEventFilter(this);
-    textLabel->installEventFilter(this);
-
-    m_optionFrames.append(container);
-    return container;
-}
-
-QFrame *QuestionBankWindow::createAnswerSection()
-{
-    auto *section = new QFrame(this);
-    section->setObjectName("answerSection");
-
-    auto *layout = new QVBoxLayout(section);
-    layout->setContentsMargins(20, 16, 20, 16);
-    layout->setSpacing(4);
-
-    auto *title = new QLabel(QStringLiteral("正确答案"), section);
-    title->setObjectName("answerTitle");
-
-    auto *value = new QLabel(QStringLiteral("A"), section);
-    value->setObjectName("answerValue");
-
-    auto *reason = new QLabel(
-        QStringLiteral("通过完整配置课程范围、版本、年级与章节，系统才能生成与教学目标匹配的题目。"),
-        section);
-    reason->setObjectName("answerDescription");
-    reason->setWordWrap(true);
-
-    layout->addWidget(title);
-    layout->addWidget(value);
-    layout->addWidget(reason);
-
-    return section;
-}
-
-QFrame *QuestionBankWindow::createAnalysisSection()
-{
-    auto *section = new QFrame(this);
-    section->setObjectName("analysisSection");
-
-    auto *layout = new QVBoxLayout(section);
-    layout->setContentsMargins(20, 16, 20, 16);
-    layout->setSpacing(6);
-
-    auto *title = new QLabel(QStringLiteral("解析"), section);
-    title->setObjectName("analysisTitle");
-
-    auto *description = new QLabel(
-        QStringLiteral("系统通过匹配教材版本、年级与章节，结合题型与难度标签对题库进行聚合检索，再依据教学目标进行二次筛选，保证题目语境与教学内容完全一致。"),
-        section);
-    description->setObjectName("analysisDescription");
-    description->setWordWrap(true);
-
-    layout->addWidget(title);
-    layout->addWidget(description);
-
-    return section;
-}
 
 QWidget *QuestionBankWindow::createActionRow()
 {
@@ -795,4 +554,224 @@ bool QuestionBankWindow::eventFilter(QObject *watched, QEvent *event)
     }
 
     return QWidget::eventFilter(watched, event);
+}
+
+// ==================== 动态加载题目相关方法 ====================
+
+void QuestionBankWindow::loadQuestions()
+{
+    if (!m_paperService) {
+        qWarning() << "[QuestionBankWindow] PaperService is null";
+        return;
+    }
+    
+    if (m_statusLabel) {
+        m_statusLabel->setText("正在加载题目...");
+        m_statusLabel->show();
+    }
+    
+    // 构建搜索条件
+    QuestionSearchCriteria criteria;
+    criteria.visibility = "public";  // 只显示公共题目
+    // 注意：QuestionSearchCriteria 目前没有 limit 字段，API 会返回所有匹配结果
+    
+    qDebug() << "[QuestionBankWindow] Loading questions with criteria...";
+    m_paperService->searchQuestions(criteria);
+}
+
+void QuestionBankWindow::onSearchClicked()
+{
+    loadQuestions();
+}
+
+void QuestionBankWindow::onQuestionsReceived(const QList<PaperQuestion> &questions)
+{
+    qDebug() << "[QuestionBankWindow] Received" << questions.size() << "questions";
+    
+    m_questions = questions;
+    m_totalQuestions = questions.size();
+    m_currentQuestion = 1;
+    
+    displayQuestions(questions);
+}
+
+void QuestionBankWindow::onQuestionsError(const QString &type, const QString &error)
+{
+    qWarning() << "[QuestionBankWindow] Error loading questions:" << type << error;
+    
+    if (m_statusLabel) {
+        m_statusLabel->setText(QString("加载失败: %1").arg(error));
+        m_statusLabel->show();
+    }
+}
+
+void QuestionBankWindow::clearQuestionCards()
+{
+    if (!m_questionListLayout) return;
+    
+    // 移除所有子项（除了 stretch）
+    while (m_questionListLayout->count() > 0) {
+        QLayoutItem *item = m_questionListLayout->takeAt(0);
+        if (item->widget()) {
+            item->widget()->deleteLater();
+        }
+        delete item;
+    }
+}
+
+void QuestionBankWindow::displayQuestions(const QList<PaperQuestion> &questions)
+{
+    clearQuestionCards();
+    
+    if (questions.isEmpty()) {
+        m_statusLabel = new QLabel("暂无题目，请先导入试题或调整筛选条件", this);
+        m_statusLabel->setObjectName("statusLabel");
+        m_statusLabel->setAlignment(Qt::AlignCenter);
+        m_statusLabel->setStyleSheet("QLabel { color: #6c757d; font-size: 14px; padding: 40px; }");
+        m_questionListLayout->addWidget(m_statusLabel);
+        m_questionListLayout->addStretch(1);
+        return;
+    }
+    
+    // 为每道题目创建卡片
+    int index = 1;
+    for (const PaperQuestion &q : questions) {
+        QWidget *card = createQuestionCard(q, index);
+        m_questionListLayout->addWidget(card);
+        index++;
+    }
+    
+    m_questionListLayout->addStretch(1);
+    
+    // 更新进度
+    if (m_progressBar) {
+        m_progressBar->setRange(0, m_totalQuestions);
+        m_progressBar->setValue(m_currentQuestion);
+    }
+    if (m_progressValueLabel) {
+        m_progressValueLabel->setText(QString("%1 / %2").arg(m_currentQuestion).arg(m_totalQuestions));
+    }
+    
+    qDebug() << "[QuestionBankWindow] Displayed" << questions.size() << "question cards";
+}
+
+QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, int index)
+{
+    auto *card = new QFrame(this);
+    card->setObjectName("questionCard");
+    applyShadow(card, 36, QPointF(0, 14), QColor(0, 0, 0, 18));
+
+    auto *layout = new QVBoxLayout(card);
+    layout->setContentsMargins(kCardPadding, kCardPadding, kCardPadding, kCardPadding);
+    layout->setSpacing(16);
+
+    // 标签行（题型、难度、学科）
+    layout->addWidget(createTagRow(question.tags));
+    
+    // 题号和题目
+    QString stemText = QString("<b>第 %1 题</b> %2").arg(index).arg(question.stem);
+    auto *questionStem = new QLabel(stemText, card);
+    questionStem->setObjectName("questionStem");
+    questionStem->setWordWrap(true);
+    questionStem->setTextFormat(Qt::RichText);
+    layout->addWidget(questionStem);
+
+    // 选项（如果有）
+    if (!question.options.isEmpty()) {
+        auto *optionsPanel = new QFrame(card);
+        optionsPanel->setObjectName("optionsPanel");
+        
+        auto *optionsLayout = new QVBoxLayout(optionsPanel);
+        optionsLayout->setContentsMargins(0, 0, 0, 0);
+        optionsLayout->setSpacing(8);
+        
+        QStringList optionKeys = {"A", "B", "C", "D", "E", "F"};
+        for (int i = 0; i < question.options.size() && i < optionKeys.size(); ++i) {
+            auto *optionLabel = new QLabel(QString("%1. %2").arg(optionKeys[i]).arg(question.options[i]), optionsPanel);
+            optionLabel->setWordWrap(true);
+            optionLabel->setStyleSheet("QLabel { padding: 8px 12px; background: #f8f9fa; border-radius: 6px; }");
+            optionsLayout->addWidget(optionLabel);
+        }
+        
+        layout->addWidget(optionsPanel);
+    }
+
+    // 答案区域
+    layout->addWidget(createAnswerSection(question.answer));
+
+    // 解析区域
+    if (!question.explanation.isEmpty()) {
+        layout->addWidget(createAnalysisSection(question.explanation));
+    }
+
+    return card;
+}
+
+QWidget *QuestionBankWindow::createTagRow(const QStringList &tags)
+{
+    auto *tagRow = new QFrame(this);
+    tagRow->setObjectName("tagRow");
+
+    auto *layout = new QHBoxLayout(tagRow);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(8);
+
+    auto createTag = [tagRow](const QString &text, const QString &objectName) {
+        auto *label = new QLabel(text, tagRow);
+        label->setObjectName(objectName);
+        label->setStyleSheet("QLabel { background: #e9ecef; color: #495057; padding: 4px 12px; border-radius: 12px; font-size: 12px; }");
+        return label;
+    };
+
+    for (const QString &tag : tags) {
+        layout->addWidget(createTag(tag, "tagItem"));
+    }
+    
+    layout->addStretch(1);
+
+    return tagRow;
+}
+
+QFrame *QuestionBankWindow::createAnswerSection(const QString &answer)
+{
+    auto *section = new QFrame(this);
+    section->setObjectName("answerSection");
+
+    auto *layout = new QVBoxLayout(section);
+    layout->setContentsMargins(20, 16, 20, 16);
+    layout->setSpacing(4);
+
+    auto *title = new QLabel(QStringLiteral("正确答案"), section);
+    title->setObjectName("answerTitle");
+
+    auto *value = new QLabel(answer, section);
+    value->setObjectName("answerValue");
+    value->setWordWrap(true);
+
+    layout->addWidget(title);
+    layout->addWidget(value);
+
+    return section;
+}
+
+QFrame *QuestionBankWindow::createAnalysisSection(const QString &explanation)
+{
+    auto *section = new QFrame(this);
+    section->setObjectName("analysisSection");
+
+    auto *layout = new QVBoxLayout(section);
+    layout->setContentsMargins(20, 16, 20, 16);
+    layout->setSpacing(6);
+
+    auto *title = new QLabel(QStringLiteral("解析"), section);
+    title->setObjectName("analysisTitle");
+
+    auto *description = new QLabel(explanation, section);
+    description->setObjectName("analysisDescription");
+    description->setWordWrap(true);
+
+    layout->addWidget(title);
+    layout->addWidget(description);
+
+    return section;
 }

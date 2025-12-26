@@ -62,10 +62,11 @@ inline void enforceChineseFont(QWidget *widget, int pointSize, QFont::Weight wei
 
 SignUpWindow::SignUpWindow(QWidget *parent)
     : QWidget(parent)
+    , m_eyeShowIcon(QIcon(QStringLiteral(":/images/眼睛_显示.png")))
+    , m_eyeHideIcon(QIcon(QStringLiteral(":/images/眼睛_隐藏.png")))
 {
     const QStringList availableFamilies = QFontDatabase::families();
     qDebug() << cn("[FontDebug] 可用字体数量:") << availableFamilies.size();
-    qDebug() << cn("[FontDebug] 可用字体列表:") << availableFamilies;
 
     const QString targetFamily = QStringLiteral("PingFang SC");
     const bool hasTargetFamily = QFontDatabase::hasFamily(targetFamily);
@@ -75,15 +76,8 @@ SignUpWindow::SignUpWindow(QWidget *parent)
     QFont windowFont = chooseChineseFont(12, QFont::Normal);
     if (hasTargetFamily) {
         windowFont.setFamily(targetFamily);
-        qDebug() << cn("[FontDebug] 已强制使用字体:") << targetFamily;
-    } else {
-        qWarning() << cn("[FontDebug] 系统缺少 PingFang SC，保留自动选择字体:") << windowFont.family();
     }
     setFont(windowFont);
-
-    setWindowTitle(cn("注册 - AI智慧课堂"));
-    resize(1180, 760);
-    setAttribute(Qt::WA_DeleteOnClose);
 
     // 初始化Supabase客户端
     m_supabaseClient = new SupabaseClient(this);
@@ -94,72 +88,57 @@ SignUpWindow::SignUpWindow(QWidget *parent)
     connect(m_supabaseClient, &SupabaseClient::signupFailed,
             this, &SignUpWindow::onSignupFailed);
 
-    qDebug() << cn("SignUpWindow 构造函数");
     setupUI();
     setupStyle();
 }
 
 SignUpWindow::~SignUpWindow()
 {
-    qDebug() << cn("SignUpWindow 析构函数");
 }
 
 void SignUpWindow::setupUI()
 {
     qDebug() << cn("开始设置注册窗口UI...");
 
-    setAttribute(Qt::WA_StyledBackground, true);
-    setObjectName("signupWindow");
-    setMinimumSize(1100, 720);
-    resize(1200, 760);
+    // 设置基本窗口属性，保持与登录窗口一致
+    setWindowTitle(cn("注册 - 思想政治智慧课堂"));
+    resize(1400, 900);
+    setMinimumSize(1000, 800);
 
+    // 创建主布局
     mainLayout = new QHBoxLayout(this);
-    mainLayout->setContentsMargins(32, 32, 32, 32);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
-    mainLayout->setAlignment(Qt::AlignCenter);
 
-    QFrame *contentCard = new QFrame(this);
-    enforceChineseFont(contentCard, 12, QFont::Normal);
-    contentCard->setObjectName("contentCard");
-    contentCard->setMinimumSize(1050, 700);
-
-    auto *shadowEffect = new QGraphicsDropShadowEffect(contentCard);
-    shadowEffect->setBlurRadius(48);
-    shadowEffect->setOffset(0, 24);
-    shadowEffect->setColor(QColor(15, 23, 42, 60));
-    contentCard->setGraphicsEffect(shadowEffect);
-
-    QHBoxLayout *contentLayout = new QHBoxLayout(contentCard);
-    contentLayout->setContentsMargins(0, 0, 0, 0);
-    contentLayout->setSpacing(0);
-
-    leftPanel = new QFrame(contentCard);
-    enforceChineseFont(leftPanel, 12, QFont::Normal);
-    leftPanel->setObjectName("heroPanel");
+    // 左侧面板 - 保持与登录窗口一致的风格
+    leftPanel = new QFrame(this);
+    leftPanel->setFixedWidth(720); // 宽度的60%
     leftLayout = new QVBoxLayout(leftPanel);
-    leftLayout->setContentsMargins(48, 72, 48, 72);
-    leftLayout->setSpacing(12);
+    leftLayout->setContentsMargins(0, 0, 0, 0);
+    leftLayout->setSpacing(0);
     buildHeroPanel();
 
-    rightPanel = new QFrame(contentCard);
-    enforceChineseFont(rightPanel, 12, QFont::Normal);
-    rightPanel->setObjectName("formPanel");
+    // 右侧面板 - 注册表单
+    rightPanel = new QFrame(this);
     rightLayout = new QVBoxLayout(rightPanel);
-    rightLayout->setContentsMargins(64, 48, 64, 48);
-    rightLayout->setSpacing(0);
+    rightLayout->setContentsMargins(50, 50, 50, 50);
     buildFormPanel();
 
-    contentLayout->addWidget(leftPanel);
-    contentLayout->addWidget(rightPanel);
-    contentLayout->setStretch(0, 5);
-    contentLayout->setStretch(1, 7);
+    // 添加到主布局
+    mainLayout->addWidget(leftPanel);
+    mainLayout->addWidget(rightPanel);
 
-    mainLayout->addWidget(contentCard);
-
+    // 连接信号
     connect(registerButton, &QPushButton::clicked, this, &SignUpWindow::onSignupClicked);
     connect(loginBtn, &QPushButton::clicked, this, &SignUpWindow::onBackToLoginClicked);
-    connect(togglePassword1Btn, &QPushButton::clicked, this, &SignUpWindow::onTogglePassword1Clicked);
-    connect(togglePassword2Btn, &QPushButton::clicked, this, &SignUpWindow::onTogglePassword2Clicked);
+    
+    // 连接眼睛按钮信号
+    if (togglePassword1Btn) {
+        connect(togglePassword1Btn, &QPushButton::clicked, this, &SignUpWindow::onTogglePassword1Clicked);
+    }
+    if (togglePassword2Btn) {
+        connect(togglePassword2Btn, &QPushButton::clicked, this, &SignUpWindow::onTogglePassword2Clicked);
+    }
 
     emailEdit->clear();
     usernameEdit->clear();
@@ -169,159 +148,308 @@ void SignUpWindow::setupUI()
 
 void SignUpWindow::buildHeroPanel()
 {
-    if (!leftLayout) {
-        return;
+    if (!leftLayout) return;
+
+    // 添加小logo图片到左上方
+    QLabel *imageLabel = new QLabel();
+    imageLabel->setFixedSize(160, 160);
+    imageLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    imageLabel->setScaledContents(true);
+    imageLabel->setStyleSheet("background-color: transparent; border: none;");
+
+    // 加载Logo
+    QPixmap pixmap(":/images/download.png");
+    if (pixmap.isNull()) {
+        pixmap = QPixmap("/Users/zhouzhiqi/QtProjects/AItechnology/src/shared/resources/download.png");
+    }
+    if (!pixmap.isNull()) {
+        imageLabel->setPixmap(pixmap);
+    } else {
+        imageLabel->setText("Logo");
     }
 
-    leftLayout->addStretch(1);
+    leftLayout->addWidget(imageLabel, 0, Qt::AlignLeft | Qt::AlignTop);
+    leftLayout->addStretch(); 
 
-    mottoLabel = new QLabel(cn("AI智慧课堂"), leftPanel);
-    enforceChineseFont(mottoLabel, 38, QFont::Bold);
-    mottoLabel->setObjectName("heroTitle");
-    mottoLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    mottoLabel->setWordWrap(true);
-    leftLayout->addWidget(mottoLabel);
+    // 中间区域放置文字内容
+    // 口号标签
+    mottoLabel = new QLabel(cn("\"智慧思政，立德树人\""));
+    enforceChineseFont(mottoLabel, 32, QFont::Black);
+    mottoLabel->setStyleSheet("color: #C9A64E; font-size: 32px; font-weight: 900; text-align: center; background-color: transparent;");
+    
+    QLabel *mottoEnglish = new QLabel("\"Smart Civic Education, Cultivating Virtue\"");
+    enforceChineseFont(mottoEnglish, 18, QFont::Medium);
+    mottoEnglish->setStyleSheet("color: #E8D5B5; font-size: 18px; font-weight: 500; text-align: center; background-color: transparent;");
 
-    quoteLabel = new QLabel(cn("智慧赋能思政课堂"), leftPanel);
-    enforceChineseFont(quoteLabel, 30, QFont::DemiBold);
-    quoteLabel->setObjectName("heroSubtitle");
-    quoteLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    quoteLabel->setWordWrap(true);
-    leftLayout->addWidget(quoteLabel);
+    // 分隔线
+    QFrame *separator = new QFrame();
+    separator->setFrameShape(QFrame::HLine);
+    separator->setFixedSize(400, 1);
+    separator->setStyleSheet("background-color: #C9A64E; border: none;");
 
-    leftLayout->addSpacing(12);
+    // 引言
+    quoteLabel = new QLabel(cn("\"开启沉浸式思政教学新篇章\""));
+    enforceChineseFont(quoteLabel, 24, QFont::Bold);
+    quoteLabel->setStyleSheet("color: #C9A64E; font-size: 24px; font-weight: bold; text-align: center; background-color: transparent;");
 
-    authorLabel = new QLabel(cn("以科技重构教学体验，点亮思政新可能。"), leftPanel);
+    // 描述
+    authorLabel = new QLabel(cn("AI赋能 · 资源共享 · 智慧教学"));
     enforceChineseFont(authorLabel, 16, QFont::Medium);
-    authorLabel->setObjectName("heroDescription");
-    authorLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-    authorLabel->setWordWrap(true);
-    leftLayout->addWidget(authorLabel);
+    authorLabel->setStyleSheet("color: #E8D5B5; font-size: 16px; font-weight: 500; font-style: italic; background-color: transparent;");
 
-    translationLabel = new QLabel(QStringLiteral("Smart Civic Education · Powered by AI"), leftPanel);
-    enforceChineseFont(translationLabel, 13, QFont::Normal);
-    translationLabel->setObjectName("heroFootnote");
-    translationLabel->setAlignment(Qt::AlignLeft | Qt::AlignBottom);
-    translationLabel->setWordWrap(true);
-    leftLayout->addSpacing(16);
-    leftLayout->addWidget(translationLabel);
+    leftLayout->addWidget(mottoLabel, 0, Qt::AlignCenter);
+    leftLayout->addWidget(mottoEnglish, 0, Qt::AlignCenter);
+    leftLayout->addSpacing(30);
+    leftLayout->addWidget(separator, 0, Qt::AlignCenter);
+    leftLayout->addSpacing(30);
+    leftLayout->addWidget(quoteLabel, 0, Qt::AlignCenter);
+    leftLayout->addWidget(authorLabel, 0, Qt::AlignCenter);
+    leftLayout->addStretch(); 
 
-    leftLayout->addStretch(2);
+    // 添加天安门图片到底部
+    QLabel *tiananmenLabel = new QLabel();
+    tiananmenLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    tiananmenLabel->setAlignment(Qt::AlignCenter);
+    tiananmenLabel->setScaledContents(true);
+    tiananmenLabel->setContentsMargins(0, 0, 0, 0);
+
+    QPixmap tiananmenPixmap("/Users/zhouzhiqi/QtProjects/AItechnology/images/摄图网_401630316_天安门(非营利使用).png");
+    if (!tiananmenPixmap.isNull()) {
+        tiananmenLabel->setPixmap(tiananmenPixmap);
+        tiananmenLabel->setStyleSheet("margin: 0px; padding: 0px; border: none; background: transparent;");
+    }
+
+    leftLayout->addWidget(tiananmenLabel, 6);
 }
 
 void SignUpWindow::buildFormPanel()
 {
-    if (!rightLayout) {
-        return;
+    if (!rightLayout) return;
+
+    rightLayout->addStretch();
+
+    // 品牌标题区域
+    titleLabel = new QLabel(cn("思想政治智慧课堂"));
+    enforceChineseFont(titleLabel, 42, QFont::Black);
+    titleLabel->setStyleSheet("color: #C62828; font-size: 42px; font-weight: 900; text-align: center; margin: 10px 0;");
+    
+    subtitleLabel = new QLabel(cn("创建新账户"));
+    enforceChineseFont(subtitleLabel, 32, QFont::Bold);
+    subtitleLabel->setStyleSheet("color: #0F172A; font-size: 32px; font-weight: 900; text-align: center; margin-top: 20px;");
+
+    descLabel = new QLabel(cn("请填写以下信息完成注册"));
+    enforceChineseFont(descLabel, 14, QFont::Normal);
+    descLabel->setStyleSheet("color: #6B7280; font-size: 14px; text-align: center;");
+
+    rightLayout->addWidget(titleLabel, 0, Qt::AlignCenter);
+    rightLayout->addWidget(subtitleLabel, 0, Qt::AlignCenter);
+    rightLayout->addWidget(descLabel, 0, Qt::AlignCenter);
+    rightLayout->addSpacing(30);
+
+    // 用户名
+    usernameLabel = new QLabel(cn("用户名"));
+    enforceChineseFont(usernameLabel, 16, QFont::Medium);
+    usernameLabel->setStyleSheet("color: #0F172A; font-size: 16px; font-weight: 500;");
+    
+    usernameEdit = new QLineEdit();
+    enforceChineseFont(usernameEdit, 16, QFont::Normal);
+    usernameEdit->setPlaceholderText(cn("请输入用户名"));
+    usernameEdit->setFixedHeight(50);
+    usernameEdit->setStyleSheet(
+        "QLineEdit { border: 1px solid #CFD7E7; border-radius: 8px; padding: 0 16px; font-size: 16px; background-color: #F6F6F8; }"
+        "QLineEdit:focus { border: 2px solid #C62828; outline: none; }"
+    );
+
+    rightLayout->addWidget(usernameLabel);
+    rightLayout->addWidget(usernameEdit);
+    rightLayout->addSpacing(16);
+
+    // 邮箱
+    emailLabel = new QLabel(cn("电子邮箱"));
+    enforceChineseFont(emailLabel, 16, QFont::Medium);
+    emailLabel->setStyleSheet("color: #0F172A; font-size: 16px; font-weight: 500;");
+    
+    emailEdit = new QLineEdit();
+    enforceChineseFont(emailEdit, 16, QFont::Normal);
+    emailEdit->setPlaceholderText(cn("请输入电子邮箱"));
+    emailEdit->setFixedHeight(50);
+    emailEdit->setStyleSheet(
+        "QLineEdit { border: 1px solid #CFD7E7; border-radius: 8px; padding: 0 16px; font-size: 16px; background-color: #F6F6F8; }"
+        "QLineEdit:focus { border: 2px solid #C62828; outline: none; }"
+    );
+
+    rightLayout->addWidget(emailLabel);
+    rightLayout->addWidget(emailEdit);
+    rightLayout->addSpacing(16);
+
+    // 准备图标
+    QIcon showIcon, hideIcon;
+    if (!m_eyeShowIcon.isNull()) {
+        showIcon = m_eyeShowIcon;
+    } else {
+        showIcon = QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_显示.png");
     }
+    if (!m_eyeHideIcon.isNull()) {
+        hideIcon = m_eyeHideIcon;
+    } else {
+        hideIcon = QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_隐藏.png");
+    }
+    // 初始状态是密码模式，显示“闭眼”或者“睁眼”？通常：
+    // 密码模式(***) -> 显示"显示图标"(睁眼)
+    // 正常模式(abc) -> 显示"隐藏图标"(闭眼/斜杠眼)
+    // 之前LoginWindow逻辑：
+    // if password -> setIcon(showIcon/hideIcon?)
+    // togglePasswordBtn->setIcon(passwordEdit->echoMode() == QLineEdit::Password ? hideIcon : showIcon);
+    // 等等，LoginWindow里：
+    // m_eyeShowIcon 是 "眼睛_显示.png" (通常是睁眼)
+    // m_eyeHideIcon 是 "眼睛_隐藏.png" (通常是闭眼)
+    // 默认是Password模式，应该显示“显示”按钮（闭眼图标，点击后变睁眼显示密码？或者睁眼图标，点击查看？）
+    // LoginWindow代码：
+    // togglePasswordBtn->setIcon(passwordEdit->echoMode() == QLineEdit::Password ? hideIcon : showIcon);
+    // 如果是Password模式，显示 HideIcon？这就反了。通常Password模式显示ShowIcon（点击显示）。
+    // 让我们照搬LoginWindow的逻辑：
+    // `togglePasswordBtn->setIcon(passwordEdit->echoMode() == QLineEdit::Password ? hideIcon : showIcon);`
+    // 这意味着：密码模式下显示 HideIcon。这可能意味着 "当前是隐藏状态" 或者 "点击隐藏"？
+    // 但下面的toggle逻辑：
+    // if (Password) { setNormal; setIcon(showIcon); }
+    // else { setPassword; setIcon(hideIcon); }
+    // 这意味着 Normal(明文) 模式下显示 ShowIcon。Password(密文) 模式下显示 HideIcon。
+    // 这有点奇怪，通常明文时显示"隐藏"(HideIcon)，密文时显示"显示"(ShowIcon)。
+    // 无论如何，我将保持与 LoginWindow 完全一致的逻辑。
+    
+    QIcon initialIcon = hideIcon; // 因为默认是Password模式
 
-    QWidget *formWrapper = new QWidget(rightPanel);
-    enforceChineseFont(formWrapper, 12, QFont::Normal);
-    formWrapper->setObjectName("formWrapper");
-    formWrapper->setMinimumWidth(420);
-    formWrapper->setMaximumWidth(460);
+    // 密码1
+    passwordLabel1 = new QLabel(cn("密码"));
+    enforceChineseFont(passwordLabel1, 16, QFont::Medium);
+    passwordLabel1->setStyleSheet("color: #0F172A; font-size: 16px; font-weight: 500;");
+    
+    passwordEdit1 = new QLineEdit();
+    enforceChineseFont(passwordEdit1, 16, QFont::Normal);
+    passwordEdit1->setEchoMode(QLineEdit::Password);
+    passwordEdit1->setPlaceholderText(cn("请输入密码 (至少8位)"));
+    passwordEdit1->setFixedHeight(50);
+    passwordEdit1->setStyleSheet(
+        "QLineEdit { border: 1px solid #CFD7E7; border-radius: 8px; padding: 0 50px 0 16px; font-size: 16px; background-color: #F6F6F8; }"
+        "QLineEdit:focus { border: 2px solid #C62828; outline: none; }"
+    );
 
-    QVBoxLayout *formLayout = new QVBoxLayout(formWrapper);
-    formLayout->setContentsMargins(0, 0, 0, 0);
-    formLayout->setSpacing(12);
-    formLayout->setAlignment(Qt::AlignTop);
+    // 眼睛按钮1
+    togglePassword1Btn = new QPushButton(passwordEdit1);
+    togglePassword1Btn->setFixedSize(30, 30);
+    togglePassword1Btn->setCursor(Qt::PointingHandCursor);
+    togglePassword1Btn->setStyleSheet("border: none; background: transparent;");
+    togglePassword1Btn->setIcon(initialIcon);
+    togglePassword1Btn->setIconSize(QSize(28, 28));
+    togglePassword1Btn->move(passwordEdit1->width() - 40, (passwordEdit1->height() - 30) / 2);
+    passwordEdit1->installEventFilter(this);
+    
+    rightLayout->addWidget(passwordLabel1);
+    rightLayout->addWidget(passwordEdit1);
+    rightLayout->addSpacing(16);
 
-    titleLabel = new QLabel(cn("开启智慧思政新篇章"), formWrapper);
-    enforceChineseFont(titleLabel, 26, QFont::Bold);
-    titleLabel->setObjectName("formTitle");
-    titleLabel->setAlignment(Qt::AlignCenter);
-    titleLabel->setWordWrap(true);
-    formLayout->addWidget(titleLabel);
+    // 密码2
+    passwordLabel2 = new QLabel(cn("确认密码"));
+    enforceChineseFont(passwordLabel2, 16, QFont::Medium);
+    passwordLabel2->setStyleSheet("color: #0F172A; font-size: 16px; font-weight: 500;");
+    
+    passwordEdit2 = new QLineEdit();
+    enforceChineseFont(passwordEdit2, 16, QFont::Normal);
+    passwordEdit2->setEchoMode(QLineEdit::Password);
+    passwordEdit2->setPlaceholderText(cn("请再次输入密码"));
+    passwordEdit2->setFixedHeight(50);
+    passwordEdit2->setStyleSheet(
+        "QLineEdit { border: 1px solid #CFD7E7; border-radius: 8px; padding: 0 50px 0 16px; font-size: 16px; background-color: #F6F6F8; }"
+        "QLineEdit:focus { border: 2px solid #C62828; outline: none; }"
+    );
 
-    subtitleLabel = new QLabel(cn("创建新账户"), formWrapper);
-    enforceChineseFont(subtitleLabel, 16, QFont::Medium);
-    subtitleLabel->setObjectName("formSubtitle");
-    subtitleLabel->setAlignment(Qt::AlignCenter);
-    subtitleLabel->setWordWrap(true);
-    formLayout->addWidget(subtitleLabel);
+    // 眼睛按钮2
+    togglePassword2Btn = new QPushButton(passwordEdit2);
+    togglePassword2Btn->setFixedSize(30, 30);
+    togglePassword2Btn->setCursor(Qt::PointingHandCursor);
+    togglePassword2Btn->setStyleSheet("border: none; background: transparent;");
+    togglePassword2Btn->setIcon(initialIcon);
+    togglePassword2Btn->setIconSize(QSize(28, 28));
+    togglePassword2Btn->move(passwordEdit2->width() - 40, (passwordEdit2->height() - 30) / 2);
+    passwordEdit2->installEventFilter(this);
 
-    registerLabel = new QLabel(cn("AI智慧课堂 · 智慧思政生态"), formWrapper);
-    enforceChineseFont(registerLabel, 13, QFont::Medium);
-    registerLabel->setObjectName("formTagline");
-    registerLabel->setAlignment(Qt::AlignCenter);
-    registerLabel->setWordWrap(true);
-    formLayout->addWidget(registerLabel);
+    rightLayout->addWidget(passwordLabel2);
+    rightLayout->addWidget(passwordEdit2);
+    rightLayout->addSpacing(24);
 
-    descLabel = new QLabel(cn("加入我们，与智能教研助手一起开启沉浸式思政教学。"), formWrapper);
-    enforceChineseFont(descLabel, 12, QFont::Normal);
-    descLabel->setObjectName("formDescription");
-    descLabel->setAlignment(Qt::AlignCenter);
-    descLabel->setWordWrap(true);
-    formLayout->addWidget(descLabel);
+    // 注册按钮
+    registerButton = new QPushButton(cn("立即注册"));
+    enforceChineseFont(registerButton, 16, QFont::Bold);
+    registerButton->setFixedHeight(56);
+    registerButton->setStyleSheet(
+        "QPushButton {"
+        "  background-color: #C62828;"
+        "  color: white;"
+        "  border: 2px solid #C62828;"
+        "  border-radius: 8px;"
+        "  font-size: 16px;"
+        "  font-weight: bold;"
+        "}"
+        "QPushButton:hover {"
+        "  background-color: #D32F2F;"
+        "  border-color: #D32F2F;"
+        "}"
+        "QPushButton:pressed {"
+        "  background-color: #B71C1C;"
+        "  border-color: #B71C1C;"
+        "}"
+    );
+    rightLayout->addWidget(registerButton);
 
-    formLayout->addSpacing(16);
+    // 返回登录
+    QHBoxLayout *loginLinkLayout = new QHBoxLayout();
+    loginLinkLayout->setContentsMargins(0, 15, 0, 0);
 
-    usernameLabel = new QLabel(cn("用户名"), formWrapper);
-    enforceChineseFont(usernameLabel, 14, QFont::DemiBold);
-    usernameLabel->setProperty("role", "fieldLabel");
-    formLayout->addWidget(usernameLabel);
+    loginLabel = new QLabel(cn("已有账号?"));
+    enforceChineseFont(loginLabel, 14, QFont::Normal);
+    loginLabel->setStyleSheet("color: #6B7280; font-size: 14px;");
 
-    QFrame *usernameGroup = createInputGroup(formWrapper, cn("请输入用户名"), &usernameEdit);
-    formLayout->addWidget(usernameGroup);
+    loginBtn = new QPushButton(cn("立即登录"));
+    enforceChineseFont(loginBtn, 14, QFont::Medium);
+    loginBtn->setStyleSheet(
+        "QPushButton {"
+        "  color: #C62828;"
+        "  font-size: 14px;"
+        "  font-weight: 500;"
+        "  border: none;"
+        "  background: transparent;"
+        "}"
+        "QPushButton:hover {"
+        "  color: #8E0000;"
+        "  text-decoration: underline;"
+        "}"
+    );
 
-    emailLabel = new QLabel(cn("电子邮件"), formWrapper);
-    enforceChineseFont(emailLabel, 14, QFont::DemiBold);
-    emailLabel->setProperty("role", "fieldLabel");
-    formLayout->addWidget(emailLabel);
-
-    QFrame *emailGroup = createInputGroup(formWrapper, cn("请输入您的电子邮箱"), &emailEdit);
-    formLayout->addWidget(emailGroup);
-
-    passwordLabel1 = new QLabel(cn("密码"), formWrapper);
-    enforceChineseFont(passwordLabel1, 14, QFont::DemiBold);
-    passwordLabel1->setProperty("role", "fieldLabel");
-    formLayout->addWidget(passwordLabel1);
-
-    QFrame *passwordGroup1 = createInputGroup(formWrapper, cn("请输入至少8位密码"), &passwordEdit1, true, &togglePassword1Btn);
-    formLayout->addWidget(passwordGroup1);
-
-    passwordLabel2 = new QLabel(cn("确认密码"), formWrapper);
-    enforceChineseFont(passwordLabel2, 14, QFont::DemiBold);
-    passwordLabel2->setProperty("role", "fieldLabel");
-    formLayout->addWidget(passwordLabel2);
-
-    QFrame *passwordGroup2 = createInputGroup(formWrapper, cn("请再次输入密码"), &passwordEdit2, true, &togglePassword2Btn);
-    formLayout->addWidget(passwordGroup2);
-
-    formLayout->addSpacing(8);
-
-    registerButton = new QPushButton(cn("立即注册"), formWrapper);
-    enforceChineseFont(registerButton, 16, QFont::DemiBold);
-    registerButton->setObjectName("primaryButton");
-    registerButton->setCursor(Qt::PointingHandCursor);
-    registerButton->setMinimumHeight(54);
-    registerButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    formLayout->addWidget(registerButton);
-
-    QWidget *loginLinkWidget = new QWidget(formWrapper);
-    QHBoxLayout *loginLinkLayout = new QHBoxLayout(loginLinkWidget);
-    loginLinkLayout->setContentsMargins(0, 4, 0, 0);
-    loginLinkLayout->setSpacing(6);
-    loginLinkLayout->setAlignment(Qt::AlignCenter);
-
-    loginLabel = new QLabel(cn("已有账号？"), loginLinkWidget);
-    enforceChineseFont(loginLabel, 13, QFont::Normal);
-    loginLabel->setObjectName("helperText");
-
-    loginBtn = new QPushButton(cn("立即登录"), loginLinkWidget);
-    enforceChineseFont(loginBtn, 13, QFont::Medium);
-    loginBtn->setObjectName("linkButton");
-    loginBtn->setCursor(Qt::PointingHandCursor);
-
+    loginLinkLayout->addStretch();
     loginLinkLayout->addWidget(loginLabel);
     loginLinkLayout->addWidget(loginBtn);
+    loginLinkLayout->addStretch();
 
-    formLayout->addWidget(loginLinkWidget);
-    formLayout->addStretch(1);
+    rightLayout->addLayout(loginLinkLayout);
+    rightLayout->addStretch();
+}
 
-    rightLayout->addStretch(1);
-    rightLayout->addWidget(formWrapper);
-    rightLayout->addStretch(1);
+void SignUpWindow::setupStyle()
+{
+    setStyleSheet(
+        "QWidget {"
+        "  background-color: white;"
+        "}"
+        "QFrame#leftPanel {"
+        "  background-color: #B71C1C;"
+        "}"
+        "QFrame#rightPanel {"
+        "  background-color: white;"
+        "}"
+    );
+
+    if (leftPanel) leftPanel->setObjectName("leftPanel");
+    if (rightPanel) rightPanel->setObjectName("rightPanel");
 }
 
 QFrame *SignUpWindow::createInputGroup(QWidget *parent,
@@ -330,100 +458,12 @@ QFrame *SignUpWindow::createInputGroup(QWidget *parent,
                                        bool isPassword,
                                        QPushButton **toggleButton)
 {
-    QFrame *group = new QFrame(parent);
-    group->setObjectName("inputGroup");
-    group->setProperty("role", "inputGroup");
-
-    QHBoxLayout *layout = new QHBoxLayout(group);
-    layout->setContentsMargins(20, 6, 20, 6);
-    layout->setSpacing(8);
-    layout->setAlignment(Qt::AlignVCenter);
-
-    QLineEdit *edit = new QLineEdit(group);
-    enforceChineseFont(edit, 14, QFont::Normal);
-    edit->setPlaceholderText(placeholderText);
-    edit->setClearButtonEnabled(!isPassword);
-    edit->setProperty("role", "inputField");
-    edit->setMinimumHeight(50);
-    if (isPassword) {
-        edit->setEchoMode(QLineEdit::Password);
-    }
-
-    layout->addWidget(edit, 1);
-
-    if (isPassword && toggleButton) {
-        QPushButton *toggle = new QPushButton(cn("👁"), group);
-        enforceChineseFont(toggle, 14, QFont::Normal);
-        toggle->setObjectName("passwordToggle");
-        toggle->setCursor(Qt::PointingHandCursor);
-        toggle->setFixedSize(40, 40);
-        layout->addWidget(toggle, 0, Qt::AlignRight | Qt::AlignVCenter);
-        *toggleButton = toggle;
-    } else if (toggleButton) {
-        *toggleButton = nullptr;
-    }
-
-    *lineEdit = edit;
-    return group;
+    return nullptr; 
 }
 
 QString SignUpWindow::resolveStyleSheetPath() const
 {
-    const QString baseDir = QCoreApplication::applicationDirPath();
-    const QStringList candidates = {
-        QStringLiteral("resources/styles/auth.qss"),
-        QStringLiteral("../resources/styles/auth.qss"),
-        QStringLiteral("../../resources/styles/auth.qss"),
-        QStringLiteral("../../../resources/styles/auth.qss"),
-        baseDir + QStringLiteral("/resources/styles/auth.qss"),
-        baseDir + QStringLiteral("/../resources/styles/auth.qss"),
-        baseDir + QStringLiteral("/../../resources/styles/auth.qss"),
-        baseDir + QStringLiteral("/../../../resources/styles/auth.qss"),
-        baseDir + QStringLiteral("/../../../../resources/styles/auth.qss")
-    };
-
-    for (const QString &path : candidates) {
-        QFileInfo info(path);
-        if (info.exists() && info.isFile() && info.isReadable()) {
-            return info.absoluteFilePath();
-        }
-    }
-
-    return QString();
-}
-
-void SignUpWindow::setupStyle()
-{
-    qDebug() << cn("设置注册窗口样式...");
-
-    auto applySheet = [this](QFile &file, const QString &source) {
-        const QString styleSheet = QString::fromUtf8(file.readAll());
-        setStyleSheet(styleSheet);
-        qDebug() << cn("注册窗口样式设置完成！样式来源:") << source;
-    };
-
-    QFile embeddedFile(QStringLiteral(":/styles/auth.qss"));
-    if (embeddedFile.exists()) {
-        if (embeddedFile.open(QFile::ReadOnly | QFile::Text)) {
-            applySheet(embeddedFile, QStringLiteral(":/styles/auth.qss"));
-            return;
-        }
-        qWarning() << cn("无法读取内置样式文件 :/styles/auth.qss");
-    }
-
-    const QString stylePath = resolveStyleSheetPath();
-    if (stylePath.isEmpty()) {
-        qWarning() << cn("未找到 auth.qss 样式文件，跳过自定义样式");
-        return;
-    }
-
-    QFile styleFile(stylePath);
-    if (!styleFile.open(QFile::ReadOnly | QFile::Text)) {
-        qWarning() << cn("无法打开样式文件:") << stylePath;
-        return;
-    }
-
-    applySheet(styleFile, stylePath);
+    return QString(); 
 }
 
 void SignUpWindow::onSignupClicked()
@@ -436,91 +476,87 @@ void SignUpWindow::onSignupClicked()
     QString username = usernameEdit->text().trimmed();
     QString password = passwordEdit1->text();
 
-    // 防止重复处理
     if (m_signupProcessed) {
-        qDebug() << cn("注册已处理，跳过重复调用");
         return;
     }
     m_signupProcessed = true;
 
-    qDebug() << cn("尝试注册:") << email;
-
     registerButton->setEnabled(false);
     registerButton->setText(cn("注册中..."));
 
-    // 调用Supabase注册
     m_supabaseClient->signup(email, password, username);
 }
 
 void SignUpWindow::onBackToLoginClicked()
 {
-    qDebug() << cn("返回登录页面");
     openLoginWindow();
 }
 
 void SignUpWindow::onTogglePassword1Clicked()
 {
+    QIcon showIcon = !m_eyeShowIcon.isNull() ? m_eyeShowIcon : QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_显示.png");
+    QIcon hideIcon = !m_eyeHideIcon.isNull() ? m_eyeHideIcon : QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_隐藏.png");
+
     if (passwordEdit1->echoMode() == QLineEdit::Password) {
         passwordEdit1->setEchoMode(QLineEdit::Normal);
-        togglePassword1Btn->setText(cn("👁‍🗨"));
+        togglePassword1Btn->setIcon(showIcon);
     } else {
         passwordEdit1->setEchoMode(QLineEdit::Password);
-        togglePassword1Btn->setText(cn("👁"));
+        togglePassword1Btn->setIcon(hideIcon);
     }
 }
 
 void SignUpWindow::onTogglePassword2Clicked()
 {
+    QIcon showIcon = !m_eyeShowIcon.isNull() ? m_eyeShowIcon : QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_显示.png");
+    QIcon hideIcon = !m_eyeHideIcon.isNull() ? m_eyeHideIcon : QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_隐藏.png");
+
     if (passwordEdit2->echoMode() == QLineEdit::Password) {
         passwordEdit2->setEchoMode(QLineEdit::Normal);
-        togglePassword2Btn->setText(cn("👁‍🗨"));
+        togglePassword2Btn->setIcon(showIcon);
     } else {
         passwordEdit2->setEchoMode(QLineEdit::Password);
-        togglePassword2Btn->setText(cn("👁"));
+        togglePassword2Btn->setIcon(hideIcon);
     }
 }
 
 bool SignUpWindow::validateInput()
 {
     QString email = emailEdit->text().trimmed();
-    QString password1 = passwordEdit1->text();
-    QString password2 = passwordEdit2->text();
+    QString password1Text = passwordEdit1->text();
+    QString password2Text = passwordEdit2->text();
 
-    // 验证邮箱
     if (email.isEmpty()) {
         showMessage(cn("输入错误"), cn("请输入邮箱地址！"), QMessageBox::Warning);
         emailEdit->setFocus();
         return false;
     }
 
-    // 简单邮箱格式验证
     if (!email.contains("@") || !email.contains(".")) {
         showMessage(cn("输入错误"), cn("请输入有效的邮箱地址！"), QMessageBox::Warning);
         emailEdit->setFocus();
         return false;
     }
 
-    // 验证密码
-    if (password1.isEmpty()) {
+    if (password1Text.isEmpty()) {
         showMessage(cn("输入错误"), cn("请输入密码！"), QMessageBox::Warning);
         passwordEdit1->setFocus();
         return false;
     }
 
-    if (password1.length() < 8) {
+    if (password1Text.length() < 8) {
         showMessage(cn("输入错误"), cn("密码至少需要8位字符！"), QMessageBox::Warning);
         passwordEdit1->setFocus();
         return false;
     }
 
-    // 验证确认密码
-    if (password2.isEmpty()) {
+    if (password2Text.isEmpty()) {
         showMessage(cn("输入错误"), cn("请确认密码！"), QMessageBox::Warning);
         passwordEdit2->setFocus();
         return false;
     }
 
-    if (password1 != password2) {
+    if (password1Text != password2Text) {
         showMessage(cn("输入错误"), cn("两次输入的密码不一致！"), QMessageBox::Warning);
         passwordEdit1->clear();
         passwordEdit2->clear();
@@ -533,43 +569,30 @@ bool SignUpWindow::validateInput()
 
 void SignUpWindow::onSignupSuccess(const QString &message)
 {
-    qDebug() << cn("Supabase注册成功! 消息:") << message;
-
     QString email = emailEdit->text().trimmed();
     showMessage(cn("注册成功"),
                 cn("账户创建成功！\n\n邮箱: %1\n请检查您的邮箱并点击验证链接以激活账户。\n\n即将跳转到登录页面...")
                     .arg(email),
                 QMessageBox::Information);
 
-    // 2秒后跳转到登录页面
     QTimer::singleShot(2000, this, &SignUpWindow::openLoginWindow);
 }
 
 void SignUpWindow::onSignupFailed(const QString &errorMessage)
 {
-    qDebug() << cn("Supabase注册失败:") << errorMessage;
-
     showMessage(cn("注册失败"), errorMessage, QMessageBox::Warning);
-
     registerButton->setEnabled(true);
     registerButton->setText(cn("立即注册"));
-
     m_signupProcessed = false;
 }
 
 void SignUpWindow::openLoginWindow()
 {
-    qDebug() << cn("准备打开登录窗口...");
-
-    // 关闭注册窗口
     this->close();
-
-    // 创建并显示真正的登录窗口
     SimpleLoginWindow *loginWindow = new SimpleLoginWindow();
     loginWindow->show();
     loginWindow->raise();
     loginWindow->activateWindow();
-    qDebug() << cn("已打开登录窗口");
 }
 
 void SignUpWindow::showMessage(const QString &title, const QString &message, QMessageBox::Icon icon)
@@ -580,24 +603,22 @@ void SignUpWindow::showMessage(const QString &title, const QString &message, QMe
     msgBox.setText(message);
     msgBox.setIcon(icon);
     msgBox.setStyleSheet(
-        "QMessageBox {"
-        "  background-color: white;"
-        "}"
-        "QMessageBox QLabel {"
-        "  color: #0F172A;"
-        "  font-size: 14px;"
-        "}"
-        "QMessageBox QPushButton {"
-        "  background-color: #C62828;"
-        "  color: white;"
-        "  border: none;"
-        "  padding: 8px 24px;"
-        "  border-radius: 6px;"
-        "  font-size: 14px;"
-        "}"
-        "QMessageBox QPushButton:hover {"
-        "  background-color: #B71C1C;"
-        "}"
+        "QMessageBox { background-color: white; }"
+        "QMessageBox QLabel { color: #0F172A; font-size: 14px; }"
+        "QMessageBox QPushButton { background-color: #C62828; color: white; border: none; padding: 8px 24px; border-radius: 6px; font-size: 14px; }"
+        "QMessageBox QPushButton:hover { background-color: #B71C1C; }"
     );
     msgBox.exec();
+}
+
+bool SignUpWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() == QEvent::Resize) {
+        if (watched == passwordEdit1) {
+            if (togglePassword1Btn) togglePassword1Btn->move(passwordEdit1->width() - 40, (passwordEdit1->height() - 30) / 2);
+        } else if (watched == passwordEdit2) {
+            if (togglePassword2Btn) togglePassword2Btn->move(passwordEdit2->width() - 40, (passwordEdit2->height() - 30) / 2);
+        }
+    }
+    return QWidget::eventFilter(watched, event);
 }

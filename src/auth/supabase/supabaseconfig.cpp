@@ -1,8 +1,9 @@
 #include "supabaseconfig.h"
 
-const QString SupabaseConfig::SUPABASE_URL = "https://sbp-7wa5y7wjcyw0cpry.supabase.opentrust.net";
-const QString SupabaseConfig::SUPABASE_ANON_KEY = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNicC03d2E1eTd3amN5dzBjcHJ5IiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NjIwNjQ3MDMsImV4cCI6MjA3NzY0MDcwM30.fMSY0_1ybuN2wdGnd8MWA0aWqXOdY79brqtwgpXaqE8";
-const QString SupabaseConfig::SUPABASE_SERVICE_KEY = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwicmVmIjoic2JwLTd3YTV5N3dqY3l3MGNwcnkiLCJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc2MjA2NDcwMywiZXhwIjoyMDc3NjQwNzAzfQ.P8K4hOWHovwYBHtdYuX51V3ybc5TpegYIfHCUe95Wao";
+// 新 Supabase 项目配置
+const QString SupabaseConfig::SUPABASE_URL = "https://skbmskuipnhalgtcjkps.supabase.co";
+const QString SupabaseConfig::SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrYm1za3VpcG5oYWxndGNqa3BzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1ODI3NzYsImV4cCI6MjA4MjE1ODc3Nn0.UIBsfEJ_q0EC2GF51aXBbZY3U9NZ4ngClbO2O8SyVhM";
+const QString SupabaseConfig::SUPABASE_SERVICE_KEY = "";  // 如需要可后续填写
 
 const QString SupabaseConfig::USERS_TABLE = "teachers";
 const QString SupabaseConfig::AUTH_HEADER_NAME = "Authorization";

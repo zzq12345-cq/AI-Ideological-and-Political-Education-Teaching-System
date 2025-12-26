@@ -823,20 +823,17 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     // 初始化热点追踪服务
     m_hotspotService = new HotspotService(this);
 
-    // 从环境变量获取 API Key，提高安全性
+    // 从环境变量获取 API Key，如果未设置则使用默认值
     QString apiKey = qgetenv("DIFY_API_KEY");
-    const bool hasApiKey = !apiKey.isEmpty();
-    if (!hasApiKey) {
-        qDebug() << "[Error] DIFY_API_KEY environment variable not set!";
-        qDebug() << "[Info] Please set the environment variable before running the application.";
-        qDebug() << "[Info] Example: export DIFY_API_KEY=your-api-key-here";
-        // 不再使用硬编码密钥，必须通过环境变量配置
+    if (apiKey.isEmpty()) {
+        // 使用默认 API Key（AI 智能备课）
+        apiKey = "app-4oFxsxMqCp4EYv0t77scpGDA";
+        qDebug() << "[Info] Using default Dify API Key for AI lesson planning.";
     } else {
-        m_difyService->setApiKey(apiKey);
         qDebug() << "[Info] Dify API Key loaded from environment variable.";
-        // 暂时不设置模型，使用 Dify 默认配置
-        // m_difyService->setModel("glm-4.6");  // 使用 GLM-4.6 模型
     }
+    const bool hasApiKey = !apiKey.isEmpty();
+    m_difyService->setApiKey(apiKey);
 
     // 不再使用独立的 AI 对话框，直接在主页面显示
     // m_chatDialog = new AIChatDialog(m_difyService, this);
@@ -860,13 +857,7 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     createDashboard();
     contentStack->setCurrentWidget(dashboardWidget);
 
-    if (!hasApiKey) {
-        QTimer::singleShot(0, this, [this]() {
-            if (statusBar()) {
-                statusBar()->showMessage("未设置 DIFY_API_KEY：AI 功能暂不可用（可正常使用其他页面）", 8000);
-            }
-        });
-    }
+    // API Key 已通过默认值或环境变量设置，无需提示
 
     qDebug() << "=== ModernMainWindow 构造函数完成 ===";
 }
@@ -1819,7 +1810,7 @@ void ModernMainWindow::onAIPreparationClicked()
     if (!aiPreparationWelcomeSent && m_bubbleChatWidget) {
         // 发送 AI 欢迎消息引导用户
         QString welcomeMessage = 
-            "🎓 **您好！我是 AI 备课助手**\n\n"
+            "🎓 **老师您好！我是 AI 备课助手**\n\n"
             "我可以帮您快速生成精美的思政课 PPT。请告诉我您需要什么主题？\n\n"
             "**例如：**\n"
             "• 新时代爱国主义教育\n"
@@ -2135,10 +2126,10 @@ void ModernMainWindow::createAIChatWidget()
         // 清空聊天并重置 Dify 会话
         if (m_bubbleChatWidget) {
             m_bubbleChatWidget->clearMessages();
-            m_bubbleChatWidget->addMessage("老师您好！我是智慧课堂助手，请问有什么可以帮你？", false);
         }
         if (m_difyService) {
             m_difyService->clearConversation();
+            m_difyService->fetchAppInfo();  // 重新获取 Dify 动态开场白
         }
         
         // 清除选中状态（不再创建假的历史项，真实历史会在对话完成后自动刷新）
@@ -2226,16 +2217,18 @@ void ModernMainWindow::createAIChatWidget()
         qDebug() << "[ModernMainWindow] Loaded" << messages.size() << "messages for conversation:" << conversationId;
     });
     
-    // 加载真实对话历史（如果有）
+    // 创建气泡样式聊天组件（必须在调用 Dify API 之前创建，以便处理可能的错误回调）
+    m_bubbleChatWidget = new ChatWidget();
+    m_bubbleChatWidget->setPlaceholderText("向AI助手发送信息...");
+    containerLayout->addWidget(m_bubbleChatWidget, 1);
+    
+    // 不再显示硬编码开场白，等待 Dify 动态开场白加载
+    
+    // 加载真实对话历史（如果有）- 必须在 ChatWidget 创建之后
     if (m_difyService) {
         m_difyService->fetchConversations();
         m_difyService->fetchAppInfo();  // 获取动态开场白
     }
-    
-    // 创建气泡样式聊天组件
-    m_bubbleChatWidget = new ChatWidget();
-    m_bubbleChatWidget->setPlaceholderText("向AI助手发送信息...");
-    containerLayout->addWidget(m_bubbleChatWidget, 1);
     
     // 连接动态开场白信号
     connect(m_difyService, &DifyService::appInfoReceived, this, [this](const QString &name, const QString &introduction) {
@@ -2245,10 +2238,6 @@ void ModernMainWindow::createAIChatWidget()
             qDebug() << "[ModernMainWindow] Loaded dynamic introduction from Dify:" << name;
         }
     });
-    
-    // 显示开场白
-    QString openingMessage = "老师您好！我是智慧课堂助手，请问有什么可以帮你？";
-    m_bubbleChatWidget->addMessage(openingMessage, false);
     
     // 连接消息发送信号到 Dify 服务
     connect(m_bubbleChatWidget, &ChatWidget::messageSent, this, [this](const QString &message) {
