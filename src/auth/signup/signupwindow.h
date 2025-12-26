@@ -27,6 +27,7 @@ public:
 
 protected:
     void setupUI();
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private slots:
     void onSignupClicked();
@@ -89,6 +90,10 @@ private:
 
     // Supabase客户端
     SupabaseClient *m_supabaseClient;
+    
+    // 图标资源
+    QIcon m_eyeShowIcon;
+    QIcon m_eyeHideIcon;
 };
 
 #endif // SIGNUPWINDOW_H

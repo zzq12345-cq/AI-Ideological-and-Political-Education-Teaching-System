@@ -1,0 +1,179 @@
+{
+  "questions": [
+    {
+      "question_type": "single_choice",
+      "difficulty": "easy",
+      "subject": "政治",
+      "grade": "高二",
+      "chapter": "第一单元 生活与消费",
+      "knowledge_points": ["商品的基本属性", "货币的本质"],
+      "stem": "商品的基本属性是（  ）",
+      "options": ["使用价值和价格", "使用价值和价值", "价格和价值", "供给和需求"],
+      "answer": "B",
+      "explanation": "商品是用于交换的劳动产品，具有使用价值和价值两个基本属性。",
+      "score": 5,
+      "tags": ["基础知识", "商品"],
+      "visibility": "public"
+    },
+    {
+      "question_type": "single_choice",
+      "difficulty": "medium",
+      "subject": "政治",
+      "grade": "高二",
+      "chapter": "第二单元 生产、劳动与经营",
+      "knowledge_points": ["公有制经济", "非公有制经济"],
+      "stem": "在我国社会主义初级阶段的基本经济制度中，处于主体地位的是（  ）",
+      "options": ["国有经济", "集体经济", "混合所有制经济", "公有制经济"],
+      "answer": "D",
+      "explanation": "我国社会主义初级阶段的基本经济制度是以公有制为主体、多种所有制经济共同发展。",
+      "score": 5,
+      "tags": ["基本经济制度"],
+      "visibility": "public"
+    },
+    {
+      "question_type": "multi_choice",
+      "difficulty": "medium",
+      "subject": "政治",
+      "grade": "高二",
+      "chapter": "第三单元 收入与分配",
+      "knowledge_points": ["分配制度", "按劳分配"],
+      "stem": "下列关于我国分配制度的表述正确的是（  ）",
+      "options": [
+        "按劳分配是我国社会主义初级阶段的分配制度",
+        "我国实行以按劳分配为主体、多种分配方式并存的分配制度",
+        "非公有制经济中的劳动者也实行按劳分配",
+        "要通过深化收入分配制度改革，缩小收入差距"
+      ],
+      "answer": "BD",
+      "explanation": "A项错误，按劳分配在公有制经济中占主体地位，但不是唯一的分配制度；C项错误，非公有制经济中不实行按劳分配；B、D正确。",
+      "score": 6,
+      "tags": ["收入分配", "多选题"],
+      "visibility": "public"
+    },
+    {
+      "question_type": "true_false",
+      "difficulty": "easy",
+      "subject": "政治",
+      "grade": "高二",
+      "chapter": "第四单元 发展社会主义市场经济",
+      "knowledge_points": ["市场经济", "宏观调控"],
+      "stem": "市场在资源配置中起决定性作用，因此政府不应该干预经济活动。",
+      "options": [],
+      "answer": "错误",
+      "explanation": "市场在资源配置中起决定性作用，但市场不是万能的，需要政府进行科学的宏观调控。",
+      "score": 3,
+      "tags": ["市场经济", "判断题"],
+      "visibility": "public"
+    },
+    {
+      "question_type": "short_answer",
+      "difficulty": "hard",
+      "subject": "政治",
+      "grade": "高二",
+      "chapter": "第一单元 生活与消费",
+      "knowledge_points": ["价值规律", "市场调节"],
+      "stem": "运用价值规律的知识，说明商品价格波动的原因及其影响。",
+      "options": [],
+      "answer": "（1）原因：商品价格受供求关系影响会围绕价值上下波动，这体现了价值规律的表现形式。（2）影响：价格波动能够传递市场信息，调节生产和消费；但过度波动会影响经济稳定，需要国家进行宏观调控。",
+      "explanation": "价值规律是商品经济的基本规律，价格波动是价值规律作用的必然表现形式",
+      "score": 12,
+      "tags": ["价值规律", "简答题"],
+      "visibility": "public"
+    },
+    {
+      "question_type": "single_choice",
+      "difficulty": "easy",
+      "subject": "政治",
+      "grade": "高二",
+      "chapter": "第二单元 为人民服务的政府",
+      "knowledge_points": ["政府职能", "经济职能"],
+      "stem": "下列属于政府履行经济职能的是（  ）",
+      "options": [
+        "打击制售假冒伪劣商品行为",
+        "组织文化艺术交流活动",
+        "提供社会保障服务",
+        "保护公民合法权益"
+      ],
+      "answer": "A",
+      "explanation": "打击制售假冒伪劣商品属于维护市场秩序，是政府经济职能的体现。",
+      "score": 5,
+      "tags": ["政府职能"],
+      "visibility": "public"
+    },
+    {
+      "question_type": "multi_choice",
+      "difficulty": "medium",
+      "subject": "政治",
+      "grade": "高二",
+      "chapter": "第三单元 发展社会主义民主政治",
+      "knowledge_points": ["人民代表大会制度", "根本政治制度"],
+      "stem": "人民代表大会制度是我国的根本政治制度，下列对其认识正确的是（  ）",
+      "options": [
+        "人民代表大会制度是我国的政体",
+        "全国人民代表大会是我国的最高国家权力机关",
+        "人民代表大会制度体现了人民当家作主",
+        "人大代表由选民直接选举产生"
+      ],
+      "answer": "ABC",
+      "explanation": "D项错误，人大代表有直接选举和间接选举两种方式；其他选项正确。",
+      "score": 6,
+      "tags": ["人民代表大会", "多选题"],
+      "visibility": "public"
+    },
+    {
+      "question_type": "single_choice",
+      "difficulty": "medium",
+      "subject": "政治",
+      "grade": "高二",
+      "chapter": "第四单元 当代国际社会",
+      "knowledge_points": ["国际关系", "国家利益"],
+      "stem": "国际关系的决定性因素是（  ）",
+      "options": ["国家实力", "国家性质", "国家利益", "国际组织"],
+      "answer": "C",
+      "explanation": "国家利益是国际关系的决定性因素，国家间的共同利益是国家合作的基础，利益对立则是引起冲突的根源。",
+      "score": 5,
+      "tags": ["国际关系"],
+      "visibility": "public"
+    },
+    {
+      "question_type": "single_choice",
+      "difficulty": "hard",
+      "subject": "政治",
+      "grade": "高二",
+      "chapter": "第一单元 文化与生活",
+      "knowledge_points": ["文化的作用", "文化影响"],
+      "stem": "文化作为一种精神力量，能够在人们认识世界、改造世界的过程中转化为物质力量，对社会发展产生深刻的影响。这表明（  ）",
+      "options": [
+        "文化决定社会的发展进程",
+        "文化是推动社会发展的根本动力",
+        "文化对社会发展具有重要影响",
+        "文化能够替代物质力量"
+      ],
+      "answer": "C",
+      "explanation": "文化作为精神力量对社会发展有重要影响，但不是决定性因素或根本动力，不能替代物质力量。",
+      "score": 5,
+      "tags": ["文化作用"],
+      "visibility": "public"
+    },
+    {
+      "question_type": "multi_choice",
+      "difficulty": "medium",
+      "subject": "政治",
+      "grade": "高二",
+      "chapter": "第二单元 文化传承与创新",
+      "knowledge_points": ["文化创新", "文化继承"],
+      "stem": "文化创新必须正确处理好与传统文化的关系。在这一过程中应该（  ）",
+      "options": [
+        "批判地继承传统文化",
+        "全盘否定传统文化",
+        "\"取其精华、去其糟粕\"",
+        "\"推陈出新、革故鼎新\""
+      ],
+      "answer": "ACD",
+      "explanation": "B项错误，应该批判继承传统文化，不能全盘否定；其他选项正确。",
+      "score": 6,
+      "tags": ["文化创新", "多选题"],
+      "visibility": "public"
+    }
+  ]
+}
