@@ -8,13 +8,7 @@
 #include "../ui/AIChatDialog.h"
 #include "../ui/ChatWidget.h"
 #include "../ui/ChatHistoryWidget.h"
-#include "../ui/HotspotTrackingWidget.h"
-#include "../services/HotspotService.h"
-#include "../services/XunfeiPPTService.h"
 #include <QApplication>
-#include <QDesktopServices>
-#include <QUrl>
-#include <QStandardPaths>
 #include <QMessageBox>
 #include <QFile>
 #include <QRegularExpression>
@@ -798,42 +792,21 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     
     // 初始化 PPTX 生成器
     m_pptxGenerator = new PPTXGenerator(this);
-    
-    // 初始化讯飞智文 PPT 服务
-    m_xunfeiPPTService = new XunfeiPPTService(this);
-    
-    // 连接讯飞 PPT 服务信号
-    connect(m_xunfeiPPTService, &XunfeiPPTService::generationStarted, this, [this]() {
-        appendChatMessage("AI 助手", "🎨 正在调用讯飞智文生成精美 PPT，请稍候...", false);
-    });
-    connect(m_xunfeiPPTService, &XunfeiPPTService::progressUpdated, this, [this](int progress, const QString &message) {
-        qDebug() << "[XunfeiPPT] Progress:" << progress << message;
-    });
-    connect(m_xunfeiPPTService, &XunfeiPPTService::generationFinished, this, [this](const QString &pptUrl, const QString &coverUrl) {
-        Q_UNUSED(coverUrl);
-        appendChatMessage("AI 助手", "✅ PPT 生成完成！正在打开下载链接...", false);
-        
-        // 直接在浏览器中打开下载链接
-        QDesktopServices::openUrl(QUrl(pptUrl));
-    });
-    connect(m_xunfeiPPTService, &XunfeiPPTService::errorOccurred, this, [this](const QString &error) {
-        appendChatMessage("AI 助手", QString("❌ PPT 生成失败：%1").arg(error), false);
-    });
 
-    // 初始化热点追踪服务
-    m_hotspotService = new HotspotService(this);
-
-    // 从环境变量获取 API Key，如果未设置则使用默认值
+    // 从环境变量获取 API Key，提高安全性
     QString apiKey = qgetenv("DIFY_API_KEY");
-    if (apiKey.isEmpty()) {
-        // 使用默认 API Key（AI 智能备课）
-        apiKey = "app-4oFxsxMqCp4EYv0t77scpGDA";
-        qDebug() << "[Info] Using default Dify API Key for AI lesson planning.";
-    } else {
-        qDebug() << "[Info] Dify API Key loaded from environment variable.";
-    }
     const bool hasApiKey = !apiKey.isEmpty();
-    m_difyService->setApiKey(apiKey);
+    if (!hasApiKey) {
+        qDebug() << "[Error] DIFY_API_KEY environment variable not set!";
+        qDebug() << "[Info] Please set the environment variable before running the application.";
+        qDebug() << "[Info] Example: export DIFY_API_KEY=your-api-key-here";
+        // 不再使用硬编码密钥，必须通过环境变量配置
+    } else {
+        m_difyService->setApiKey(apiKey);
+        qDebug() << "[Info] Dify API Key loaded from environment variable.";
+        // 暂时不设置模型，使用 Dify 默认配置
+        // m_difyService->setModel("glm-4.6");  // 使用 GLM-4.6 模型
+    }
 
     // 不再使用独立的 AI 对话框，直接在主页面显示
     // m_chatDialog = new AIChatDialog(m_difyService, this);
@@ -857,7 +830,13 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     createDashboard();
     contentStack->setCurrentWidget(dashboardWidget);
 
-    // API Key 已通过默认值或环境变量设置，无需提示
+    if (!hasApiKey) {
+        QTimer::singleShot(0, this, [this]() {
+            if (statusBar()) {
+                statusBar()->showMessage("未设置 DIFY_API_KEY：AI 功能暂不可用（可正常使用其他页面）", 8000);
+            }
+        });
+    }
 
     qDebug() << "=== ModernMainWindow 构造函数完成 ===";
 }
@@ -967,10 +946,10 @@ void ModernMainWindow::setupCentralWidget()
 
     // 创建导航菜单
     teacherCenterBtn = new QPushButton("教师中心");
+    contentAnalysisBtn = new QPushButton("智能内容分析");
     aiPreparationBtn = new QPushButton("AI智能备课");
     resourceManagementBtn = new QPushButton("试题库");
     learningAnalysisBtn = new QPushButton("学情与教评");
-    hotspotTrackingBtn = new QPushButton("政治热点追踪");
   
     // 底部按钮
     settingsBtn = new QPushButton("系统设置");
@@ -978,10 +957,10 @@ void ModernMainWindow::setupCentralWidget()
 
     // 确保所有按钮都可见
     teacherCenterBtn->setVisible(true);
+    contentAnalysisBtn->setVisible(true);
     aiPreparationBtn->setVisible(true);
     resourceManagementBtn->setVisible(true);
     learningAnalysisBtn->setVisible(true);
-    hotspotTrackingBtn->setVisible(true);
     settingsBtn->setVisible(true);
     helpBtn->setVisible(true);
 
@@ -989,19 +968,19 @@ void ModernMainWindow::setupCentralWidget()
 
     // 设置侧边栏按钮样式 - 使用统一样式常量
     teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    hotspotTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
     // 连接信号
     connect(teacherCenterBtn, &QPushButton::clicked, this, [=]() { qDebug() << "教师中心按钮被点击"; onTeacherCenterClicked(); });
+    connect(contentAnalysisBtn, &QPushButton::clicked, this, [=]() { qDebug() << "智能内容分析按钮被点击"; onContentAnalysisClicked(); });
     connect(aiPreparationBtn, &QPushButton::clicked, this, [=]() { qDebug() << "AI智能备课按钮被点击"; onAIPreparationClicked(); });
     connect(resourceManagementBtn, &QPushButton::clicked, this, [=]() { qDebug() << "试题库按钮被点击"; onResourceManagementClicked(); });
     connect(learningAnalysisBtn, &QPushButton::clicked, this, [=]() { qDebug() << "学情与教评按钮被点击"; onLearningAnalysisClicked(); });
-    connect(hotspotTrackingBtn, &QPushButton::clicked, this, [=]() { qDebug() << "政治热点追踪按钮被点击"; onHotspotTrackingClicked(); });
     connect(settingsBtn, &QPushButton::clicked, this, [=]() { qDebug() << "系统设置按钮被点击"; onSettingsClicked(); });
     connect(helpBtn, &QPushButton::clicked, this, [=]() { qDebug() << "帮助中心按钮被点击"; onHelpClicked(); });
 
@@ -1016,10 +995,10 @@ void ModernMainWindow::setupCentralWidget()
 
     // 添加按钮到侧边栏
     sidebarLayout->addWidget(teacherCenterBtn);
+    sidebarLayout->addWidget(contentAnalysisBtn);
     sidebarLayout->addWidget(aiPreparationBtn);
     sidebarLayout->addWidget(resourceManagementBtn);
     sidebarLayout->addWidget(learningAnalysisBtn);
-    sidebarLayout->addWidget(hotspotTrackingBtn);
     sidebarLayout->addStretch();
     sidebarLayout->addWidget(settingsBtn);
     sidebarLayout->addWidget(helpBtn);
@@ -1053,12 +1032,6 @@ void ModernMainWindow::setupCentralWidget()
     questionBankWindow = new QuestionBankWindow(this);
     contentStack->addWidget(questionBankWindow);
 
-    // 创建政治热点追踪页面
-    m_hotspotWidget = new HotspotTrackingWidget();
-    m_hotspotWidget->setHotspotService(m_hotspotService);
-    m_hotspotWidget->setDifyService(m_difyService);
-    contentStack->addWidget(m_hotspotWidget);
-
     // 添加到主布局
     contentLayout->addWidget(m_sidebarStack);  // 使用侧边栏堆栈
     contentLayout->addWidget(contentStack);
@@ -1077,10 +1050,10 @@ void ModernMainWindow::applySidebarIcons()
     };
 
     setIcon(teacherCenterBtn, "user-identity", QStyle::SP_ComputerIcon);
+    setIcon(contentAnalysisBtn, "view-statistics", QStyle::SP_FileDialogContentsView);
     setIcon(aiPreparationBtn, "system-run", QStyle::SP_MediaPlay);
     setIcon(resourceManagementBtn, "folder", QStyle::SP_DirIcon);
     setIcon(learningAnalysisBtn, "view-list-details", QStyle::SP_FileDialogDetailedView);
-    setIcon(hotspotTrackingBtn, "globe", QStyle::SP_DriveNetIcon);
     setIcon(settingsBtn, "settings-configure", QStyle::SP_FileDialogDetailedView);
     setIcon(helpBtn, "help-browser", QStyle::SP_MessageBoxQuestion);
 }
@@ -1361,7 +1334,6 @@ void ModernMainWindow::createDashboard()
     m_welcomePanel = new QWidget();
     m_welcomePanel->setObjectName("welcomePanel");
     m_isConversationStarted = false;
-    m_ignoreDifyResponse = false;
 
     QVBoxLayout *welcomeLayout = new QVBoxLayout(m_welcomePanel);
     welcomeLayout->setContentsMargins(40, 60, 40, 40);
@@ -1479,14 +1451,13 @@ void ModernMainWindow::createDashboard()
     };
 
     // 四个功能卡片，使用不同的柔和背景色
-    // 四个功能卡片，使用不同的柔和背景色
-    QPushButton *card1 = createFeatureCard("🔥", "政治热点追踪", "实时追踪时政热点，生成教学案例", "#fef3c7");  // 淡黄
+    QPushButton *card1 = createFeatureCard("📊", "智能内容分析", "深度解析教材内容，提炼核心知识点", "#fef3c7");  // 淡黄
     QPushButton *card2 = createFeatureCard("📝", "AI智能备课", "一键生成PPT", "#fce7f3");  // 淡粉
     QPushButton *card3 = createFeatureCard("📚", "试题库", "海量思政习题，智能组卷测评", "#dbeafe");  // 淡蓝
     QPushButton *card4 = createFeatureCard("📈", "数据分析报告", "可视化展示教学成果与趋势", "#d1fae5");  // 淡绿
 
     // 连接卡片点击事件
-    connect(card1, &QPushButton::clicked, this, &ModernMainWindow::onHotspotTrackingClicked);
+    connect(card1, &QPushButton::clicked, this, &ModernMainWindow::onContentAnalysisClicked);
     connect(card2, &QPushButton::clicked, this, &ModernMainWindow::onAIPreparationClicked);
     connect(card3, &QPushButton::clicked, this, &ModernMainWindow::onResourceManagementClicked);
     connect(card4, &QPushButton::clicked, this, &ModernMainWindow::onLearningAnalysisClicked);
@@ -1757,6 +1728,7 @@ void ModernMainWindow::applyPatrioticRedTheme()
 void ModernMainWindow::onTeacherCenterClicked()
 {
     // 重置所有按钮样式
+    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
@@ -1777,50 +1749,31 @@ void ModernMainWindow::onTeacherCenterClicked()
     this->statusBar()->showMessage("教师中心");
 }
 
-
+void ModernMainWindow::onContentAnalysisClicked()
+{
+    onTeacherCenterClicked();
+    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+    this->statusBar()->showMessage("智能内容分析");
+}
 
 void ModernMainWindow::onAIPreparationClicked()
 {
     qDebug() << "AI智能备课按钮被点击";
 
     // 重置所有按钮样式
-    // contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
       teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
-    // 新流程：直接跳转到教师中心（AI 助手页面）
-    qDebug() << "AI智能备课 -> 跳转到教师中心，AI 引导生成 PPT";
-    contentStack->setCurrentWidget(dashboardWidget);
-    this->statusBar()->showMessage("AI智能备课");
-    
-    // 切换侧边栏到历史记录面板（页面1）
-    if (m_sidebarStack) {
-        m_sidebarStack->setCurrentIndex(1);
-    }
-    
-    // 切换到聊天区域（而不是欢迎页面）
-    if (m_mainStack && m_chatContainer) {
-        m_mainStack->setCurrentWidget(m_chatContainer);
-    }
-    
-    // 使用静态变量避免每次点击都发送欢迎消息
-    static bool aiPreparationWelcomeSent = false;
-    if (!aiPreparationWelcomeSent && m_bubbleChatWidget) {
-        // 发送 AI 欢迎消息引导用户
-        QString welcomeMessage = 
-            "🎓 **老师您好！我是 AI 备课助手**\n\n"
-            "我可以帮您快速生成精美的思政课 PPT。请告诉我您需要什么主题？\n\n"
-            "**例如：**\n"
-            "• 新时代爱国主义教育\n"
-            "• 社会主义核心价值观\n"
-            "• 中华优秀传统文化\n"
-            "• 民族团结进步教育\n\n"
-            "您也可以直接说：*帮我做一份关于XX的PPT，大约10页*";
-        
-        m_bubbleChatWidget->addMessage(welcomeMessage, false);
-        aiPreparationWelcomeSent = true;
+    // 切换到AI智能备课页面
+    if (aiPreparationWidget) {
+        qDebug() << "切换到AI智能备课页面";
+        contentStack->setCurrentWidget(aiPreparationWidget);
+        this->statusBar()->showMessage("AI智能备课");
+    } else {
+        qDebug() << "错误：aiPreparationWidget为空";
     }
 }
 
@@ -1829,7 +1782,7 @@ void ModernMainWindow::onResourceManagementClicked()
     qDebug() << "试题库按钮被点击";
 
     // 重置所有按钮样式
-    // contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    contentAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
@@ -1852,24 +1805,6 @@ void ModernMainWindow::onLearningAnalysisClicked()
     this->statusBar()->showMessage("学情与教评");
 }
 
-void ModernMainWindow::onHotspotTrackingClicked()
-{
-    // 重置所有侧边栏按钮样式
-    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    hotspotTrackingBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-    
-    // 切换到热点追踪页面
-    if (m_hotspotWidget) {
-        qDebug() << "切换到政治热点追踪页面";
-        contentStack->setCurrentWidget(m_hotspotWidget);
-        m_hotspotWidget->refresh();  // 刷新数据
-        this->statusBar()->showMessage("政治热点追踪");
-    } else {
-        qDebug() << "错误：m_hotspotWidget为空";
-    }
-}
 
 void ModernMainWindow::onSettingsClicked()
 {
@@ -2126,10 +2061,10 @@ void ModernMainWindow::createAIChatWidget()
         // 清空聊天并重置 Dify 会话
         if (m_bubbleChatWidget) {
             m_bubbleChatWidget->clearMessages();
+            m_bubbleChatWidget->addMessage("老师您好！我是智慧课堂助手，请问有什么可以帮你？", false);
         }
         if (m_difyService) {
             m_difyService->clearConversation();
-            m_difyService->fetchAppInfo();  // 重新获取 Dify 动态开场白
         }
         
         // 清除选中状态（不再创建假的历史项，真实历史会在对话完成后自动刷新）
@@ -2217,18 +2152,16 @@ void ModernMainWindow::createAIChatWidget()
         qDebug() << "[ModernMainWindow] Loaded" << messages.size() << "messages for conversation:" << conversationId;
     });
     
-    // 创建气泡样式聊天组件（必须在调用 Dify API 之前创建，以便处理可能的错误回调）
-    m_bubbleChatWidget = new ChatWidget();
-    m_bubbleChatWidget->setPlaceholderText("向AI助手发送信息...");
-    containerLayout->addWidget(m_bubbleChatWidget, 1);
-    
-    // 不再显示硬编码开场白，等待 Dify 动态开场白加载
-    
-    // 加载真实对话历史（如果有）- 必须在 ChatWidget 创建之后
+    // 加载真实对话历史（如果有）
     if (m_difyService) {
         m_difyService->fetchConversations();
         m_difyService->fetchAppInfo();  // 获取动态开场白
     }
+    
+    // 创建气泡样式聊天组件
+    m_bubbleChatWidget = new ChatWidget();
+    m_bubbleChatWidget->setPlaceholderText("向AI助手发送信息...");
+    containerLayout->addWidget(m_bubbleChatWidget, 1);
     
     // 连接动态开场白信号
     connect(m_difyService, &DifyService::appInfoReceived, this, [this](const QString &name, const QString &introduction) {
@@ -2238,6 +2171,10 @@ void ModernMainWindow::createAIChatWidget()
             qDebug() << "[ModernMainWindow] Loaded dynamic introduction from Dify:" << name;
         }
     });
+    
+    // 显示开场白
+    QString openingMessage = "老师您好！我是智慧课堂助手，请问有什么可以帮你？";
+    m_bubbleChatWidget->addMessage(openingMessage, false);
     
     // 连接消息发送信号到 Dify 服务
     connect(m_bubbleChatWidget, &ChatWidget::messageSent, this, [this](const QString &message) {
@@ -2255,174 +2192,6 @@ void ModernMainWindow::createAIChatWidget()
         
         // 清空累积响应
         m_currentAIResponse.clear();
-        
-        // 检测是否是 PPT 生成请求
-        QString lowerMsg = message.toLower();
-        bool isPPTRequest = lowerMsg.contains("ppt") || 
-                            lowerMsg.contains("演示文稿") || 
-                            lowerMsg.contains("幻灯片") ||
-                            lowerMsg.contains("备课") ||
-                            (lowerMsg.contains("生成") && (lowerMsg.contains("课件") || lowerMsg.contains("教案")));
-        
-        if (isPPTRequest) {
-            // 演示模式：根据预设 PPT 内容生成真实大纲
-            QString pptPath;
-            QString pptName;
-            QString outline;
-            QString pptResourceDir = "/Users/zhouzhiqi/QtProjects/AItechnology/ppt-resource/";
-            
-            if (lowerMsg.contains("爱国") || lowerMsg.contains("精神传承")) {
-                pptPath = pptResourceDir + "爱国主义精神传承 (1).pptx";
-                pptName = "爱国主义精神传承.pptx";
-                outline = "好的！我来为您生成一份关于「爱国主义精神传承」的 PPT。\n\n"
-                          "📋 **PPT 大纲如下：**\n\n"
-                          "**第一部分：引言**\n"
-                          "• 什么是爱国主义\n"
-                          "• 爱国主义的历史渊源\n\n"
-                          "**第二部分：爱国主义精神的内涵**\n"
-                          "• 热爱祖国的深厚情感\n"
-                          "• 维护国家统一和民族团结\n"
-                          "• 为祖国繁荣富强而奋斗\n\n"
-                          "**第三部分：新时代爱国主义**\n"
-                          "• 习近平总书记关于爱国主义的重要论述\n"
-                          "• 新时代爱国主义教育实施纲要\n\n"
-                          "**第四部分：爱国主义的实践**\n"
-                          "• 爱国英雄人物故事\n"
-                          "• 青年学生如何践行爱国主义\n\n"
-                          "**第五部分：总结与展望**\n\n"
-                          "正在生成精美幻灯片，请稍候...";
-            } else if (lowerMsg.contains("核心价值") || lowerMsg.contains("价值观") || lowerMsg.contains("社会主义")) {
-                pptPath = pptResourceDir + "社会主义核心价值观解读 (1).pptx";
-                pptName = "社会主义核心价值观解读.pptx";
-                outline = "好的！我来为您生成一份关于「社会主义核心价值观」的 PPT。\n\n"
-                          "📋 **PPT 大纲如下：**\n\n"
-                          "**第一部分：什么是社会主义核心价值观**\n"
-                          "• 24字核心内容解读\n"
-                          "• 三个层面的价值要求\n\n"
-                          "**第二部分：国家层面的价值目标**\n"
-                          "• 富强：国家富裕强盛\n"
-                          "• 民主：人民当家作主\n"
-                          "• 文明：精神文明建设\n"
-                          "• 和谐：社会和谐稳定\n\n"
-                          "**第三部分：社会层面的价值取向**\n"
-                          "• 自由、平等、公正、法治\n\n"
-                          "**第四部分：个人层面的价值准则**\n"
-                          "• 爱国、敬业、诚信、友善\n\n"
-                          "**第五部分：如何践行核心价值观**\n"
-                          "• 学习榜样人物\n"
-                          "• 日常生活中的践行\n\n"
-                          "正在生成精美幻灯片，请稍候...";
-            }
-            
-            // 如果匹配到预存 PPT
-            if (!pptPath.isEmpty() && QFile::exists(pptPath)) {
-                QString savedPptPath = pptPath;
-                QString savedPptName = pptName;
-                QString topicName = lowerMsg.contains("爱国") ? "爱国主义精神" : "社会主义核心价值观";
-                
-                // 发送到 Dify 保存对话历史（但忽略返回内容）
-                m_ignoreDifyResponse = true;
-                if (m_difyService) {
-                    m_difyService->sendMessage(message);
-                }
-                
-                // 思考过程动画
-                m_bubbleChatWidget->addMessage("", false);  // 先添加空消息占位
-                
-                // 思考步骤内容
-                QStringList thinkingSteps = {
-                    QString("🤔 收到用户请求：生成关于「%1」的PPT").arg(topicName),
-                    "📚 正在检索相关教育资源和素材...",
-                    "🔍 分析主题核心要点和教学目标...",
-                    "📋 规划PPT结构：引言→核心内容→案例→总结",
-                    "✏️ 生成各章节详细内容大纲...",
-                    "🎨 选择适合的模板和配色方案...",
-                    "✅ 思考完成，开始生成PPT..."
-                };
-                
-                int* stepIndex = new int(0);
-                QString* outlinePtr = new QString(outline);
-                
-                QTimer* thinkTimer = new QTimer(this);
-                thinkTimer->setInterval(1200);
-                
-                connect(thinkTimer, &QTimer::timeout, this, [this, thinkingSteps, stepIndex, thinkTimer, outlinePtr, savedPptPath, savedPptName]() {
-                    if (*stepIndex < thinkingSteps.size()) {
-                        m_bubbleChatWidget->updateLastAIThinking(thinkingSteps[*stepIndex]);
-                        (*stepIndex)++;
-                    } else {
-                        thinkTimer->stop();
-                        thinkTimer->deleteLater();
-                        
-                        QTimer::singleShot(2000, this, [this, outlinePtr, savedPptPath, savedPptName]() {
-                            m_bubbleChatWidget->collapseThinking();
-                            
-                            int* charIndex = new int(0);
-                            QTimer* typeTimer = new QTimer(this);
-                            typeTimer->setInterval(30);
-                            
-                            connect(typeTimer, &QTimer::timeout, this, [this, outlinePtr, charIndex, typeTimer, savedPptPath, savedPptName]() {
-                                if (*charIndex < outlinePtr->length()) {
-                                    QString displayText = outlinePtr->left(*charIndex + 1);
-                                    m_bubbleChatWidget->updateLastAIMessage(displayText);
-                                    (*charIndex)++;
-                                } else {
-                                    typeTimer->stop();
-                                    typeTimer->deleteLater();
-                                    
-                                    QTimer::singleShot(1000, this, [this, savedPptPath, savedPptName]() {
-                                        QString desktopPath = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
-                                        QString defaultPath = desktopPath + "/" + savedPptName;
-                                        
-                                        QString destPath = QFileDialog::getSaveFileName(
-                                            this,
-                                            "保存 PPT 文件",
-                                            defaultPath,
-                                            "PowerPoint 文件 (*.pptx)"
-                                        );
-                                        
-                                        if (destPath.isEmpty()) {
-                                            appendChatMessage("AI 助手", "❌ 您取消了保存操作。如需保存，请重新生成或联系我。", false);
-                                            return;
-                                        }
-                                        
-                                        if (QFile::exists(destPath)) {
-                                            QFile::remove(destPath);
-                                        }
-                                        
-                                        if (QFile::copy(savedPptPath, destPath)) {
-                                            QFileInfo fileInfo(destPath);
-                                            appendChatMessage("AI 助手", 
-                                                QString("✅ **PPT 已生成完成！**\n\n"
-                                                        "📁 文件已保存到：%1\n\n"
-                                                        "您可以直接打开查看，如需调整请告诉我！").arg(destPath), false);
-                                            QDesktopServices::openUrl(QUrl::fromLocalFile(fileInfo.absolutePath()));
-                                        } else {
-                                            appendChatMessage("AI 助手", "❌ 保存失败，请检查文件路径后重试。", false);
-                                        }
-                                    });
-                                    
-                                    delete outlinePtr;
-                                    delete charIndex;
-                                }
-                            });
-                            
-                            typeTimer->start();
-                        });
-                        
-                        delete stepIndex;
-                    }
-                });
-                
-                thinkTimer->start();
-            } else if (m_xunfeiPPTService) {
-                m_xunfeiPPTService->generatePPT(message, currentUsername);
-            } else {
-                appendChatMessage("AI 助手", 
-                    "抱歉，目前仅支持以下主题的PPT生成：\n• 爱国主义\n• 社会主义核心价值观", false);
-            }
-            return;
-        }
         
         // 直接发送到 Dify，使用 Dify 中配置的提示词
         if (m_difyService) {
@@ -2472,199 +2241,16 @@ void ModernMainWindow::onSendChatMessage()
 
     // 清空累积响应
     m_currentAIResponse.clear();
-    
-    // 检测是否是 PPT 生成请求
-    QString lowerMsg = message.toLower();
-    bool isPPTRequest = lowerMsg.contains("ppt") || 
-                        lowerMsg.contains("演示文稿") || 
-                        lowerMsg.contains("幻灯片") ||
-                        lowerMsg.contains("备课") ||
-                        (lowerMsg.contains("生成") && (lowerMsg.contains("课件") || lowerMsg.contains("教案")));
-    
-    if (isPPTRequest) {
-        // 演示模式：根据预设 PPT 内容生成真实大纲
-        QString pptPath;
-        QString pptName;
-        QString outline;
-        QString pptResourceDir = "/Users/zhouzhiqi/QtProjects/AItechnology/ppt-resource/";
-        
-        if (lowerMsg.contains("爱国") || lowerMsg.contains("精神传承")) {
-            pptPath = pptResourceDir + "爱国主义精神传承 (1).pptx";
-            pptName = "爱国主义精神传承.pptx";
-            outline = "好的！我来为您生成一份关于「爱国主义精神传承」的 PPT。\n\n"
-                      "📋 **PPT 大纲如下：**\n\n"
-                      "**第一部分：引言**\n"
-                      "• 什么是爱国主义\n"
-                      "• 爱国主义的历史渊源\n\n"
-                      "**第二部分：爱国主义精神的内涵**\n"
-                      "• 热爱祖国的深厚情感\n"
-                      "• 维护国家统一和民族团结\n"
-                      "• 为祖国繁荣富强而奋斗\n\n"
-                      "**第三部分：新时代爱国主义**\n"
-                      "• 习近平总书记关于爱国主义的重要论述\n"
-                      "• 新时代爱国主义教育实施纲要\n\n"
-                      "**第四部分：爱国主义的实践**\n"
-                      "• 爱国英雄人物故事\n"
-                      "• 青年学生如何践行爱国主义\n\n"
-                      "**第五部分：总结与展望**\n\n"
-                      "正在生成精美幻灯片，请稍候...";
-        } else if (lowerMsg.contains("核心价值") || lowerMsg.contains("价值观") || lowerMsg.contains("社会主义")) {
-            pptPath = pptResourceDir + "社会主义核心价值观解读 (1).pptx";
-            pptName = "社会主义核心价值观解读.pptx";
-            outline = "好的！我来为您生成一份关于「社会主义核心价值观」的 PPT。\n\n"
-                      "📋 **PPT 大纲如下：**\n\n"
-                      "**第一部分：什么是社会主义核心价值观**\n"
-                      "• 24字核心内容解读\n"
-                      "• 三个层面的价值要求\n\n"
-                      "**第二部分：国家层面的价值目标**\n"
-                      "• 富强：国家富裕强盛\n"
-                      "• 民主：人民当家作主\n"
-                      "• 文明：精神文明建设\n"
-                      "• 和谐：社会和谐稳定\n\n"
-                      "**第三部分：社会层面的价值取向**\n"
-                      "• 自由、平等、公正、法治\n\n"
-                      "**第四部分：个人层面的价值准则**\n"
-                      "• 爱国、敬业、诚信、友善\n\n"
-                      "**第五部分：如何践行核心价值观**\n"
-                      "• 学习榜样人物\n"
-                      "• 日常生活中的践行\n\n"
-                      "正在生成精美幻灯片，请稍候...";
-        }
-        
-        // 如果匹配到预存 PPT
-        if (!pptPath.isEmpty() && QFile::exists(pptPath)) {
-            QString savedPptPath = pptPath;
-            QString savedPptName = pptName;
-            QString topicName = lowerMsg.contains("爱国") ? "爱国主义精神" : "社会主义核心价值观";
-            
-            // 发送到 Dify 保存对话历史（但忽略返回内容）
-            m_ignoreDifyResponse = true;
-            if (m_difyService) {
-                m_difyService->sendMessage(message);
-            }
-            
-            // 思考过程动画
-            if (m_bubbleChatWidget) {
-                m_bubbleChatWidget->addMessage("", false);  // 先添加空消息占位
-                
-                // 思考步骤内容
-                QStringList thinkingSteps = {
-                    QString("🤔 收到用户请求：生成关于「%1」的PPT").arg(topicName),
-                    "📚 正在检索相关教育资源和素材...",
-                    "🔍 分析主题核心要点和教学目标...",
-                    "📋 规划PPT结构：引言→核心内容→案例→总结",
-                    "✏️ 生成各章节详细内容大纲...",
-                    "🎨 选择适合的模板和配色方案...",
-                    "✅ 思考完成，开始生成PPT..."
-                };
-                
-                // 保存状态
-                int* stepIndex = new int(0);
-                QString* outlinePtr = new QString(outline);
-                
-                // 思考过程定时器
-                QTimer* thinkTimer = new QTimer(this);
-                thinkTimer->setInterval(1200);  // 每1200ms显示一个思考步骤
-                
-                connect(thinkTimer, &QTimer::timeout, this, [this, thinkingSteps, stepIndex, thinkTimer, outlinePtr, savedPptPath, savedPptName]() {
-                    if (*stepIndex < thinkingSteps.size()) {
-                        // 显示思考步骤
-                        m_bubbleChatWidget->updateLastAIThinking(thinkingSteps[*stepIndex]);
-                        (*stepIndex)++;
-                    } else {
-                        thinkTimer->stop();
-                        thinkTimer->deleteLater();
-                        
-                        // 思考完成，延迟2秒后折叠思考区域
-                        QTimer::singleShot(2000, this, [this, outlinePtr, savedPptPath, savedPptName]() {
-                            m_bubbleChatWidget->collapseThinking();
-                            
-                            // 开始打字机效果显示大纲
-                            int* charIndex = new int(0);
-                            QTimer* typeTimer = new QTimer(this);
-                            typeTimer->setInterval(30);
-                            
-                            connect(typeTimer, &QTimer::timeout, this, [this, outlinePtr, charIndex, typeTimer, savedPptPath, savedPptName]() {
-                                if (*charIndex < outlinePtr->length()) {
-                                    QString displayText = outlinePtr->left(*charIndex + 1);
-                                    m_bubbleChatWidget->updateLastAIMessage(displayText);
-                                    (*charIndex)++;
-                                } else {
-                                    typeTimer->stop();
-                                    typeTimer->deleteLater();
-                                    
-                                    // 打字完成后，弹出保存对话框
-                                    QTimer::singleShot(1000, this, [this, savedPptPath, savedPptName]() {
-                                        QString desktopPath = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
-                                        QString defaultPath = desktopPath + "/" + savedPptName;
-                                        
-                                        QString destPath = QFileDialog::getSaveFileName(
-                                            this,
-                                            "保存 PPT 文件",
-                                            defaultPath,
-                                            "PowerPoint 文件 (*.pptx)"
-                                        );
-                                        
-                                        if (destPath.isEmpty()) {
-                                            appendChatMessage("AI 助手", "❌ 您取消了保存操作。如需保存，请重新生成或联系我。", false);
-                                            return;
-                                        }
-                                        
-                                        if (QFile::exists(destPath)) {
-                                            QFile::remove(destPath);
-                                        }
-                                        
-                                        if (QFile::copy(savedPptPath, destPath)) {
-                                            QFileInfo fileInfo(destPath);
-                                            appendChatMessage("AI 助手", 
-                                                QString("✅ **PPT 已生成完成！**\n\n"
-                                                        "📁 文件已保存到：%1\n\n"
-                                                        "您可以直接打开查看，如需调整请告诉我！").arg(destPath), false);
-                                            QDesktopServices::openUrl(QUrl::fromLocalFile(fileInfo.absolutePath()));
-                                        } else {
-                                            appendChatMessage("AI 助手", "❌ 保存失败，请检查文件路径后重试。", false);
-                                        }
-                                    });
-                                    
-                                    delete outlinePtr;
-                                    delete charIndex;
-                                }
-                            });
-                            
-                            typeTimer->start();
-                        });
-                        
-                        delete stepIndex;
-                    }
-                });
-                
-                thinkTimer->start();
-            }
-        } else {
-            // 没有匹配到预存PPT，调用讯飞 API
-            if (m_xunfeiPPTService) {
-                m_xunfeiPPTService->generatePPT(message, currentUsername);
-            } else {
-                appendChatMessage("AI 助手", 
-                    "抱歉，目前仅支持以下主题的PPT生成：\n• 爱国主义\n• 社会主义核心价值观\n\n请尝试包含这些关键词的请求。", false);
-            }
-        }
-        return;
-    }
 
-    // 发送到 Dify（不添加额外前缀，让 AI 自由使用 Markdown 格式回复）
+    // 发送到 Dify
     if (m_difyService) {
-        m_difyService->sendMessage(message);
+        const QString concisePrefix = "请用简洁中文回答（不超过120字），不要使用Markdown/标签/代码块，直接回答：";
+        m_difyService->sendMessage(concisePrefix + message);
     }
 }
 
 void ModernMainWindow::onAIStreamChunk(const QString &chunk)
 {
-    // 如果在使用预存 PPT，忽略 Dify 返回
-    if (m_ignoreDifyResponse) {
-        return;
-    }
-    
     qDebug() << "[ModernMainWindow] Stream chunk received:" << chunk.left(50) + "...";
 
     if (!m_bubbleChatWidget) {
@@ -2749,17 +2335,6 @@ void ModernMainWindow::onAIRequestStarted()
 
 void ModernMainWindow::onAIRequestFinished()
 {
-    // 如果在使用预存 PPT，忽略 Dify 返回并重置标志
-    if (m_ignoreDifyResponse) {
-        m_ignoreDifyResponse = false;
-        m_currentAIResponse.clear();
-        // 仍然刷新历史记录列表
-        if (m_difyService) {
-            m_difyService->fetchConversations();
-        }
-        return;
-    }
-    
     // 通过 ChatWidget 的公共方法来控制状态
     if (m_bubbleChatWidget) {
         m_bubbleChatWidget->setInputEnabled(true);

@@ -143,41 +143,15 @@ void ChatWidget::setupStyles()
             background-color: #f5f7fa;
         }
         
-        /* 滚动区域 - 透明背景 */
+        /* 滚动区域 */
         QScrollArea#chatScrollArea {
-            background-color: transparent;
+            background-color: #f5f7fa;
             border: none;
         }
         
-        /* 滚动区域视口 - 透明背景 */
-        QScrollArea#chatScrollArea > QWidget > QWidget {
-            background-color: transparent;
-        }
-        
-        /* 消息容器 - 透明背景 */
+        /* 消息容器 */
         QWidget#messageContainer {
-            background-color: transparent;
-        }
-        
-        /* 所有列表项和子控件 - 透明背景 */
-        QWidget#messageContainer QWidget {
-            background-color: transparent;
-        }
-        
-        /* 确保列表/视图无斑马纹 */
-        QListView, QTreeView, QTableView {
-            background-color: transparent;
-            alternate-background-color: transparent;
-            selection-background-color: transparent;
-        }
-        QListView::item, QTreeView::item, QTableView::item {
-            background-color: transparent;
-        }
-        QListView::item:alternate, QTreeView::item:alternate {
-            background-color: transparent;
-        }
-        QListView::item:selected, QTreeView::item:selected {
-            background-color: rgba(220, 38, 38, 0.1);
+            background-color: #f5f7fa;
         }
         
         /* 滚动条样式 */
@@ -277,10 +251,8 @@ void ChatWidget::setupStyles()
 
 QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
 {
-    // 消息行容器 - 设置透明背景
+    // 消息行容器
     QWidget *rowWidget = new QWidget();
-    rowWidget->setAttribute(Qt::WA_TranslucentBackground);
-    rowWidget->setStyleSheet("background: transparent;");
     QHBoxLayout *rowLayout = new QHBoxLayout(rowWidget);
     rowLayout->setContentsMargins(0, 0, 0, 0);
     rowLayout->setSpacing(12);
@@ -465,24 +437,15 @@ QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
 void ChatWidget::addMessage(const QString &text, bool isUser)
 {
     qDebug() << "[ChatWidget] addMessage called with text length:" << text.length() << "isUser:" << isUser;
-    
-    // 安全检查
-    if (!m_messageLayout) {
-        qDebug() << "[ChatWidget] Error: m_messageLayout is null!";
-        return;
-    }
-    
     // 注意：允许空的 AI 消息作为流式响应的占位符
     if (text.trimmed().isEmpty() && isUser) {
         qDebug() << "[ChatWidget] addMessage: text is empty for user message, returning";
         return;
     }
 
-    // 移除底部弹簧（安全检查）
-    if (m_messageLayout->count() > 0) {
-        QLayoutItem *stretch = m_messageLayout->takeAt(m_messageLayout->count() - 1);
-        if (stretch) delete stretch;
-    }
+    // 移除底部弹簧
+    QLayoutItem *stretch = m_messageLayout->takeAt(m_messageLayout->count() - 1);
+    if (stretch) delete stretch;
 
     // 创建并添加消息气泡
     qDebug() << "[ChatWidget] addMessage: About to create message bubble";

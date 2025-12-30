@@ -8,21 +8,14 @@
 #include <QSslSocket>
 #include <QtGlobal>
 #include <QUrlQuery>
-#include <QSettings>
 
 DifyService::DifyService(QObject *parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
     , m_currentReply(nullptr)
     , m_baseUrl("https://api.dify.ai/v1")
+    , m_userId(QUuid::createUuid().toString(QUuid::WithoutBraces))
 {
-    // 从 QSettings 加载或生成用户 ID
-    QSettings settings;
-    m_userId = settings.value("dify/userId").toString();
-    if (m_userId.isEmpty()) {
-        m_userId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-        settings.setValue("dify/userId", m_userId);
-    }
 }
 
 DifyService::~DifyService()
@@ -337,10 +330,9 @@ QString DifyService::filterThinkTagsStreaming(const QString &text)
         }
     }
 
-    // 只压缩超过2个的连续换行，保留正常的段落分隔
+    output.replace(QRegularExpression("[ \\t]+"), " ");
     output.replace(QRegularExpression("\\n{3,}"), "\n\n");
-    // 注意：不再调用 trimmed()，保留流式响应中的换行符
-    return output;
+    return output.trimmed();
 }
 
 void DifyService::parseStreamResponse(const QByteArray &data)

@@ -8,11 +8,16 @@
 #include <QSslConfiguration>
 #include <QSslSocket>
 #include <QRegularExpression>
+#include <QHttpMultiPart>
+#include <QMimeDatabase>
+#include <QFileInfo>
 
 QuestionParserService::QuestionParserService(QObject *parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
     , m_currentReply(nullptr)
+    , m_uploadReply(nullptr)
+    , m_uploadFile(nullptr)
     , m_baseUrl("https://api.dify.ai/v1")
 {
 }
@@ -22,6 +27,14 @@ QuestionParserService::~QuestionParserService()
     if (m_currentReply) {
         m_currentReply->abort();
         m_currentReply->deleteLater();
+    }
+    if (m_uploadReply) {
+        m_uploadReply->abort();
+        m_uploadReply->deleteLater();
+    }
+    if (m_uploadFile) {
+        m_uploadFile->close();
+        delete m_uploadFile;
     }
 }
 
@@ -110,6 +123,218 @@ void QuestionParserService::parseDocument(const QString &documentText,
     qDebug() << "[QuestionParserService] URL:" << url.toString();
     
     emit parseStarted();
+    
+    m_currentReply = m_networkManager->post(request, jsonData);
+    
+    connect(m_currentReply, &QNetworkReply::finished, 
+            this, &QuestionParserService::onReplyFinished);
+    connect(m_currentReply, &QNetworkReply::readyRead, 
+            this, &QuestionParserService::onReadyRead);
+}
+
+// ==================== 文件上传模式 ====================
+
+void QuestionParserService::parseFile(const QString &filePath,
+                                      const QString &subject,
+                                      const QString &grade)
+{
+    m_lastError.clear();
+    
+    if (m_apiKey.isEmpty()) {
+        m_lastError = "API Key 未设置";
+        emit errorOccurred(m_lastError);
+        return;
+    }
+    
+    if (!QFile::exists(filePath)) {
+        m_lastError = "文件不存在: " + filePath;
+        emit errorOccurred(m_lastError);
+        return;
+    }
+    
+    // 保存元数据
+    m_currentFilePath = filePath;
+    m_currentSubject = subject;
+    m_currentGrade = grade;
+    m_fullResponse.clear();
+    m_streamBuffer.clear();
+    m_uploadedFileId.clear();
+    
+    emit parseStarted();
+    
+    // 开始上传文件
+    uploadFileToDify(filePath);
+}
+
+void QuestionParserService::uploadFileToDify(const QString &filePath)
+{
+    qDebug() << "[QuestionParserService] 开始上传文件:" << filePath;
+    
+    // 清理之前的上传
+    if (m_uploadReply) {
+        m_uploadReply->abort();
+        m_uploadReply->deleteLater();
+        m_uploadReply = nullptr;
+    }
+    if (m_uploadFile) {
+        m_uploadFile->close();
+        delete m_uploadFile;
+        m_uploadFile = nullptr;
+    }
+    
+    // 打开文件
+    m_uploadFile = new QFile(filePath);
+    if (!m_uploadFile->open(QIODevice::ReadOnly)) {
+        m_lastError = "无法打开文件: " + filePath;
+        emit errorOccurred(m_lastError);
+        delete m_uploadFile;
+        m_uploadFile = nullptr;
+        return;
+    }
+    
+    // 构建 multipart 请求
+    QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+    
+    // 添加文件部分
+    QHttpPart filePart;
+    QFileInfo fileInfo(filePath);
+    QMimeDatabase mimeDb;
+    QString mimeType = mimeDb.mimeTypeForFile(fileInfo).name();
+    
+    filePart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant(mimeType));
+    filePart.setHeader(QNetworkRequest::ContentDispositionHeader,
+                       QVariant(QString("form-data; name=\"file\"; filename=\"%1\"")
+                                .arg(fileInfo.fileName())));
+    filePart.setBodyDevice(m_uploadFile);
+    m_uploadFile->setParent(multiPart);  // multiPart 会负责删除文件
+    m_uploadFile = nullptr;  // 不再需要手动管理
+    multiPart->append(filePart);
+    
+    // 添加 user 参数
+    QHttpPart userPart;
+    userPart.setHeader(QNetworkRequest::ContentDispositionHeader,
+                       QVariant("form-data; name=\"user\""));
+    userPart.setBody(QUuid::createUuid().toString(QUuid::WithoutBraces).toUtf8());
+    multiPart->append(userPart);
+    
+    // 创建请求
+    QUrl url(m_baseUrl + "/files/upload");
+    QNetworkRequest request(url);
+    request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+    
+    // 配置 SSL
+    QSslConfiguration sslConfig = request.sslConfiguration();
+    sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
+    request.setSslConfiguration(sslConfig);
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+    request.setTransferTimeout(120000);  // 2分钟上传超时
+    
+    qDebug() << "[QuestionParserService] 上传 URL:" << url.toString();
+    qDebug() << "[QuestionParserService] 文件 MIME 类型:" << mimeType;
+    
+    m_uploadReply = m_networkManager->post(request, multiPart);
+    multiPart->setParent(m_uploadReply);  // 请求完成后自动删除
+    
+    connect(m_uploadReply, &QNetworkReply::finished,
+            this, &QuestionParserService::onUploadFinished);
+    connect(m_uploadReply, &QNetworkReply::uploadProgress,
+            this, &QuestionParserService::onUploadProgress);
+}
+
+void QuestionParserService::onUploadProgress(qint64 bytesSent, qint64 bytesTotal)
+{
+    emit uploadProgress(bytesSent, bytesTotal);
+}
+
+void QuestionParserService::onUploadFinished()
+{
+    if (!m_uploadReply) return;
+    
+    QNetworkReply::NetworkError error = m_uploadReply->error();
+    QByteArray responseData = m_uploadReply->readAll();
+    
+    m_uploadReply->deleteLater();
+    m_uploadReply = nullptr;
+    
+    if (error != QNetworkReply::NoError) {
+        m_lastError = QString("文件上传失败: %1").arg(QString(responseData));
+        qWarning() << "[QuestionParserService] 上传错误:" << m_lastError;
+        emit errorOccurred(m_lastError);
+        return;
+    }
+    
+    // 解析响应获取文件 ID
+    QJsonDocument doc = QJsonDocument::fromJson(responseData);
+    if (!doc.isObject()) {
+        m_lastError = "上传响应格式错误";
+        emit errorOccurred(m_lastError);
+        return;
+    }
+    
+    QJsonObject obj = doc.object();
+    m_uploadedFileId = obj["id"].toString();
+    
+    if (m_uploadedFileId.isEmpty()) {
+        m_lastError = "未能获取上传文件 ID";
+        emit errorOccurred(m_lastError);
+        return;
+    }
+    
+    qDebug() << "[QuestionParserService] 文件上传成功，ID:" << m_uploadedFileId;
+    
+    // 调用工作流
+    callWorkflowWithFile(m_uploadedFileId);
+}
+
+void QuestionParserService::callWorkflowWithFile(const QString &uploadFileId)
+{
+    qDebug() << "[QuestionParserService] 调用工作流，文件 ID:" << uploadFileId;
+    
+    // 取消之前的请求
+    if (m_currentReply) {
+        m_currentReply->abort();
+        m_currentReply->deleteLater();
+        m_currentReply = nullptr;
+    }
+    
+    m_fullResponse.clear();
+    m_streamBuffer.clear();
+    
+    // 构建工作流请求
+    QUrl url(m_baseUrl + "/workflows/run");
+    QNetworkRequest request(url);
+    
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+    
+    // 配置 SSL
+    QSslConfiguration sslConfig = request.sslConfiguration();
+    sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
+    request.setSslConfiguration(sslConfig);
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+    request.setTransferTimeout(300000);  // 5分钟解析超时
+    
+    // 构建请求体 - 文件需要放在 inputs 中，变量名与 Dify 工作流开始节点定义的一致
+    // Dify 工作流中定义的文件输入变量名是 "upload"
+    QJsonArray filesArray;
+    QJsonObject fileObj;
+    fileObj["type"] = "document";
+    fileObj["transfer_method"] = "local_file";
+    fileObj["upload_file_id"] = uploadFileId;
+    filesArray.append(fileObj);
+    
+    QJsonObject inputs;
+    inputs["upload"] = filesArray;  // 变量名与 Dify 工作流开始节点定义的一致（请检查 Dify 配置）
+    
+    QJsonObject body;
+    body["inputs"] = inputs;
+    body["response_mode"] = "streaming";
+    body["user"] = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    
+    QJsonDocument doc(body);
+    QByteArray jsonData = doc.toJson();
+    
+    qDebug() << "[QuestionParserService] 工作流请求体:" << QString(jsonData);
     
     m_currentReply = m_networkManager->post(request, jsonData);
     
@@ -303,6 +528,57 @@ QList<PaperQuestion> QuestionParserService::parseJsonResponse(const QString &jso
     
     cleanJson = cleanJson.mid(startPos);
     
+    // 查找 JSON 结束位置，处理末尾有额外内容的情况
+    // 通过匹配括号来找到正确的结束位置
+    int braceCount = 0;
+    int bracketCount = 0;
+    int endPos = -1;
+    bool inString = false;
+    bool escaped = false;
+    
+    for (int i = 0; i < cleanJson.length(); i++) {
+        QChar c = cleanJson.at(i);
+        
+        if (escaped) {
+            escaped = false;
+            continue;
+        }
+        
+        if (c == '\\') {
+            escaped = true;
+            continue;
+        }
+        
+        if (c == '"') {
+            inString = !inString;
+            continue;
+        }
+        
+        if (inString) continue;
+        
+        if (c == '{') braceCount++;
+        else if (c == '}') {
+            braceCount--;
+            if (braceCount == 0 && bracketCount == 0) {
+                endPos = i + 1;
+                break;
+            }
+        }
+        else if (c == '[') bracketCount++;
+        else if (c == ']') {
+            bracketCount--;
+            if (braceCount == 0 && bracketCount == 0) {
+                endPos = i + 1;
+                break;
+            }
+        }
+    }
+    
+    if (endPos > 0 && endPos < cleanJson.length()) {
+        qDebug() << "[QuestionParserService] 截断 JSON 末尾额外内容，从" << cleanJson.length() << "截断到" << endPos;
+        cleanJson = cleanJson.left(endPos);
+    }
+    
     QJsonParseError parseError;
     QJsonDocument doc = QJsonDocument::fromJson(cleanJson.toUtf8(), &parseError);
     
@@ -377,13 +653,32 @@ QList<PaperQuestion> QuestionParserService::parseJsonResponse(const QString &jso
             continue;  // 跳过没有题干的数据
         }
         
-        // 题目类型
-        q.questionType = qObj["questionType"].toString();
+        // 题目类型 - 支持多种字段名格式
+        q.questionType = qObj["question_type"].toString();  // Dify 输出的格式
+        if (q.questionType.isEmpty()) {
+            q.questionType = qObj["questionType"].toString();  // 驼峰格式
+        }
         if (q.questionType.isEmpty()) {
             q.questionType = qObj["type"].toString();
         }
         if (q.questionType.isEmpty()) {
             q.questionType = "short_answer";  // 默认简答题
+        }
+        
+        // 中文题型映射到英文（数据库约束要求英文值）
+        static const QMap<QString, QString> typeMapping = {
+            {"单选题", "single_choice"},
+            {"多选题", "multiple_choice"},
+            {"填空题", "fill_blank"},
+            {"判断说理题", "true_false"},
+            {"判断题", "true_false"},
+            {"材料论述题", "short_answer"},
+            {"简答题", "short_answer"},
+            {"论述题", "short_answer"},
+            {"材料分析题", "short_answer"}
+        };
+        if (typeMapping.contains(q.questionType)) {
+            q.questionType = typeMapping[q.questionType];
         }
         
         // 选项

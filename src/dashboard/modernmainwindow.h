@@ -37,9 +37,6 @@ class DifyService;
 class AIChatDialog;
 class ChatHistoryWidget;
 class PPTXGenerator;
-class HotspotTrackingWidget;
-class HotspotService;
-class XunfeiPPTService;
 
 class ModernMainWindow : public QMainWindow
 {
@@ -51,10 +48,10 @@ public:
 
 private slots:
     void onTeacherCenterClicked();
+    void onContentAnalysisClicked();
     void onAIPreparationClicked();
     void onResourceManagementClicked();
     void onLearningAnalysisClicked();
-    void onHotspotTrackingClicked();
     void onSettingsClicked();
     void onHelpClicked();
     void onQuickPreparationClicked();
@@ -116,10 +113,10 @@ private:
 
     // 侧边栏导航按钮
     QPushButton *teacherCenterBtn;      // 教师中心
+    QPushButton *contentAnalysisBtn;    // 智能内容分析
     QPushButton *aiPreparationBtn;      // AI智能备课
     QPushButton *resourceManagementBtn; // 资源库管理
     QPushButton *learningAnalysisBtn;   // 学情与教评
-    QPushButton *hotspotTrackingBtn;    // 政治热点追踪
     QPushButton *dataAnalysisBtn;       // 数据分析报告 (新)
     
     // 底部菜单
@@ -167,16 +164,12 @@ private:
     QPushButton *m_sendBtn;
     QString m_currentAIResponse;  // 累积流式响应
     PPTXGenerator *m_pptxGenerator;  // PPTX 生成器
-    XunfeiPPTService *m_xunfeiPPTService;  // 讯飞智文 PPT 服务
-    HotspotTrackingWidget *m_hotspotWidget;  // 热点追踪组件
-    HotspotService *m_hotspotService;  // 热点服务
     
     // 欢迎面板（首页显示，对话后隐藏）
     QWidget *m_welcomePanel;
     QWidget *m_welcomeInputWidget;  // 欢迎页面底部输入框
     QStackedWidget *m_mainStack;    // 主内容切换栈
     bool m_isConversationStarted;   // 是否已开始对话
-    bool m_ignoreDifyResponse;      // 是否忽略 Dify 返回（预存 PPT 时使用）
 
     // 数据
     QString currentUserRole;

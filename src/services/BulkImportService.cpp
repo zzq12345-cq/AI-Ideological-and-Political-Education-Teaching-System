@@ -188,25 +188,9 @@ void BulkImportService::processNextFile()
     
     emit documentParseStarted(m_currentFileName);
     
-    // 读取文档内容
-    QString documentText = m_documentReader->readDocx(filePath);
-    
-    if (documentText.isEmpty()) {
-        qDebug() << "BulkImportService: 文档读取失败" << m_documentReader->lastError();
-        m_failedFiles++;
-        m_processedFiles++;
-        emit importProgress(m_processedFiles, m_totalFiles);
-        
-        // 继续处理下一个
-        processNextFile();
-        return;
-    }
-    
-    qDebug() << "BulkImportService: 文档读取成功，内容长度:" << documentText.length();
-    qDebug() << "BulkImportService: 文档内容预览:" << documentText.left(500);
-    
-    // 发送到 AI 解析
-    m_questionParser->parseDocument(documentText, m_currentSubject, m_currentGrade);
+    // 直接上传文件到 Dify 进行解析（不再本地提取文本）
+    // 这样可以支持文档中的图片识别
+    m_questionParser->parseFile(filePath, m_currentSubject, m_currentGrade);
 }
 
 void BulkImportService::onParseCompleted(const QList<PaperQuestion> &questions)

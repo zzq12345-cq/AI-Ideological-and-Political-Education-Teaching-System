@@ -225,10 +225,11 @@ QWidget *QuestionBankWindow::buildSidebar()
                                           QStringLiteral("paperType"),
                                           3));
 
-    layout->addWidget(createFilterButtons(QStringLiteral("题目题型"),
-                                          {QStringLiteral("不限"), QStringLiteral("单选"), QStringLiteral("多选"), QStringLiteral("判断"), QStringLiteral("简答"), QStringLiteral("综合"), QStringLiteral("材料分析")},
+    m_questionTypeGroup = createFilterButtonsWithGroup(QStringLiteral("题目题型"),
+                                          {QStringLiteral("不限"), QStringLiteral("单选题"), QStringLiteral("多选题"), QStringLiteral("填空题"), QStringLiteral("材料论述题"), QStringLiteral("判断说理题")},
                                           QStringLiteral("questionType"),
-                                          3));
+                                          3,
+                                          layout);  // 传递 layout 供添加 widget
 
     layout->addWidget(createFilterButtons(QStringLiteral("题目难度"),
                                           {QStringLiteral("不限"), QStringLiteral("简单"), QStringLiteral("中等"), QStringLiteral("困难")},
@@ -391,9 +392,93 @@ QWidget *QuestionBankWindow::createFilterButtons(const QString &labelText,
     return section;
 }
 
+QButtonGroup *QuestionBankWindow::createFilterButtonsWithGroup(const QString &labelText,
+                                                               const QStringList &options,
+                                                               const QString &groupId,
+                                                               int columns,
+                                                               QVBoxLayout *parentLayout)
+{
+    const int columnCount = std::max(1, columns);
 
-// 旧的静态版本方法已删除，使用新的带参数版本
+    auto *section = new QWidget(this);
+    section->setObjectName(groupId + "Section");
+    section->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
 
+    auto *layout = new QVBoxLayout(section);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(12);
+    layout->setSizeConstraint(QLayout::SetMinimumSize);
+
+    auto *label = new QLabel(labelText, section);
+    label->setProperty("role", "comboLabel");
+    layout->addWidget(label);
+
+    auto *gridHost = new QWidget(section);
+    gridHost->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+    auto *grid = new QGridLayout(gridHost);
+    grid->setContentsMargins(0, 0, 0, 0);
+    grid->setHorizontalSpacing(12);
+    grid->setVerticalSpacing(12);
+    grid->setSizeConstraint(QLayout::SetMinimumSize);
+
+    for (int col = 0; col < columnCount; ++col) {
+        grid->setColumnStretch(col, 1);
+    }
+
+    auto *group = new QButtonGroup(gridHost);
+    group->setExclusive(true);
+
+    for (int i = 0; i < options.size(); ++i) {
+        auto *button = new QPushButton(options.at(i), gridHost);
+        button->setProperty("role", "filterButton");
+        button->setCheckable(true);
+        button->setCursor(Qt::PointingHandCursor);
+        button->setMinimumHeight(kFilterButtonHeight);
+        button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+
+        if (i == 0) {
+            button->setChecked(true);
+        }
+
+        group->addButton(button);
+        grid->addWidget(button, i / columnCount, i % columnCount);
+        
+        // 连接按钮点击信号到题型变化处理
+        connect(button, &QPushButton::clicked, this, &QuestionBankWindow::onQuestionTypeChanged);
+    }
+
+    layout->addWidget(gridHost);
+
+    // 添加到传入的布局
+    if (parentLayout) {
+        parentLayout->addWidget(section);
+    }
+
+    m_filterGroups.append(group);
+
+    return group;
+}
+
+QString QuestionBankWindow::getSelectedQuestionType()
+{
+    if (!m_questionTypeGroup) {
+        return QString();
+    }
+    
+    QAbstractButton *checkedButton = m_questionTypeGroup->checkedButton();
+    if (checkedButton) {
+        return checkedButton->text();
+    }
+    
+    return QString();
+}
+
+void QuestionBankWindow::onQuestionTypeChanged()
+{
+    QString selectedType = getSelectedQuestionType();
+    qDebug() << "[QuestionBankWindow] Question type changed to:" << selectedType;
+    loadQuestions(selectedType);
+}
 
 
 QWidget *QuestionBankWindow::createActionRow()
@@ -558,7 +643,7 @@ bool QuestionBankWindow::eventFilter(QObject *watched, QEvent *event)
 
 // ==================== 动态加载题目相关方法 ====================
 
-void QuestionBankWindow::loadQuestions()
+void QuestionBankWindow::loadQuestions(const QString &questionType)
 {
     if (!m_paperService) {
         qWarning() << "[QuestionBankWindow] PaperService is null";
@@ -573,7 +658,17 @@ void QuestionBankWindow::loadQuestions()
     // 构建搜索条件
     QuestionSearchCriteria criteria;
     criteria.visibility = "public";  // 只显示公共题目
-    // 注意：QuestionSearchCriteria 目前没有 limit 字段，API 会返回所有匹配结果
+    
+    // 如果指定了题型，添加筛选条件
+    QString typeToSearch = questionType;
+    if (typeToSearch.isEmpty()) {
+        typeToSearch = getSelectedQuestionType();
+    }
+    
+    if (!typeToSearch.isEmpty() && typeToSearch != "不限") {
+        criteria.questionType = typeToSearch;
+        qDebug() << "[QuestionBankWindow] Filtering by question type:" << typeToSearch;
+    }
     
     qDebug() << "[QuestionBankWindow] Loading questions with criteria...";
     m_paperService->searchQuestions(criteria);
@@ -617,6 +712,9 @@ void QuestionBankWindow::clearQuestionCards()
         }
         delete item;
     }
+    
+    // 重置 statusLabel 指针，因为它可能已被删除
+    m_statusLabel = nullptr;
 }
 
 void QuestionBankWindow::displayQuestions(const QList<PaperQuestion> &questions)
@@ -687,7 +785,14 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
         
         QStringList optionKeys = {"A", "B", "C", "D", "E", "F"};
         for (int i = 0; i < question.options.size() && i < optionKeys.size(); ++i) {
-            auto *optionLabel = new QLabel(QString("%1. %2").arg(optionKeys[i]).arg(question.options[i]), optionsPanel);
+            QString optionText = question.options[i];
+            // 检测选项是否已包含字母前缀（如 "A." "A、" "A:" "A " 等）
+            static QRegularExpression prefixPattern("^[A-Fa-f][.、:：\\s]");
+            if (!prefixPattern.match(optionText).hasMatch()) {
+                // 没有前缀，添加一个
+                optionText = QString("%1. %2").arg(optionKeys[i]).arg(optionText);
+            }
+            auto *optionLabel = new QLabel(optionText, optionsPanel);
             optionLabel->setWordWrap(true);
             optionLabel->setStyleSheet("QLabel { padding: 8px 12px; background: #f8f9fa; border-radius: 6px; }");
             optionsLayout->addWidget(optionLabel);
