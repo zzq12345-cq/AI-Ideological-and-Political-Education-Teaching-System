@@ -46,24 +46,6 @@ set(PROJECT_SOURCES
     src/utils/MarkdownRenderer.h
     src/ui/ChatHistoryWidget.cpp
     src/ui/ChatHistoryWidget.h
-    src/ui/HotspotTrackingWidget.cpp
-    src/ui/HotspotTrackingWidget.h
-    src/services/HotspotService.cpp
-    src/services/HotspotService.h
-    src/hotspot/NewsItem.h
-    src/hotspot/INewsProvider.h
-    src/hotspot/MockNewsProvider.cpp
-    src/hotspot/MockNewsProvider.h
-    src/services/XunfeiPPTService.cpp
-    src/services/XunfeiPPTService.h
-    src/services/PaperService.cpp
-    src/services/PaperService.h
-    src/services/BulkImportService.cpp
-    src/services/BulkImportService.h
-    src/services/DocumentReaderService.cpp
-    src/services/DocumentReaderService.h
-    src/services/QuestionParserService.cpp
-    src/services/QuestionParserService.h
     resources.qrc
     resources/QtTheme/QtTheme.qrc
 )
@@ -94,33 +76,4 @@ install(TARGETS AILoginSystem
     BUNDLE DESTINATION .
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
-
-# ===== 后台导入工具 =====
-# 管理员使用的命令行工具，用于批量导入试题到公共题库
-set(IMPORT_TOOL_SOURCES
-    src/tools/import_tool.cpp
-    src/services/PaperService.cpp
-    src/services/PaperService.h
-    src/services/BulkImportService.cpp
-    src/services/BulkImportService.h
-    src/services/DocumentReaderService.cpp
-    src/services/DocumentReaderService.h
-    src/services/QuestionParserService.cpp
-    src/services/QuestionParserService.h
-    src/auth/supabase/supabaseconfig.cpp
-    src/auth/supabase/supabaseconfig.h
-)
-
-qt_add_executable(ImportTool
-    ${IMPORT_TOOL_SOURCES}
-)
-
-target_link_libraries(ImportTool PRIVATE
-    Qt${QT_VERSION_MAJOR}::Core
-    Qt${QT_VERSION_MAJOR}::Network
-)
-
-set_target_properties(ImportTool PROPERTIES
-    MACOSX_BUNDLE FALSE
 )
