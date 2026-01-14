@@ -649,27 +649,41 @@ void QuestionBankWindow::loadQuestions(const QString &questionType)
         qWarning() << "[QuestionBankWindow] PaperService is null";
         return;
     }
-    
+
     if (m_statusLabel) {
         m_statusLabel->setText("正在加载题目...");
         m_statusLabel->show();
     }
-    
+
     // 构建搜索条件
     QuestionSearchCriteria criteria;
     criteria.visibility = "public";  // 只显示公共题目
-    
+
     // 如果指定了题型，添加筛选条件
     QString typeToSearch = questionType;
     if (typeToSearch.isEmpty()) {
         typeToSearch = getSelectedQuestionType();
     }
-    
+
     if (!typeToSearch.isEmpty() && typeToSearch != "不限") {
-        criteria.questionType = typeToSearch;
-        qDebug() << "[QuestionBankWindow] Filtering by question type:" << typeToSearch;
+        // 中文题型映射到英文（与数据库存储格式一致）
+        static const QMap<QString, QString> typeMapping = {
+            {"单选题", "single_choice"},
+            {"多选题", "multiple_choice"},
+            {"填空题", "fill_blank"},
+            {"判断说理题", "true_false"},
+            {"判断题", "true_false"},
+            {"材料论述题", "short_answer"},
+            {"简答题", "short_answer"},
+            {"论述题", "short_answer"},
+            {"材料分析题", "short_answer"}
+        };
+
+        QString mappedType = typeMapping.value(typeToSearch, typeToSearch);
+        criteria.questionType = mappedType;
+        qDebug() << "[QuestionBankWindow] Filtering by question type:" << typeToSearch << "->" << mappedType;
     }
-    
+
     qDebug() << "[QuestionBankWindow] Loading questions with criteria...";
     m_paperService->searchQuestions(criteria);
 }
@@ -720,7 +734,7 @@ void QuestionBankWindow::clearQuestionCards()
 void QuestionBankWindow::displayQuestions(const QList<PaperQuestion> &questions)
 {
     clearQuestionCards();
-    
+
     if (questions.isEmpty()) {
         m_statusLabel = new QLabel("暂无题目，请先导入试题或调整筛选条件", this);
         m_statusLabel->setObjectName("statusLabel");
@@ -730,17 +744,110 @@ void QuestionBankWindow::displayQuestions(const QList<PaperQuestion> &questions)
         m_questionListLayout->addStretch(1);
         return;
     }
-    
-    // 为每道题目创建卡片
-    int index = 1;
+
+    // 定义题型顺序和中文名称（数据库存储英文键）
+    const QList<QPair<QString, QString>> questionTypeOrder = {
+        // 英文键 -> 中文显示名
+        {"single_choice", "单选题"},
+        {"multiple_choice", "多选题"},
+        {"multi_choice", "多选题"},
+        {"true_false", "判断题"},
+        {"fill_blank", "填空题"},
+        {"short_answer", "简答题"},
+        {"essay", "论述题"},
+        {"material", "材料分析题"}
+    };
+
+    const QStringList chineseNumbers = {"一", "二", "三", "四", "五", "六", "七", "八", "九", "十"};
+
+    // 按题型分组题目
+    QMap<QString, QList<PaperQuestion>> groupedQuestions;
     for (const PaperQuestion &q : questions) {
-        QWidget *card = createQuestionCard(q, index);
-        m_questionListLayout->addWidget(card);
-        index++;
+        groupedQuestions[q.questionType].append(q);
     }
-    
+
+    // 按预定顺序显示各题型
+    int globalIndex = 1;
+    int sectionIndex = 0;
+
+    for (const auto &typePair : questionTypeOrder) {
+        const QString &typeKey = typePair.first;
+        const QString &typeName = typePair.second;
+
+        if (!groupedQuestions.contains(typeKey) || groupedQuestions[typeKey].isEmpty()) {
+            continue;
+        }
+
+        const QList<PaperQuestion> &typeQuestions = groupedQuestions[typeKey];
+
+        // 创建题型标题
+        QString sectionTitle = QString("%1、%2（共%3题）")
+            .arg(sectionIndex < chineseNumbers.size() ? chineseNumbers[sectionIndex] : QString::number(sectionIndex + 1))
+            .arg(typeName)
+            .arg(typeQuestions.size());
+
+        auto *sectionLabel = new QLabel(sectionTitle, this);
+        sectionLabel->setObjectName("sectionTitle");
+        sectionLabel->setStyleSheet(
+            "QLabel {"
+            "  font-size: 18px;"
+            "  font-weight: bold;"
+            "  color: #D9001B;"
+            "  padding: 16px 0 8px 0;"
+            "  border-bottom: 2px solid #D9001B;"
+            "  margin-bottom: 12px;"
+            "}"
+        );
+        m_questionListLayout->addWidget(sectionLabel);
+
+        // 为该题型下的每道题目创建卡片
+        for (const PaperQuestion &q : typeQuestions) {
+            QWidget *card = createQuestionCard(q, globalIndex);
+            m_questionListLayout->addWidget(card);
+            globalIndex++;
+        }
+
+        // 移除已处理的题型
+        groupedQuestions.remove(typeKey);
+        sectionIndex++;
+    }
+
+    // 处理未在预定义列表中的其他题型
+    for (auto it = groupedQuestions.begin(); it != groupedQuestions.end(); ++it) {
+        if (it.value().isEmpty()) {
+            continue;
+        }
+
+        QString sectionTitle = QString("%1、%2（共%3题）")
+            .arg(sectionIndex < chineseNumbers.size() ? chineseNumbers[sectionIndex] : QString::number(sectionIndex + 1))
+            .arg(it.key())
+            .arg(it.value().size());
+
+        auto *sectionLabel = new QLabel(sectionTitle, this);
+        sectionLabel->setObjectName("sectionTitle");
+        sectionLabel->setStyleSheet(
+            "QLabel {"
+            "  font-size: 18px;"
+            "  font-weight: bold;"
+            "  color: #D9001B;"
+            "  padding: 16px 0 8px 0;"
+            "  border-bottom: 2px solid #D9001B;"
+            "  margin-bottom: 12px;"
+            "}"
+        );
+        m_questionListLayout->addWidget(sectionLabel);
+
+        for (const PaperQuestion &q : it.value()) {
+            QWidget *card = createQuestionCard(q, globalIndex);
+            m_questionListLayout->addWidget(card);
+            globalIndex++;
+        }
+
+        sectionIndex++;
+    }
+
     m_questionListLayout->addStretch(1);
-    
+
     // 更新进度
     if (m_progressBar) {
         m_progressBar->setRange(0, m_totalQuestions);
@@ -749,8 +856,8 @@ void QuestionBankWindow::displayQuestions(const QList<PaperQuestion> &questions)
     if (m_progressValueLabel) {
         m_progressValueLabel->setText(QString("%1 / %2").arg(m_currentQuestion).arg(m_totalQuestions));
     }
-    
-    qDebug() << "[QuestionBankWindow] Displayed" << questions.size() << "question cards";
+
+    qDebug() << "[QuestionBankWindow] Displayed" << questions.size() << "question cards in" << sectionIndex << "sections";
 }
 
 QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, int index)
