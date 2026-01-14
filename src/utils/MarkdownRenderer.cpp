@@ -4,17 +4,17 @@
 #include <QDebug>
 
 MarkdownRenderer::MarkdownRenderer()
-    : m_codeBackgroundColor("#f6f8fa")
-    , m_codeTextColor("#d73a49")
-    , m_linkColor("#0366d6")
+    : m_codeBackgroundColor("#f8f5f0")   // 暖色调代码背景
+    , m_codeTextColor("#B71C1C")          // 思政红代码文字
+    , m_linkColor("#B71C1C")              // 思政红链接
 {
-    // 设置默认标题颜色
-    m_headingColors[1] = QColor("#24292e"); // H1 - 最深
-    m_headingColors[2] = QColor("#24292e"); // H2
-    m_headingColors[3] = QColor("#24292e"); // H3
-    m_headingColors[4] = QColor("#24292e"); // H4
-    m_headingColors[5] = QColor("#24292e"); // H5
-    m_headingColors[6] = QColor("#586069"); // H6 - 最浅
+    // 设置标题颜色 - 增强层级感
+    m_headingColors[1] = QColor("#1a202c"); // H1 - 最深
+    m_headingColors[2] = QColor("#2d3748"); // H2
+    m_headingColors[3] = QColor("#4a5568"); // H3
+    m_headingColors[4] = QColor("#4a5568"); // H4
+    m_headingColors[5] = QColor("#718096"); // H5
+    m_headingColors[6] = QColor("#718096"); // H6 - 最浅
 }
 
 MarkdownRenderer::~MarkdownRenderer()
@@ -29,14 +29,14 @@ QString MarkdownRenderer::renderToHtml(const QString &markdown)
 
     RenderData data;
     processMarkdown(markdown, data);
-    
-    // 用 div 包裹，设置行高和段落间距
+
+    // 用 div 包裹，优化行高和段落间距以提升阅读体验
     QString wrappedHtml = QString(
-        "<div style=\"line-height: 1.8; font-size: 15px;\">"
+        "<div style=\"line-height: 1.75; font-size: 15px; color: #2d3748; letter-spacing: 0.2px;\">"
         "%1"
         "</div>"
     ).arg(data.html);
-    
+
     return wrappedHtml;
 }
 
@@ -242,7 +242,7 @@ void MarkdownRenderer::processMarkdown(const QString &markdown, RenderData &data
             // 处理普通文本段落
             closeList();
             if (!inParagraph) {
-                data.html += "<p style=\"margin: 12px 0;\">";
+                data.html += "<p style=\"margin: 14px 0; line-height: 1.75;\">";
                 inParagraph = true;
             } else {
                 // 段落内的换行使用 <br>
@@ -339,21 +339,44 @@ QString MarkdownRenderer::escapeHtml(const QString &text) const
 
 QString MarkdownRenderer::generateHtmlForHeading(const QString &text, int level) const
 {
-    QColor color = m_headingColors.value(level, QColor("#24292e"));
+    QColor color = m_headingColors.value(level, QColor("#2d3748"));
     QString colorStyle = QString("color: %1;").arg(color.name());
     QString fontSize;
+    QString marginStyle;
 
+    // 增强标题层级差异，提升视觉区分度
     switch (level) {
-    case 1: fontSize = "24px; font-weight: 600;"; break;
-    case 2: fontSize = "20px; font-weight: 600;"; break;
-    case 3: fontSize = "16px; font-weight: 600;"; break;
-    case 4: fontSize = "14px; font-weight: 600;"; break;
-    case 5: fontSize = "13px; font-weight: 600;"; break;
-    case 6: fontSize = "12px; font-weight: 600;"; break;
-    default: fontSize = "14px; font-weight: 600;"; break;
+    case 1:
+        fontSize = "22px; font-weight: 700;";
+        marginStyle = "margin: 24px 0 14px 0;";
+        break;
+    case 2:
+        fontSize = "19px; font-weight: 600;";
+        marginStyle = "margin: 20px 0 12px 0;";
+        break;
+    case 3:
+        fontSize = "17px; font-weight: 600;";
+        marginStyle = "margin: 18px 0 10px 0;";
+        break;
+    case 4:
+        fontSize = "15px; font-weight: 600;";
+        marginStyle = "margin: 16px 0 8px 0;";
+        break;
+    case 5:
+        fontSize = "14px; font-weight: 600;";
+        marginStyle = "margin: 14px 0 6px 0;";
+        break;
+    case 6:
+        fontSize = "13px; font-weight: 600;";
+        marginStyle = "margin: 12px 0 6px 0;";
+        break;
+    default:
+        fontSize = "15px; font-weight: 600;";
+        marginStyle = "margin: 16px 0 8px 0;";
+        break;
     }
 
-    QString style = colorStyle + " font-size: " + fontSize + " margin: 16px 0 8px 0;";
+    QString style = colorStyle + " font-size: " + fontSize + " " + marginStyle;
     return QString("<h%1 style=\"%2\">%3</h%1>").arg(level).arg(style).arg(text);
 }
 
@@ -382,7 +405,8 @@ QString MarkdownRenderer::generateHtmlForLink(const QString &text, const QString
 
 QString MarkdownRenderer::generateHtmlForListItem(const QString &text, bool isOrdered, int level) const
 {
-    QString style = QString("margin: 4px 0; padding-left: %1px;").arg(level * 20);
+    // 增加列表项间距，提升阅读舒适度
+    QString style = QString("margin: 6px 0; padding-left: %1px; line-height: 1.65;").arg(level * 20);
     QString processedText = text;
 
     // 处理行内格式

@@ -178,33 +178,43 @@ void BulkImportService::processNextFile()
         emit importCompleted(m_totalQuestions, m_failedFiles);
         return;
     }
-    
+
     QString filePath = m_pendingFiles.takeFirst();
     QFileInfo fileInfo(filePath);
     m_currentFileName = fileInfo.fileName();
-    
+
     qDebug() << "BulkImportService: 处理文件" << m_currentFileName
              << "(" << m_processedFiles + 1 << "/" << m_totalFiles << ")";
-    
+
     emit documentParseStarted(m_currentFileName);
-    
-    // 直接上传文件到 Dify 进行解析（不再本地提取文本）
-    // 这样可以支持文档中的图片识别
+
+    // 直接上传文件到 Dify 进行解析（使用文件上传模式）
+    // 工作流开始节点需要配置名为 "upload" 的文件列表变量
     m_questionParser->parseFile(filePath, m_currentSubject, m_currentGrade);
 }
 
 void BulkImportService::onParseCompleted(const QList<PaperQuestion> &questions)
 {
     qDebug() << "BulkImportService: 解析完成，获得" << questions.size() << "道题目";
-    
+
     if (questions.isEmpty()) {
         m_failedFiles++;
     } else {
-        // 添加到数据库
-        m_paperService->addQuestions(questions);
-        m_totalQuestions += questions.size();
+        // 检查是否是工作流直接插入的情况（虚拟题目以特定前缀开头）
+        bool directInsert = !questions.isEmpty() &&
+                            questions.first().stem.startsWith("已由工作流插入");
+
+        if (directInsert) {
+            // 工作流已直接插入数据库，只记录数量
+            qDebug() << "BulkImportService: 工作流已直接插入" << questions.size() << "道题目到数据库";
+            m_totalQuestions += questions.size();
+        } else {
+            // 需要通过 PaperService 添加到数据库
+            m_paperService->addQuestions(questions);
+            m_totalQuestions += questions.size();
+        }
     }
-    
+
     emit documentParseCompleted(m_currentFileName, questions.size());
     
     m_processedFiles++;

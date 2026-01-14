@@ -261,6 +261,7 @@ void QuestionParserService::onUploadFinished()
         qWarning() << "[QuestionParserService] 上传错误:" << m_lastError;
         emit errorOccurred(m_lastError);
         return;
+        
     }
     
     // 解析响应获取文件 ID
@@ -315,16 +316,18 @@ void QuestionParserService::callWorkflowWithFile(const QString &uploadFileId)
     request.setTransferTimeout(300000);  // 5分钟解析超时
     
     // 构建请求体 - 文件需要放在 inputs 中，变量名与 Dify 工作流开始节点定义的一致
-    // Dify 工作流中定义的文件输入变量名是 "upload"
-    QJsonArray filesArray;
+    // Dify 工作流中定义的文件输入变量名是 "up"，类型是文件列表（数组）
     QJsonObject fileObj;
     fileObj["type"] = "document";
     fileObj["transfer_method"] = "local_file";
     fileObj["upload_file_id"] = uploadFileId;
-    filesArray.append(fileObj);
-    
+
+    // 文件列表格式：将文件对象放入数组中
+    QJsonArray fileArray;
+    fileArray.append(fileObj);
+
     QJsonObject inputs;
-    inputs["upload"] = filesArray;  // 变量名与 Dify 工作流开始节点定义的一致（请检查 Dify 配置）
+    inputs["up"] = fileArray;  // 变量名与 Dify 工作流开始节点定义的一致
     
     QJsonObject body;
     body["inputs"] = inputs;
@@ -493,15 +496,32 @@ void QuestionParserService::parseStreamResponse(const QByteArray &data)
 QList<PaperQuestion> QuestionParserService::parseJsonResponse(const QString &jsonText)
 {
     QList<PaperQuestion> questions;
-    
+
     // 尝试从响应中提取 JSON
     QString cleanJson = jsonText.trimmed();
-    
+
     // 移除 <think>...</think> 标签及其内容（AI 的思考过程）
     QRegularExpression thinkRe("<think>.*?</think>", QRegularExpression::DotMatchesEverythingOption);
     cleanJson.remove(thinkRe);
     cleanJson = cleanJson.trimmed();
-    
+
+    // 检查是否是工作流直接插入数据库的报告格式
+    // 格式示例：数据插入报告\n- 总计: 15\n- 成功: 6\n- 失败: 9
+    QRegularExpression successRe("成功[：:]\\s*(\\d+)");
+    QRegularExpressionMatch successMatch = successRe.match(cleanJson);
+    if (successMatch.hasMatch()) {
+        int successCount = successMatch.captured(1).toInt();
+        qDebug() << "[QuestionParserService] 工作流已直接插入数据库，成功:" << successCount << "道题目";
+
+        // 创建虚拟题目列表，仅用于计数
+        for (int i = 0; i < successCount; i++) {
+            PaperQuestion q;
+            q.stem = QString("已由工作流插入 #%1").arg(i + 1);
+            questions.append(q);
+        }
+        return questions;
+    }
+
     // 如果响应被 markdown 代码块包裹，提取其中的 JSON
     QRegularExpression codeBlockRe("```(?:json)?\\s*([\\s\\S]*?)```");
     QRegularExpressionMatch match = codeBlockRe.match(cleanJson);
