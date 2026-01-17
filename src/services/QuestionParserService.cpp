@@ -692,15 +692,49 @@ QList<PaperQuestion> QuestionParserService::parseJsonResponse(const QString &jso
             {"填空题", "fill_blank"},
             {"判断说理题", "true_false"},
             {"判断题", "true_false"},
-            {"材料论述题", "short_answer"},
+            {"材料论述题", "material_essay"},
             {"简答题", "short_answer"},
             {"论述题", "short_answer"},
-            {"材料分析题", "short_answer"}
+            {"材料分析题", "material_essay"}
         };
         if (typeMapping.contains(q.questionType)) {
             q.questionType = typeMapping[q.questionType];
         }
-        
+
+        // 材料内容（材料论述题专用）
+        q.material = qObj["material"].toString();
+        if (q.material.isEmpty()) {
+            q.material = qObj["materials"].toString();
+        }
+
+        // 小问列表（材料论述题专用）
+        if (qObj.contains("sub_questions")) {
+            QJsonArray sqArr = qObj["sub_questions"].toArray();
+            for (const QJsonValue &sq : sqArr) {
+                q.subQuestions.append(sq.toString());
+            }
+        }
+        if (qObj.contains("subQuestions")) {
+            QJsonArray sqArr = qObj["subQuestions"].toArray();
+            for (const QJsonValue &sq : sqArr) {
+                q.subQuestions.append(sq.toString());
+            }
+        }
+
+        // 小问答案（材料论述题专用）
+        if (qObj.contains("sub_answers")) {
+            QJsonArray saArr = qObj["sub_answers"].toArray();
+            for (const QJsonValue &sa : saArr) {
+                q.subAnswers.append(sa.toString());
+            }
+        }
+        if (qObj.contains("subAnswers")) {
+            QJsonArray saArr = qObj["subAnswers"].toArray();
+            for (const QJsonValue &sa : saArr) {
+                q.subAnswers.append(sa.toString());
+            }
+        }
+
         // 选项
         if (qObj.contains("options")) {
             QJsonArray optArr = qObj["options"].toArray();

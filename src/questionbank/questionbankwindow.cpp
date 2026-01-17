@@ -673,10 +673,10 @@ void QuestionBankWindow::loadQuestions(const QString &questionType)
             {"填空题", "fill_blank"},
             {"判断说理题", "true_false"},
             {"判断题", "true_false"},
-            {"材料论述题", "short_answer"},
+            {"材料论述题", "material_essay"},
             {"简答题", "short_answer"},
             {"论述题", "short_answer"},
-            {"材料分析题", "short_answer"}
+            {"材料分析题", "material_essay"}
         };
 
         QString mappedType = typeMapping.value(typeToSearch, typeToSearch);
@@ -755,6 +755,7 @@ void QuestionBankWindow::displayQuestions(const QList<PaperQuestion> &questions)
         {"fill_blank", "填空题"},
         {"short_answer", "简答题"},
         {"essay", "论述题"},
+        {"material_essay", "材料论述题"},
         {"material", "材料分析题"}
     };
 
@@ -872,44 +873,144 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
 
     // 标签行（题型、难度、学科）
     layout->addWidget(createTagRow(question.tags));
-    
-    // 题号和题目
-    QString stemText = QString("<b>第 %1 题</b> %2").arg(index).arg(question.stem);
-    auto *questionStem = new QLabel(stemText, card);
-    questionStem->setObjectName("questionStem");
-    questionStem->setWordWrap(true);
-    questionStem->setTextFormat(Qt::RichText);
-    layout->addWidget(questionStem);
 
-    // 选项（如果有）
-    if (!question.options.isEmpty()) {
-        auto *optionsPanel = new QFrame(card);
-        optionsPanel->setObjectName("optionsPanel");
-        
-        auto *optionsLayout = new QVBoxLayout(optionsPanel);
-        optionsLayout->setContentsMargins(0, 0, 0, 0);
-        optionsLayout->setSpacing(8);
-        
-        QStringList optionKeys = {"A", "B", "C", "D", "E", "F"};
-        for (int i = 0; i < question.options.size() && i < optionKeys.size(); ++i) {
-            QString optionText = question.options[i];
-            // 检测选项是否已包含字母前缀（如 "A." "A、" "A:" "A " 等）
-            static QRegularExpression prefixPattern("^[A-Fa-f][.、:：\\s]");
-            if (!prefixPattern.match(optionText).hasMatch()) {
-                // 没有前缀，添加一个
-                optionText = QString("%1. %2").arg(optionKeys[i]).arg(optionText);
+    // 材料论述题特殊处理
+    bool isMaterialEssay = (question.questionType == "material_essay" ||
+                            question.questionType == "material");
+
+    if (isMaterialEssay && !question.material.isEmpty()) {
+        // 题号
+        auto *titleLabel = new QLabel(QString("<b>第 %1 题</b>（材料论述题）").arg(index), card);
+        titleLabel->setObjectName("questionTitle");
+        titleLabel->setTextFormat(Qt::RichText);
+        layout->addWidget(titleLabel);
+
+        // 材料内容区域
+        auto *materialFrame = new QFrame(card);
+        materialFrame->setObjectName("materialFrame");
+        materialFrame->setStyleSheet(
+            "QFrame#materialFrame {"
+            "  background: #f8f9fa;"
+            "  border-left: 4px solid #D9001B;"
+            "  border-radius: 8px;"
+            "  padding: 16px;"
+            "}"
+        );
+
+        auto *materialLayout = new QVBoxLayout(materialFrame);
+        materialLayout->setContentsMargins(16, 12, 16, 12);
+        materialLayout->setSpacing(8);
+
+        auto *materialTitle = new QLabel("【阅读材料】", materialFrame);
+        materialTitle->setStyleSheet("QLabel { font-weight: bold; color: #D9001B; font-size: 14px; }");
+        materialLayout->addWidget(materialTitle);
+
+        auto *materialContent = new QLabel(question.material, materialFrame);
+        materialContent->setObjectName("materialContent");
+        materialContent->setWordWrap(true);
+        materialContent->setTextFormat(Qt::RichText);
+        materialContent->setStyleSheet("QLabel { color: #333; line-height: 1.6; }");
+        materialLayout->addWidget(materialContent);
+
+        layout->addWidget(materialFrame);
+
+        // 小问列表
+        if (!question.subQuestions.isEmpty()) {
+            auto *questionsFrame = new QFrame(card);
+            questionsFrame->setObjectName("subQuestionsFrame");
+
+            auto *questionsLayout = new QVBoxLayout(questionsFrame);
+            questionsLayout->setContentsMargins(0, 8, 0, 0);
+            questionsLayout->setSpacing(12);
+
+            for (int i = 0; i < question.subQuestions.size(); ++i) {
+                auto *subFrame = new QFrame(questionsFrame);
+                auto *subLayout = new QVBoxLayout(subFrame);
+                subLayout->setContentsMargins(0, 0, 0, 0);
+                subLayout->setSpacing(4);
+
+                // 小问题目
+                QString subText = QString("<b>（%1）</b> %2").arg(i + 1).arg(question.subQuestions[i]);
+                auto *subLabel = new QLabel(subText, subFrame);
+                subLabel->setWordWrap(true);
+                subLabel->setTextFormat(Qt::RichText);
+                subLayout->addWidget(subLabel);
+
+                // 小问答案（如果有）
+                if (i < question.subAnswers.size() && !question.subAnswers[i].isEmpty()) {
+                    auto *answerFrame = new QFrame(subFrame);
+                    answerFrame->setStyleSheet(
+                        "QFrame { background: #e8f5e9; border-radius: 6px; padding: 8px; }"
+                    );
+                    auto *answerLayout = new QVBoxLayout(answerFrame);
+                    answerLayout->setContentsMargins(12, 8, 12, 8);
+
+                    auto *answerTitle = new QLabel("正确答案", answerFrame);
+                    answerTitle->setStyleSheet("QLabel { color: #2e7d32; font-weight: bold; font-size: 12px; }");
+                    answerLayout->addWidget(answerTitle);
+
+                    auto *answerContent = new QLabel(question.subAnswers[i], answerFrame);
+                    answerContent->setWordWrap(true);
+                    answerContent->setStyleSheet("QLabel { color: #1b5e20; }");
+                    answerLayout->addWidget(answerContent);
+
+                    subLayout->addWidget(answerFrame);
+                }
+
+                questionsLayout->addWidget(subFrame);
             }
-            auto *optionLabel = new QLabel(optionText, optionsPanel);
-            optionLabel->setWordWrap(true);
-            optionLabel->setStyleSheet("QLabel { padding: 8px 12px; background: #f8f9fa; border-radius: 6px; }");
-            optionsLayout->addWidget(optionLabel);
-        }
-        
-        layout->addWidget(optionsPanel);
-    }
 
-    // 答案区域
-    layout->addWidget(createAnswerSection(question.answer));
+            layout->addWidget(questionsFrame);
+        } else if (!question.stem.isEmpty()) {
+            // 如果没有小问列表，显示原始题干
+            auto *stemLabel = new QLabel(question.stem, card);
+            stemLabel->setWordWrap(true);
+            layout->addWidget(stemLabel);
+        }
+
+        // 总答案（如果有且没有小问答案）
+        if (question.subAnswers.isEmpty() && !question.answer.isEmpty()) {
+            layout->addWidget(createAnswerSection(question.answer));
+        }
+    } else {
+        // 普通题目处理（原逻辑）
+        QString stemText = QString("<b>第 %1 题</b> %2").arg(index).arg(question.stem);
+        auto *questionStem = new QLabel(stemText, card);
+        questionStem->setObjectName("questionStem");
+        questionStem->setWordWrap(true);
+        questionStem->setTextFormat(Qt::RichText);
+        layout->addWidget(questionStem);
+
+        // 选项（如果有）
+        if (!question.options.isEmpty()) {
+            auto *optionsPanel = new QFrame(card);
+            optionsPanel->setObjectName("optionsPanel");
+
+            auto *optionsLayout = new QVBoxLayout(optionsPanel);
+            optionsLayout->setContentsMargins(0, 0, 0, 0);
+            optionsLayout->setSpacing(8);
+
+            QStringList optionKeys = {"A", "B", "C", "D", "E", "F"};
+            for (int i = 0; i < question.options.size() && i < optionKeys.size(); ++i) {
+                QString optionText = question.options[i];
+                // 检测选项是否已包含字母前缀（如 "A." "A、" "A:" "A " 等）
+                static QRegularExpression prefixPattern("^[A-Fa-f][.、:：\\s]");
+                if (!prefixPattern.match(optionText).hasMatch()) {
+                    // 没有前缀，添加一个
+                    optionText = QString("%1. %2").arg(optionKeys[i]).arg(optionText);
+                }
+                auto *optionLabel = new QLabel(optionText, optionsPanel);
+                optionLabel->setWordWrap(true);
+                optionLabel->setStyleSheet("QLabel { padding: 8px 12px; background: #f8f9fa; border-radius: 6px; }");
+                optionsLayout->addWidget(optionLabel);
+            }
+
+            layout->addWidget(optionsPanel);
+        }
+
+        // 答案区域
+        layout->addWidget(createAnswerSection(question.answer));
+    }
 
     // 解析区域
     if (!question.explanation.isEmpty()) {
