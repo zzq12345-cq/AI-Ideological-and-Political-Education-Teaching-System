@@ -330,10 +330,9 @@ QString DifyService::filterThinkTagsStreaming(const QString &text)
         }
     }
 
-    // 注意：不要在流式处理中使用 trimmed()，因为这会移除片段边界的换行符
-    // 只压缩过多的空行，保留原始的换行结构
+    output.replace(QRegularExpression("[ \\t]+"), " ");
     output.replace(QRegularExpression("\\n{3,}"), "\n\n");
-    return output;
+    return output.trimmed();
 }
 
 void DifyService::parseStreamResponse(const QByteArray &data)
