@@ -17,8 +17,10 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QRegularExpression>
 #include <QScrollArea>
 #include <QStyle>
+#include <QTextBrowser>
 #include <QVBoxLayout>
 #include <algorithm>
 
@@ -226,7 +228,7 @@ QWidget *QuestionBankWindow::buildSidebar()
                                           3));
 
     m_questionTypeGroup = createFilterButtonsWithGroup(QStringLiteral("题目题型"),
-                                          {QStringLiteral("不限"), QStringLiteral("单选题"), QStringLiteral("多选题"), QStringLiteral("填空题"), QStringLiteral("材料论述题"), QStringLiteral("判断说理题")},
+                                          {QStringLiteral("不限"), QStringLiteral("选择题"), QStringLiteral("填空题"), QStringLiteral("材料论述题"), QStringLiteral("判断说理题")},
                                           QStringLiteral("questionType"),
                                           3,
                                           layout);  // 传递 layout 供添加 widget
@@ -668,8 +670,7 @@ void QuestionBankWindow::loadQuestions(const QString &questionType)
     if (!typeToSearch.isEmpty() && typeToSearch != "不限") {
         // 中文题型映射到英文（与数据库存储格式一致）
         static const QMap<QString, QString> typeMapping = {
-            {"单选题", "single_choice"},
-            {"多选题", "multiple_choice"},
+            {"选择题", "single_choice"},
             {"填空题", "fill_blank"},
             {"判断说理题", "true_false"},
             {"判断题", "true_false"},
@@ -748,9 +749,7 @@ void QuestionBankWindow::displayQuestions(const QList<PaperQuestion> &questions)
     // 定义题型顺序和中文名称（数据库存储英文键）
     const QList<QPair<QString, QString>> questionTypeOrder = {
         // 英文键 -> 中文显示名
-        {"single_choice", "单选题"},
-        {"multiple_choice", "多选题"},
-        {"multi_choice", "多选题"},
+        {"single_choice", "选择题"},
         {"true_false", "判断题"},
         {"fill_blank", "填空题"},
         {"short_answer", "简答题"},
@@ -878,14 +877,18 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
     bool isMaterialEssay = (question.questionType == "material_essay" ||
                             question.questionType == "material");
 
-    if (isMaterialEssay && !question.material.isEmpty()) {
+    if (isMaterialEssay) {
+        // 智能解析材料论述题内容
+        MaterialEssayParsed parsed = parseMaterialEssay(question);
+
         // 题号
         auto *titleLabel = new QLabel(QString("<b>第 %1 题</b>（材料论述题）").arg(index), card);
         titleLabel->setObjectName("questionTitle");
         titleLabel->setTextFormat(Qt::RichText);
         layout->addWidget(titleLabel);
 
-        // 材料内容区域
+        if (!parsed.material.isEmpty()) {
+            // 材料内容区域
         auto *materialFrame = new QFrame(card);
         materialFrame->setObjectName("materialFrame");
         materialFrame->setStyleSheet(
@@ -905,17 +908,44 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
         materialTitle->setStyleSheet("QLabel { font-weight: bold; color: #D9001B; font-size: 14px; }");
         materialLayout->addWidget(materialTitle);
 
-        auto *materialContent = new QLabel(question.material, materialFrame);
-        materialContent->setObjectName("materialContent");
-        materialContent->setWordWrap(true);
-        materialContent->setTextFormat(Qt::RichText);
-        materialContent->setStyleSheet("QLabel { color: #333; line-height: 1.6; }");
-        materialLayout->addWidget(materialContent);
+        // 使用 QTextBrowser 支持完整 HTML（表格、图片等）
+        auto *materialBrowser = new QTextBrowser(materialFrame);
+        materialBrowser->setObjectName("materialContent");
+        materialBrowser->setOpenExternalLinks(true);
+        materialBrowser->setHtml(parsed.material);
+        materialBrowser->setStyleSheet(
+            "QTextBrowser {"
+            "  background: transparent;"
+            "  border: none;"
+            "  color: #333;"
+            "  font-size: 14px;"
+            "}"
+        );
+        // 自动调整高度以适应内容
+        materialBrowser->document()->setDocumentMargin(0);
+        materialBrowser->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        materialBrowser->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        materialBrowser->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+        // 计算合适的高度
+        QSize docSize = materialBrowser->document()->size().toSize();
+        materialBrowser->setMinimumHeight(docSize.height() + 20);
+        materialLayout->addWidget(materialBrowser);
 
         layout->addWidget(materialFrame);
+        }  // end if (!parsed.material.isEmpty())
+
+        // 显示题干说明（如果有，例如"阅读材料，回答下列问题"）
+        if (!parsed.stem.isEmpty()) {
+            auto *stemLabel = new QLabel(QString("<b>【题目要求】</b> %1").arg(parsed.stem), card);
+            stemLabel->setObjectName("questionStem");
+            stemLabel->setWordWrap(true);
+            stemLabel->setTextFormat(Qt::RichText);
+            stemLabel->setStyleSheet("QLabel { color: #333; font-size: 14px; padding: 8px 0; }");
+            layout->addWidget(stemLabel);
+        }
 
         // 小问列表
-        if (!question.subQuestions.isEmpty()) {
+        if (!parsed.subQuestions.isEmpty()) {
             auto *questionsFrame = new QFrame(card);
             questionsFrame->setObjectName("subQuestionsFrame");
 
@@ -923,21 +953,21 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
             questionsLayout->setContentsMargins(0, 8, 0, 0);
             questionsLayout->setSpacing(12);
 
-            for (int i = 0; i < question.subQuestions.size(); ++i) {
+            for (int i = 0; i < parsed.subQuestions.size(); ++i) {
                 auto *subFrame = new QFrame(questionsFrame);
                 auto *subLayout = new QVBoxLayout(subFrame);
                 subLayout->setContentsMargins(0, 0, 0, 0);
                 subLayout->setSpacing(4);
 
                 // 小问题目
-                QString subText = QString("<b>（%1）</b> %2").arg(i + 1).arg(question.subQuestions[i]);
+                QString subText = QString("<b>（%1）</b> %2").arg(i + 1).arg(parsed.subQuestions[i]);
                 auto *subLabel = new QLabel(subText, subFrame);
                 subLabel->setWordWrap(true);
                 subLabel->setTextFormat(Qt::RichText);
                 subLayout->addWidget(subLabel);
 
                 // 小问答案（如果有）
-                if (i < question.subAnswers.size() && !question.subAnswers[i].isEmpty()) {
+                if (i < parsed.subAnswers.size() && !parsed.subAnswers[i].isEmpty()) {
                     auto *answerFrame = new QFrame(subFrame);
                     answerFrame->setStyleSheet(
                         "QFrame { background: #e8f5e9; border-radius: 6px; padding: 8px; }"
@@ -949,7 +979,7 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
                     answerTitle->setStyleSheet("QLabel { color: #2e7d32; font-weight: bold; font-size: 12px; }");
                     answerLayout->addWidget(answerTitle);
 
-                    auto *answerContent = new QLabel(question.subAnswers[i], answerFrame);
+                    auto *answerContent = new QLabel(parsed.subAnswers[i], answerFrame);
                     answerContent->setWordWrap(true);
                     answerContent->setStyleSheet("QLabel { color: #1b5e20; }");
                     answerLayout->addWidget(answerContent);
@@ -961,15 +991,10 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
             }
 
             layout->addWidget(questionsFrame);
-        } else if (!question.stem.isEmpty()) {
-            // 如果没有小问列表，显示原始题干
-            auto *stemLabel = new QLabel(question.stem, card);
-            stemLabel->setWordWrap(true);
-            layout->addWidget(stemLabel);
         }
 
         // 总答案（如果有且没有小问答案）
-        if (question.subAnswers.isEmpty() && !question.answer.isEmpty()) {
+        if (parsed.subAnswers.isEmpty() && !question.answer.isEmpty()) {
             layout->addWidget(createAnswerSection(question.answer));
         }
     } else {
@@ -1087,4 +1112,89 @@ QFrame *QuestionBankWindow::createAnalysisSection(const QString &explanation)
     layout->addWidget(description);
 
     return section;
+}
+
+// 智能解析材料论述题内容
+// 尝试从 stem 或 material 中提取：材料内容、小问列表、小问答案
+MaterialEssayParsed QuestionBankWindow::parseMaterialEssay(const PaperQuestion &question)
+{
+    MaterialEssayParsed result;
+
+    // 优先使用已有的结构化数据
+    result.material = question.material;
+    result.subQuestions = question.subQuestions;
+    result.subAnswers = question.subAnswers;
+    result.stem = question.stem;
+
+    // 如果已有结构化数据，直接返回
+    if (!result.material.isEmpty() && !result.subQuestions.isEmpty()) {
+        return result;
+    }
+
+    // 否则尝试从 stem 中智能解析
+    QString content = question.stem;
+    if (content.isEmpty()) {
+        content = question.material;
+    }
+    if (content.isEmpty()) {
+        return result;
+    }
+
+    // 尝试提取材料内容（通常在开头，到第一个小问之前）
+    // 小问通常以 (1) （1） ⑴ 1. 1、等格式开始
+    QRegularExpression subQuestionRe(
+        R"([\(（]?\s*[1-9⑴⑵⑶⑷⑸]\s*[\)）]?[\s\.、：:]+)"
+    );
+
+    int firstSubPos = -1;
+    QRegularExpressionMatch firstMatch = subQuestionRe.match(content);
+    if (firstMatch.hasMatch()) {
+        firstSubPos = firstMatch.capturedStart();
+    }
+
+    if (firstSubPos > 0) {
+        // 材料内容是第一个小问之前的部分
+        result.material = content.left(firstSubPos).trimmed();
+
+        // 提取所有小问
+        QString questionsText = content.mid(firstSubPos);
+
+        // 使用正则匹配所有小问
+        QRegularExpression splitRe(
+            R"([\(（]?\s*([1-9⑴⑵⑶⑷⑸])\s*[\)）]?[\s\.、：:]+)"
+        );
+
+        QStringList parts;
+        int lastEnd = 0;
+        QRegularExpressionMatchIterator it = splitRe.globalMatch(questionsText);
+
+        while (it.hasNext()) {
+            QRegularExpressionMatch match = it.next();
+            if (lastEnd > 0) {
+                // 上一个小问的内容
+                QString part = questionsText.mid(lastEnd, match.capturedStart() - lastEnd).trimmed();
+                if (!part.isEmpty()) {
+                    parts.append(part);
+                }
+            }
+            lastEnd = match.capturedEnd();
+        }
+
+        // 最后一个小问
+        if (lastEnd > 0 && lastEnd < questionsText.length()) {
+            QString lastPart = questionsText.mid(lastEnd).trimmed();
+            if (!lastPart.isEmpty()) {
+                parts.append(lastPart);
+            }
+        }
+
+        result.subQuestions = parts;
+        result.stem.clear();  // 已解析到材料和小问，不需要显示 stem
+    } else {
+        // 没有找到小问格式，整个内容作为材料
+        result.material = content;
+        result.stem.clear();
+    }
+
+    return result;
 }

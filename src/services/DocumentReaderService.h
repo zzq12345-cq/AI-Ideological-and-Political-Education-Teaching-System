@@ -23,6 +23,13 @@ public:
      * @return 文档的纯文本内容，失败返回空字符串
      */
     QString readDocx(const QString &filePath);
+
+    /**
+     * @brief 读取 DOCX 文件内容，保留表格为 HTML 格式
+     * @param filePath DOCX 文件路径
+     * @return 文档内容（表格以 HTML 格式保留），失败返回空字符串
+     */
+    QString readDocxWithTables(const QString &filePath);
     
     /**
      * @brief 检查文件是否为支持的文档格式
@@ -49,6 +56,11 @@ private:
      * @brief 解析 document.xml 提取纯文本
      */
     QString parseDocumentXml(const QByteArray &xmlData);
+
+    /**
+     * @brief 解析 document.xml 提取内容（保留表格为 HTML）
+     */
+    QString parseDocumentXmlWithTables(const QByteArray &xmlData);
     
     QString m_lastError;
 };
