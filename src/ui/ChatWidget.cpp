@@ -8,11 +8,22 @@
 #include <QPainterPath>
 #include <QApplication>
 
-// 样式常量定义
-const QString ChatWidget::USER_BUBBLE_COLOR = "#2b7de9";
-const QString ChatWidget::AI_BUBBLE_COLOR = "#ffffff";
-const QString ChatWidget::USER_TEXT_COLOR = "#ffffff";
-const QString ChatWidget::AI_TEXT_COLOR = "#1a1a1a";
+// 样式常量定义 - 思政红金主题
+const QString ChatWidget::USER_BUBBLE_COLOR = "#B71C1C";      // 沉稳红色（用户气泡）
+const QString ChatWidget::AI_BUBBLE_COLOR = "#ffffff";        // 纯白（AI气泡）
+const QString ChatWidget::USER_TEXT_COLOR = "#ffffff";        // 白色文字
+const QString ChatWidget::AI_TEXT_COLOR = "#2d3748";          // 深灰文字（更柔和）
+
+// 主题配色常量
+namespace ThemeColors {
+    const QString PRIMARY_RED = "#B71C1C";       // 思政红
+    const QString ACCENT_GOLD = "#D4A017";       // 金色强调
+    const QString BG_WARM_GRAY = "#faf8f5";      // 暖灰背景
+    const QString BG_CARD = "#ffffff";           // 卡片背景
+    const QString TEXT_PRIMARY = "#2d3748";      // 主要文字
+    const QString TEXT_SECONDARY = "#718096";    // 次要文字
+    const QString BORDER_LIGHT = "#e8e4df";      // 浅边框
+}
 
 ChatWidget::ChatWidget(QWidget *parent)
     : QWidget(parent)
@@ -137,23 +148,23 @@ void ChatWidget::setupUI()
 
 void ChatWidget::setupStyles()
 {
-    // 整体样式
+    // 整体样式 - 思政红金主题
     setStyleSheet(R"(
         ChatWidget {
-            background-color: #f5f7fa;
+            background-color: #f5f5f5;
         }
-        
+
         /* 滚动区域 */
         QScrollArea#chatScrollArea {
-            background-color: #f5f7fa;
+            background-color: #f5f5f5;
             border: none;
         }
-        
+
         /* 消息容器 */
         QWidget#messageContainer {
-            background-color: #f5f7fa;
+            background-color: #f5f5f5;
         }
-        
+
         /* 滚动条样式 */
         QScrollBar:vertical {
             background: transparent;
@@ -161,12 +172,12 @@ void ChatWidget::setupStyles()
             margin: 0;
         }
         QScrollBar::handle:vertical {
-            background: rgba(0, 0, 0, 0.2);
+            background: rgba(183, 28, 28, 0.3);
             border-radius: 4px;
             min-height: 40px;
         }
         QScrollBar::handle:vertical:hover {
-            background: rgba(0, 0, 0, 0.3);
+            background: rgba(183, 28, 28, 0.5);
         }
         QScrollBar::add-line:vertical,
         QScrollBar::sub-line:vertical,
@@ -175,75 +186,74 @@ void ChatWidget::setupStyles()
             background: none;
             height: 0;
         }
-        
+
         /* 底部区域 */
         QWidget#bottomWidget {
             background: transparent;
             border: none;
         }
 
-        /* 输入框容器 */
+        /* 输入框容器 - 悬浮卡片风格 */
         QFrame#inputContainer {
             background-color: #ffffff;
-            border-radius: 28px; /* 高度56的一半 */
-            border: 1px solid #e5e7eb;
+            border-radius: 28px;
+            border: 1px solid #e8e4df;
         }
-        
+        QFrame#inputContainer:focus-within {
+            border: 1.5px solid #B71C1C;
+        }
+
         /* 加号按钮 */
         QPushButton#plusBtn {
-            background-color: #9ca3af;
-            color: #ffffff;
+            background-color: #e8e4df;
+            color: #718096;
             border-radius: 16px;
             border: none;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
             padding-bottom: 2px;
         }
         QPushButton#plusBtn:hover {
-            background-color: #6b7280;
+            background-color: #B71C1C;
+            color: #ffffff;
         }
 
         /* 输入框 */
         QLineEdit#chatInputEdit {
             background-color: transparent;
             border: none;
-            padding: 0 10px;
+            padding: 0 12px;
             font-size: 15px;
-            color: #1a1a1a;
+            color: #2d3748;
         }
         QLineEdit#chatInputEdit::placeholder {
-            color: #9ca3af;
+            color: #a0aec0;
         }
-        
-        /* 发送按钮 */
+
+        /* 发送按钮 - 思政红 */
         QPushButton#chatSendBtn {
-            background-color: #dc2626; /* 红色 */
+            background-color: #B71C1C;
             color: #ffffff;
             border: none;
             border-radius: 16px;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
         }
         QPushButton#chatSendBtn:hover {
-            background-color: #b91c1c;
-        }
-        QPushButton#chatSendBtn:pressed {
             background-color: #991b1b;
         }
+        QPushButton#chatSendBtn:pressed {
+            background-color: #7f1d1d;
+        }
         QPushButton#chatSendBtn:disabled {
-            background-color: #e5e7eb;
-            color: #9ca3af;
+            background-color: #e8e4df;
+            color: #a0aec0;
         }
 
         /* 提示文字 */
         QLabel#tipLabel {
-            color: #9ca3af;
+            color: #a0aec0;
             font-size: 12px;
-            background: transparent;
-        }
-
-        /* 底部区域 - 透明背景 */
-        QWidget#bottomWidget {
             background: transparent;
         }
     )");
@@ -251,37 +261,61 @@ void ChatWidget::setupStyles()
 
 QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
 {
-    // 消息行容器
+    // 消息行容器 - 设为透明，避免出现白色"金属块"
     QWidget *rowWidget = new QWidget();
+    rowWidget->setAttribute(Qt::WA_TranslucentBackground);
+    rowWidget->setStyleSheet("background: transparent;");
+
     QHBoxLayout *rowLayout = new QHBoxLayout(rowWidget);
-    rowLayout->setContentsMargins(0, 0, 0, 0);
-    rowLayout->setSpacing(12);
-    
-    // 头像
+    rowLayout->setContentsMargins(0, 4, 0, 4);  // 增加垂直间距
+    rowLayout->setSpacing(14);  // 增加头像与气泡间距
+
+    // 头像 - 使用更精致的设计
     QLabel *avatarLabel = new QLabel();
-    avatarLabel->setFixedSize(40, 40);
+    avatarLabel->setFixedSize(44, 44);  // 稍大一点
     avatarLabel->setAlignment(Qt::AlignCenter);
-    avatarLabel->setStyleSheet(QString(
-        "QLabel {"
-        "   background-color: %1;"
-        "   border-radius: 20px;"
-        "   color: #ffffff;"
-        "   font-size: 16px;"
-        "   font-weight: bold;"
-        "}"
-    ).arg(isUser ? "#2b7de9" : "#6b7280"));
-    avatarLabel->setText(isUser ? "我" : "AI");
-    
-    // 气泡容器
+
+    if (isUser) {
+        // 用户头像 - 思政红配色
+        avatarLabel->setStyleSheet(
+            "QLabel {"
+            "   background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #C62828, stop:1 #B71C1C);"
+            "   border-radius: 22px;"
+            "   color: #ffffff;"
+            "   font-size: 15px;"
+            "   font-weight: 600;"
+            "   border: 2px solid rgba(255, 255, 255, 0.3);"
+            "}"
+        );
+        avatarLabel->setText("我");
+    } else {
+        // AI头像 - 金色渐变
+        avatarLabel->setStyleSheet(
+            "QLabel {"
+            "   background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #D4A017, stop:1 #B8860B);"
+            "   border-radius: 22px;"
+            "   color: #ffffff;"
+            "   font-size: 13px;"
+            "   font-weight: 700;"
+            "   border: 2px solid rgba(255, 255, 255, 0.3);"
+            "}"
+        );
+        avatarLabel->setText("AI");
+    }
+
+    // 气泡容器 - 限制最大宽度为65%以提升阅读体验
     QWidget *bubbleWidget = new QWidget();
     bubbleWidget->setObjectName(isUser ? "userBubble" : "aiBubble");
-    bubbleWidget->setMaximumWidth(static_cast<int>(width() * 0.7));
-    if (bubbleWidget->maximumWidth() < 200) {
-        bubbleWidget->setMaximumWidth(400); // 默认最大宽度
+
+    // 计算最大宽度：屏幕宽度的65%，但不超过600px
+    int maxBubbleWidth = qMin(static_cast<int>(width() * 0.65), 600);
+    if (maxBubbleWidth < 280) {
+        maxBubbleWidth = 450;  // 合理的默认宽度
     }
-    
+    bubbleWidget->setMaximumWidth(maxBubbleWidth);
+
     QVBoxLayout *bubbleLayout = new QVBoxLayout(bubbleWidget);
-    bubbleLayout->setContentsMargins(16, 12, 16, 12);
+    bubbleLayout->setContentsMargins(18, 14, 18, 14);  // 增加内边距
     bubbleLayout->setSpacing(0);
     
     // 消息文本
@@ -298,38 +332,42 @@ QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
     
     // 根据用户/AI设置不同样式
     if (isUser) {
+        // 用户气泡 - 思政红渐变
         bubbleWidget->setStyleSheet(QString(
             "QWidget#userBubble {"
-            "   background-color: %1;"
-            "   border-radius: 16px;"
-            "   border-top-right-radius: 4px;"
+            "   background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #C62828, stop:1 %1);"
+            "   border-radius: 18px;"
+            "   border-top-right-radius: 6px;"
             "}"
         ).arg(USER_BUBBLE_COLOR));
-        
+
         textLabel->setStyleSheet(QString(
             "QLabel {"
             "   color: %1;"
             "   font-size: 15px;"
-            "   line-height: 1.5;"
+            "   line-height: 1.6;"
             "   background: transparent;"
+            "   letter-spacing: 0.3px;"
             "}"
         ).arg(USER_TEXT_COLOR));
     } else {
+        // AI气泡 - 白色卡片风格
         bubbleWidget->setStyleSheet(QString(
             "QWidget#aiBubble {"
             "   background-color: %1;"
-            "   border: 1px solid #e5e7eb;"
-            "   border-radius: 16px;"
-            "   border-top-left-radius: 4px;"
+            "   border: 1px solid #e8e4df;"
+            "   border-radius: 18px;"
+            "   border-top-left-radius: 6px;"
             "}"
         ).arg(AI_BUBBLE_COLOR));
-        
+
         textLabel->setStyleSheet(QString(
             "QLabel {"
             "   color: %1;"
             "   font-size: 15px;"
-            "   line-height: 1.5;"
+            "   line-height: 1.6;"
             "   background: transparent;"
+            "   letter-spacing: 0.3px;"
             "}"
         ).arg(AI_TEXT_COLOR));
         
@@ -410,14 +448,11 @@ QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
     }
     
     bubbleLayout->addWidget(textLabel);
-    
-    // 添加阴影效果
-    QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect(bubbleWidget);
-    shadow->setBlurRadius(8);
-    shadow->setOffset(0, 2);
-    shadow->setColor(QColor(0, 0, 0, 20));
-    bubbleWidget->setGraphicsEffect(shadow);
-    
+
+    // 注意：移除 QGraphicsDropShadowEffect 阴影效果
+    // 原因：Qt 的阴影效果在多个控件紧密排列时会产生色块/伪影
+    // 改用 CSS border 实现轻微的视觉层次感（已在上方 bubbleStyle 中设置）
+
     // 根据用户/AI调整布局顺序
     if (isUser) {
         // 用户消息：弹簧 -> 气泡 -> 头像
@@ -443,9 +478,17 @@ void ChatWidget::addMessage(const QString &text, bool isUser)
         return;
     }
 
-    // 移除底部弹簧
-    QLayoutItem *stretch = m_messageLayout->takeAt(m_messageLayout->count() - 1);
-    if (stretch) delete stretch;
+    // 安全检查：确保布局已初始化
+    if (!m_messageLayout) {
+        qWarning() << "[ChatWidget] addMessage: m_messageLayout is null!";
+        return;
+    }
+
+    // 移除底部弹簧（确保布局中有元素）
+    if (m_messageLayout->count() > 0) {
+        QLayoutItem *stretch = m_messageLayout->takeAt(m_messageLayout->count() - 1);
+        if (stretch) delete stretch;
+    }
 
     // 创建并添加消息气泡
     qDebug() << "[ChatWidget] addMessage: About to create message bubble";

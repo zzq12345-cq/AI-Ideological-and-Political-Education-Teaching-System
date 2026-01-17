@@ -153,16 +153,18 @@ private:
     // QFrame *coreFeaturesFrame; ...
 
     // AI 对话组件
-    DifyService *m_difyService;
-    AIChatDialog *m_chatDialog;  // AI 对话框（备用）
-    class ChatWidget *m_bubbleChatWidget;  // 气泡样式聊天组件（主面板用）
-    ChatHistoryWidget *m_chatHistoryWidget;  // 历史记录侧边栏
+    DifyService *m_difyService = nullptr;
+    AIChatDialog *m_chatDialog = nullptr;  // AI 对话框（备用）
+    class ChatWidget *m_bubbleChatWidget = nullptr;  // 气泡样式聊天组件（主面板用）
+    ChatHistoryWidget *m_chatHistoryWidget = nullptr;  // 历史记录侧边栏
     QWidget *m_chatContainer;  // 聊天容器
     QStackedWidget *m_sidebarStack;  // 侧边栏切换栈
     QFrame *m_chatWidget;        // 输入框容器
     QLineEdit *m_chatInput;
     QPushButton *m_sendBtn;
     QString m_currentAIResponse;  // 累积流式响应
+    QTimer *m_streamUpdateTimer;  // 流式更新节流定时器
+    bool m_streamUpdatePending;   // 是否有待处理的更新
     PPTXGenerator *m_pptxGenerator;  // PPTX 生成器
     
     // 欢迎面板（首页显示，对话后隐藏）

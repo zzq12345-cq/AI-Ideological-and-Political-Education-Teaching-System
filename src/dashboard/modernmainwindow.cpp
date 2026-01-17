@@ -793,6 +793,17 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     // 初始化 PPTX 生成器
     m_pptxGenerator = new PPTXGenerator(this);
 
+    // 初始化流式更新节流定时器（每100ms最多更新一次UI）
+    m_streamUpdateTimer = new QTimer(this);
+    m_streamUpdateTimer->setSingleShot(true);
+    m_streamUpdatePending = false;
+    connect(m_streamUpdateTimer, &QTimer::timeout, this, [this]() {
+        if (m_streamUpdatePending && m_bubbleChatWidget) {
+            m_bubbleChatWidget->updateLastAIMessage(m_currentAIResponse);
+            m_streamUpdatePending = false;
+        }
+    });
+
     // 从环境变量获取 API Key，提高安全性
     QString apiKey = qgetenv("DIFY_API_KEY");
     const bool hasApiKey = !apiKey.isEmpty();
@@ -1767,14 +1778,13 @@ void ModernMainWindow::onAIPreparationClicked()
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
       teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
-    // 切换到AI智能备课页面
-    if (aiPreparationWidget) {
-        qDebug() << "切换到AI智能备课页面";
-        contentStack->setCurrentWidget(aiPreparationWidget);
-        this->statusBar()->showMessage("AI智能备课");
-    } else {
-        qDebug() << "错误：aiPreparationWidget为空";
+    // 直接跳转到对话页面
+    qDebug() << "切换到AI对话页面";
+    if (m_mainStack && m_chatContainer) {
+        m_mainStack->setCurrentWidget(m_chatContainer);
+        swapToHistorySidebar();  // 切换到历史记录侧边栏
     }
+    this->statusBar()->showMessage("AI智能备课");
 }
 
 void ModernMainWindow::onResourceManagementClicked()
@@ -2058,7 +2068,14 @@ void ModernMainWindow::createAIChatWidget()
     
     // 连接历史记录侧边栏信号（m_chatHistoryWidget 已在 setupCentralWidget 中创建）
     connect(m_chatHistoryWidget, &ChatHistoryWidget::newChatRequested, this, [this]() {
-        // 清空聊天并重置 Dify 会话
+        // 步骤 1: 如果当前有对话，先刷新历史列表（Dify 云端已自动保存）
+        if (m_isConversationStarted && m_difyService) {
+            // 请求刷新对话列表，让刚才的对话出现在历史记录中
+            m_difyService->fetchConversations();
+            qDebug() << "[ModernMainWindow] 新建对话 - 刷新历史记录列表";
+        }
+
+        // 步骤 2: 清空聊天并重置 Dify 会话
         if (m_bubbleChatWidget) {
             m_bubbleChatWidget->clearMessages();
             m_bubbleChatWidget->addMessage("老师您好！我是智慧课堂助手，请问有什么可以帮你？", false);
@@ -2066,12 +2083,13 @@ void ModernMainWindow::createAIChatWidget()
         if (m_difyService) {
             m_difyService->clearConversation();
         }
-        
-        // 清除选中状态（不再创建假的历史项，真实历史会在对话完成后自动刷新）
+
+        // 步骤 3: 清除选中状态
         if (m_chatHistoryWidget) {
             m_chatHistoryWidget->clearSelection();
         }
-        // 重置对话开始标志
+
+        // 步骤 4: 重置对话开始标志
         m_isConversationStarted = false;
     });
     
@@ -2242,17 +2260,14 @@ void ModernMainWindow::onSendChatMessage()
     // 清空累积响应
     m_currentAIResponse.clear();
 
-    // 发送到 Dify
+    // 发送到 Dify（不添加额外前缀，让 AI 自由使用 Markdown 格式回复）
     if (m_difyService) {
-        const QString concisePrefix = "请用简洁中文回答（不超过120字），不要使用Markdown/标签/代码块，直接回答：";
-        m_difyService->sendMessage(concisePrefix + message);
+        m_difyService->sendMessage(message);
     }
 }
 
 void ModernMainWindow::onAIStreamChunk(const QString &chunk)
 {
-    qDebug() << "[ModernMainWindow] Stream chunk received:" << chunk.left(50) + "...";
-
     if (!m_bubbleChatWidget) {
         qDebug() << "[ModernMainWindow] Error: m_bubbleChatWidget is null!";
         return;
@@ -2260,16 +2275,20 @@ void ModernMainWindow::onAIStreamChunk(const QString &chunk)
 
     // 累积响应
     m_currentAIResponse += chunk;
-    qDebug() << "[ModernMainWindow] Current response length:" << m_currentAIResponse.length();
 
     // 如果是第一个 chunk，先添加一个空的 AI 消息
     if (m_currentAIResponse.length() == chunk.length()) {
         qDebug() << "[ModernMainWindow] Adding first AI message placeholder";
         m_bubbleChatWidget->addMessage("", false); // 添加空的 AI 消息占位
+        // 第一个 chunk 立即更新
+        m_bubbleChatWidget->updateLastAIMessage(m_currentAIResponse);
+    } else {
+        // 使用节流机制：标记有待更新，如果定时器没在运行则启动
+        m_streamUpdatePending = true;
+        if (!m_streamUpdateTimer->isActive()) {
+            m_streamUpdateTimer->start(80);  // 80ms 节流间隔
+        }
     }
-
-    // 实时更新最后一条 AI 消息
-    m_bubbleChatWidget->updateLastAIMessage(m_currentAIResponse);
 }
 
 void ModernMainWindow::onAIThinkingChunk(const QString &thought)
@@ -2315,6 +2334,9 @@ void ModernMainWindow::onAIError(const QString &error)
     QString errorMessage = QString("⚠️ 错误：%1").arg(error);
     if (m_bubbleChatWidget) {
         m_bubbleChatWidget->addMessage(errorMessage, false);
+    } else {
+        // 聊天组件尚未初始化，仅输出日志
+        qWarning() << "[ModernMainWindow] ChatWidget not ready, error not displayed:" << error;
     }
 }
 
