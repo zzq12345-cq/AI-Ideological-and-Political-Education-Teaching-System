@@ -34,6 +34,9 @@ struct PaperQuestion {
     QString questionType;  // single_choice, multi_choice, true_false, short_answer, essay
     QString difficulty;    // easy, medium, hard
     QString stem;          // 题干
+    QString material;      // 材料内容（材料论述题专用，支持 HTML 格式含图片/表格）
+    QStringList subQuestions;  // 小问列表（材料论述题专用）
+    QStringList subAnswers;    // 小问答案列表（材料论述题专用）
     QStringList options;   // 选项
     QString answer;        // 答案
     QString explanation;   // 解析

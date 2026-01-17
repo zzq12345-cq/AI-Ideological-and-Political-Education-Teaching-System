@@ -46,6 +46,7 @@ PaperQuestion PaperQuestion::fromJson(const QJsonObject &json)
     q.questionType = json["question_type"].toString();
     q.difficulty = json["difficulty"].toString();
     q.stem = json["stem"].toString();
+    q.material = json["material"].toString();  // 材料内容
     q.answer = json["answer"].toString();
     q.explanation = json["explanation"].toString();
     q.score = json["score"].toInt(5);
@@ -57,6 +58,22 @@ PaperQuestion PaperQuestion::fromJson(const QJsonObject &json)
         QJsonArray optArray = json["options"].toArray();
         for (const QJsonValue &val : optArray) {
             q.options.append(val.toString());
+        }
+    }
+
+    // 解析 sub_questions (材料论述题小问列表)
+    if (json.contains("sub_questions") && json["sub_questions"].isArray()) {
+        QJsonArray sqArray = json["sub_questions"].toArray();
+        for (const QJsonValue &val : sqArray) {
+            q.subQuestions.append(val.toString());
+        }
+    }
+
+    // 解析 sub_answers (材料论述题小问答案)
+    if (json.contains("sub_answers") && json["sub_answers"].isArray()) {
+        QJsonArray saArray = json["sub_answers"].toArray();
+        for (const QJsonValue &val : saArray) {
+            q.subAnswers.append(val.toString());
         }
     }
 
@@ -73,7 +90,7 @@ PaperQuestion PaperQuestion::fromJson(const QJsonObject &json)
     q.subject = json["subject"].toString();
     q.grade = json["grade"].toString();
     q.chapter = json["chapter"].toString();
-    
+
     // 解析 knowledge_points (TEXT[] -> QStringList)
     if (json.contains("knowledge_points") && json["knowledge_points"].isArray()) {
         QJsonArray kpArray = json["knowledge_points"].toArray();
@@ -102,6 +119,7 @@ QJsonObject PaperQuestion::toJson() const
     json["question_type"] = questionType;
     json["difficulty"] = difficulty;
     json["stem"] = stem;
+    if (!material.isEmpty()) json["material"] = material;  // 材料内容
     json["answer"] = answer;
     json["explanation"] = explanation;
     json["score"] = score;
@@ -113,6 +131,24 @@ QJsonObject PaperQuestion::toJson() const
         optArray.append(opt);
     }
     json["options"] = optArray;
+
+    // 转换 sub_questions (材料论述题小问列表)
+    if (!subQuestions.isEmpty()) {
+        QJsonArray sqArray;
+        for (const QString &sq : subQuestions) {
+            sqArray.append(sq);
+        }
+        json["sub_questions"] = sqArray;
+    }
+
+    // 转换 sub_answers (材料论述题小问答案)
+    if (!subAnswers.isEmpty()) {
+        QJsonArray saArray;
+        for (const QString &sa : subAnswers) {
+            saArray.append(sa);
+        }
+        json["sub_answers"] = saArray;
+    }
 
     // 转换 tags
     QJsonArray tagArray;
