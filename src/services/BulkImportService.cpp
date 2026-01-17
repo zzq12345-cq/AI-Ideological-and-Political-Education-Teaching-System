@@ -8,6 +8,8 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QDebug>
+#include <QTemporaryFile>
+#include <QTextStream>
 
 BulkImportService::BulkImportService(PaperService *paperService, QObject *parent)
     : QObject(parent)
@@ -188,9 +190,41 @@ void BulkImportService::processNextFile()
 
     emit documentParseStarted(m_currentFileName);
 
-    // 直接上传文件到 Dify 进行解析（使用文件上传模式）
-    // 工作流开始节点需要配置名为 "upload" 的文件列表变量
-    m_questionParser->parseFile(filePath, m_currentSubject, m_currentGrade);
+    // 使用本地读取文档（含表格转 HTML）
+    // 这样可以保留表格内容，而不是依赖 Dify 解析原始文件
+    QString documentText = m_documentReader->readDocxWithTables(filePath);
+
+    if (documentText.isEmpty()) {
+        qDebug() << "BulkImportService: 文档读取失败:" << m_documentReader->lastError();
+        m_failedFiles++;
+        m_processedFiles++;
+        emit importProgress(m_processedFiles, m_totalFiles);
+        processNextFile();
+        return;
+    }
+
+    qDebug() << "BulkImportService: 文档读取成功，内容长度:" << documentText.length();
+
+    // 创建临时文本文件，保存提取的内容（含表格 HTML）
+    // 这样 Dify 可以使用文件上传模式，但内容已包含表格
+    QString tempFilePath = QDir::tempPath() + "/" + fileInfo.baseName() + "_extracted.txt";
+    QFile tempFile(tempFilePath);
+    if (tempFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&tempFile);
+        out.setEncoding(QStringConverter::Utf8);
+        out << documentText;
+        tempFile.close();
+        qDebug() << "BulkImportService: 创建临时文件:" << tempFilePath;
+
+        // 使用文件上传模式发送到 Dify（临时文件包含提取的表格内容）
+        m_questionParser->parseFile(tempFilePath, m_currentSubject, m_currentGrade);
+    } else {
+        qDebug() << "BulkImportService: 创建临时文件失败";
+        m_failedFiles++;
+        m_processedFiles++;
+        emit importProgress(m_processedFiles, m_totalFiles);
+        processNextFile();
+    }
 }
 
 void BulkImportService::onParseCompleted(const QList<PaperQuestion> &questions)

@@ -15,6 +15,14 @@ class QPushButton;
 class QScrollArea;
 class QVBoxLayout;
 
+// 材料论述题解析结果
+struct MaterialEssayParsed {
+    QString material;           // 材料内容
+    QStringList subQuestions;   // 小问列表
+    QStringList subAnswers;     // 小问答案
+    QString stem;               // 题目要求（如"阅读材料，回答下列问题"）
+};
+
 class QuestionBankWindow : public QWidget
 {
     Q_OBJECT
@@ -60,6 +68,7 @@ private:
     void clearQuestionCards();
     void displayQuestions(const QList<PaperQuestion> &questions);
     QString getSelectedQuestionType();  // 获取当前选中的题型
+    MaterialEssayParsed parseMaterialEssay(const PaperQuestion &question);  // 智能解析材料论述题
 
     void connectFilterCombo(QComboBox *combo, const QString &labelText);
     void connectFilterButton(QButtonGroup *group, const QString &labelText);
