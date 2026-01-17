@@ -330,9 +330,10 @@ QString DifyService::filterThinkTagsStreaming(const QString &text)
         }
     }
 
-    output.replace(QRegularExpression("[ \\t]+"), " ");
+    // 只压缩超过2个的连续换行，保留正常的段落分隔
     output.replace(QRegularExpression("\\n{3,}"), "\n\n");
-    return output.trimmed();
+    // 注意：不再调用 trimmed()，保留流式响应中的换行符
+    return output;
 }
 
 void DifyService::parseStreamResponse(const QByteArray &data)

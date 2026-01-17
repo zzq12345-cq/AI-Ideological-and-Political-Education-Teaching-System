@@ -38,6 +38,8 @@ set(PROJECT_SOURCES
     src/services/DifyService.h
     src/services/PPTXGenerator.cpp
     src/services/PPTXGenerator.h
+    src/services/PaperService.cpp
+    src/services/PaperService.h
     src/ui/ChatWidget.cpp
     src/ui/ChatWidget.h
     src/ui/AIChatDialog.cpp
@@ -76,4 +78,34 @@ install(TARGETS AILoginSystem
     BUNDLE DESTINATION .
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# ==================== ImportTool 导入工具 ====================
+# 共享的服务源文件
+set(SHARED_SERVICES
+    src/services/PaperService.cpp
+    src/services/PaperService.h
+    src/services/BulkImportService.cpp
+    src/services/BulkImportService.h
+    src/services/QuestionParserService.cpp
+    src/services/QuestionParserService.h
+    src/services/DocumentReaderService.cpp
+    src/services/DocumentReaderService.h
+    src/auth/supabase/supabaseconfig.cpp
+    src/auth/supabase/supabaseconfig.h
+)
+
+qt_add_executable(ImportTool
+    src/tools/import_tool.cpp
+    ${SHARED_SERVICES}
+)
+
+target_link_libraries(ImportTool PRIVATE
+    Qt${QT_VERSION_MAJOR}::Core
+    Qt${QT_VERSION_MAJOR}::Network
+)
+
+set_target_properties(ImportTool PROPERTIES
+    MACOSX_BUNDLE FALSE
+    WIN32_EXECUTABLE FALSE
 )
