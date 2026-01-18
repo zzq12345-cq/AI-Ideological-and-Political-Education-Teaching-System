@@ -959,8 +959,12 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
                 subLayout->setContentsMargins(0, 0, 0, 0);
                 subLayout->setSpacing(4);
 
-                // 小问题目
-                QString subText = QString("<b>（%1）</b> %2").arg(i + 1).arg(parsed.subQuestions[i]);
+                // 小问题目 - 先去除已有编号前缀，避免重复显示
+                QString questionText = parsed.subQuestions[i].trimmed();
+                // 去除开头的编号格式如 (1) （1） 1. 1、 ⑴ 等
+                static QRegularExpression numPrefixRe(R"(^[\(（⑴⑵⑶⑷⑸]?\s*\d*\s*[\)）]?[\s\.\、\：\:]*)");;
+                questionText.remove(numPrefixRe);
+                QString subText = QString("<b>（%1）</b> %2").arg(i + 1).arg(questionText.trimmed());
                 auto *subLabel = new QLabel(subText, subFrame);
                 subLabel->setWordWrap(true);
                 subLabel->setTextFormat(Qt::RichText);
