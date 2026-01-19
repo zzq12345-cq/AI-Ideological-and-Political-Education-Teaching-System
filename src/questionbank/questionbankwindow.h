@@ -2,6 +2,7 @@
 #define QUESTIONBANKWINDOW_H
 
 #include <QList>
+#include <QMap>
 #include <QWidget>
 #include "../services/PaperService.h"
 
@@ -12,8 +13,10 @@ class QFrame;
 class QLabel;
 class QProgressBar;
 class QPushButton;
+class QResizeEvent;
 class QScrollArea;
 class QVBoxLayout;
+class QuestionBasketWidget;
 
 // 材料论述题解析结果
 struct MaterialEssayParsed {
@@ -36,11 +39,16 @@ public slots:
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private slots:
     void onQuestionsReceived(const QList<PaperQuestion> &questions);
     void onQuestionsError(const QString &type, const QString &error);
     void onQuestionTypeChanged();  // 题型筛选变化
+    void onAddToBasket(const PaperQuestion &question);  // 添加试题到篮子
+    void onRemoveFromBasket(const QString &questionId);  // 从篮子移除试题
+    void onComposePaper();  // 打开组卷对话框
+    void updateAddToBasketButton(const QString &questionId, bool inBasket);  // 更新按钮状态
 
 private:
     void setupLayout();
@@ -104,6 +112,10 @@ private:
 
     int m_currentQuestion = 1;
     int m_totalQuestions = 0;
+
+    // 试题篮相关
+    QuestionBasketWidget *m_basketWidget = nullptr;
+    QMap<QString, QPushButton *> m_addToBasketButtons;  // questionId -> button
 };
 
 #endif // QUESTIONBANKWINDOW_H
