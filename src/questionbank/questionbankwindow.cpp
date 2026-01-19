@@ -1,4 +1,7 @@
 #include "questionbankwindow.h"
+#include "PaperComposerDialog.h"
+#include "QuestionBasket.h"
+#include "QuestionBasketWidget.h"
 #include "../ui/moderncheckbox.h"
 
 #include <QAbstractButton>
@@ -18,6 +21,7 @@
 #include <QPushButton>
 #include <QRadioButton>
 #include <QRegularExpression>
+#include <QResizeEvent>
 #include <QScrollArea>
 #include <QStyle>
 #include <QTextBrowser>
@@ -108,6 +112,37 @@ void QuestionBankWindow::setupLayout()
     pageLayout->addWidget(buildBody(), 1);
 
     rootLayout->addWidget(pageContainer);
+
+    // 创建试题篮悬浮组件
+    m_basketWidget = new QuestionBasketWidget(this);
+    m_basketWidget->setParent(this);
+    m_basketWidget->raise();
+
+    // 连接试题篮信号
+    connect(m_basketWidget, &QuestionBasketWidget::composePaperRequested,
+            this, &QuestionBankWindow::onComposePaper);
+    connect(m_basketWidget, &QuestionBasketWidget::questionRemoved,
+            this, &QuestionBankWindow::onRemoveFromBasket);
+    connect(m_basketWidget, &QuestionBasketWidget::sizeChanged,
+            this, [this]() {
+                // 重新定位试题篮到右下角
+                if (m_basketWidget) {
+                    const int margin = 24;
+                    int x = width() - m_basketWidget->width() - margin;
+                    int y = height() - m_basketWidget->height() - margin;
+                    m_basketWidget->move(x, y);
+                }
+            });
+
+    // 监听试题篮数量变化以更新按钮状态
+    connect(QuestionBasket::instance(), &QuestionBasket::questionAdded,
+            this, [this](const PaperQuestion &q) {
+                updateAddToBasketButton(q.id, true);
+            });
+    connect(QuestionBasket::instance(), &QuestionBasket::questionRemoved,
+            this, [this](const QString &id) {
+                updateAddToBasketButton(id, false);
+            });
 }
 
 QWidget *QuestionBankWindow::buildHeader()
@@ -1072,6 +1107,66 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
         layout->addWidget(createAnalysisSection(question.explanation));
     }
 
+    // ========== 操作行：加入试题篮按钮 ==========
+    auto *actionRow = new QFrame(card);
+    actionRow->setObjectName("cardActionRow");
+    auto *actionLayout = new QHBoxLayout(actionRow);
+    actionLayout->setContentsMargins(0, 8, 0, 0);
+    actionLayout->setSpacing(12);
+
+    actionLayout->addStretch();
+
+    // 加入试题篮按钮
+    auto *addToBasketBtn = new QPushButton(card);
+    addToBasketBtn->setObjectName("addToBasketButton");
+    addToBasketBtn->setCursor(Qt::PointingHandCursor);
+    addToBasketBtn->setFixedHeight(36);
+
+    // 检查是否已在篮子中
+    bool inBasket = QuestionBasket::instance()->contains(question.id);
+    if (inBasket) {
+        addToBasketBtn->setText("已加入");
+        addToBasketBtn->setProperty("inBasket", true);
+        addToBasketBtn->setEnabled(false);
+    } else {
+        addToBasketBtn->setText("加入试题篮");
+        addToBasketBtn->setProperty("inBasket", false);
+    }
+
+    addToBasketBtn->setStyleSheet(
+        "QPushButton#addToBasketButton {"
+        "  background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #D9001B, stop:1 #B80018);"
+        "  color: #fff;"
+        "  border: none;"
+        "  border-radius: 6px;"
+        "  padding: 0 20px;"
+        "  font-size: 13px;"
+        "  font-weight: 500;"
+        "}"
+        "QPushButton#addToBasketButton:hover {"
+        "  background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #E52B3C, stop:1 #C9001F);"
+        "}"
+        "QPushButton#addToBasketButton:disabled {"
+        "  background: #adb5bd;"
+        "}"
+        "QPushButton#addToBasketButton[inBasket=\"true\"] {"
+        "  background: #28a745;"
+        "}"
+    );
+
+    // 保存按钮引用以便更新状态
+    m_addToBasketButtons[question.id] = addToBasketBtn;
+
+    // 连接点击事件
+    PaperQuestion q = question;  // 捕获副本
+    connect(addToBasketBtn, &QPushButton::clicked, this, [this, q]() {
+        onAddToBasket(q);
+    });
+
+    actionLayout->addWidget(addToBasketBtn);
+
+    layout->addWidget(actionRow);
+
     return card;
 }
 
@@ -1227,4 +1322,79 @@ MaterialEssayParsed QuestionBankWindow::parseMaterialEssay(const PaperQuestion &
     }
 
     return result;
+}
+
+// ==================== 试题篮相关方法 ====================
+
+void QuestionBankWindow::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+
+    // 将试题篮组件定位到右下角
+    if (m_basketWidget) {
+        const int margin = 24;
+        int x = width() - m_basketWidget->width() - margin;
+        int y = height() - m_basketWidget->height() - margin;
+        m_basketWidget->move(x, y);
+    }
+}
+
+void QuestionBankWindow::onAddToBasket(const PaperQuestion &question)
+{
+    bool added = QuestionBasket::instance()->addQuestion(question);
+    if (added) {
+        qDebug() << "[QuestionBankWindow] Added to basket:" << question.id;
+    }
+}
+
+void QuestionBankWindow::onRemoveFromBasket(const QString &questionId)
+{
+    QuestionBasket::instance()->removeQuestion(questionId);
+    qDebug() << "[QuestionBankWindow] Removed from basket:" << questionId;
+}
+
+void QuestionBankWindow::onComposePaper()
+{
+    int count = QuestionBasket::instance()->count();
+    if (count == 0) {
+        qDebug() << "[QuestionBankWindow] Basket is empty, cannot compose paper";
+        return;
+    }
+
+    qDebug() << "[QuestionBankWindow] Opening paper composer with" << count << "questions";
+
+    // 打开组卷对话框
+    PaperComposerDialog dialog(this);
+    connect(&dialog, &PaperComposerDialog::paperExported, this, [this](const QString &filePath) {
+        qDebug() << "[QuestionBankWindow] Paper exported to:" << filePath;
+        // 导出成功后清空试题篮
+        QuestionBasket::instance()->clear();
+        if (m_basketWidget) {
+            m_basketWidget->refresh();
+        }
+    });
+    dialog.exec();
+}
+
+void QuestionBankWindow::updateAddToBasketButton(const QString &questionId, bool inBasket)
+{
+    auto *button = m_addToBasketButtons.value(questionId, nullptr);
+    if (!button) {
+        return;
+    }
+
+    if (inBasket) {
+        button->setText("已加入");
+        button->setProperty("inBasket", true);
+        button->setEnabled(false);
+    } else {
+        button->setText("加入试题篮");
+        button->setProperty("inBasket", false);
+        button->setEnabled(true);
+    }
+
+    // 刷新样式
+    button->style()->unpolish(button);
+    button->style()->polish(button);
+    button->update();
 }

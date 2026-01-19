@@ -28,6 +28,12 @@ set(PROJECT_SOURCES
     src/questionbank/questionbankwindow.h
     src/questionbank/QuestionRepository.cpp
     src/questionbank/QuestionRepository.h
+    src/questionbank/QuestionBasket.cpp
+    src/questionbank/QuestionBasket.h
+    src/questionbank/QuestionBasketWidget.cpp
+    src/questionbank/QuestionBasketWidget.h
+    src/questionbank/PaperComposerDialog.cpp
+    src/questionbank/PaperComposerDialog.h
     src/ui/aipreparationwidget.cpp
     src/ui/aipreparationwidget.h
     src/ui/moderncheckbox.cpp

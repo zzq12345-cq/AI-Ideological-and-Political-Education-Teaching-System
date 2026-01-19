@@ -1776,9 +1776,14 @@ void ModernMainWindow::onAIPreparationClicked()
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-      teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
-    // 直接跳转到对话页面
+    // 首先切换 contentStack 到 dashboardWidget（m_mainStack 在其中）
+    if (contentStack && dashboardWidget) {
+        contentStack->setCurrentWidget(dashboardWidget);
+    }
+
+    // 然后切换到对话页面
     qDebug() << "切换到AI对话页面";
     if (m_mainStack && m_chatContainer) {
         m_mainStack->setCurrentWidget(m_chatContainer);
