@@ -793,6 +793,20 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     // 初始化 PPTX 生成器
     m_pptxGenerator = new PPTXGenerator(this);
 
+    // 初始化 PPT 模拟生成定时器
+    m_pptSimulationTimer = new QTimer(this);
+    m_pptSimulationTimer->setSingleShot(false);
+    m_pptSimulationStep = 0;
+    m_pptQuestionStep = 0;  // 0=未开始问答
+    m_pendingPPTPath = "";
+    connect(m_pptSimulationTimer, &QTimer::timeout, this, &ModernMainWindow::onPPTSimulationStep);
+
+    // 初始化打字效果定时器
+    m_pptTypingTimer = new QTimer(this);
+    m_pptTypingTimer->setSingleShot(false);
+    m_pptTypingIndex = 0;
+    connect(m_pptTypingTimer, &QTimer::timeout, this, &ModernMainWindow::onPPTTypingStep);
+
     // 初始化流式更新节流定时器（每100ms最多更新一次UI）
     m_streamUpdateTimer = new QTimer(this);
     m_streamUpdateTimer->setSingleShot(true);
@@ -2212,24 +2226,47 @@ void ModernMainWindow::createAIChatWidget()
     // 显示开场白
     QString openingMessage = "老师您好！我是智慧课堂助手，请问有什么可以帮你？";
     m_bubbleChatWidget->addMessage(openingMessage, false);
-    
+
     // 连接消息发送信号到 Dify 服务
     connect(m_bubbleChatWidget, &ChatWidget::messageSent, this, [this](const QString &message) {
         if (message.trimmed().isEmpty()) return;
-        
+
         // 首次发送消息时，切换到聊天界面并切换侧边栏
         if (m_mainStack && m_mainStack->currentWidget() != m_chatContainer) {
             m_mainStack->setCurrentWidget(m_chatContainer);
             swapToHistorySidebar();  // 切换到历史记录侧边栏
             m_isConversationStarted = true;
         }
-        
+
         // 显示用户消息
         m_bubbleChatWidget->addMessage(message, true);
-        
+
+        // 如果正在 PPT 问答阶段或打字中，继续问答流程
+        if (m_pptQuestionStep > 0 && m_pptQuestionStep <= 5) {
+            // 如果还在打字中，忽略用户输入
+            if (m_pptTypingTimer->isActive()) {
+                return;
+            }
+            // 如果已经进入生成阶段，忽略
+            if (m_pptQuestionStep == 5) {
+                return;
+            }
+            handlePPTConversation(message);
+            return;
+        }
+
+        // 检测是否是 PPT 生成请求
+        if (isPPTGenerationRequest(message)) {
+            // 开始问答流程
+            m_pptQuestionStep = 1;
+            m_pptUserAnswers.clear();
+            handlePPTConversation(message);
+            return;
+        }
+
         // 清空累积响应
         m_currentAIResponse.clear();
-        
+
         // 直接发送到 Dify，使用 Dify 中配置的提示词
         if (m_difyService) {
             m_difyService->sendMessage(message);
@@ -2419,5 +2456,258 @@ void ModernMainWindow::onAIRequestFinished()
     // 刷新对话列表以显示新创建的对话
     if (m_difyService) {
         m_difyService->fetchConversations();
+    }
+}
+
+// ==================== PPT 模拟生成功能 ====================
+
+bool ModernMainWindow::isPPTGenerationRequest(const QString &message)
+{
+    // 检测消息中是否包含 PPT 生成相关关键词
+    QString lowerMsg = message.toLower();
+    bool hasPPTKeyword = lowerMsg.contains("ppt") ||
+                         lowerMsg.contains("幻灯片") ||
+                         lowerMsg.contains("演示文稿") ||
+                         lowerMsg.contains("课件");
+    bool hasGenerateKeyword = lowerMsg.contains("生成") ||
+                              lowerMsg.contains("制作") ||
+                              lowerMsg.contains("做一个") ||
+                              lowerMsg.contains("创建") ||
+                              lowerMsg.contains("帮我");
+
+    return hasPPTKeyword && hasGenerateKeyword;
+}
+
+void ModernMainWindow::handlePPTConversation(const QString &message)
+{
+    if (!m_bubbleChatWidget) return;
+
+    // 记录用户回答（除了第一次触发）
+    if (m_pptQuestionStep > 1) {
+        m_pptUserAnswers.append(message);
+    }
+
+    // 模拟 AI 思考延迟
+    QTimer::singleShot(600, this, [this]() {
+        if (!m_bubbleChatWidget) return;
+
+        QString response;
+        switch (m_pptQuestionStep) {
+            case 1: {
+                // 第一个问题：确认主题
+                response = "好的，我来帮您制作PPT！\n\n"
+                           "为了更好地满足您的教学需求，请问：\n\n"
+                           "**1. 这个PPT主要面向哪个年级的学生？**\n"
+                           "（例如：七年级、八年级、九年级）";
+                m_pptQuestionStep = 2;
+                break;
+            }
+            case 2: {
+                // 第二个问题：课时长度
+                response = "明白了！\n\n"
+                           "**2. 您计划这节课的时长是多少？**\n"
+                           "（例如：一课时40分钟、两课时等）";
+                m_pptQuestionStep = 3;
+                break;
+            }
+            case 3: {
+                // 第三个问题：内容侧重
+                response = "好的！\n\n"
+                           "**3. 您希望PPT的内容侧重于哪个方面？**\n"
+                           "- A. 历史故事与人物事迹\n"
+                           "- B. 理论知识与概念讲解\n"
+                           "- C. 实践活动与课堂互动\n"
+                           "- D. 综合呈现";
+                m_pptQuestionStep = 4;
+                break;
+            }
+            case 4: {
+                // 问答结束，开始生成
+                response = "非常感谢您的回答！我已经了解您的需求：\n\n"
+                           "📌 **目标年级**：" + (m_pptUserAnswers.size() > 0 ? m_pptUserAnswers[0] : "初中") + "\n"
+                           "📌 **课时安排**：" + (m_pptUserAnswers.size() > 1 ? m_pptUserAnswers[1] : "一课时") + "\n"
+                           "📌 **内容侧重**：" + (m_pptUserAnswers.size() > 2 ? m_pptUserAnswers[2] : "综合呈现") + "\n\n"
+                           "正在为您生成PPT，请稍候...";
+                m_pptQuestionStep = 5;  // 标记为生成阶段，防止再次进入问答
+                break;
+            }
+        }
+
+        // 使用打字效果显示回复
+        typeMessageWithEffect(response);
+    });
+}
+
+void ModernMainWindow::typeMessageWithEffect(const QString &text)
+{
+    if (!m_bubbleChatWidget) return;
+
+    // 停止之前的打字效果
+    m_pptTypingTimer->stop();
+
+    // 设置待打字文本
+    m_pptTypingText = text;
+    m_pptTypingIndex = 0;
+
+    // 添加空的 AI 消息占位
+    m_bubbleChatWidget->addMessage("", false);
+
+    // 开始打字效果（每 30ms 输出一个字符）
+    m_pptTypingTimer->start(30);
+}
+
+void ModernMainWindow::onPPTTypingStep()
+{
+    if (!m_bubbleChatWidget || m_pptTypingIndex >= m_pptTypingText.length()) {
+        m_pptTypingTimer->stop();
+
+        // 如果是问答结束阶段，延迟后开始生成
+        if (m_pptQuestionStep == 5) {
+            QTimer::singleShot(800, this, [this]() {
+                startPPTSimulation("");
+            });
+        }
+        return;
+    }
+
+    // 每次输出多个字符，加快速度
+    int charsPerStep = 2;
+    int endIndex = qMin(m_pptTypingIndex + charsPerStep, m_pptTypingText.length());
+    QString currentText = m_pptTypingText.left(endIndex);
+
+    m_bubbleChatWidget->updateLastAIMessage(currentText);
+    m_pptTypingIndex = endIndex;
+}
+
+void ModernMainWindow::startPPTSimulation(const QString &userMessage)
+{
+    Q_UNUSED(userMessage);
+
+    // 设置预制 PPT 路径（从 App Bundle 的 Resources 目录读取）
+    QString appPath = QCoreApplication::applicationDirPath();
+    // macOS: appPath 是 .app/Contents/MacOS/，需要回到上级找 Resources
+    m_pendingPPTPath = appPath + "/../Resources/ppt/爱国主义精神传承.pptx";
+
+    // 检查文件是否存在
+    if (!QFile::exists(m_pendingPPTPath)) {
+        qDebug() << "[PPT] Resource not found at:" << m_pendingPPTPath;
+        if (m_bubbleChatWidget) {
+            m_bubbleChatWidget->addMessage("抱歉，PPT 资源文件未找到，请稍后再试。", false);
+        }
+        m_pptQuestionStep = 0;  // 重置状态
+        return;
+    }
+
+    // 重置步骤计数
+    m_pptSimulationStep = 0;
+
+    // 不创建新气泡，直接在上一条消息基础上更新
+    // 开始模拟思考（初始每 800ms 一步，后面会逐渐变慢）
+    m_pptSimulationTimer->setInterval(800);
+    m_pptSimulationTimer->start();
+}
+
+void ModernMainWindow::onPPTSimulationStep()
+{
+    if (!m_bubbleChatWidget) {
+        m_pptSimulationTimer->stop();
+        return;
+    }
+
+    // 构建需求确认的前缀（保持之前的回答内容）
+    QString prefix = "非常感谢您的回答！我已经了解您的需求：\n\n"
+                     "📌 **目标年级**：" + (m_pptUserAnswers.size() > 0 ? m_pptUserAnswers[0] : "初中") + "\n"
+                     "📌 **课时安排**：" + (m_pptUserAnswers.size() > 1 ? m_pptUserAnswers[1] : "一课时") + "\n"
+                     "📌 **内容侧重**：" + (m_pptUserAnswers.size() > 2 ? m_pptUserAnswers[2] : "综合呈现") + "\n\n"
+                     "---\n\n";
+
+    // 定义思考过程的各个阶段
+    QStringList thinkingSteps = {
+        "🤔 正在理解您的需求...",
+        "🤔 正在理解您的需求...\n\n📚 分析教学目标和核心知识点...",
+        "🤔 正在理解您的需求...\n\n📚 分析教学目标和核心知识点...\n\n🎨 设计课件结构和视觉风格...",
+        "🤔 正在理解您的需求...\n\n📚 分析教学目标和核心知识点...\n\n🎨 设计课件结构和视觉风格...\n\n✍️ 生成内容大纲...",
+        "🤔 正在理解您的需求...\n\n📚 分析教学目标和核心知识点...\n\n🎨 设计课件结构和视觉风格...\n\n✍️ 生成内容大纲...\n\n🖼️ 排版幻灯片页面...",
+        "🤔 正在理解您的需求...\n\n📚 分析教学目标和核心知识点...\n\n🎨 设计课件结构和视觉风格...\n\n✍️ 生成内容大纲...\n\n🖼️ 排版幻灯片页面...\n\n✅ PPT 生成完成！"
+    };
+
+    if (m_pptSimulationStep < thinkingSteps.size()) {
+        // 更新思考进度（在前缀基础上追加）
+        m_bubbleChatWidget->updateLastAIMessage(prefix + thinkingSteps[m_pptSimulationStep]);
+        m_pptSimulationStep++;
+
+        // 最后两步放慢速度，更真实
+        if (m_pptSimulationStep >= 4) {
+            m_pptSimulationTimer->setInterval(1500);  // 最后阶段 1.5 秒
+        } else if (m_pptSimulationStep >= 3) {
+            m_pptSimulationTimer->setInterval(1200);  // 中后期 1.2 秒
+        }
+    } else {
+        // 思考完成，停止定时器
+        m_pptSimulationTimer->stop();
+
+        // 显示最终结果和下载提示
+        QString finalMessage = prefix +
+                               "🤔 正在理解您的需求...\n\n"
+                               "📚 分析教学目标和核心知识点...\n\n"
+                               "🎨 设计课件结构和视觉风格...\n\n"
+                               "✍️ 生成内容大纲...\n\n"
+                               "🖼️ 排版幻灯片页面...\n\n"
+                               "✅ **PPT 生成完成！**\n\n"
+                               "---\n\n"
+                               "📎 **爱国主义精神传承.pptx**\n\n"
+                               "课件已生成，包含以下内容：\n"
+                               "- 爱国主义精神的历史渊源\n"
+                               "- 新时代爱国主义的内涵\n"
+                               "- 青少年爱国主义教育实践\n\n"
+                               "请点击下方按钮保存到本地：";
+
+        m_bubbleChatWidget->updateLastAIMessage(finalMessage);
+
+        // 延迟一点显示保存对话框，让用户看到完成消息
+        QTimer::singleShot(500, this, [this, prefix]() {
+            QString savePath = QFileDialog::getSaveFileName(
+                this,
+                "保存 PPT 文件",
+                QDir::homePath() + "/Desktop/爱国主义精神传承.pptx",
+                "PowerPoint 文件 (*.pptx)"
+            );
+
+            if (!savePath.isEmpty()) {
+                // 复制预制的 PPT 到用户选择的位置
+                if (QFile::exists(savePath)) {
+                    QFile::remove(savePath);
+                }
+
+                if (QFile::copy(m_pendingPPTPath, savePath)) {
+                    // 更新消息显示保存成功
+                    QString successMessage = prefix +
+                                           "🤔 正在理解您的需求...\n\n"
+                                           "📚 分析教学目标和核心知识点...\n\n"
+                                           "🎨 设计课件结构和视觉风格...\n\n"
+                                           "✍️ 生成内容大纲...\n\n"
+                                           "🖼️ 排版幻灯片页面...\n\n"
+                                           "✅ **PPT 生成完成！**\n\n"
+                                           "---\n\n"
+                                           "📎 **爱国主义精神传承.pptx**\n\n"
+                                           "✅ 文件已保存到：\n`" + savePath + "`\n\n"
+                                           "您可以使用 PowerPoint 或 WPS 打开编辑。";
+                    m_bubbleChatWidget->updateLastAIMessage(successMessage);
+
+                    // 添加到历史记录
+                    if (m_chatHistoryWidget) {
+                        QString timeStr = QDateTime::currentDateTime().toString("MM-dd HH:mm");
+                        m_chatHistoryWidget->insertHistoryItem(0,
+                            "ppt_" + QString::number(QDateTime::currentDateTime().toSecsSinceEpoch()),
+                            "PPT生成：爱国主义精神传承", timeStr);
+                    }
+                } else {
+                    QMessageBox::warning(this, "生成失败", "文件保存失败，请检查权限或磁盘空间。");
+                }
+            }
+            // 重置问答状态，允许下次继续生成
+            m_pptQuestionStep = 0;
+            m_pptUserAnswers.clear();
+        });
     }
 }

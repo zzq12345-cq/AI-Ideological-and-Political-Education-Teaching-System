@@ -78,7 +78,19 @@ set_target_properties(AILoginSystem PROPERTIES
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
+    RESOURCE "${CMAKE_SOURCE_DIR}/resources/ppt/爱国主义精神传承.pptx"
 )
+
+# 复制 PPT 资源到 App Bundle (macOS)
+if(APPLE)
+    add_custom_command(TARGET AILoginSystem POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_DIR:AILoginSystem>/Contents/Resources/ppt"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/resources/ppt/爱国主义精神传承.pptx"
+            "$<TARGET_BUNDLE_DIR:AILoginSystem>/Contents/Resources/ppt/"
+        COMMENT "Copying PPT resources to app bundle"
+    )
+endif()
 
 # 安装规则
 include(GNUInstallDirs)
