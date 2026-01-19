@@ -246,12 +246,22 @@ QWidget *QuestionBankWindow::buildSidebar()
     auto *sidebarTitle = new QLabel(QStringLiteral("筛选条件"), content);
     sidebarTitle->setObjectName("sidebarTitle");
 
-    auto *sidebarHint = new QLabel(QStringLiteral("按照 HTML 模板规范筛选参数，生成一致的试题体验"), content);
-    sidebarHint->setObjectName("sidebarHint");
-    sidebarHint->setWordWrap(true);
-
     layout->addWidget(sidebarTitle);
-    layout->addWidget(sidebarHint);
+
+    // 课程范围固定显示
+    auto *courseWrapper = new QWidget(content);
+    courseWrapper->setObjectName("comboField");
+    auto *courseLayout = new QVBoxLayout(courseWrapper);
+    courseLayout->setContentsMargins(0, 0, 0, 0);
+    courseLayout->setSpacing(4);
+    auto *courseLabel = new QLabel(QStringLiteral("课程范围"), courseWrapper);
+    courseLabel->setProperty("role", "comboLabel");
+    auto *courseValue = new QLabel(QStringLiteral("道德与法治"), courseWrapper);
+    courseValue->setObjectName("fixedCourseLabel");
+    courseValue->setStyleSheet("QLabel { background: #FFF5F5; border: 1px solid #FFCDD2; border-radius: 8px; padding: 12px 16px; color: #333; font-size: 14px; }");
+    courseLayout->addWidget(courseLabel);
+    courseLayout->addWidget(courseValue);
+    layout->addWidget(courseWrapper);
 
     struct ComboField {
         QString label;
@@ -259,9 +269,8 @@ QWidget *QuestionBankWindow::buildSidebar()
     };
 
     const QList<ComboField> comboFields = {
-        {QStringLiteral("课程范围"), {QStringLiteral("思想道德与法治"), QStringLiteral("中国近现代史纲要"), QStringLiteral("马克思主义基本原理"), QStringLiteral("形势与政策")}},
         {QStringLiteral("教材版本"), {QStringLiteral("人教版"), QStringLiteral("部编版"), QStringLiteral("自编教材")}},
-        {QStringLiteral("年级学期"), {QStringLiteral("七年级上学期"), QStringLiteral("八年级下学期"), QStringLiteral("高中必修一")}},
+        {QStringLiteral("年级学期"), {QStringLiteral("七年级上学期"), QStringLiteral("七年级下学期"), QStringLiteral("八年级上学期"), QStringLiteral("八年级下学期"), QStringLiteral("九年级上学期"), QStringLiteral("九年级下学期")}},
         {QStringLiteral("章节"), {QStringLiteral("第一章"), QStringLiteral("第二章"), QStringLiteral("第三章"), QStringLiteral("综合复习")}}
     };
 
