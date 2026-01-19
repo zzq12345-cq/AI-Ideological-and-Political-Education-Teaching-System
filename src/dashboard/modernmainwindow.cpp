@@ -1043,6 +1043,20 @@ void ModernMainWindow::setupCentralWidget()
     questionBankWindow = new QuestionBankWindow(this);
     contentStack->addWidget(questionBankWindow);
 
+    // 连接试题库返回信号
+    connect(questionBankWindow, &QuestionBankWindow::backRequested, this, [this]() {
+        // 返回首页（教师中心）
+        if (contentStack && dashboardWidget) {
+            contentStack->setCurrentWidget(dashboardWidget);
+        }
+        if (m_sidebarStack) {
+            m_sidebarStack->setCurrentIndex(0);
+        }
+        if (teacherCenterBtn) {
+            teacherCenterBtn->setChecked(true);
+        }
+    });
+
     // 添加到主布局
     contentLayout->addWidget(m_sidebarStack);  // 使用侧边栏堆栈
     contentLayout->addWidget(contentStack);

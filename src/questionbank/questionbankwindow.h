@@ -37,6 +37,9 @@ public slots:
     void loadQuestions(const QString &questionType = QString());  // 从 Supabase 加载题目，可选按题型筛选
     void onSearchClicked();  // 搜索按钮点击
 
+signals:
+    void backRequested();  // 请求返回主界面
+
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
@@ -93,7 +96,6 @@ private:
     QButtonGroup *m_questionTypeGroup = nullptr;  // 题型筛选按钮组
     QLabel *m_progressValueLabel = nullptr;
     QProgressBar *m_progressBar = nullptr;
-    QPushButton *m_generateButton = nullptr;
     QFrame *m_answerSection = nullptr;
     QFrame *m_analysisSection = nullptr;
     

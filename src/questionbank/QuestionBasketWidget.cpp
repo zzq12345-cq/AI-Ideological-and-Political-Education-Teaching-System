@@ -49,14 +49,14 @@ void QuestionBasketWidget::setupUI()
     m_collapsedView->setCursor(Qt::PointingHandCursor);
     m_collapsedView->setStyleSheet(
         "QFrame#basketCollapsed {"
-        "  background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #D9001B, stop:1 #B80018);"
+        "  background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #E53935, stop:0.5 #D32F2F, stop:1 #B71C1C);"
         "  border-radius: 24px;"
         "}"
         "QFrame#basketCollapsed:hover {"
-        "  background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #E52B3C, stop:1 #C9001F);"
+        "  background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #EF5350, stop:0.5 #E53935, stop:1 #C62828);"
         "}"
     );
-    applyShadow(m_collapsedView, 16, QPointF(0, 4), QColor(217, 0, 27, 100));
+    applyShadow(m_collapsedView, 24, QPointF(0, 8), QColor(183, 28, 28, 150));
 
     auto *collapsedLayout = new QHBoxLayout(m_collapsedView);
     collapsedLayout->setContentsMargins(12, 8, 12, 8);
