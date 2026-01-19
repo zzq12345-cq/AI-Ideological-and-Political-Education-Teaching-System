@@ -166,7 +166,23 @@ private:
     QTimer *m_streamUpdateTimer;  // 流式更新节流定时器
     bool m_streamUpdatePending;   // 是否有待处理的更新
     PPTXGenerator *m_pptxGenerator;  // PPTX 生成器
-    
+
+    // PPT 模拟生成相关
+    QTimer *m_pptSimulationTimer;     // PPT 模拟思考定时器
+    int m_pptSimulationStep;          // 当前模拟步骤
+    QString m_pendingPPTPath;         // 待提供的 PPT 文件路径
+    int m_pptQuestionStep;            // PPT 问答阶段（0=未开始，1-3=问问题，4=生成中）
+    QStringList m_pptUserAnswers;     // 用户的回答记录
+    QTimer *m_pptTypingTimer;         // 打字效果定时器
+    QString m_pptTypingText;          // 待打字的完整文本
+    int m_pptTypingIndex;             // 当前打字位置
+    void startPPTSimulation(const QString &userMessage);  // 开始 PPT 模拟生成
+    void onPPTSimulationStep();       // PPT 模拟步骤处理
+    bool isPPTGenerationRequest(const QString &message);  // 检测是否是 PPT 生成请求
+    void handlePPTConversation(const QString &message);   // 处理 PPT 问答对话
+    void typeMessageWithEffect(const QString &text);      // 带打字效果的消息显示
+    void onPPTTypingStep();           // 打字效果定时器回调
+
     // 欢迎面板（首页显示，对话后隐藏）
     QWidget *m_welcomePanel;
     QWidget *m_welcomeInputWidget;  // 欢迎页面底部输入框
