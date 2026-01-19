@@ -1,5 +1,6 @@
 #include "PaperComposerDialog.h"
 #include "QuestionBasket.h"
+#include "../services/DocxGenerator.h"
 
 #include <QDebug>
 #include <QDesktopServices>
@@ -11,6 +12,7 @@
 #include <QMessageBox>
 #include <QRegularExpression>
 #include <QScrollArea>
+#include <QStandardPaths>
 #include <QStyledItemDelegate>
 #include <QTableWidget>
 #include <QTextStream>
@@ -590,30 +592,43 @@ void PaperComposerDialog::onExportPaper()
     m_titleEdit->style()->unpolish(m_titleEdit);
     m_titleEdit->style()->polish(m_titleEdit);
 
+    // 默认保存到桌面
+    QString desktopPath = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
+    QString defaultFileName = QString("%1/%2.docx").arg(desktopPath).arg(title);
+
     // 导出文件
     QString fileName = QFileDialog::getSaveFileName(
         this,
         "导出试卷",
-        QString("%1.html").arg(title),
-        "HTML 文件 (*.html);;所有文件 (*)"
+        defaultFileName,
+        "Word 文档 (*.docx);;所有文件 (*)"
     );
 
     if (fileName.isEmpty()) {
         return;
     }
 
-    QString html = generatePaperHtml();
+    // 确保文件名以 .docx 结尾
+    if (!fileName.endsWith(".docx", Qt::CaseInsensitive)) {
+        fileName += ".docx";
+    }
 
-    QFile file(fileName);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QMessageBox::warning(this, "导出失败", "无法创建文件: " + fileName);
+    // 获取试题列表
+    const QList<PaperQuestion> &questions = QuestionBasket::instance()->questions();
+
+    if (questions.isEmpty()) {
+        QMessageBox::warning(this, "导出失败", "试题篮为空，请先添加题目");
         return;
     }
 
-    QTextStream out(&file);
-    out.setEncoding(QStringConverter::Utf8);
-    out << html;
-    file.close();
+    // 使用 DocxGenerator 生成 Word 文档
+    DocxGenerator generator;
+    bool success = generator.generatePaper(fileName, title, questions);
+
+    if (!success) {
+        QMessageBox::warning(this, "导出失败", generator.lastError());
+        return;
+    }
 
     QMessageBox::StandardButton reply = QMessageBox::question(
         this,
