@@ -48,6 +48,8 @@ set(PROJECT_SOURCES
     src/utils/MarkdownRenderer.h
     src/ui/ChatHistoryWidget.cpp
     src/ui/ChatHistoryWidget.h
+    src/ui/NetworkImageTextBrowser.cpp
+    src/ui/NetworkImageTextBrowser.h
     resources.qrc
     resources/QtTheme/QtTheme.qrc
 )
@@ -91,6 +93,8 @@ set(SHARED_SERVICES
     src/services/QuestionParserService.h
     src/services/DocumentReaderService.cpp
     src/services/DocumentReaderService.h
+    src/services/SupabaseStorageService.cpp
+    src/services/SupabaseStorageService.h
     src/auth/supabase/supabaseconfig.cpp
     src/auth/supabase/supabaseconfig.h
 )

@@ -190,9 +190,9 @@ void BulkImportService::processNextFile()
 
     emit documentParseStarted(m_currentFileName);
 
-    // 使用本地读取文档（含表格转 HTML）
-    // 这样可以保留表格内容，而不是依赖 Dify 解析原始文件
-    QString documentText = m_documentReader->readDocxWithTables(filePath);
+    // 使用本地读取文档（含表格和图片转 HTML）
+    // 这样可以保留表格和图片内容，而不是依赖 Dify 解析原始文件
+    QString documentText = m_documentReader->readDocxWithImages(filePath);
 
     if (documentText.isEmpty()) {
         qDebug() << "BulkImportService: 文档读取失败:" << m_documentReader->lastError();

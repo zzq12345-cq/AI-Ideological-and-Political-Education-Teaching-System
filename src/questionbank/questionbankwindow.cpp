@@ -22,6 +22,7 @@
 #include <QStyle>
 #include <QTextBrowser>
 #include <QVBoxLayout>
+#include "../ui/NetworkImageTextBrowser.h"
 #include <algorithm>
 
 namespace {
@@ -908,13 +909,13 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
         materialTitle->setStyleSheet("QLabel { font-weight: bold; color: #D9001B; font-size: 14px; }");
         materialLayout->addWidget(materialTitle);
 
-        // 使用 QTextBrowser 支持完整 HTML（表格、图片等）
-        auto *materialBrowser = new QTextBrowser(materialFrame);
+        // 使用 NetworkImageTextBrowser 支持网络图片加载
+        auto *materialBrowser = new NetworkImageTextBrowser(materialFrame);
         materialBrowser->setObjectName("materialContent");
         materialBrowser->setOpenExternalLinks(true);
         materialBrowser->setHtml(parsed.material);
         materialBrowser->setStyleSheet(
-            "QTextBrowser {"
+            "NetworkImageTextBrowser {"
             "  background: transparent;"
             "  border: none;"
             "  color: #333;"
@@ -1004,11 +1005,36 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
     } else {
         // 普通题目处理（原逻辑）
         QString stemText = QString("<b>第 %1 题</b> %2").arg(index).arg(question.stem);
-        auto *questionStem = new QLabel(stemText, card);
-        questionStem->setObjectName("questionStem");
-        questionStem->setWordWrap(true);
-        questionStem->setTextFormat(Qt::RichText);
-        layout->addWidget(questionStem);
+
+        // 检查题干是否包含图片
+        if (question.stem.contains("<img")) {
+            // 使用 NetworkImageTextBrowser 支持网络图片
+            auto *stemBrowser = new NetworkImageTextBrowser(card);
+            stemBrowser->setObjectName("questionStem");
+            stemBrowser->setHtml(stemText);
+            stemBrowser->setStyleSheet(
+                "NetworkImageTextBrowser {"
+                "  background: transparent;"
+                "  border: none;"
+                "  color: #333;"
+                "  font-size: 14px;"
+                "}"
+            );
+            stemBrowser->document()->setDocumentMargin(0);
+            stemBrowser->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            stemBrowser->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            stemBrowser->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+            QSize docSize = stemBrowser->document()->size().toSize();
+            stemBrowser->setMinimumHeight(docSize.height() + 10);
+            layout->addWidget(stemBrowser);
+        } else {
+            // 普通文本使用 QLabel
+            auto *questionStem = new QLabel(stemText, card);
+            questionStem->setObjectName("questionStem");
+            questionStem->setWordWrap(true);
+            questionStem->setTextFormat(Qt::RichText);
+            layout->addWidget(questionStem);
+        }
 
         // 选项（如果有）
         if (!question.options.isEmpty()) {
