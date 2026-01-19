@@ -8,14 +8,26 @@
 #include <QSslSocket>
 #include <QtGlobal>
 #include <QUrlQuery>
+#include <QSettings>
+#include <QCoreApplication>
 
 DifyService::DifyService(QObject *parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
     , m_currentReply(nullptr)
     , m_baseUrl("https://api.dify.ai/v1")
-    , m_userId(QUuid::createUuid().toString(QUuid::WithoutBraces))
 {
+    // 从 QSettings 读取持久化的用户 ID，如果不存在则生成新的并保存
+    QSettings settings(QCoreApplication::organizationName(), QCoreApplication::applicationName());
+    m_userId = settings.value("dify/userId").toString();
+
+    if (m_userId.isEmpty()) {
+        m_userId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        settings.setValue("dify/userId", m_userId);
+        qDebug() << "[DifyService] Created new persistent userId:" << m_userId;
+    } else {
+        qDebug() << "[DifyService] Loaded existing userId:" << m_userId;
+    }
 }
 
 DifyService::~DifyService()
