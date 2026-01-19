@@ -818,19 +818,35 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
         }
     });
 
-    // 从环境变量获取 API Key，提高安全性
+    // API Key 获取优先级：环境变量 > 本地配置文件
     QString apiKey = qgetenv("DIFY_API_KEY");
-    const bool hasApiKey = !apiKey.isEmpty();
-    if (!hasApiKey) {
-        qDebug() << "[Error] DIFY_API_KEY environment variable not set!";
-        qDebug() << "[Info] Please set the environment variable before running the application.";
-        qDebug() << "[Info] Example: export DIFY_API_KEY=your-api-key-here";
-        // 不再使用硬编码密钥，必须通过环境变量配置
+
+    if (apiKey.isEmpty()) {
+        // 尝试从本地配置文件读取（此文件不提交到 Git）
+        // macOS: .app/Contents/MacOS/ -> 需要往上 4 级到项目根目录
+        QString configPath = QCoreApplication::applicationDirPath() + "/../../../../.env.local";
+        QFile envFile(configPath);
+        if (envFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            while (!envFile.atEnd()) {
+                QString line = QString::fromUtf8(envFile.readLine()).trimmed();
+                if (line.startsWith("DIFY_API_KEY=")) {
+                    apiKey = line.mid(13);  // 跳过 "DIFY_API_KEY="
+                    qDebug() << "[Info] Dify API Key loaded from .env.local";
+                    break;
+                }
+            }
+            envFile.close();
+        }
     } else {
-        m_difyService->setApiKey(apiKey);
         qDebug() << "[Info] Dify API Key loaded from environment variable.";
-        // 暂时不设置模型，使用 Dify 默认配置
-        // m_difyService->setModel("glm-4.6");  // 使用 GLM-4.6 模型
+    }
+
+    const bool hasApiKey = !apiKey.isEmpty();
+    if (hasApiKey) {
+        m_difyService->setApiKey(apiKey);
+    } else {
+        qDebug() << "[Warning] No API Key found. AI features will be disabled.";
+        qDebug() << "[Info] Create .env.local file with: DIFY_API_KEY=your-key";
     }
 
     // 不再使用独立的 AI 对话框，直接在主页面显示

@@ -1,4 +1,5 @@
 #include "ExportService.h"
+#include "DocxGenerator.h"
 #include <QFile>
 #include <QTextStream>
 #include <QDebug>
@@ -6,6 +7,20 @@
 
 ExportService::ExportService(QObject *parent)
     : QObject(parent)
+    , m_docxGenerator(new DocxGenerator(this))
+{
+    // 连接 DocxGenerator 信号
+    connect(m_docxGenerator, &DocxGenerator::generationFinished, this, [this](bool success, const QString &path) {
+        if (success) {
+            emit exportSuccess(path);
+        }
+    });
+    connect(m_docxGenerator, &DocxGenerator::errorOccurred, this, [this](const QString &error) {
+        emit exportFailed(error);
+    });
+}
+
+ExportService::~ExportService()
 {
 }
 
@@ -58,6 +73,20 @@ bool ExportService::exportToPdf(const QString &filePath, const QString &paperTit
     qWarning() << "PDF导出功能尚未实现";
     emit exportFailed("PDF导出功能尚未实现");
     return false;
+}
+
+// 导出为Word格式（真正的 .docx）
+bool ExportService::exportToDocx(const QString &filePath, const QString &paperTitle, const QList<PaperQuestion> &questions)
+{
+    if (questions.isEmpty()) {
+        qWarning() << "没有题目可以导出";
+        emit exportFailed("没有题目可以导出");
+        return false;
+    }
+
+    qInfo() << "[ExportService] 导出 DOCX 试卷:" << paperTitle << ", 题目数:" << questions.size();
+
+    return m_docxGenerator->generatePaper(filePath, paperTitle, questions);
 }
 
 // 生成HTML内容

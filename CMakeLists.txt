@@ -40,6 +40,8 @@ set(PROJECT_SOURCES
     src/ui/moderncheckbox.h
     src/services/ExportService.cpp
     src/services/ExportService.h
+    src/services/DocxGenerator.cpp
+    src/services/DocxGenerator.h
     src/services/DifyService.cpp
     src/services/DifyService.h
     src/services/PPTXGenerator.cpp
