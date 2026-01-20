@@ -8,6 +8,10 @@
 #include <QDialogButtonBox>
 #include <QTextEdit>
 #include <QMessageBox>
+#include <QEvent>
+#include <QMouseEvent>
+#include <QDesktopServices>
+#include <QUrl>
 
 // 样式常量
 namespace {
@@ -177,51 +181,52 @@ void HotspotTrackingWidget::createCategoryFilter()
 {
     m_categoryFrame = new QFrame();
     QHBoxLayout *categoryLayout = new QHBoxLayout(m_categoryFrame);
-    categoryLayout->setContentsMargins(0, 0, 0, 0);
-    categoryLayout->setSpacing(12);
-    
+    categoryLayout->setContentsMargins(0, 8, 0, 8);
+    categoryLayout->setSpacing(24);
+
     m_categoryGroup = new QButtonGroup(this);
     m_categoryGroup->setExclusive(true);
-    
-    QStringList categories = {"全部", "国内", "国外"};
-    
+
+    QStringList categories = {"全部", "国内", "国际"};
+
     for (int i = 0; i < categories.size(); ++i) {
         QPushButton *btn = new QPushButton(categories[i]);
         btn->setCheckable(true);
         btn->setCursor(Qt::PointingHandCursor);
-        btn->setStyleSheet(QString(
+        // 文字选项卡风格：选中时底部红线
+        btn->setStyleSheet(
             "QPushButton {"
-            "    background-color: %1;"
-            "    color: %2;"
-            "    border: 1px solid %3;"
-            "    border-radius: 16px;"
-            "    padding: 6px 16px;"
-            "    font-size: 13px;"
+            "    background-color: transparent;"
+            "    color: #666666;"
+            "    border: none;"
+            "    border-bottom: 2px solid transparent;"
+            "    padding: 8px 4px;"
+            "    font-size: 14px;"
+            "    font-weight: 500;"
             "}"
             "QPushButton:checked {"
-            "    background-color: %4;"
-            "    color: white;"
-            "    border-color: %4;"
+            "    color: #D32F2F;"
+            "    border-bottom: 2px solid #D32F2F;"
             "}"
             "QPushButton:hover:!checked {"
-            "    background-color: %5;"
+            "    color: #333333;"
             "}"
-        ).arg(CARD_WHITE, PRIMARY_TEXT, SEPARATOR, PATRIOTIC_RED, PATRIOTIC_RED_LIGHT));
-        
+        );
+
         if (i == 0) {
             btn->setChecked(true);
         }
-        
+
         m_categoryGroup->addButton(btn, i);
         m_categoryButtons.append(btn);
         categoryLayout->addWidget(btn);
     }
-    
+
     categoryLayout->addStretch();
-    
+
     connect(m_categoryGroup, &QButtonGroup::idClicked,
             this, &HotspotTrackingWidget::onCategoryChanged);
-    
+
     m_mainLayout->addWidget(m_categoryFrame);
 }
 
@@ -231,7 +236,30 @@ void HotspotTrackingWidget::createNewsGrid()
     m_scrollArea->setWidgetResizable(true);
     m_scrollArea->setFrameShape(QFrame::NoFrame);
     m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_scrollArea->setStyleSheet("QScrollArea { background: transparent; border: none; }");
+    // 美化滚动条：细长、圆角、浅灰色
+    m_scrollArea->setStyleSheet(
+        "QScrollArea { background: transparent; border: none; }"
+        "QScrollBar:vertical {"
+        "    border: none;"
+        "    background: #F5F5F5;"
+        "    width: 6px;"
+        "    margin: 0px;"
+        "}"
+        "QScrollBar::handle:vertical {"
+        "    background: #CCCCCC;"
+        "    min-height: 30px;"
+        "    border-radius: 3px;"
+        "}"
+        "QScrollBar::handle:vertical:hover {"
+        "    background: #999999;"
+        "}"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
+        "    height: 0px;"
+        "}"
+        "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {"
+        "    background: none;"
+        "}"
+    );
     
     m_newsContainer = new QWidget();
     m_newsContainer->setStyleSheet("background: transparent;");
@@ -248,91 +276,128 @@ void HotspotTrackingWidget::createNewsGrid()
 QWidget* HotspotTrackingWidget::createNewsCard(const NewsItem &news)
 {
     QFrame *card = new QFrame();
-    card->setFixedHeight(220);
+    card->setMinimumHeight(120);
+    card->setMaximumHeight(180);
     card->setCursor(Qt::PointingHandCursor);
+    // 极简卡片：无边框，hover 时上浮阴影
     card->setStyleSheet(QString(
         "QFrame {"
         "    background-color: %1;"
-        "    border-radius: 12px;"
-        "    border: 1px solid %2;"
+        "    border-radius: 8px;"
+        "    border: 1px solid #EEEEEE;"
         "}"
         "QFrame:hover {"
-        "    border-color: %3;"
+        "    border-color: #E0E0E0;"
         "}"
-    ).arg(CARD_WHITE, SEPARATOR, PATRIOTIC_RED));
-    
-    // 添加阴影
+    ).arg(CARD_WHITE));
+
+    // 默认无阴影，hover 时添加阴影效果通过 CSS 实现
     QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect(card);
-    shadow->setBlurRadius(12);
-    shadow->setOffset(0, 4);
-    shadow->setColor(QColor(0, 0, 0, 20));
+    shadow->setBlurRadius(0);
+    shadow->setOffset(0, 0);
+    shadow->setColor(QColor(0, 0, 0, 0));
     card->setGraphicsEffect(shadow);
-    
+
     QVBoxLayout *cardLayout = new QVBoxLayout(card);
-    cardLayout->setContentsMargins(16, 16, 16, 16);
-    cardLayout->setSpacing(10);
-    
-    // 分类和热度标签
+    cardLayout->setContentsMargins(16, 14, 16, 14);
+    cardLayout->setSpacing(8);
+
+    // 顶部：分类标签
     QHBoxLayout *topRow = new QHBoxLayout();
-    
+    topRow->setSpacing(8);
+
     QLabel *categoryLabel = new QLabel(news.category);
-    categoryLabel->setStyleSheet(QString(
-        "background-color: %1; color: %2; font-size: 11px; "
-        "padding: 3px 8px; border-radius: 10px; font-weight: 500;"
-    ).arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-    
+    categoryLabel->setStyleSheet(
+        "background-color: #FFF0F0; color: #D32F2F; font-size: 11px; "
+        "padding: 2px 8px; border-radius: 8px; font-weight: 500;"
+    );
+
+    // 热度标签：淡红背景 + 深红字
     QLabel *hotLabel = new QLabel(QString("🔥 %1").arg(news.hotScore));
-    hotLabel->setStyleSheet("color: #ff6b6b; font-size: 12px; font-weight: 500;");
-    
+    hotLabel->setStyleSheet(
+        "background-color: #FFF0F0; color: #D32F2F; font-size: 12px; "
+        "font-weight: 600; padding: 2px 6px; border-radius: 8px;"
+    );
+
     topRow->addWidget(categoryLabel);
     topRow->addStretch();
     topRow->addWidget(hotLabel);
     cardLayout->addLayout(topRow);
-    
-    // 标题
+
+    // 标题：无边框，纯文字，加粗
     QLabel *titleLabel = new QLabel(news.title);
     titleLabel->setWordWrap(true);
+    titleLabel->setMinimumHeight(20);
     titleLabel->setMaximumHeight(48);
-    titleLabel->setStyleSheet(QString(
-        "font-size: 15px; font-weight: 600; color: %1; line-height: 1.4;"
-    ).arg(PRIMARY_TEXT));
+    titleLabel->setStyleSheet(
+        "font-size: 15px; font-weight: 600; color: #333333; "
+        "line-height: 1.5; background: transparent; border: none; padding: 0;"
+    );
     cardLayout->addWidget(titleLabel);
-    
-    // 摘要
-    QLabel *summaryLabel = new QLabel(news.summary);
-    summaryLabel->setWordWrap(true);
-    summaryLabel->setMaximumHeight(40);
-    summaryLabel->setStyleSheet(QString(
-        "font-size: 13px; color: %1; line-height: 1.3;"
-    ).arg(SECONDARY_TEXT));
-    cardLayout->addWidget(summaryLabel);
-    
+
+    // 摘要：只在有真正不同的摘要时显示
+    bool showSummary = !news.summary.isEmpty() &&
+                       news.summary != news.title &&
+                       !news.summary.startsWith(news.title.left(30));
+    if (showSummary) {
+        QLabel *summaryLabel = new QLabel(news.summary);
+        summaryLabel->setWordWrap(true);
+        summaryLabel->setMaximumHeight(36);
+        summaryLabel->setStyleSheet(
+            "font-size: 13px; color: #666666; line-height: 1.4; "
+            "background: transparent; border: none; padding: 0;"
+        );
+        cardLayout->addWidget(summaryLabel);
+    }
+
     cardLayout->addStretch();
-    
-    // 底部：来源和时间
+
+    // 底部：来源、时间、生成按钮
     QHBoxLayout *bottomRow = new QHBoxLayout();
-    
+    bottomRow->setSpacing(6);
+
     QLabel *sourceLabel = new QLabel(news.source);
-    sourceLabel->setStyleSheet("color: #9e9e9e; font-size: 12px;");
-    
-    QLabel *timeLabel = new QLabel(news.publishTime.toString("MM-dd hh:mm"));
-    timeLabel->setStyleSheet("color: #9e9e9e; font-size: 12px;");
-    
-    // 生成教学案例按钮
-    QPushButton *generateBtn = new QPushButton("生成教学案例");
-    generateBtn->setStyleSheet(QString(
+    sourceLabel->setStyleSheet("color: #999999; font-size: 12px; background: transparent;");
+
+    QLabel *separator = new QLabel("·");
+    separator->setStyleSheet("color: #CCCCCC; font-size: 12px;");
+
+    // 时间显示
+    QString timeText;
+    if (news.publishTime.isValid()) {
+        qint64 daysDiff = news.publishTime.daysTo(QDateTime::currentDateTime());
+        if (daysDiff == 0) {
+            timeText = news.publishTime.toString("HH:mm");
+        } else if (daysDiff == 1) {
+            timeText = "昨天";
+        } else if (daysDiff < 7) {
+            timeText = QString("%1天前").arg(daysDiff);
+        } else {
+            timeText = news.publishTime.toString("MM-dd");
+        }
+    } else {
+        timeText = "刚刚";
+    }
+
+    QLabel *timeLabel = new QLabel(timeText);
+    timeLabel->setStyleSheet("color: #999999; font-size: 12px; background: transparent;");
+
+    // 生成教学案例：弱化为文字链接风格
+    QPushButton *generateBtn = new QPushButton("📚 生成案例");
+    generateBtn->setStyleSheet(
         "QPushButton {"
         "    background-color: transparent;"
-        "    color: %1;"
-        "    border: 1px solid %1;"
-        "    border-radius: 12px;"
-        "    padding: 4px 10px;"
+        "    color: #999999;"
+        "    border: none;"
+        "    padding: 2px 6px;"
         "    font-size: 11px;"
         "}"
         "QPushButton:hover {"
-        "    background-color: %2;"
+        "    color: #D32F2F;"
+        "    background-color: #FFF0F0;"
+        "    border-radius: 8px;"
         "}"
-    ).arg(PATRIOTIC_RED, PATRIOTIC_RED_LIGHT));
+    );
     generateBtn->setCursor(Qt::PointingHandCursor);
     
     // 存储新闻数据
@@ -343,6 +408,7 @@ QWidget* HotspotTrackingWidget::createNewsCard(const NewsItem &news)
     });
     
     bottomRow->addWidget(sourceLabel);
+    bottomRow->addWidget(separator);
     bottomRow->addWidget(timeLabel);
     bottomRow->addStretch();
     bottomRow->addWidget(generateBtn);
@@ -385,7 +451,7 @@ void HotspotTrackingWidget::onSearchTextChanged(const QString &text)
 
 void HotspotTrackingWidget::onCategoryChanged(int categoryIndex)
 {
-    QStringList categories = {"", "国内", "国外"};
+    QStringList categories = {"", "国内", "国际"};
     m_currentCategory = (categoryIndex > 0 && categoryIndex < categories.size()) 
                         ? categories[categoryIndex] : "";
     
@@ -562,4 +628,28 @@ void HotspotTrackingWidget::showNewsDetail(const NewsItem &news)
     
     dialog->exec();
     delete dialog;
+}
+
+bool HotspotTrackingWidget::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() == QEvent::MouseButtonRelease) {
+        QFrame *card = qobject_cast<QFrame*>(watched);
+        if (card) {
+            QString newsId = card->property("newsId").toString();
+            // 查找对应的新闻
+            for (const auto &news : m_currentNews) {
+                if (news.id == newsId) {
+                    // 如果有原文链接，在浏览器中打开
+                    if (!news.url.isEmpty()) {
+                        QDesktopServices::openUrl(QUrl(news.url));
+                    } else {
+                        // 否则显示详情对话框
+                        showNewsDetail(news);
+                    }
+                    return true;
+                }
+            }
+        }
+    }
+    return QWidget::eventFilter(watched, event);
 }

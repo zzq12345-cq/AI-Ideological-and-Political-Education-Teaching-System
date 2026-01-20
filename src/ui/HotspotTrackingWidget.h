@@ -59,7 +59,10 @@ private slots:
     void onNewsCardClicked(const NewsItem &news);
     void onGenerateTeachingClicked(const NewsItem &news);
     void onLoadingStateChanged(bool isLoading);
-    
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
     void setupUI();
     void setupStyles();

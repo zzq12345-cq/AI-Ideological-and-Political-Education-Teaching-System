@@ -1079,8 +1079,14 @@ void ModernMainWindow::setupCentralWidget()
     // 创建时政新闻页面
     m_hotspotService = new HotspotService(this);
     RealNewsProvider *newsProvider = new RealNewsProvider(this);
-    // 可选：设置天行数据 API Key（如果有）
-    // newsProvider->setTianXingApiKey("your-api-key");
+    // 从环境变量读取天行数据 API Key
+    QString tianxingKey = qEnvironmentVariable("TIANXING_API_KEY");
+    if (!tianxingKey.isEmpty()) {
+        newsProvider->setTianXingApiKey(tianxingKey);
+        qDebug() << "[ModernMainWindow] 天行数据 API Key 已配置";
+    } else {
+        qWarning() << "[ModernMainWindow] TIANXING_API_KEY 未设置，将使用 RSS 源（可能是旧数据）";
+    }
     m_hotspotService->setNewsProvider(newsProvider);
 
     m_hotspotWidget = new HotspotTrackingWidget(this);

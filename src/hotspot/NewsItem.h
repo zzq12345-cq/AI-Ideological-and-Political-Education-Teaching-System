@@ -17,6 +17,7 @@ struct NewsItem {
     QString source;          // 来源
     QString category;        // 分类（国内、国外）
     QString imageUrl;        // 封面图片 URL
+    QString url;             // 新闻原文链接
     QDateTime publishTime;   // 发布时间
     int hotScore;            // 热度评分 (0-100)
     QStringList keywords;    // 关键词标签
