@@ -14,6 +14,7 @@ RealNewsProvider::RealNewsProvider(QObject *parent)
     , m_networkManager(new QNetworkAccessManager(this))
     , m_dataSource(DataSource::All)
     , m_pendingRSSCount(0)
+    , m_pendingTianXingCount(0)
     , m_currentLimit(20)
 {
     // 添加默认 RSS 源 - 思政相关
@@ -67,29 +68,82 @@ void RealNewsProvider::fetchFromTianXing(int limit, const QString &category)
         return;
     }
 
-    // 天行数据综合新闻接口
-    QUrl url("https://apis.tianapi.com/generalnews/index");
-    QUrlQuery query;
-    query.addQueryItem("key", m_tianxingKey);
-    query.addQueryItem("num", QString::number(qMin(limit, 50)));
+    m_aggregatedNews.clear();
 
-    // 分类映射
-    if (!category.isEmpty()) {
-        QString type = categoryToTianXingType(category);
-        if (!type.isEmpty()) {
-            query.addQueryItem("word", type);
-        }
+    // 根据分类决定请求哪些接口
+    QStringList endpoints;
+    if (category.isEmpty() || category == "全部") {
+        // 同时请求国内和国际
+        endpoints << "guonei" << "world";
+    } else if (category == "国内") {
+        endpoints << "guonei";
+    } else if (category == "国际" || category == "国外") {
+        endpoints << "world";
+    } else {
+        endpoints << "guonei" << "world";
     }
 
-    url.setQuery(query);
+    m_pendingTianXingCount = endpoints.size();
+    int perEndpointLimit = qMax(10, limit / endpoints.size());
 
-    QNetworkRequest request(url);
-    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+    for (const QString &endpoint : endpoints) {
+        QUrl url(QString("https://apis.tianapi.com/%1/index").arg(endpoint));
+        QUrlQuery query;
+        query.addQueryItem("key", m_tianxingKey);
+        query.addQueryItem("num", QString::number(qMin(perEndpointLimit, 50)));
+        url.setQuery(query);
 
-    QNetworkReply *reply = m_networkManager->get(request);
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
-        onTianXingReplyFinished(reply);
-    });
+        QNetworkRequest request(url);
+        request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+
+        QNetworkReply *reply = m_networkManager->get(request);
+        connect(reply, &QNetworkReply::finished, this, [this, reply, endpoint]() {
+            if (reply->error() == QNetworkReply::NoError) {
+                QByteArray data = reply->readAll();
+                QList<NewsItem> items = parseTianXingResponse(data, endpoint);
+                m_aggregatedNews.append(items);
+            } else {
+                qWarning() << "[RealNewsProvider] 天行 API 请求失败:" << reply->errorString();
+            }
+
+            reply->deleteLater();
+            m_pendingTianXingCount--;
+
+            // 所有请求完成后处理结果
+            if (m_pendingTianXingCount <= 0) {
+                if (m_aggregatedNews.isEmpty()) {
+                    qWarning() << "[RealNewsProvider] 天行 API 返回空数据，切换到 RSS";
+                    fetchFromRSS();
+                } else {
+                    // 根据分类筛选（如果指定了分类）
+                    if (!m_currentCategory.isEmpty() && m_currentCategory != "全部") {
+                        QList<NewsItem> filtered;
+                        for (const auto &item : m_aggregatedNews) {
+                            if (item.category == m_currentCategory) {
+                                filtered.append(item);
+                            }
+                        }
+                        m_aggregatedNews = filtered;
+                    }
+
+                    // 按时间排序
+                    std::sort(m_aggregatedNews.begin(), m_aggregatedNews.end(),
+                              [](const NewsItem &a, const NewsItem &b) {
+                                  return a.publishTime > b.publishTime;
+                              });
+
+                    // 限制数量
+                    if (m_aggregatedNews.size() > m_currentLimit) {
+                        m_aggregatedNews = m_aggregatedNews.mid(0, m_currentLimit);
+                    }
+
+                    m_cachedNews = m_aggregatedNews;
+                    emit newsListReceived(m_aggregatedNews);
+                    emit loadingFinished();
+                }
+            }
+        });
+    }
 }
 
 void RealNewsProvider::fetchFromRSS()
@@ -181,7 +235,7 @@ void RealNewsProvider::onTianXingReplyFinished(QNetworkReply *reply)
     reply->deleteLater();
 }
 
-QList<NewsItem> RealNewsProvider::parseTianXingResponse(const QByteArray &data)
+QList<NewsItem> RealNewsProvider::parseTianXingResponse(const QByteArray &data, const QString &endpoint)
 {
     QList<NewsItem> items;
 
@@ -209,6 +263,15 @@ QList<NewsItem> RealNewsProvider::parseTianXingResponse(const QByteArray &data)
         item.content = obj["content"].toString();
         item.source = obj["source"].toString();
         item.imageUrl = obj["picUrl"].toString();
+        item.url = obj["url"].toString();
+
+        // 如果 summary 为空，使用标题的前 80 个字符
+        if (item.summary.isEmpty()) {
+            item.summary = item.title.left(80);
+            if (item.title.length() > 80) {
+                item.summary += "...";
+            }
+        }
 
         // 解析时间
         QString timeStr = obj["ctime"].toString();
@@ -217,11 +280,46 @@ QList<NewsItem> RealNewsProvider::parseTianXingResponse(const QByteArray &data)
             item.publishTime = QDateTime::currentDateTime();
         }
 
-        // 分类判断
-        QString url = obj["url"].toString();
-        if (url.contains("world") || url.contains("international")) {
-            item.category = "国际";
+        // 分类判断 - 基于 endpoint 的默认分类 + 智能检测
+        // 只有当从 world 接口获取的新闻明确是国内政务时才改为"国内"
+        if (endpoint == "world") {
+            // world 接口默认为国际，只有明确的国内政务才改为国内
+            // 政府部门关键词（高优先级，明确是国内政务）
+            static const QStringList domesticGovIndicators = {
+                "教育部", "国务院", "发改委", "财政部", "工信部",
+                "农业农村部", "卫生健康委", "商务部", "自然资源部",
+                "生态环境部", "交通运输部", "水利部", "人社部", "住建部",
+                "文旅部", "科技部", "公安部", "司法部", "民政部",
+                "退役军人部", "应急管理部", "市场监管总局", "国家统计局",
+                "省委", "市委", "两会", "全国人大", "全国政协",
+                "中央政府", "我国", "我省", "我市", "国产"
+            };
+            // 中国领导人姓名（明确是国内政务新闻）
+            static const QStringList chineseLeaders = {
+                "习近平", "李强", "王沪宁", "赵乐际", "丁薛祥",
+                "李克强", "张国清", "刘国中", "何立峰"
+            };
+
+            bool isDomesticNews = false;
+            // 检查标题中的政府部门关键词
+            for (const QString &indicator : domesticGovIndicators) {
+                if (item.title.contains(indicator)) {
+                    isDomesticNews = true;
+                    break;
+                }
+            }
+            // 检查标题中的中国领导人姓名
+            if (!isDomesticNews) {
+                for (const QString &name : chineseLeaders) {
+                    if (item.title.contains(name)) {
+                        isDomesticNews = true;
+                        break;
+                    }
+                }
+            }
+            item.category = isDomesticNews ? "国内" : "国际";
         } else {
+            // guonei 接口默认为国内
             item.category = "国内";
         }
 

@@ -56,7 +56,7 @@ private slots:
 private:
     void fetchFromTianXing(int limit, const QString &category);
     void fetchFromRSS();
-    QList<NewsItem> parseTianXingResponse(const QByteArray &data);
+    QList<NewsItem> parseTianXingResponse(const QByteArray &data, const QString &endpoint = QString());
     QList<NewsItem> parseRSSResponse(const QByteArray &data, const QString &sourceName);
     QString categoryToTianXingType(const QString &category);
 
@@ -70,6 +70,7 @@ private:
 
     // 待处理的 RSS 响应计数
     int m_pendingRSSCount;
+    int m_pendingTianXingCount;  // 天行 API 请求计数
     QList<NewsItem> m_aggregatedNews;
 
     // 缓存

@@ -130,7 +130,7 @@ void HotspotService::generateTeachingContent(const NewsItem &news, DifyService *
 
 QStringList HotspotService::availableCategories() const
 {
-    return QStringList() << "全部" << "国内" << "国外";
+    return QStringList() << "全部" << "国内" << "国际";
 }
 
 void HotspotService::onNewsListReceived(const QList<NewsItem> &newsList)
