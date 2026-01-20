@@ -37,6 +37,8 @@ class DifyService;
 class AIChatDialog;
 class ChatHistoryWidget;
 class PPTXGenerator;
+class HotspotTrackingWidget;
+class HotspotService;
 
 class ModernMainWindow : public QMainWindow
 {
@@ -48,7 +50,7 @@ public:
 
 private slots:
     void onTeacherCenterClicked();
-    void onContentAnalysisClicked();
+    void onNewsTrackingClicked();     // 时政新闻
     void onAIPreparationClicked();
     void onResourceManagementClicked();
     void onLearningAnalysisClicked();
@@ -113,7 +115,7 @@ private:
 
     // 侧边栏导航按钮
     QPushButton *teacherCenterBtn;      // 教师中心
-    QPushButton *contentAnalysisBtn;    // 智能内容分析
+    QPushButton *newsTrackingBtn;       // 时政新闻
     QPushButton *aiPreparationBtn;      // AI智能备课
     QPushButton *resourceManagementBtn; // 资源库管理
     QPushButton *learningAnalysisBtn;   // 学情与教评
@@ -132,6 +134,10 @@ private:
     // 试题库相关组件
     QuestionBankWindow *questionBankWindow;
     QuestionRepository *questionRepository;
+
+    // 时政新闻相关组件
+    HotspotTrackingWidget *m_hotspotWidget;
+    HotspotService *m_hotspotService;
 
     // 顶部工具栏 (Header)
     QFrame *headerWidget;

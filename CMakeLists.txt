@@ -58,6 +58,16 @@ set(PROJECT_SOURCES
     src/ui/ChatHistoryWidget.h
     src/ui/NetworkImageTextBrowser.cpp
     src/ui/NetworkImageTextBrowser.h
+    src/ui/HotspotTrackingWidget.cpp
+    src/ui/HotspotTrackingWidget.h
+    src/services/HotspotService.cpp
+    src/services/HotspotService.h
+    src/hotspot/INewsProvider.h
+    src/hotspot/NewsItem.h
+    src/hotspot/MockNewsProvider.cpp
+    src/hotspot/MockNewsProvider.h
+    src/hotspot/RealNewsProvider.cpp
+    src/hotspot/RealNewsProvider.h
     resources.qrc
     resources/QtTheme/QtTheme.qrc
 )
