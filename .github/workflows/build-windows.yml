@@ -47,12 +47,12 @@ jobs:
       run: |
         mkdir build
         cd build
-        cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release
+        cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
 
     - name: Build
       run: |
         cd build
-        nmake
+        ninja
 
     - name: Deploy Qt dependencies
       run: |
