@@ -384,7 +384,7 @@ QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
         thinkingHeaderLayout->setContentsMargins(0, 0, 0, 0);
         thinkingHeaderLayout->setSpacing(4);
         
-        m_lastAIThinkingToggle = new QPushButton("▼");
+        m_lastAIThinkingToggle = new QPushButton("v");
         m_lastAIThinkingToggle->setFixedSize(20, 20);
         m_lastAIThinkingToggle->setStyleSheet(
             "QPushButton {"
@@ -439,7 +439,7 @@ QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
         connect(m_lastAIThinkingToggle, &QPushButton::clicked, [this]() {
             bool isVisible = m_lastAIThinkingLabel->isVisible();
             m_lastAIThinkingLabel->setVisible(!isVisible);
-            m_lastAIThinkingToggle->setText(isVisible ? "▶" : "▼");
+            m_lastAIThinkingToggle->setText(isVisible ? ">" : "v");
         });
         
         // 保存引用用于流式更新
@@ -536,7 +536,7 @@ void ChatWidget::updateLastAIThinking(const QString &thought)
         // 流式更新时自动展开思考面板
         if (m_lastAIThinkingLabel && m_lastAIThinkingToggle) {
             m_lastAIThinkingLabel->setVisible(true);
-            m_lastAIThinkingToggle->setText("▼");
+            m_lastAIThinkingToggle->setText("v");
         }
         
         // 追加新的思考内容
@@ -560,7 +560,7 @@ void ChatWidget::collapseThinking()
     qDebug() << "[ChatWidget] collapseThinking called";
     if (m_lastAIThinkingLabel && m_lastAIThinkingToggle) {
         m_lastAIThinkingLabel->setVisible(false);
-        m_lastAIThinkingToggle->setText("▶");
+        m_lastAIThinkingToggle->setText(">");
         qDebug() << "[ChatWidget] Thinking collapsed";
     }
 }
@@ -570,7 +570,7 @@ void ChatWidget::expandThinking()
     qDebug() << "[ChatWidget] expandThinking called";
     if (m_lastAIThinkingLabel && m_lastAIThinkingToggle) {
         m_lastAIThinkingLabel->setVisible(true);
-        m_lastAIThinkingToggle->setText("▼");
+        m_lastAIThinkingToggle->setText("v");
         qDebug() << "[ChatWidget] Thinking expanded";
     }
 }

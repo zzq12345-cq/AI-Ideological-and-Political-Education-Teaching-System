@@ -96,7 +96,7 @@ Page {
                     }
 
                     contentItem: Text {
-                        text: "☰"
+                        text: "="
                         font.pixelSize: Theme.fontSizeLarge
                         color: isDark ? "#D1D5DB" : "#6B7280"
                         horizontalAlignment: Text.AlignHCenter
@@ -119,7 +119,7 @@ Page {
                     }
 
                     contentItem: Text {
-                        text: isDark ? "🌙" : "☀️"
+                        text: isDark ? "[D]" : "[L]"
                         font.pixelSize: Theme.fontSizeLarge
                         color: isDark ? "#D1D5DB" : "#6B7280"
                         horizontalAlignment: Text.AlignHCenter

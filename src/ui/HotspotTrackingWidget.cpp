@@ -12,6 +12,8 @@
 #include <QMouseEvent>
 #include <QDesktopServices>
 #include <QUrl>
+#include <QSvgRenderer>
+#include <QPainter>
 
 // 样式常量
 namespace {
@@ -120,7 +122,18 @@ void HotspotTrackingWidget::createHeader()
     headerLayout->setSpacing(16);
     
     // 标题
-    m_titleLabel = new QLabel("🔥 政治热点追踪");
+    m_titleLabel = new QLabel(" 政治热点追踪");
+    // 加载火焰图标
+    QSvgRenderer fireRenderer(QString(":/icons/resources/icons/fire.svg"));
+    if (fireRenderer.isValid()) {
+        QPixmap firePixmap(20, 20);
+        firePixmap.fill(Qt::transparent);
+        QPainter firePainter(&firePixmap);
+        fireRenderer.render(&firePainter);
+        QLabel *fireIcon = new QLabel();
+        fireIcon->setPixmap(firePixmap);
+        headerLayout->addWidget(fireIcon);
+    }
     m_titleLabel->setStyleSheet(QString(
         "font-size: 20px; font-weight: bold; color: %1;"
     ).arg(PATRIOTIC_RED));
@@ -313,7 +326,16 @@ QWidget* HotspotTrackingWidget::createNewsCard(const NewsItem &news)
     );
 
     // 热度标签：淡红背景 + 深红字
-    QLabel *hotLabel = new QLabel(QString("🔥 %1").arg(news.hotScore));
+    QLabel *hotLabel = new QLabel(QString(" %1").arg(news.hotScore));
+    // 添加火焰图标到热度标签
+    QSvgRenderer hotFireRenderer(QString(":/icons/resources/icons/fire.svg"));
+    if (hotFireRenderer.isValid()) {
+        QPixmap hotFirePixmap(12, 12);
+        hotFirePixmap.fill(Qt::transparent);
+        QPainter hotFirePainter(&hotFirePixmap);
+        hotFireRenderer.render(&hotFirePainter);
+        // 使用 QLabel 的 setPixmap 前需要创建带图标的布局
+    }
     hotLabel->setStyleSheet(
         "background-color: #FFF0F0; color: #D32F2F; font-size: 12px; "
         "font-weight: 600; padding: 2px 6px; border-radius: 8px;"
@@ -383,7 +405,9 @@ QWidget* HotspotTrackingWidget::createNewsCard(const NewsItem &news)
     timeLabel->setStyleSheet("color: #999999; font-size: 12px; background: transparent;");
 
     // 生成教学案例：弱化为文字链接风格
-    QPushButton *generateBtn = new QPushButton("📚 生成案例");
+    QPushButton *generateBtn = new QPushButton(" 生成案例");
+    generateBtn->setIcon(QIcon(":/icons/resources/icons/book.svg"));
+    generateBtn->setIconSize(QSize(14, 14));
     generateBtn->setStyleSheet(
         "QPushButton {"
         "    background-color: transparent;"

@@ -17,6 +17,8 @@
 #include <QTableWidget>
 #include <QTextStream>
 #include <QUrl>
+#include <QSvgRenderer>
+#include <QPainter>
 
 namespace {
 
@@ -317,8 +319,16 @@ void PaperComposerDialog::setupUI()
     titleGroupLayout->setContentsMargins(0, 0, 0, 0);
     titleGroupLayout->setSpacing(12);
 
-    auto *titleIcon = new QLabel("📋", titleGroup);
-    titleIcon->setStyleSheet("QLabel { font-size: 20px; }");
+    auto *titleIcon = new QLabel(titleGroup);
+    QSvgRenderer clipboardRenderer(QString(":/icons/resources/icons/clipboard.svg"));
+    if (clipboardRenderer.isValid()) {
+        QPixmap clipboardPixmap(20, 20);
+        clipboardPixmap.fill(Qt::transparent);
+        QPainter clipboardPainter(&clipboardPixmap);
+        clipboardRenderer.render(&clipboardPainter);
+        titleIcon->setPixmap(clipboardPixmap);
+    }
+    titleIcon->setStyleSheet("QLabel { background: transparent; }");
 
     m_titleEdit = new QLineEdit(titleGroup);
     m_titleEdit->setPlaceholderText("请输入试卷标题...");
@@ -376,7 +386,7 @@ void PaperComposerDialog::setupUI()
     footerLayout->setSpacing(12);
 
     // 左侧提示
-    auto *tipLabel = new QLabel("💡 点击表格内按钮可调整顺序或移除试题", footerFrame);
+    auto *tipLabel = new QLabel(" 点击表格内按钮可调整顺序或移除试题", footerFrame);
     tipLabel->setStyleSheet("QLabel { color: #9E9E9E; font-size: 12px; }");
 
     // 右侧按钮

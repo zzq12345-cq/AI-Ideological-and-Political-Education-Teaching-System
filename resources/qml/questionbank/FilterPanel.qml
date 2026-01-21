@@ -95,7 +95,7 @@ Rectangle {
                             anchors.right: parent.right
                             anchors.rightMargin: 12
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "▼"
+                            text: "v"
                             color: isDark ? Theme.textOnDark : Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
                         }
@@ -156,7 +156,7 @@ Rectangle {
                             anchors.right: parent.right
                             anchors.rightMargin: 12
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "▼"
+                            text: "v"
                             color: isDark ? Theme.textOnDark : Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
                         }
@@ -217,7 +217,7 @@ Rectangle {
                             anchors.right: parent.right
                             anchors.rightMargin: 12
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "▼"
+                            text: "v"
                             color: isDark ? Theme.textOnDark : Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
                         }
@@ -258,7 +258,7 @@ Rectangle {
                             anchors.right: parent.right
                             anchors.rightMargin: 12
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "▼"
+                            text: "v"
                             color: isDark ? Theme.textOnDark : Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
                         }
@@ -472,7 +472,7 @@ Rectangle {
                 }
 
                 Text {
-                    text: "✨"
+                    text: "*"
                     font.pixelSize: Theme.fontSizeMedium
                 }
             }

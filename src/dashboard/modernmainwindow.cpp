@@ -48,6 +48,8 @@
 #include <QMouseEvent>
 #include <QPropertyAnimation>
 #include <QEasingCurve>
+#include <QSvgRenderer>
+#include <QPainter>
 #include <QVariantAnimation>
 #include <QPointer>
 #include <functional>
@@ -1280,10 +1282,19 @@ void ModernMainWindow::createHeaderWidget()
     searchLayout->setContentsMargins(20, 0, 20, 0);
     searchLayout->setSpacing(12);
 
-    QLabel *searchIcon = new QLabel("🔍");
+    QLabel *searchIcon = new QLabel();
     searchIcon->setFixedSize(22, 22);
     searchIcon->setAlignment(Qt::AlignCenter);
-    searchIcon->setStyleSheet("QLabel { color: " + SECONDARY_TEXT + "; font-size: 18px; }");
+    // 加载搜索图标 SVG
+    QSvgRenderer searchRenderer(QString(":/icons/resources/icons/search.svg"));
+    if (searchRenderer.isValid()) {
+        QPixmap searchPixmap(18, 18);
+        searchPixmap.fill(Qt::transparent);
+        QPainter searchPainter(&searchPixmap);
+        searchRenderer.render(&searchPainter);
+        searchIcon->setPixmap(searchPixmap);
+    }
+    searchIcon->setStyleSheet("QLabel { background: transparent; }");
 
     searchInput = new QLineEdit();
     searchInput->setPlaceholderText("搜索资源、学生...");
@@ -1313,8 +1324,16 @@ void ModernMainWindow::createHeaderWidget()
         notificationBtn->setIcon(notificationIcon);
         notificationBtn->setIconSize(QSize(24, 24));
     } else {
-        // 如果图片加载失败，使用备用emoji图标
-        notificationBtn->setText("🔔");
+        // 如果图片加载失败，使用 SVG 图标作为备用
+        QSvgRenderer notifRenderer(QString(":/icons/resources/icons/notification.svg"));
+        if (notifRenderer.isValid()) {
+            QPixmap notifPixmap(24, 24);
+            notifPixmap.fill(Qt::transparent);
+            QPainter notifPainter(&notifPixmap);
+            notifRenderer.render(&notifPainter);
+            notificationBtn->setIcon(notifPixmap);
+            notificationBtn->setIconSize(QSize(24, 24));
+        }
     }
     notificationBtn->setStyleSheet(QString(
         "QPushButton {"
@@ -1424,10 +1443,17 @@ void ModernMainWindow::createDashboard()
         QLabel {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fecaca, stop:1 #fca5a5);
             border-radius: 16px;
-            font-size: 32px;
         }
     )");
-    iconLabel->setText("🎓");
+    // 加载学士帽图标 SVG
+    QSvgRenderer gradRenderer(QString(":/icons/resources/icons/graduation.svg"));
+    if (gradRenderer.isValid()) {
+        QPixmap gradPixmap(32, 32);
+        gradPixmap.fill(Qt::transparent);
+        QPainter gradPainter(&gradPixmap);
+        gradRenderer.render(&gradPainter);
+        iconLabel->setPixmap(gradPixmap);
+    }
     
     // 标题
     QLabel *titleLabel = new QLabel("思政智慧课堂助手");
@@ -1460,7 +1486,7 @@ void ModernMainWindow::createDashboard()
 
     // 创建四个功能卡片
     // 创建功能卡片 - 带有颜色图标背景和悬停效果
-    auto createFeatureCard = [this](const QString &icon, const QString &title, const QString &desc, const QString &iconBgColor) -> QPushButton* {
+    auto createFeatureCard = [this](const QString &iconPath, const QString &title, const QString &desc, const QString &iconBgColor) -> QPushButton* {
         QPushButton *card = new QPushButton();
         card->setFixedSize(320, 100); // 保持较大的按钮尺寸
         card->setCursor(Qt::PointingHandCursor);
@@ -1485,15 +1511,25 @@ void ModernMainWindow::createDashboard()
         cardLayout->setContentsMargins(16, 12, 16, 12);
         cardLayout->setSpacing(14);
 
-        // 图标容器 - 带彩色背景
-        QLabel *iconLbl = new QLabel(icon);
+        // 图标容器 - 带彩色背景，使用 SVG 图标
+        QLabel *iconLbl = new QLabel();
         iconLbl->setFixedSize(44, 44);
         iconLbl->setAlignment(Qt::AlignCenter);
+
+        // 加载 SVG 图标
+        QSvgRenderer renderer(iconPath);
+        if (renderer.isValid()) {
+            QPixmap pixmap(24, 24);
+            pixmap.fill(Qt::transparent);
+            QPainter painter(&pixmap);
+            renderer.render(&painter);
+            iconLbl->setPixmap(pixmap);
+        }
+
         iconLbl->setStyleSheet(QString(R"(
             QLabel {
                 background-color: %1;
                 border-radius: 10px;
-                font-size: 22px;
             }
         )").arg(iconBgColor));
 
@@ -1527,10 +1563,10 @@ void ModernMainWindow::createDashboard()
     };
 
     // 四个功能卡片，使用不同的柔和背景色
-    QPushButton *card1 = createFeatureCard("📰", "时政新闻", "实时追踪时政热点，把握教学方向", "#fef3c7");  // 淡黄
-    QPushButton *card2 = createFeatureCard("📝", "AI智能备课", "一键生成PPT", "#fce7f3");  // 淡粉
-    QPushButton *card3 = createFeatureCard("📚", "试题库", "海量思政习题，智能组卷测评", "#dbeafe");  // 淡蓝
-    QPushButton *card4 = createFeatureCard("📈", "数据分析报告", "可视化展示教学成果与趋势", "#d1fae5");  // 淡绿
+    QPushButton *card1 = createFeatureCard(":/icons/resources/icons/news.svg", "时政新闻", "实时追踪时政热点，把握教学方向", "#fef3c7");  // 淡黄
+    QPushButton *card2 = createFeatureCard(":/icons/resources/icons/document.svg", "AI智能备课", "一键生成PPT", "#fce7f3");  // 淡粉
+    QPushButton *card3 = createFeatureCard(":/icons/resources/icons/book.svg", "试题库", "海量思政习题，智能组卷测评", "#dbeafe");  // 淡蓝
+    QPushButton *card4 = createFeatureCard(":/icons/resources/icons/analytics.svg", "数据分析报告", "可视化展示教学成果与趋势", "#d1fae5");  // 淡绿
 
     // 连接卡片点击事件
     connect(card1, &QPushButton::clicked, this, &ModernMainWindow::onNewsTrackingClicked);
@@ -1945,13 +1981,20 @@ void ModernMainWindow::createWelcomeCard()
     rowLayout->setAlignment(Qt::AlignTop | Qt::AlignLeft);
     
     // 2. 左侧头像 (红色圆形)
-    QLabel *avatar = new QLabel("✨");
+    QLabel *avatar = new QLabel();
     avatar->setFixedSize(40, 40);
+    // 加载 sparkle 图标 SVG
+    QSvgRenderer sparkleRenderer(QString(":/icons/resources/icons/sparkle.svg"));
+    if (sparkleRenderer.isValid()) {
+        QPixmap sparklePixmap(20, 20);
+        sparklePixmap.fill(Qt::transparent);
+        QPainter sparklePainter(&sparklePixmap);
+        sparkleRenderer.render(&sparklePainter);
+        avatar->setPixmap(sparklePixmap);
+    }
     avatar->setStyleSheet(
         "background: #e53935;"
         "border-radius: 20px;"
-        "color: white;"
-        "font-size: 20px;"
         "qproperty-alignment: AlignCenter;"
     );
     rowLayout->addWidget(avatar, 0, Qt::AlignTop);
@@ -2048,13 +2091,20 @@ void ModernMainWindow::createQuickAccessCard()
     rowLayout->setAlignment(Qt::AlignTop | Qt::AlignLeft);
     
     // 2. 左侧头像 (红色圆形)
-    QLabel *avatar = new QLabel("✨");
+    QLabel *avatar = new QLabel();
     avatar->setFixedSize(40, 40);
+    // 加载 sparkle 图标 SVG
+    QSvgRenderer sparkleRenderer(QString(":/icons/resources/icons/sparkle.svg"));
+    if (sparkleRenderer.isValid()) {
+        QPixmap sparklePixmap(20, 20);
+        sparklePixmap.fill(Qt::transparent);
+        QPainter sparklePainter(&sparklePixmap);
+        sparkleRenderer.render(&sparklePainter);
+        avatar->setPixmap(sparklePixmap);
+    }
     avatar->setStyleSheet(
         "background: #e53935;"
         "border-radius: 20px;"
-        "color: white;"
-        "font-size: 20px;"
         "qproperty-alignment: AlignCenter;"
     );
     rowLayout->addWidget(avatar, 0, Qt::AlignTop);
@@ -2086,35 +2136,44 @@ void ModernMainWindow::createQuickAccessCard()
     
     struct QuickAction {
         QString title;
-        QString icon;
+        QString iconPath;
         QString color;
     };
-    
+
     QList<QuickAction> actions = {
-        {"智能内容分析", "🔍", "#f5f5f5"},
-        {"AI智能备课", "📝", "#f5f5f5"},
-        {"互动教学工具", "▶️", "#f5f5f5"},
-        {"资源库管理", "📂", "#f5f5f5"}
+        {"智能内容分析", ":/icons/resources/icons/search.svg", "#f5f5f5"},
+        {"AI智能备课", ":/icons/resources/icons/document.svg", "#f5f5f5"},
+        {"互动教学工具", ":/icons/resources/icons/play.svg", "#f5f5f5"},
+        {"资源库管理", ":/icons/resources/icons/folder.svg", "#f5f5f5"}
     };
-    
+
     int row = 0;
     int col = 0;
-    
+
     for (const auto &action : actions) {
         QPushButton *card = new QPushButton();
         card->setFixedSize(220, 70); // 稍微调小一点以适应气泡
         card->setCursor(Qt::PointingHandCursor);
-        
+
         QHBoxLayout *cardLayout = new QHBoxLayout(card);
         cardLayout->setContentsMargins(16, 0, 16, 0);
         cardLayout->setSpacing(12);
-        
-        QLabel *icon = new QLabel(action.icon);
-        icon->setStyleSheet("font-size: 22px; background: transparent;");
-        
+
+        QLabel *icon = new QLabel();
+        // 加载 SVG 图标
+        QSvgRenderer actionRenderer(action.iconPath);
+        if (actionRenderer.isValid()) {
+            QPixmap actionPixmap(22, 22);
+            actionPixmap.fill(Qt::transparent);
+            QPainter actionPainter(&actionPixmap);
+            actionRenderer.render(&actionPainter);
+            icon->setPixmap(actionPixmap);
+        }
+        icon->setStyleSheet("background: transparent;");
+
         QLabel *text = new QLabel(action.title);
         text->setStyleSheet("font-size: 15px; font-weight: 600; color: " + PRIMARY_TEXT + "; background: transparent;");
-        
+
         cardLayout->addWidget(icon);
         cardLayout->addWidget(text);
         cardLayout->addStretch();
@@ -2443,7 +2502,7 @@ void ModernMainWindow::onAIError(const QString &error)
     qDebug() << "[ModernMainWindow] AI Error occurred:" << error;
 
     // 直接在主页面聊天组件中显示错误消息
-    QString errorMessage = QString("⚠️ 错误：%1").arg(error);
+    QString errorMessage = QString("[!] 错误：%1").arg(error);
     if (m_bubbleChatWidget) {
         m_bubbleChatWidget->addMessage(errorMessage, false);
     } else {

@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
     
     QObject::connect(importService, &BulkImportService::documentParseCompleted,
         [](const QString &fileName, int count) {
-            qDebug() << "  ✓" << fileName << "- 获得" << count << "道题目";
+            qDebug() << "  [v]" << fileName << "- 获得" << count << "道题目";
         });
     
     QObject::connect(importService, &BulkImportService::importProgress,
