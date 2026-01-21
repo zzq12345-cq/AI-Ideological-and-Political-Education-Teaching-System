@@ -20,7 +20,8 @@ jobs:
         version: '6.6.2'
         target: 'desktop'
         arch: 'win64_msvc2019_64'
-        archives: 'qtbase qtsvg qtdeclarative qtcharts'
+        archives: 'qtbase qtsvg qtdeclarative qtshadertools'
+        modules: 'qtcharts'
         cache: true
 
     - name: Setup MSVC
