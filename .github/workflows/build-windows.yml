@@ -21,7 +21,7 @@ jobs:
         host: 'windows'
         target: 'desktop'
         arch: 'win64_msvc2019_64'
-        modules: 'qtcharts qtdeclarative'
+        modules: 'qtcharts qtsvg'
 
     - name: Setup MSVC
       uses: ilammy/msvc-dev-cmd@v1
