@@ -72,8 +72,14 @@ set(PROJECT_SOURCES
     resources/QtTheme/QtTheme.qrc
 )
 
+# macOS 应用图标
+set(MACOSX_BUNDLE_ICON_FILE AppIcon.icns)
+set(APP_ICON_MACOSX ${CMAKE_SOURCE_DIR}/resources/AppIcon.icns)
+set_source_files_properties(${APP_ICON_MACOSX} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+
 qt_add_executable(AILoginSystem
     ${PROJECT_SOURCES}
+    ${APP_ICON_MACOSX}
 )
 
 target_link_libraries(AILoginSystem PRIVATE
@@ -89,6 +95,7 @@ set_target_properties(AILoginSystem PROPERTIES
     MACOSX_BUNDLE_GUI_IDENTIFIER com.aiedu.loginsystem
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+    MACOSX_BUNDLE_ICON_FILE ${MACOSX_BUNDLE_ICON_FILE}
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
     RESOURCE "${CMAKE_SOURCE_DIR}/resources/ppt/爱国主义精神传承.pptx"
