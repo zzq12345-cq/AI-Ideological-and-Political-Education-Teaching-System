@@ -68,6 +68,7 @@ set(PROJECT_SOURCES
     src/hotspot/MockNewsProvider.h
     src/hotspot/RealNewsProvider.cpp
     src/hotspot/RealNewsProvider.h
+    src/config/embedded_keys.h
     resources.qrc
     resources/QtTheme/QtTheme.qrc
 )

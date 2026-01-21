@@ -11,6 +11,7 @@
 #include "../ui/HotspotTrackingWidget.h"
 #include "../services/HotspotService.h"
 #include "../hotspot/RealNewsProvider.h"
+#include "../config/embedded_keys.h"
 #include <QApplication>
 #include <QMessageBox>
 #include <QFile>
@@ -823,7 +824,7 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
         }
     });
 
-    // API Key 获取优先级：环境变量 > 本地配置文件
+    // API Key 获取优先级：环境变量 > 本地配置文件 > 内嵌Key
     QString apiKey = qgetenv("DIFY_API_KEY");
 
     if (apiKey.isEmpty()) {
@@ -844,6 +845,12 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
         }
     } else {
         qDebug() << "[Info] Dify API Key loaded from environment variable.";
+    }
+
+    // 如果仍为空，使用内嵌的 API Key（发布版本用）
+    if (apiKey.isEmpty() && strlen(EmbeddedKeys::DIFY_API_KEY) > 0) {
+        apiKey = QString::fromUtf8(EmbeddedKeys::DIFY_API_KEY);
+        qDebug() << "[Info] Dify API Key loaded from embedded keys.";
     }
 
     const bool hasApiKey = !apiKey.isEmpty();
@@ -1081,8 +1088,11 @@ void ModernMainWindow::setupCentralWidget()
     // 创建时政新闻页面
     m_hotspotService = new HotspotService(this);
     RealNewsProvider *newsProvider = new RealNewsProvider(this);
-    // 从环境变量读取天行数据 API Key
+    // API Key 优先级：环境变量 > 内嵌Key
     QString tianxingKey = qEnvironmentVariable("TIANXING_API_KEY");
+    if (tianxingKey.isEmpty() && strlen(EmbeddedKeys::TIANXING_API_KEY) > 0) {
+        tianxingKey = QString::fromUtf8(EmbeddedKeys::TIANXING_API_KEY);
+    }
     if (!tianxingKey.isEmpty()) {
         newsProvider->setTianXingApiKey(tianxingKey);
         qDebug() << "[ModernMainWindow] 天行数据 API Key 已配置";

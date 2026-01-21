@@ -1,0 +1,17 @@
+#ifndef EMBEDDED_KEYS_H
+#define EMBEDDED_KEYS_H
+
+// 内嵌 API Keys（用于发布版本，免配置直接使用）
+// 复制此文件为 embedded_keys.h 并填入真实的 API Key
+
+namespace EmbeddedKeys {
+
+// Dify AI 对话 API Key
+inline const char* DIFY_API_KEY = "";
+
+// 天行数据 API Key（时政新闻）
+inline const char* TIANXING_API_KEY = "";
+
+}  // namespace EmbeddedKeys
+
+#endif  // EMBEDDED_KEYS_H
