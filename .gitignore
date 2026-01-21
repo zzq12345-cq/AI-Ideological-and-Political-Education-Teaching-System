@@ -130,4 +130,4 @@ app.log
 *.pem
 config/secrets/
 run_app.sh
-run_app.sh
+src/config/embedded_keys.h

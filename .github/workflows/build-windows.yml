@@ -1,0 +1,87 @@
+name: Build Windows Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: '6.6.2'
+        host: 'windows'
+        target: 'desktop'
+        arch: 'win64_msvc2019_64'
+        modules: 'qtcharts qtquick'
+
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
+    - name: Create embedded keys file
+      run: |
+        @"
+        #ifndef EMBEDDED_KEYS_H
+        #define EMBEDDED_KEYS_H
+
+        namespace EmbeddedKeys {
+        inline const char* DIFY_API_KEY = "${{ secrets.DIFY_API_KEY }}";
+        inline const char* TIANXING_API_KEY = "${{ secrets.TIANXING_API_KEY }}";
+        }
+
+        #endif
+        "@ | Out-File -FilePath src/config/embedded_keys.h -Encoding utf8
+
+    - name: Configure CMake
+      run: |
+        mkdir build
+        cd build
+        cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: |
+        cd build
+        nmake
+
+    - name: Deploy Qt dependencies
+      run: |
+        cd build
+        mkdir deploy
+        copy AILoginSystem.exe deploy\
+        windeployqt deploy\AILoginSystem.exe --release --no-translations --no-opengl-sw
+
+    - name: Copy resources
+      run: |
+        xcopy resources\ppt build\deploy\ppt\ /E /I /Y
+        xcopy resources\styles build\deploy\styles\ /E /I /Y
+
+    - name: Create ZIP archive
+      run: |
+        cd build
+        Compress-Archive -Path deploy\* -DestinationPath AI思政智慧课堂-Windows-x64.zip
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: AI思政智慧课堂-Windows-x64
+        path: build/AI思政智慧课堂-Windows-x64.zip
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: build/AI思政智慧课堂-Windows-x64.zip
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
