@@ -18,10 +18,10 @@ jobs:
       uses: jurplel/install-qt-action@v4
       with:
         version: '6.6.2'
-        host: 'windows'
         target: 'desktop'
         arch: 'win64_msvc2019_64'
-        modules: 'qtcharts qtsvg'
+        archives: 'qtbase qtsvg qtdeclarative qtcharts'
+        cache: true
 
     - name: Setup MSVC
       uses: ilammy/msvc-dev-cmd@v1
