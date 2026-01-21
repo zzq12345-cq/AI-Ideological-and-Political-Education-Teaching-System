@@ -2,6 +2,8 @@
 #include "../services/DifyService.h"
 #include <QVBoxLayout>
 #include <QGraphicsDropShadowEffect>
+#include <QSvgRenderer>
+#include <QPainter>
 
 AIChatDialog::AIChatDialog(DifyService *difyService, QWidget *parent)
     : QDialog(parent)
@@ -49,8 +51,16 @@ void AIChatDialog::setupUI()
     titleLayout->setContentsMargins(20, 0, 20, 0);
     
     // AI 图标
-    QLabel *iconLabel = new QLabel("🤖");
-    iconLabel->setStyleSheet("font-size: 24px; background: transparent;");
+    QLabel *iconLabel = new QLabel();
+    QSvgRenderer robotRenderer(QString(":/icons/resources/icons/robot.svg"));
+    if (robotRenderer.isValid()) {
+        QPixmap robotPixmap(24, 24);
+        robotPixmap.fill(Qt::transparent);
+        QPainter robotPainter(&robotPixmap);
+        robotRenderer.render(&robotPainter);
+        iconLabel->setPixmap(robotPixmap);
+    }
+    iconLabel->setStyleSheet("background: transparent;");
     
     // 标题
     QLabel *titleLabel = new QLabel("AI 智能助手");
@@ -242,7 +252,7 @@ void AIChatDialog::onAIResponseReceived(const QString &response)
 
 void AIChatDialog::onAIError(const QString &error)
 {
-    addAIMessage("⚠️ 错误：" + error);
+    addAIMessage("[!] 错误：" + error);
     m_currentResponse.clear();
     m_isStreaming = false;
 }

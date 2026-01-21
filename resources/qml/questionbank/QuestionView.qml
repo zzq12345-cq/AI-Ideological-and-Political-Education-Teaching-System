@@ -312,7 +312,7 @@ Rectangle {
                     }
 
                     Text {
-                        text: showAnswer ? "👁" : "👁‍🗨"
+                        text: showAnswer ? "[Show]" : "[Hide]"
                         font.pixelSize: Theme.fontSizeMedium
                     }
                 }
@@ -348,7 +348,7 @@ Rectangle {
                     }
 
                     Text {
-                        text: "📥"
+                        text: "[DL]"
                         font.pixelSize: Theme.fontSizeMedium
                     }
                 }

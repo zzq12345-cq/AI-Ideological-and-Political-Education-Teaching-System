@@ -1018,7 +1018,7 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
                 if (i < parsed.subAnswers.size() && !parsed.subAnswers[i].isEmpty()) {
                     // 折叠按钮
                     auto *toggleBtn = new QPushButton(subFrame);
-                    toggleBtn->setText("▶ 查看答案");
+                    toggleBtn->setText("> 查看答案");
                     toggleBtn->setCursor(Qt::PointingHandCursor);
                     toggleBtn->setStyleSheet(
                         "QPushButton {"
@@ -1060,7 +1060,7 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
                     connect(toggleBtn, &QPushButton::clicked, subFrame, [toggleBtn, answerFrame]() {
                         bool isVisible = answerFrame->isVisible();
                         answerFrame->setVisible(!isVisible);
-                        toggleBtn->setText(isVisible ? "▶ 查看答案" : "▼ 隐藏答案");
+                        toggleBtn->setText(isVisible ? "> 查看答案" : "v 隐藏答案");
                     });
                 }
 
@@ -1227,7 +1227,7 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
     // 检查是否已在篮子中
     bool inBasket = QuestionBasket::instance()->contains(question.id);
     if (inBasket) {
-        addToBasketBtn->setText("✓ 已加入");
+        addToBasketBtn->setText("[v] 已加入");
         addToBasketBtn->setProperty("inBasket", true);
         addToBasketBtn->setEnabled(false);
     } else {
@@ -1306,7 +1306,7 @@ QFrame *QuestionBankWindow::createAnswerSection(const QString &answer)
     // 可点击的标题按钮
     auto *toggleButton = new QPushButton(section);
     toggleButton->setObjectName("answerToggleButton");
-    toggleButton->setText("▶ 查看答案");
+    toggleButton->setText("> 查看答案");
     toggleButton->setCursor(Qt::PointingHandCursor);
     toggleButton->setStyleSheet(
         "QPushButton#answerToggleButton {"
@@ -1349,7 +1349,7 @@ QFrame *QuestionBankWindow::createAnswerSection(const QString &answer)
     connect(toggleButton, &QPushButton::clicked, section, [toggleButton, answerFrame]() {
         bool isVisible = answerFrame->isVisible();
         answerFrame->setVisible(!isVisible);
-        toggleButton->setText(isVisible ? "▶ 查看答案" : "▼ 隐藏答案");
+        toggleButton->setText(isVisible ? "> 查看答案" : "v 隐藏答案");
     });
 
     return section;
@@ -1522,7 +1522,7 @@ void QuestionBankWindow::updateAddToBasketButton(const QString &questionId, bool
     }
 
     if (inBasket) {
-        button->setText("✓ 已加入");
+        button->setText("[v] 已加入");
         button->setProperty("inBasket", true);
         button->setEnabled(false);
     } else {

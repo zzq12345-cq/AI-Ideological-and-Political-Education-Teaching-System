@@ -4,6 +4,41 @@
         <file>images/眼睛_显示.png</file>
         <file>images/眼睛_隐藏.png</file>
     </qresource>
+    <qresource prefix="/icons">
+        <file>resources/icons/search.svg</file>
+        <file>resources/icons/notification.svg</file>
+        <file>resources/icons/dashboard.svg</file>
+        <file>resources/icons/book.svg</file>
+        <file>resources/icons/users.svg</file>
+        <file>resources/icons/document.svg</file>
+        <file>resources/icons/analytics.svg</file>
+        <file>resources/icons/settings.svg</file>
+        <file>resources/icons/logout.svg</file>
+        <file>resources/icons/graduation.svg</file>
+        <file>resources/icons/news.svg</file>
+        <file>resources/icons/folder.svg</file>
+        <file>resources/icons/download.svg</file>
+        <file>resources/icons/clip.svg</file>
+        <file>resources/icons/robot.svg</file>
+        <file>resources/icons/warning.svg</file>
+        <file>resources/icons/sparkle.svg</file>
+        <file>resources/icons/fire.svg</file>
+        <file>resources/icons/clipboard.svg</file>
+        <file>resources/icons/lightbulb.svg</file>
+        <file>resources/icons/check.svg</file>
+        <file>resources/icons/check-circle.svg</file>
+        <file>resources/icons/menu.svg</file>
+        <file>resources/icons/sun.svg</file>
+        <file>resources/icons/moon.svg</file>
+        <file>resources/icons/eye.svg</file>
+        <file>resources/icons/eye-off.svg</file>
+        <file>resources/icons/pin.svg</file>
+        <file>resources/icons/thinking.svg</file>
+        <file>resources/icons/palette.svg</file>
+        <file>resources/icons/edit.svg</file>
+        <file>resources/icons/image.svg</file>
+        <file>resources/icons/play.svg</file>
+    </qresource>
     <qresource prefix="/styles">
         <file>resources/styles/auth.qss</file>
         <file>resources/styles/question_bank.qss</file>

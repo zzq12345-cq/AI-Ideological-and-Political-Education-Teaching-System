@@ -110,7 +110,7 @@ Rectangle {
             visible: showAnswer && isCorrect
             Layout.alignment: Qt.AlignVCenter
 
-            text: "✓"
+            text: "[v]"
             color: Theme.success
             font.pixelSize: Theme.fontSizeLarge
             font.weight: Font.Bold

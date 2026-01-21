@@ -5,6 +5,8 @@
 #include <QFont>
 #include <QSplitter>
 #include <QScrollArea>
+#include <QSvgRenderer>
+#include <QPainter>
 
 MainWindow::MainWindow(const QString &username, const QString &role, QWidget *parent)
     : QMainWindow(parent)
@@ -131,7 +133,9 @@ void MainWindow::createSidebar()
     sidebarLayout->addSpacing(24);
 
     // 仪表板按钮
-    m_dashboardBtn = new QPushButton("📊 仪表板");
+    m_dashboardBtn = new QPushButton(" 仪表板");
+    m_dashboardBtn->setIcon(QIcon(":/icons/resources/icons/dashboard.svg"));
+    m_dashboardBtn->setIconSize(QSize(18, 18));
     m_dashboardBtn->setObjectName("navButton");
     m_dashboardBtn->setProperty("active", true);
     m_dashboardBtn->setStyleSheet(
@@ -156,14 +160,18 @@ void MainWindow::createSidebar()
     connect(m_dashboardBtn, &QPushButton::clicked, this, &MainWindow::onDashboardClicked);
 
     // 课程管理按钮
-    m_coursesBtn = new QPushButton("📚 课程管理");
+    m_coursesBtn = new QPushButton(" 课程管理");
+    m_coursesBtn->setIcon(QIcon(":/icons/resources/icons/book.svg"));
+    m_coursesBtn->setIconSize(QSize(18, 18));
     m_coursesBtn->setObjectName("navButton");
     m_coursesBtn->setStyleSheet(m_dashboardBtn->styleSheet());
     connect(m_coursesBtn, &QPushButton::clicked, this, &MainWindow::onCoursesClicked);
 
     // 学生管理按钮（仅教师和管理员可见）
     if (m_role == "教师" || m_role == "管理员") {
-        m_studentsBtn = new QPushButton("👥 学生管理");
+        m_studentsBtn = new QPushButton(" 学生管理");
+        m_studentsBtn->setIcon(QIcon(":/icons/resources/icons/users.svg"));
+        m_studentsBtn->setIconSize(QSize(18, 18));
         m_studentsBtn->setObjectName("navButton");
         m_studentsBtn->setStyleSheet(m_dashboardBtn->styleSheet());
         connect(m_studentsBtn, &QPushButton::clicked, this, &MainWindow::onStudentsClicked);
@@ -171,19 +179,25 @@ void MainWindow::createSidebar()
     }
 
     // 作业管理按钮
-    m_assignmentsBtn = new QPushButton("📝 作业管理");
+    m_assignmentsBtn = new QPushButton(" 作业管理");
+    m_assignmentsBtn->setIcon(QIcon(":/icons/resources/icons/document.svg"));
+    m_assignmentsBtn->setIconSize(QSize(18, 18));
     m_assignmentsBtn->setObjectName("navButton");
     m_assignmentsBtn->setStyleSheet(m_dashboardBtn->styleSheet());
     connect(m_assignmentsBtn, &QPushButton::clicked, this, &MainWindow::onAssignmentsClicked);
 
     // 数据分析按钮
-    m_analyticsBtn = new QPushButton("📈 数据分析");
+    m_analyticsBtn = new QPushButton(" 数据分析");
+    m_analyticsBtn->setIcon(QIcon(":/icons/resources/icons/analytics.svg"));
+    m_analyticsBtn->setIconSize(QSize(18, 18));
     m_analyticsBtn->setObjectName("navButton");
     m_analyticsBtn->setStyleSheet(m_dashboardBtn->styleSheet());
     connect(m_analyticsBtn, &QPushButton::clicked, this, &MainWindow::onAnalyticsClicked);
 
     // 设置按钮
-    m_settingsBtn = new QPushButton("⚙️ 设置");
+    m_settingsBtn = new QPushButton(" 设置");
+    m_settingsBtn->setIcon(QIcon(":/icons/resources/icons/settings.svg"));
+    m_settingsBtn->setIconSize(QSize(18, 18));
     m_settingsBtn->setObjectName("navButton");
     m_settingsBtn->setStyleSheet(m_dashboardBtn->styleSheet());
     connect(m_settingsBtn, &QPushButton::clicked, this, &MainWindow::onSettingsClicked);
@@ -197,7 +211,9 @@ void MainWindow::createSidebar()
     sidebarLayout->addWidget(m_settingsBtn);
 
     // 登出按钮
-    QPushButton *logoutBtn = new QPushButton("🚪 登出");
+    QPushButton *logoutBtn = new QPushButton(" 登出");
+    logoutBtn->setIcon(QIcon(":/icons/resources/icons/logout.svg"));
+    logoutBtn->setIconSize(QSize(18, 18));
     logoutBtn->setStyleSheet(
         "QPushButton {"
         "  background-color: #fee2e2;"
@@ -258,7 +274,9 @@ void MainWindow::createHeader()
     );
 
     // 通知按钮
-    m_notificationBtn = new QPushButton("🔔");
+    m_notificationBtn = new QPushButton();
+    m_notificationBtn->setIcon(QIcon(":/icons/resources/icons/notification.svg"));
+    m_notificationBtn->setIconSize(QSize(20, 20));
     m_notificationBtn->setFixedSize(40, 40);
     m_notificationBtn->setStyleSheet(
         "QPushButton {"
@@ -358,10 +376,10 @@ void MainWindow::createDashboardContent()
     };
 
     QList<StatCard> stats = {
-        {"课程总数", "12", "📚", "#3b82f6"},
-        {"学生人数", "45", "👥", "#10b981"},
-        {"作业发布", "8", "📝", "#f59e0b"},
-        {"完成率", "85%", "✅", "#ef4444"}
+        {"课程总数", "12", ":/icons/resources/icons/book.svg", "#3b82f6"},
+        {"学生人数", "45", ":/icons/resources/icons/users.svg", "#10b981"},
+        {"作业发布", "8", ":/icons/resources/icons/document.svg", "#f59e0b"},
+        {"完成率", "85%", ":/icons/resources/icons/check-circle.svg", "#ef4444"}
     };
 
     for (int i = 0; i < stats.size(); ++i) {
@@ -430,16 +448,22 @@ QFrame *MainWindow::createStatCard(const QString &title, const QString &value, c
     // 图标和数值
     QHBoxLayout *topLayout = new QHBoxLayout();
 
-    QLabel *iconLabel = new QLabel(icon);
+    QLabel *iconLabel = new QLabel();
+    // 加载 SVG 图标
+    QSvgRenderer statRenderer(icon);
+    if (statRenderer.isValid()) {
+        QPixmap statPixmap(24, 24);
+        statPixmap.fill(Qt::transparent);
+        QPainter statPainter(&statPixmap);
+        statRenderer.render(&statPainter);
+        iconLabel->setPixmap(statPixmap);
+    }
     iconLabel->setStyleSheet(
         QString(
-        "font-size: 24px;"
         "background-color: %1;"
-        "color: white;"
         "padding: 8px;"
         "border-radius: 8px;"
         "min-width: 40px;"
-        "text-align: center;"
         ).arg(color)
     );
 
