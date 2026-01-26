@@ -1,4 +1,5 @@
 #include "modernmainwindow.h"
+#include "../shared/StyleConfig.h"
 #include "../auth/login/simpleloginwindow.h"
 #include "../ui/aipreparationwidget.h"
 #include "../questionbank/QuestionRepository.h"
@@ -56,101 +57,69 @@
 #include <functional>
 
 // 思政课堂色彩体系
-const QString PATRIOTIC_RED = "#e53935";          // 主思政红（温暖庄重）
-const QString PATRIOTIC_RED_LIGHT = "#ffebee";    // 亮思政红（柔和背景）
-const QString PATRIOTIC_RED_TINT = "#ffd6d0";     // 柔和高光
-const QString PATRIOTIC_RED_ACCENT = "#ff6f60";   // 渐变强调
-const QString PATRIOTIC_RED_GLOW = "#ffc7bf";     // 细腻晕染层
-const QString PATRIOTIC_RED_DARK = "#c62828";     // 深思政红（重点强调）
-const QString PATRIOTIC_RED_SOFT_LAYER = "#fff4f2"; // 轻盈底色
-const QString PATRIOTIC_RED_DEEP_TONE = "#b71c1c";  // 深沉描边
-const QString PATRIOTIC_RED_GRADIENT = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #fbe1dd, stop:0.45 #fff3f2, stop:1 #ffffff)";
-const QString PATRIOTIC_RED_DEEP_GRADIENT = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ff7d6d, stop:0.55 #e53935, stop:1 #b71c1c)";
-const QString PATRIOTIC_RED_RIBBON = "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #fff1ed, stop:0.45 #ffe4df, stop:1 #ffd6d0)";
-
-const QString WISDOM_BLUE = "#1976d2";            // 智慧蓝（理性思考）
-const QString GROWTH_GREEN = "#388e3c";           // 成长绿（积极向上）
-const QString CULTURE_GOLD = "#f57c00";           // 文化金（传统文化）
-const QString ACADEMIC_PURPLE = "#7b1fa2";        // 学术紫（深度思考）
+const QString PATRIOTIC_RED = StyleConfig::PATRIOTIC_RED;
+const QString PATRIOTIC_RED_LIGHT = StyleConfig::PATRIOTIC_RED_LIGHT;
+const QString PATRIOTIC_RED_DARK = StyleConfig::PATRIOTIC_RED_DARK;
+const QString PATRIOTIC_RED_TINT = StyleConfig::PATRIOTIC_RED_TINT;
+const QString GOLD_ACCENT = StyleConfig::GOLD_ACCENT;
+const QString GROWTH_GREEN = StyleConfig::SUCCESS_GREEN;
+const QString WISDOM_BLUE = StyleConfig::INFO_BLUE;
 
 // 背景与结构色
-const QString BACKGROUND_LIGHT = "#fafafa";       // 主背景
-const QString WINDOW_BACKGROUND_GRADIENT = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fff8f6, stop:0.6 #faf7f7, stop:1 #f5f5f5)";
-const QString CARD_WHITE = "#ffffff";             // 卡片背景
-const QString LIGHT_GRAY = "#f5f5f5";             // 淡灰背景
-const QString SEPARATOR = "#e8eaf6";              // 分隔线
-const QString ULTRA_LIGHT_GRAY = "#f7f8fa";
+const QString BACKGROUND_LIGHT = StyleConfig::BG_APP;
+const QString CARD_WHITE = StyleConfig::BG_CARD;
+const QString SEPARATOR = StyleConfig::SEPARATOR;
+const QString PRIMARY_TEXT = StyleConfig::TEXT_PRIMARY;
+const QString SECONDARY_TEXT = StyleConfig::TEXT_SECONDARY;
+const QString LIGHT_TEXT = StyleConfig::TEXT_LIGHT;
 
-// 现代卡片样式 - 简洁版
-const QString CARD_GRADIENT = "#ffffff";
-const QString CARD_HOVER_GRADIENT = "#fafafa";
-const QString CARD_PRESSED_GRADIENT = "#f5f5f5";
-const QString CARD_BORDER_COLOR = "#f0f0f0";
-const QString CARD_BORDER_HIGHLIGHT = "#e0e0e0";
-const QString CARD_BORDER_ACTIVE = "#d0d0d0";
-const int CARD_CORNER_RADIUS = 16;
-const int CARD_PADDING_PX = 24;
-
-// 现代化按钮样式系统 - 简化版，移除不支持的CSS动画
-const QString BUTTON_PRIMARY_STYLE =
-    R"(QPushButton {
-        background: %1;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 12px 24px;
-        font-size: 14px;
-        font-weight: 600;
-    }
-    QPushButton:hover {
-        background: %2;
-    }
-    QPushButton:pressed {
-        background: %3;
-    })";
-
-const QString BUTTON_SECONDARY_STYLE =
-    R"(QPushButton {
-        background: white;
-        color: %1;
-        border: 2px solid %1;
-        border-radius: 8px;
-        padding: 10px 22px;
-        font-size: 14px;
-        font-weight: 600;
-    }
-    QPushButton:hover {
-        background: %1;
-        color: white;
-    }
-    QPushButton:pressed {
-        background: %2;
-    })";
-
-// 按钮渐变
-const QString PRIMARY_BUTTON_GRADIENT = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ff7466, stop:0.55 #e53935, stop:1 #c62828)";
-const QString PRIMARY_BUTTON_HOVER_GRADIENT = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ff8a7e, stop:0.5 #ed4d44, stop:1 #b71c1c)";
-const QString PRIMARY_BUTTON_PRESSED_GRADIENT = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #e53935, stop:0.7 #c62828, stop:1 #b71c1c)";
-const QString SOFT_BUTTON_GRADIENT = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #fff7f5, stop:1 #ffe8e4)";
-const QString SOFT_BUTTON_HOVER_GRADIENT = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ffece7, stop:1 #ffd7d0)";
-const QString SOFT_BUTTON_PRESSED_GRADIENT = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ffd1c9, stop:1 #ffc2b8)";
-
-// 文字层次
-const QString PRIMARY_TEXT = "#212121";           // 主文本
-const QString SECONDARY_TEXT = "#757575";         // 次文本
-const QString LIGHT_TEXT = "#9e9e9e";             // 淡文本
+const QString WINDOW_BACKGROUND_GRADIENT = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFF8F6, stop:0.6 #FAF7F7, stop:1 #F5F5F5)";
+const QString LIGHT_GRAY = "#F5F5F5";
+const QString ULTRA_LIGHT_GRAY = "#F7F8FA";
 
 const QString SIDEBAR_GRADIENT = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e53935, stop:0.65 #c62828, stop:1 #1976d2)";
 
 // 侧栏按钮样式常量
 const QString SIDEBAR_BTN_NORMAL =
-    R"(QPushButton { background-color: transparent; color: %1; border: none; border-left: 4px solid transparent; padding: 10px 12px 10px 20px; font-size: 14px; text-align: left; border-radius: 8px; }
-       QPushButton:hover { background-color: %2; })";
+    R"(QPushButton { 
+        background-color: transparent; 
+        color: %1; 
+        border: none; 
+        border-radius: 12px; 
+        padding: 12px 16px; 
+        font-size: 14px; 
+        text-align: left; 
+    }
+    QPushButton:hover { 
+        background-color: rgba(0, 0, 0, 0.04); 
+    })";
+
 const QString SIDEBAR_BTN_ACTIVE =
-    R"(QPushButton { background-color: %1; color: %2; border: none; border-left: 4px solid %2; padding: 10px 12px 10px 20px; font-size: 14px; font-weight: bold; text-align: left; border-radius: 8px; }
-       QPushButton:hover { background-color: rgba(239, 83, 80, 0.22); })";
+    R"(QPushButton { 
+        background-color: %1; 
+        color: %2; 
+        border: none; 
+        border-radius: 12px; 
+        padding: 12px 16px; 
+        font-size: 14px; 
+        font-weight: 600; 
+        text-align: left; 
+    }
+    QPushButton:hover { 
+        background-color: %1; 
+    })";
 
 namespace {
+const QString CARD_GRADIENT = "#FFFFFF";
+const QString CARD_HOVER_GRADIENT = "#FAFAFA";
+const QString CARD_PRESSED_GRADIENT = "#F5F5F5";
+const QString CARD_BORDER_COLOR = "#F0F0F0";
+const QString CARD_BORDER_HIGHLIGHT = "#E0E0E0";
+const QString CARD_BORDER_ACTIVE = "#D0D0D0";
+const int CARD_CORNER_RADIUS = StyleConfig::RADIUS_L;
+const int CARD_PADDING_PX = 24;
+const QString PATRIOTIC_RED_DEEP_TONE = StyleConfig::PATRIOTIC_RED_DARK;
+const QString CULTURE_GOLD = StyleConfig::GOLD_ACCENT;
 
 QString buildCardStyle(const QString &selector)
 {
@@ -1309,16 +1278,15 @@ void ModernMainWindow::createHeaderWidget()
     searchInput = new QLineEdit();
     searchInput->setPlaceholderText("搜索资源、学生...");
     searchInput->setFixedHeight(44);
-    searchInput->setStyleSheet(
+    searchInput->setStyleSheet(QString(
         "QLineEdit {"
-        "  background: #ffffff;"
+        "  background: #FFFFFF;"
         "  border: none;"
-        "  font-size: 15px;"
-        "  color: " + PRIMARY_TEXT + ";"
+        "  font-size: 14px;"
+        "  color: %1;"
         "}"
-        "QLineEdit::placeholder { color: " + LIGHT_TEXT + "; }"
-        "QLineEdit:focus { border: none; }"
-    );
+        "QLineEdit::placeholder { color: %2; }"
+    ).arg(StyleConfig::TEXT_PRIMARY, StyleConfig::TEXT_LIGHT));
 
     searchLayout->addWidget(searchIcon);
     searchLayout->addWidget(searchInput);
@@ -1328,13 +1296,11 @@ void ModernMainWindow::createHeaderWidget()
     notificationBtn->setFixedSize(40, 40);
 
     // 加载自定义通知图标
-    QPixmap notificationIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/通知.png");
+    QPixmap notificationIcon(":/icons/resources/icons/notification.svg");
     if (!notificationIcon.isNull()) {
-        // 图片加载成功，设置按钮图标
         notificationBtn->setIcon(notificationIcon);
         notificationBtn->setIconSize(QSize(24, 24));
     } else {
-        // 如果图片加载失败，使用 SVG 图标作为备用
         QSvgRenderer notifRenderer(QString(":/icons/resources/icons/notification.svg"));
         if (notifRenderer.isValid()) {
             QPixmap notifPixmap(24, 24);
@@ -1498,35 +1464,32 @@ void ModernMainWindow::createDashboard()
     // 创建功能卡片 - 带有颜色图标背景和悬停效果
     auto createFeatureCard = [this](const QString &iconPath, const QString &title, const QString &desc, const QString &iconBgColor) -> QPushButton* {
         QPushButton *card = new QPushButton();
-        card->setFixedSize(320, 100); // 保持较大的按钮尺寸
+        card->setFixedSize(320, 100);
         card->setCursor(Qt::PointingHandCursor);
         card->setStyleSheet(QString(R"(
             QPushButton {
-                background-color: #ffffff;
-                border: 1px solid #e5e7eb;
-                border-radius: 16px;
+                background-color: %1;
+                border: 1px solid %2;
+                border-radius: %3px;
                 text-align: left;
             }
             QPushButton:hover {
-                background-color: #fafafa;
-                border-color: #d1d5db;
+                background-color: #FAFAFA;
+                border-color: #D1D5DB;
             }
             QPushButton:pressed {
-                background-color: #f5f5f5;
-                border-color: #c0c0c0;
+                background-color: #F5F5F5;
             }
-        )"));
+        )").arg(StyleConfig::BG_CARD, StyleConfig::BORDER_LIGHT, QString::number(StyleConfig::RADIUS_L)));
 
         QHBoxLayout *cardLayout = new QHBoxLayout(card);
         cardLayout->setContentsMargins(16, 12, 16, 12);
         cardLayout->setSpacing(14);
 
-        // 图标容器 - 带彩色背景，使用 SVG 图标
         QLabel *iconLbl = new QLabel();
         iconLbl->setFixedSize(44, 44);
         iconLbl->setAlignment(Qt::AlignCenter);
-
-        // 加载 SVG 图标
+        
         QSvgRenderer renderer(iconPath);
         if (renderer.isValid()) {
             QPixmap pixmap(24, 24);
@@ -1543,7 +1506,6 @@ void ModernMainWindow::createDashboard()
             }
         )").arg(iconBgColor));
 
-        // 文字区域
         QWidget *textArea = new QWidget();
         textArea->setStyleSheet("background: transparent;");
         QVBoxLayout *textLayout = new QVBoxLayout(textArea);
@@ -1551,10 +1513,10 @@ void ModernMainWindow::createDashboard()
         textLayout->setSpacing(4);
 
         QLabel *titleLbl = new QLabel(title);
-        titleLbl->setStyleSheet("font-size: 15px; font-weight: 600; color: #1f2937; background: transparent;");
+        titleLbl->setStyleSheet(QString("font-size: 15px; font-weight: 600; color: %1; background: transparent;").arg(StyleConfig::TEXT_PRIMARY));
         
         QLabel *descLbl = new QLabel(desc);
-        descLbl->setStyleSheet("font-size: 12px; color: #9ca3af; background: transparent;");
+        descLbl->setStyleSheet(QString("font-size: 12px; color: %1; background: transparent;").arg(StyleConfig::TEXT_SECONDARY));
 
         textLayout->addWidget(titleLbl);
         textLayout->addWidget(descLbl);
@@ -1562,12 +1524,8 @@ void ModernMainWindow::createDashboard()
         cardLayout->addWidget(iconLbl);
         cardLayout->addWidget(textArea, 1);
 
-        // 添加阴影效果
-        QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect(card);
-        shadow->setBlurRadius(12);
-        shadow->setColor(QColor(0, 0, 0, 25));
-        shadow->setOffset(0, 2);
-        card->setGraphicsEffect(shadow);
+        applyCardShadow(card, 12.0, 2.0);
+        new CardHoverAnimator(card, card);
 
         return card;
     };

@@ -32,7 +32,7 @@ QScrollArea#contentScrollArea {
 }
 
 QFrame#pageHeader {
-    background: #FFFFFF;
+    background: transparent;
     border-radius: 16px;
     border: 1px solid #e8eaf6;
 }
@@ -283,6 +283,11 @@ QWidget[role="optionItem"][selected="true"] QLabel[role="optionText"] {
     font-weight: 500;
 }
 
+QFrame#optionsPanel {
+    background: transparent;
+    border: none;
+}
+
 
 QFrame#answerSection {
     background: rgba(56, 142, 60, 0.12);
@@ -333,6 +338,11 @@ QFrame#actionRow QPushButton {
     font-size: 14px;
     font-weight: 600;
     padding: 10px 24px;
+}
+
+QFrame#cardActionRow {
+    background: transparent;
+    border: none;
 }
 
 QPushButton#primaryActionButton {
