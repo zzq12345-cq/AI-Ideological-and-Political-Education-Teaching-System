@@ -194,7 +194,7 @@ QWidget *QuestionBankWindow::buildHeader()
     // applyShadow(header, 24, QPointF(0, 8), QColor(0, 0, 0, 20));
     header->setStyleSheet(
         "QFrame#pageHeader {"
-        "  background: #fff;"
+        "  background: transparent;"
         "  border-bottom: 1px solid #e0e0e0;"
         "}"
     );
@@ -1105,7 +1105,7 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
         auto *typeTag = new QLabel(typeText, headerRow);
         typeTag->setStyleSheet(
             "QLabel {"
-            "  background: #F0F0F0;"
+            "  background: transparent;"
             "  color: #666;"
             "  font-size: 12px;"
             "  padding: 4px 10px;"

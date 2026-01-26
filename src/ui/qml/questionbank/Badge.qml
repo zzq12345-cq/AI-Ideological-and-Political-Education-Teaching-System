@@ -45,24 +45,24 @@ Rectangle {
         color: {
             switch(type) {
                 case "accent":
-                    return isDark ? "#7DD3FC" : Theme.accent
+                    return isDark ? "#FDE68A" : Theme.accentDark
                 case "success":
-                    return isDark ? "#6EE7B7" : "#059669"
+                    return isDark ? "#6EE7B7" : "#166534"
                 case "warning":
-                    return isDark ? "#FBBF24" : "#D97706"
+                    return isDark ? "#FBBF24" : "#92400E"
                 case "error":
-                    return isDark ? "#F87171" : "#DC2626"
+                    return isDark ? "#FCA5A5" : "#991B1B"
                 case "easy":
-                    return isDark ? "#34D399" : Theme.difficultyEasy
+                    return isDark ? "#6EE7B7" : "#065F46"
                 case "medium":
-                    return isDark ? "#FBBF24" : Theme.difficultyMedium
+                    return isDark ? "#FBBF24" : "#92400E"
                 case "hard":
-                    return isDark ? "#F87171" : Theme.difficultyHard
+                    return isDark ? "#FCA5A5" : "#991B1B"
                 default:
-                    return isDark ? "#D1D5DB" : "#6B7280"
+                    return isDark ? "#D1D5DB" : "#4B5563"
             }
         }
         font.pixelSize: badge.fontSize
-        font.weight: Font.Medium
+        font.weight: Font.Bold
     }
 }

@@ -1,4 +1,5 @@
 #include "ChatWidget.h"
+#include "../shared/StyleConfig.h"
 #include "../utils/MarkdownRenderer.h"
 #include <QScrollBar>
 #include <QTimer>
@@ -8,21 +9,20 @@
 #include <QPainterPath>
 #include <QApplication>
 
-// 样式常量定义 - 思政红金主题
-const QString ChatWidget::USER_BUBBLE_COLOR = "#B71C1C";      // 沉稳红色（用户气泡）
-const QString ChatWidget::AI_BUBBLE_COLOR = "#ffffff";        // 纯白（AI气泡）
-const QString ChatWidget::USER_TEXT_COLOR = "#ffffff";        // 白色文字
-const QString ChatWidget::AI_TEXT_COLOR = "#2d3748";          // 深灰文字（更柔和）
+const QString ChatWidget::USER_BUBBLE_COLOR = StyleConfig::PATRIOTIC_RED_DARK;
+const QString ChatWidget::AI_BUBBLE_COLOR = StyleConfig::BG_CARD;
+const QString ChatWidget::USER_TEXT_COLOR = "#FFFFFF";
+const QString ChatWidget::AI_TEXT_COLOR = StyleConfig::TEXT_PRIMARY;
 
 // 主题配色常量
 namespace ThemeColors {
-    const QString PRIMARY_RED = "#B71C1C";       // 思政红
-    const QString ACCENT_GOLD = "#D4A017";       // 金色强调
-    const QString BG_WARM_GRAY = "#faf8f5";      // 暖灰背景
-    const QString BG_CARD = "#ffffff";           // 卡片背景
-    const QString TEXT_PRIMARY = "#2d3748";      // 主要文字
-    const QString TEXT_SECONDARY = "#718096";    // 次要文字
-    const QString BORDER_LIGHT = "#e8e4df";      // 浅边框
+    const QString PRIMARY_RED = StyleConfig::PATRIOTIC_RED;
+    const QString ACCENT_GOLD = StyleConfig::GOLD_ACCENT;
+    const QString BG_WARM_GRAY = StyleConfig::BG_APP;
+    const QString BG_CARD = StyleConfig::BG_CARD;
+    const QString TEXT_PRIMARY = StyleConfig::TEXT_PRIMARY;
+    const QString TEXT_SECONDARY = StyleConfig::TEXT_SECONDARY;
+    const QString BORDER_LIGHT = StyleConfig::BORDER_LIGHT;
 }
 
 ChatWidget::ChatWidget(QWidget *parent)
@@ -197,15 +197,15 @@ void ChatWidget::setupStyles()
         QFrame#inputContainer {
             background-color: #ffffff;
             border-radius: 28px;
-            border: 1px solid #e8e4df;
+            border: 1px solid #e5e7eb;
         }
         QFrame#inputContainer:focus-within {
-            border: 1.5px solid #B71C1C;
+            border: 1.5px solid #E53935;
         }
 
         /* 加号按钮 */
         QPushButton#plusBtn {
-            background-color: #e8e4df;
+            background-color: #e5e7eb;
             color: #718096;
             border-radius: 16px;
             border: none;
@@ -214,7 +214,7 @@ void ChatWidget::setupStyles()
             padding-bottom: 2px;
         }
         QPushButton#plusBtn:hover {
-            background-color: #B71C1C;
+            background-color: #E53935;
             color: #ffffff;
         }
 
@@ -232,7 +232,7 @@ void ChatWidget::setupStyles()
 
         /* 发送按钮 - 思政红 */
         QPushButton#chatSendBtn {
-            background-color: #B71C1C;
+            background-color: #E53935;
             color: #ffffff;
             border: none;
             border-radius: 16px;
@@ -246,7 +246,7 @@ void ChatWidget::setupStyles()
             background-color: #7f1d1d;
         }
         QPushButton#chatSendBtn:disabled {
-            background-color: #e8e4df;
+            background-color: #e5e7eb;
             color: #a0aec0;
         }
 
@@ -279,7 +279,7 @@ QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
         // 用户头像 - 思政红配色
         avatarLabel->setStyleSheet(
             "QLabel {"
-            "   background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #C62828, stop:1 #B71C1C);"
+            "   background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #C62828, stop:1 #E53935);"
             "   border-radius: 22px;"
             "   color: #ffffff;"
             "   font-size: 15px;"
@@ -355,7 +355,7 @@ QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
         bubbleWidget->setStyleSheet(QString(
             "QWidget#aiBubble {"
             "   background-color: %1;"
-            "   border: 1px solid #e8e4df;"
+            "   border: 1px solid #e5e7eb;"
             "   border-radius: 18px;"
             "   border-top-left-radius: 6px;"
             "}"
