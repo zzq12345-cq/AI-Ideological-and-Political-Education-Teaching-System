@@ -9,9 +9,9 @@
  * @brief 真实新闻提供者
  *
  * 对接多个新闻数据源：
- * 1. 天行数据 API - 综合新闻
- * 2. 聚合数据 API - 头条新闻
- * 3. RSS 订阅 - 人民网、新华网
+ * 1. 韩小韩 API - 免费热点新闻（无需Key）
+ * 2. 天行数据 API - 综合新闻（需Key）
+ * 3. RSS 订阅 - 人民网、新华网（备用）
  */
 class RealNewsProvider : public INewsProvider {
     Q_OBJECT
@@ -19,6 +19,7 @@ class RealNewsProvider : public INewsProvider {
 public:
     // 数据源类型
     enum class DataSource {
+        HanXiaoHan,  // 韩小韩（免费）
         TianXing,    // 天行数据
         JuHe,        // 聚合数据
         RSS,         // RSS 订阅
@@ -54,8 +55,11 @@ private slots:
     void onTianXingReplyFinished(QNetworkReply *reply);
 
 private:
+    void fetchFromHanXiaoHan();
     void fetchFromTianXing(int limit, const QString &category);
     void fetchFromRSS();
+    void finalizeNewsAggregation();  // 聚合完成后统一处理
+    QList<NewsItem> parseHanXiaoHanResponse(const QByteArray &data);
     QList<NewsItem> parseTianXingResponse(const QByteArray &data, const QString &endpoint = QString());
     QList<NewsItem> parseRSSResponse(const QByteArray &data, const QString &sourceName);
     QString categoryToTianXingType(const QString &category);
