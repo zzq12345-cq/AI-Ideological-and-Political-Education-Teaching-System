@@ -11,6 +11,11 @@
 #include <QLineEdit>
 #include <QButtonGroup>
 #include <QFrame>
+#include <QTimer>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QPixmap>
+#include <QCache>
 #include "../hotspot/NewsItem.h"
 
 // 前向声明
@@ -54,14 +59,17 @@ signals:
 private slots:
     void onRefreshClicked();
     void onSearchTextChanged(const QString &text);
+    void performSearchDebounced();
     void onCategoryChanged(int categoryIndex);
     void onNewsListUpdated(const QList<NewsItem> &newsList);
     void onNewsCardClicked(const NewsItem &news);
     void onGenerateTeachingClicked(const NewsItem &news);
     void onLoadingStateChanged(bool isLoading);
+    void onImageDownloaded(QNetworkReply *reply);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private:
     void setupUI();
@@ -69,9 +77,14 @@ private:
     void createHeader();
     void createCategoryFilter();
     void createNewsGrid();
+    QWidget* createHeadlineCard(const NewsItem &news);
     QWidget* createNewsCard(const NewsItem &news);
+    QString formatTimeAgo(const QDateTime &time);
     void clearNewsGrid();
     void showNewsDetail(const NewsItem &news);
+    int computeGridColumns() const;
+    void scheduleRelayout();
+    void loadImage(const QString &url, QLabel *label);
     
     // UI 组件
     QVBoxLayout *m_mainLayout;
@@ -100,9 +113,22 @@ private:
     HotspotService *m_hotspotService;
     DifyService *m_difyService;
     
+    // 网络与缓存
+    QNetworkAccessManager *m_networkManager;
+    QCache<QString, QPixmap> m_imageCache;
+    QMap<QNetworkReply*, QLabel*> m_pendingImages;
+    
     // 状态
     QString m_currentCategory;
     QList<NewsItem> m_currentNews;
+
+    // 搜索去抖
+    QTimer *m_searchDebounceTimer;
+    QString m_pendingSearchText;
+
+    // 自适应网格
+    QTimer *m_relayoutTimer;
+    int m_lastColumnCount;
 };
 
 #endif // HOTSPOTTRACKINGWIDGET_H

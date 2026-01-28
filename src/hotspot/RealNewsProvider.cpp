@@ -8,20 +8,24 @@
 #include <QDateTime>
 #include <QUuid>
 #include <QRandomGenerator>
+#include <QRegularExpression>
 
 RealNewsProvider::RealNewsProvider(QObject *parent)
     : INewsProvider(parent)
     , m_networkManager(new QNetworkAccessManager(this))
-    , m_dataSource(DataSource::All)
+    , m_dataSource(DataSource::TianXing)  // 使用天行数据API
     , m_pendingRSSCount(0)
     , m_pendingTianXingCount(0)
     , m_currentLimit(20)
 {
-    // 添加默认 RSS 源 - 思政相关
-    addRSSSource("人民网-时政", "http://politics.people.com.cn/rss/politics.xml");
-    addRSSSource("人民网-理论", "http://theory.people.com.cn/rss/theory.xml");
-    addRSSSource("新华网-时政", "http://www.xinhuanet.com/politics/news_politics.xml");
-    addRSSSource("央视网-新闻", "http://news.cctv.com/rss/china.xml");
+    // 国内新闻 RSS 源（备用）
+    addRSSSource("人民网-时政", "https://politics.people.com.cn/rss/politics.xml");
+    addRSSSource("人民网-理论", "https://theory.people.com.cn/rss/theory.xml");
+    addRSSSource("新华网-时政", "https://www.xinhuanet.com/politics/news_politics.xml");
+    addRSSSource("央视网-新闻", "https://news.cctv.com/rss/china.xml");
+
+    // 国际新闻 RSS 源（feedx.net BBC 中文，带图片）
+    addRSSSource("BBC中文-国际", "https://feedx.net/rss/bbc.xml");
 }
 
 RealNewsProvider::~RealNewsProvider()
@@ -42,6 +46,9 @@ void RealNewsProvider::fetchHotNews(int limit, const QString &category)
     emit loadingStarted();
 
     switch (m_dataSource) {
+    case DataSource::HanXiaoHan:
+        fetchFromHanXiaoHan();
+        break;
     case DataSource::TianXing:
         fetchFromTianXing(limit, category);
         break;
@@ -50,14 +57,113 @@ void RealNewsProvider::fetchHotNews(int limit, const QString &category)
         break;
     case DataSource::All:
     default:
-        // 先尝试天行 API，如果没有 key 则使用 RSS
-        if (!m_tianxingKey.isEmpty()) {
-            fetchFromTianXing(limit, category);
-        } else {
-            fetchFromRSS();
-        }
+        // 优先使用韩小韩（免费），失败再用天行或RSS
+        fetchFromHanXiaoHan();
         break;
     }
+}
+
+void RealNewsProvider::fetchFromHanXiaoHan()
+{
+    // 韩小韩热点新闻API - 免费无需Key
+    // 文档: https://api.vvhan.com/
+    QUrl url("https://api.vvhan.com/api/hotlist/toutiao");
+
+    QNetworkRequest request(url);
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+    request.setRawHeader("User-Agent", "Mozilla/5.0 (compatible; AIPoliticalEducation/1.0)");
+    request.setTransferTimeout(15000);
+
+    QNetworkReply *reply = m_networkManager->get(request);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        if (reply->error() == QNetworkReply::NoError) {
+            QByteArray data = reply->readAll();
+            QList<NewsItem> items = parseHanXiaoHanResponse(data);
+
+            if (!items.isEmpty()) {
+                // 根据分类筛选
+                if (!m_currentCategory.isEmpty() && m_currentCategory != "全部") {
+                    QList<NewsItem> filtered;
+                    for (const auto &item : items) {
+                        if (item.category == m_currentCategory) {
+                            filtered.append(item);
+                        }
+                    }
+                    items = filtered;
+                }
+
+                // 限制数量
+                if (items.size() > m_currentLimit) {
+                    items = items.mid(0, m_currentLimit);
+                }
+
+                m_cachedNews = items;
+                emit newsListReceived(items);
+                emit loadingFinished();
+            } else {
+                qWarning() << "[RealNewsProvider] 韩小韩API返回空数据，切换到RSS";
+                fetchFromRSS();
+            }
+        } else {
+            qWarning() << "[RealNewsProvider] 韩小韩API请求失败:" << reply->errorString();
+            // 降级到天行或RSS
+            if (!m_tianxingKey.isEmpty()) {
+                fetchFromTianXing(m_currentLimit, m_currentCategory);
+            } else {
+                fetchFromRSS();
+            }
+        }
+        reply->deleteLater();
+    });
+}
+
+QList<NewsItem> RealNewsProvider::parseHanXiaoHanResponse(const QByteArray &data)
+{
+    QList<NewsItem> items;
+
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (doc.isNull() || !doc.isObject()) {
+        qWarning() << "[RealNewsProvider] 韩小韩JSON解析失败";
+        return items;
+    }
+
+    QJsonObject root = doc.object();
+    if (!root["success"].toBool()) {
+        qWarning() << "[RealNewsProvider] 韩小韩API返回错误";
+        return items;
+    }
+
+    QJsonArray dataArray = root["data"].toArray();
+    for (const QJsonValue &val : dataArray) {
+        QJsonObject obj = val.toObject();
+
+        NewsItem item;
+        item.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        item.title = obj["title"].toString();
+        item.url = obj["url"].toString();
+        item.hotScore = obj["hot"].toString().remove("万").toInt();
+        if (item.hotScore == 0) {
+            item.hotScore = 50 + QRandomGenerator::global()->bounded(50);
+        } else {
+            // 转换热度值到0-100范围
+            item.hotScore = qMin(100, qMax(10, item.hotScore));
+        }
+
+        // 今日头条来源，默认国内
+        item.source = "今日头条";
+        item.category = "国内";
+        item.publishTime = QDateTime::currentDateTime();
+
+        // 摘要用标题
+        item.summary = item.title;
+
+        if (item.isValid()) {
+            items.append(item);
+        }
+    }
+
+    qDebug() << "[RealNewsProvider] 韩小韩API返回" << items.size() << "条新闻";
+    return items;
 }
 
 void RealNewsProvider::fetchFromTianXing(int limit, const QString &category)
@@ -70,78 +176,74 @@ void RealNewsProvider::fetchFromTianXing(int limit, const QString &category)
 
     m_aggregatedNews.clear();
 
-    // 根据分类决定请求哪些接口
-    QStringList endpoints;
-    if (category.isEmpty() || category == "全部") {
-        // 同时请求国内和国际
-        endpoints << "guonei" << "world";
-    } else if (category == "国内") {
-        endpoints << "guonei";
-    } else if (category == "国际" || category == "国外") {
-        endpoints << "world";
-    } else {
-        endpoints << "guonei" << "world";
-    }
+    // 根据分类决定请求策略
+    // 国内新闻：用天行 API（有图片）
+    // 国际新闻：用 feedx.net BBC RSS（有图片）
+    bool needDomestic = (category.isEmpty() || category == "全部" || category == "国内");
+    bool needInternational = (category.isEmpty() || category == "全部" || category == "国际" || category == "国外");
 
-    m_pendingTianXingCount = endpoints.size();
-    int perEndpointLimit = qMax(10, limit / endpoints.size());
+    // 计数器：需要完成的请求数
+    int pendingCount = 0;
+    if (needDomestic) pendingCount++;
+    if (needInternational) pendingCount++;
+    m_pendingTianXingCount = pendingCount;
 
-    for (const QString &endpoint : endpoints) {
-        QUrl url(QString("https://apis.tianapi.com/%1/index").arg(endpoint));
+    // 请求国内新闻（天行 API）
+    if (needDomestic) {
+        QUrl url(QString("https://apis.tianapi.com/guonei/index"));
         QUrlQuery query;
         query.addQueryItem("key", m_tianxingKey);
-        query.addQueryItem("num", QString::number(qMin(perEndpointLimit, 50)));
+        query.addQueryItem("num", QString::number(qMin(limit, 50)));
         url.setQuery(query);
 
         QNetworkRequest request(url);
         request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+        request.setTransferTimeout(15000);
 
         QNetworkReply *reply = m_networkManager->get(request);
-        connect(reply, &QNetworkReply::finished, this, [this, reply, endpoint]() {
+        connect(reply, &QNetworkReply::finished, this, [this, reply]() {
             if (reply->error() == QNetworkReply::NoError) {
                 QByteArray data = reply->readAll();
-                QList<NewsItem> items = parseTianXingResponse(data, endpoint);
+                QList<NewsItem> items = parseTianXingResponse(data, "guonei");
                 m_aggregatedNews.append(items);
             } else {
-                qWarning() << "[RealNewsProvider] 天行 API 请求失败:" << reply->errorString();
+                qWarning() << "[RealNewsProvider] 天行 API 国内新闻请求失败:" << reply->errorString();
             }
 
             reply->deleteLater();
             m_pendingTianXingCount--;
+            finalizeNewsAggregation();
+        });
+    }
 
-            // 所有请求完成后处理结果
-            if (m_pendingTianXingCount <= 0) {
-                if (m_aggregatedNews.isEmpty()) {
-                    qWarning() << "[RealNewsProvider] 天行 API 返回空数据，切换到 RSS";
-                    fetchFromRSS();
-                } else {
-                    // 根据分类筛选（如果指定了分类）
-                    if (!m_currentCategory.isEmpty() && m_currentCategory != "全部") {
-                        QList<NewsItem> filtered;
-                        for (const auto &item : m_aggregatedNews) {
-                            if (item.category == m_currentCategory) {
-                                filtered.append(item);
-                            }
-                        }
-                        m_aggregatedNews = filtered;
-                    }
+    // 请求国际新闻（feedx.net BBC RSS，有图片）
+    if (needInternational) {
+        QUrl url("https://feedx.net/rss/bbc.xml");
+        QNetworkRequest request(url);
+        request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+        request.setRawHeader("User-Agent", "Mozilla/5.0 (compatible; AIPoliticalEducation/1.0)");
+        request.setTransferTimeout(20000);  // BBC RSS 数据较大，给更长超时
 
-                    // 按时间排序
-                    std::sort(m_aggregatedNews.begin(), m_aggregatedNews.end(),
-                              [](const NewsItem &a, const NewsItem &b) {
-                                  return a.publishTime > b.publishTime;
-                              });
-
-                    // 限制数量
-                    if (m_aggregatedNews.size() > m_currentLimit) {
-                        m_aggregatedNews = m_aggregatedNews.mid(0, m_currentLimit);
-                    }
-
-                    m_cachedNews = m_aggregatedNews;
-                    emit newsListReceived(m_aggregatedNews);
-                    emit loadingFinished();
+        QNetworkReply *reply = m_networkManager->get(request);
+        connect(reply, &QNetworkReply::finished, this, [this, reply, limit]() {
+            if (reply->error() == QNetworkReply::NoError) {
+                QByteArray data = reply->readAll();
+                QList<NewsItem> items = parseRSSResponse(data, "BBC中文-国际");
+                // 限制国际新闻数量
+                if (items.size() > limit / 2) {
+                    items = items.mid(0, limit / 2);
                 }
+                m_aggregatedNews.append(items);
+                qDebug() << "[RealNewsProvider] BBC RSS 获取成功，" << items.size() << "条国际新闻";
+            } else {
+                qWarning() << "[RealNewsProvider] BBC RSS 请求失败:" << reply->errorString();
+                // 失败时尝试用天行的 world 接口作为备用（虽然没图片）
+                // 这里不做备用，直接跳过
             }
+
+            reply->deleteLater();
+            m_pendingTianXingCount--;
+            finalizeNewsAggregation();
         });
     }
 }
@@ -162,6 +264,7 @@ void RealNewsProvider::fetchFromRSS()
         QNetworkRequest request(url);
         request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
         request.setRawHeader("User-Agent", "Mozilla/5.0 (compatible; AIPoliticalEducation/1.0)");
+        request.setTransferTimeout(15000);
 
         QNetworkReply *reply = m_networkManager->get(request);
         QString sourceName = source.first;
@@ -340,7 +443,11 @@ QList<NewsItem> RealNewsProvider::parseRSSResponse(const QByteArray &data, const
 
     NewsItem currentItem;
     QString currentElement;
+    QString currentDescription;  // 保存 description 原始内容用于提取图片
     bool inItem = false;
+
+    // 用于从 HTML 中提取图片 URL 的正则表达式
+    static QRegularExpression imgRegex(R"(<img[^>]+src\s*=\s*[\"']([^\"']+)[\"'])");
 
     while (!xml.atEnd() && !xml.hasError()) {
         QXmlStreamReader::TokenType token = xml.readNext();
@@ -353,17 +460,42 @@ QList<NewsItem> RealNewsProvider::parseRSSResponse(const QByteArray &data, const
                 currentItem = NewsItem();
                 currentItem.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
                 currentItem.source = sourceName;
+                currentDescription.clear();
 
                 // 根据来源判断分类
-                if (sourceName.contains("国际") || sourceName.contains("world")) {
+                if (sourceName.contains("国际") || sourceName.contains("world") ||
+                    sourceName.contains("BBC") || sourceName.contains("bbc")) {
                     currentItem.category = "国际";
                 } else {
                     currentItem.category = "国内";
                 }
             }
+
+            if (inItem && currentElement == "link") {
+                // Atom: <link href="..." />
+                const auto href = xml.attributes().value("href").toString().trimmed();
+                if (!href.isEmpty()) {
+                    currentItem.url = href;
+                }
+            }
         } else if (token == QXmlStreamReader::EndElement) {
             if (xml.name().toString() == "item" || xml.name().toString() == "entry") {
                 inItem = false;
+
+                // 如果没有直接的图片 URL，尝试从 description 的 HTML 中提取
+                if (currentItem.imageUrl.isEmpty() && !currentDescription.isEmpty()) {
+                    QRegularExpressionMatch match = imgRegex.match(currentDescription);
+                    if (match.hasMatch()) {
+                        currentItem.imageUrl = match.captured(1);
+                        // 处理 HTML 转义
+                        currentItem.imageUrl = currentItem.imageUrl
+                            .replace("&amp;", "&")
+                            .replace("&quot;", "\"")
+                            .replace("&lt;", "<")
+                            .replace("&gt;", ">");
+                    }
+                }
+
                 if (currentItem.isValid()) {
                     // 生成摘要
                     if (currentItem.summary.isEmpty() && !currentItem.content.isEmpty()) {
@@ -380,8 +512,23 @@ QList<NewsItem> RealNewsProvider::parseRSSResponse(const QByteArray &data, const
             if (currentElement == "title") {
                 currentItem.title = text;
             } else if (currentElement == "description" || currentElement == "summary") {
-                // 移除 HTML 标签
-                currentItem.summary = text.remove(QRegularExpression("<[^>]*>"));
+                // 保存原始 HTML 用于提取图片
+                currentDescription = text;
+                // 移除 HTML 标签作为摘要
+                currentItem.summary = text;
+                currentItem.summary.remove(QRegularExpression("<[^>]*>"));
+                // 处理常见 HTML 实体
+                currentItem.summary = currentItem.summary
+                    .replace("&amp;", "&")
+                    .replace("&nbsp;", " ")
+                    .replace("&quot;", "\"")
+                    .replace("&lt;", "<")
+                    .replace("&gt;", ">")
+                    .trimmed();
+                // 截断过长的摘要
+                if (currentItem.summary.length() > 150) {
+                    currentItem.summary = currentItem.summary.left(150) + "...";
+                }
             } else if (currentElement == "content" || currentElement == "content:encoded") {
                 currentItem.content = text.remove(QRegularExpression("<[^>]*>"));
             } else if (currentElement == "pubDate" || currentElement == "published") {
@@ -390,19 +537,21 @@ QList<NewsItem> RealNewsProvider::parseRSSResponse(const QByteArray &data, const
                 if (!currentItem.publishTime.isValid()) {
                     currentItem.publishTime = QDateTime::fromString(text, Qt::ISODate);
                 }
-                if (!currentItem.publishTime.isValid()) {
-                    currentItem.publishTime = QDateTime::currentDateTime();
-                }
             } else if (currentElement == "link") {
-                // 可以用于获取详情
+                // RSS: <link>https://...</link>
+                if (currentItem.url.isEmpty()) {
+                    currentItem.url = text;
+                }
             }
         }
+        // 注：Qt6 中 CDATA 内容会作为 Characters token 返回，不需要单独处理
     }
 
     if (xml.hasError()) {
         qWarning() << "[RealNewsProvider] RSS 解析错误:" << xml.errorString();
     }
 
+    qDebug() << "[RealNewsProvider] RSS 解析完成:" << sourceName << "获取" << items.size() << "条新闻";
     return items;
 }
 
@@ -459,4 +608,41 @@ void RealNewsProvider::fetchNewsDetail(const QString &newsId)
 void RealNewsProvider::refresh()
 {
     fetchHotNews(m_currentLimit, m_currentCategory);
+}
+
+void RealNewsProvider::finalizeNewsAggregation()
+{
+    // 还有请求没完成，等着
+    if (m_pendingTianXingCount > 0) {
+        return;
+    }
+
+    // 按发布时间排序（新的在前）
+    std::sort(m_aggregatedNews.begin(), m_aggregatedNews.end(),
+              [](const NewsItem &a, const NewsItem &b) {
+                  return a.publishTime > b.publishTime;
+              });
+
+    // 根据分类筛选
+    if (!m_currentCategory.isEmpty() && m_currentCategory != "全部") {
+        QList<NewsItem> filtered;
+        for (const auto &item : m_aggregatedNews) {
+            if (item.category == m_currentCategory ||
+                (m_currentCategory == "国外" && item.category == "国际")) {
+                filtered.append(item);
+            }
+        }
+        m_aggregatedNews = filtered;
+    }
+
+    // 限制数量
+    if (m_aggregatedNews.size() > m_currentLimit) {
+        m_aggregatedNews = m_aggregatedNews.mid(0, m_currentLimit);
+    }
+
+    m_cachedNews = m_aggregatedNews;
+    emit newsListReceived(m_aggregatedNews);
+    emit loadingFinished();
+
+    qDebug() << "[RealNewsProvider] 新闻聚合完成，共" << m_aggregatedNews.size() << "条";
 }
