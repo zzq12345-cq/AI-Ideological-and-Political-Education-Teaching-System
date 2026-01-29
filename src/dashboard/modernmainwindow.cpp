@@ -1075,6 +1075,57 @@ void ModernMainWindow::setupCentralWidget()
     m_hotspotWidget->setDifyService(m_difyService);
     contentStack->addWidget(m_hotspotWidget);
 
+    // 连接时政热点"生成案例"信号 - 自动切换到AI对话页面并发送请求
+    connect(m_hotspotWidget, &HotspotTrackingWidget::teachingContentRequested, this, [this](const NewsItem &news) {
+        qDebug() << "[ModernMainWindow] 收到生成教学案例请求:" << news.title;
+
+        // 1. 切换到AI对话页面
+        if (contentStack && dashboardWidget) {
+            contentStack->setCurrentWidget(dashboardWidget);
+        }
+        if (m_mainStack && m_chatContainer) {
+            m_mainStack->setCurrentWidget(m_chatContainer);
+            swapToHistorySidebar();
+        }
+
+        // 2. 更新侧边栏按钮状态
+        newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+        aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+        resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+        learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+        teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+
+        // 3. 构建教学案例生成提示并直接发送（不显示问候语）
+        QString prompt = QString(
+            "请根据以下时政新闻，生成一份适合思政课堂使用的教学案例分析。\n\n"
+            "【新闻标题】%1\n"
+            "【新闻来源】%2\n"
+            "【新闻摘要】%3\n\n"
+            "请按以下格式输出：\n"
+            "## 案例背景\n"
+            "简要介绍新闻背景\n\n"
+            "## 思政价值\n"
+            "分析该新闻蕴含的思政教育价值\n\n"
+            "## 讨论话题\n"
+            "设计2-3个适合课堂讨论的话题\n\n"
+            "## 延伸思考\n"
+            "引导学生进行深入思考的问题"
+        ).arg(news.title, news.source, news.summary);
+
+        // 4. 在聊天界面显示用户的请求（简化版）
+        if (m_bubbleChatWidget) {
+            QString userMsg = QString("请根据新闻《%1》生成思政教学案例").arg(news.title);
+            m_bubbleChatWidget->addMessage(userMsg, true);
+        }
+
+        // 5. 发送到Dify（直接发送，不需要问候语）
+        if (m_difyService) {
+            m_difyService->sendMessage(prompt);
+        }
+
+        this->statusBar()->showMessage("AI智能备课 - 正在生成教学案例...");
+    });
+
     // 连接试题库返回信号
     connect(questionBankWindow, &QuestionBankWindow::backRequested, this, [this]() {
         // 返回首页（教师中心）

@@ -9,20 +9,21 @@
 #include <QUuid>
 #include <QRandomGenerator>
 #include <QRegularExpression>
+#include <QStringDecoder>
 
 RealNewsProvider::RealNewsProvider(QObject *parent)
     : INewsProvider(parent)
     , m_networkManager(new QNetworkAccessManager(this))
-    , m_dataSource(DataSource::TianXing)  // 使用天行数据API
+    , m_dataSource(DataSource::TianXing)  // 默认使用天行 API（数据最新）
     , m_pendingRSSCount(0)
     , m_pendingTianXingCount(0)
     , m_currentLimit(20)
 {
-    // 国内新闻 RSS 源（备用）
-    addRSSSource("人民网-时政", "https://politics.people.com.cn/rss/politics.xml");
-    addRSSSource("人民网-理论", "https://theory.people.com.cn/rss/theory.xml");
-    addRSSSource("新华网-时政", "https://www.xinhuanet.com/politics/news_politics.xml");
-    addRSSSource("央视网-新闻", "https://news.cctv.com/rss/china.xml");
+    // 天行 API Key（国内新闻主数据源）
+    m_tianxingKey = "aa65efc9316cdcc1a4baf14ba175fc39";
+
+    // RSS 源作为备用
+    addRSSSource("人民日报", "http://www.people.com.cn/rss/politics.xml");
 
     // 国际新闻 RSS 源（feedx.net BBC 中文，带图片）
     addRSSSource("BBC中文-国际", "https://feedx.net/rss/bbc.xml");
@@ -45,22 +46,382 @@ void RealNewsProvider::fetchHotNews(int limit, const QString &category)
 
     emit loadingStarted();
 
-    switch (m_dataSource) {
-    case DataSource::HanXiaoHan:
-        fetchFromHanXiaoHan();
-        break;
-    case DataSource::TianXing:
-        fetchFromTianXing(limit, category);
-        break;
-    case DataSource::RSS:
+    // 根据分类智能选择数据源
+    // 国际新闻 → BBC RSS（有图片）
+    // 国内新闻 → 天行 API（数据最新，来源为人民日报/新华社/央视等官媒）
+    if (category == "国际") {
+        qDebug() << "[RealNewsProvider] 分类为国际，使用 BBC RSS";
         fetchFromRSS();
-        break;
-    case DataSource::All:
-    default:
-        // 优先使用韩小韩（免费），失败再用天行或RSS
-        fetchFromHanXiaoHan();
-        break;
+        return;
     }
+
+    // 国内新闻或全部：使用天行 API
+    qDebug() << "[RealNewsProvider] 国内新闻使用天行API（人民日报、新华社、央视新闻）";
+    fetchFromTianXing(limit, category);
+}
+
+void RealNewsProvider::fetchFromTouTiao()
+{
+    // 使用网易新闻国内频道 API - 图文匹配
+    // 接口返回 JSONP 格式，需要解析
+    QUrl url("https://temp.163.com/special/00804KVA/cm_guonei.js?callback=data_callback");
+
+    QNetworkRequest request(url);
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+    request.setRawHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36");
+    request.setTransferTimeout(15000);
+
+    QNetworkReply *reply = m_networkManager->get(request);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        if (reply->error() == QNetworkReply::NoError) {
+            QByteArray data = reply->readAll();
+            QList<NewsItem> items = parseTouTiaoResponse(data);
+
+            // 筛选思政类新闻，过滤社会新闻
+            items = filterPoliticalNews(items);
+
+            if (!items.isEmpty()) {
+                // 限制数量
+                if (items.size() > m_currentLimit) {
+                    items = items.mid(0, m_currentLimit);
+                }
+
+                m_cachedNews = items;
+                emit newsListReceived(items);
+                emit loadingFinished();
+                qDebug() << "[RealNewsProvider] 思政新闻筛选完成，" << items.size() << "条新闻";
+            } else {
+                qWarning() << "[RealNewsProvider] 无思政相关新闻，降级到今日头条热榜";
+                // 降级到今日头条热榜
+                fetchFromTouTiaoHotBoard();
+            }
+        } else {
+            qWarning() << "[RealNewsProvider] 网易API请求失败:" << reply->errorString();
+            fetchFromTouTiaoHotBoard();
+        }
+        reply->deleteLater();
+    });
+}
+
+// 筛选思政类新闻 - 严格过滤社会类新闻
+QList<NewsItem> RealNewsProvider::filterPoliticalNews(const QList<NewsItem> &items)
+{
+    // 时政热点关键词 - 党政、理论、政策、领导人、重要会议等
+    static const QStringList politicalKeywords = {
+        // 领导人
+        "习近平", "李强", "赵乐际", "王沪宁", "蔡奇", "丁薛祥", "李希",
+        "总书记", "国家主席", "总理", "委员长", "政协主席", "国家副主席",
+        // 机构
+        "中央", "国务院", "全国人大", "全国政协", "中纪委", "中组部",
+        "外交部", "国防部", "发改委", "教育部", "科技部", "工信部",
+        "公安部", "民政部", "司法部", "财政部", "人社部", "自然资源部",
+        "生态环境部", "住建部", "交通运输部", "水利部", "农业农村部",
+        "商务部", "文旅部", "卫健委", "退役军人部", "应急管理部",
+        "中国人民银行", "审计署", "国资委", "海关总署", "税务总局",
+        "市场监管", "广电总局", "体育总局", "统计局", "医保局",
+        // 会议活动
+        "两会", "党代会", "中央全会", "政治局", "常委会", "座谈会",
+        "工作会议", "中央经济", "深改委", "国家安全", "中央财经",
+        // 政策理论
+        "改革", "政策", "法治", "依法治国", "从严治党", "党建",
+        "思想政治", "意识形态", "马克思", "社会主义", "新时代",
+        "中国特色", "现代化", "高质量发展", "共同富裕", "乡村振兴",
+        "一带一路", "双循环", "碳达峰", "碳中和", "数字中国",
+        // 外交国防
+        "外交", "国防", "军队", "解放军", "武警", "国际关系",
+        "中美", "中俄", "中欧", "台湾", "港澳", "统一",
+        // 其他时政
+        "省委", "市委", "党委", "人大代表", "政协委员",
+        "纪检", "巡视", "反腐", "廉政", "作风建设",
+        // 补充：经济、科技政策相关
+        "经济工作", "金融监管", "科技创新", "产业政策", "区域发展"
+    };
+
+    // 社会新闻排除关键词 - 严格过滤（老王加强版）
+    static const QStringList excludeKeywords = {
+        // 事故灾难类
+        "车祸", "事故", "坠楼", "跳楼", "自杀", "凶杀", "命案", "火灾",
+        "爆炸", "塌方", "坍塌", "伤亡", "遇难", "死亡", "身亡", "溺水",
+        "触电", "中毒", "煤气", "意外", "惨剧",
+        // 犯罪类
+        "骗子", "诈骗", "盗窃", "抢劫", "绑架", "失踪", "贩毒", "贪污",
+        "偷窃", "强奸", "猥亵", "杀人", "杀害", "谋杀", "行凶", "砍人",
+        "报警", "逮捕", "抓捕", "犯罪", "嫌疑人", "作案", "案件", "刑事",
+        // 娱乐八卦类
+        "出轨", "离婚", "小三", "婆媳", "家暴", "吵架", "恋情", "分手",
+        "网红", "明星", "八卦", "绯闻", "整容", "炫富", "豪宅", "豪车",
+        "结婚", "订婚", "热恋", "复合", "前夫", "前妻", "恋爱",
+        // 博彩赌博类
+        "彩票", "赌博", "酒驾", "醉驾", "超速", "违章", "中奖", "博彩",
+        // 生活娱乐类
+        "宠物", "萌宠", "吃播", "减肥", "健身", "美食", "旅游",
+        "直播", "带货", "网购", "团购", "探店", "打卡", "测评",
+        // 社会琐事类
+        "吵架", "口角", "纠纷", "邻居", "停车", "物业", "业主",
+        "打架", "斗殴", "聚众", "闹事", "争执", "争吵", "冲突",
+        // 奇闻异事类
+        "路人", "围观", "现场", "目击", "爆料", "曝光", "揭秘",
+        "惊现", "惊人", "震惊", "吓人", "离奇", "诡异", "诡异",
+        "奇葩", "奇怪", "罕见", "罕见", "匪夷所思", "不可思议",
+        // 医疗健康类（个人案例）
+        "患者", "病人", "手术", "肿瘤", "癌症", "确诊", "治疗", "医院",
+        // 消费维权类（个案）
+        "投诉", "维权", "退款", "赔偿", "索赔", "质量问题", "假冒",
+        // 家庭矛盾类
+        "继母", "继父", "婆婆", "儿媳", "女婿", "岳父", "岳母",
+        // 情感故事类
+        "表白", "求婚", "情侣", "夫妻", "相亲", "约会", "男友", "女友",
+        // 校园社会类（非教育政策）
+        "学生打架", "校园霸凌", "师生冲突", "早恋",
+        // 其他社会八卦
+        "网友热议", "引发热议", "网传", "有人", "某男", "某女",
+        "一男子", "一女子", "男童", "女童", "老人", "老太",
+        // 标题党关键词
+        "太", "竟然", "居然", "竟", "万万没想到", "没想到"
+    };
+
+    QList<NewsItem> filtered;
+
+    // 官方权威媒体列表 - 扩充更多官媒
+    static const QStringList officialSources = {
+        "人民日报", "新华社", "新华网", "央视", "CCTV", "中国日报",
+        "光明日报", "经济日报", "解放军报", "中国青年报", "中国纪检监察报",
+        "求是", "半月谈", "环球时报", "参考消息", "中国政府网",
+        "人民网", "央广网", "中国网", "中国新闻网", "学习强国",
+        "央视新闻", "新华社", "人民政协网", "法制日报", "科技日报"
+    };
+
+    for (const NewsItem &item : items) {
+        QString text = item.title + " " + item.summary;
+
+        // 第一步：严格排除社会新闻（优先级最高）
+        bool excluded = false;
+        for (const QString &keyword : excludeKeywords) {
+            if (text.contains(keyword, Qt::CaseInsensitive)) {
+                excluded = true;
+                qDebug() << "[RealNewsProvider] 排除社会新闻:" << item.title.left(30)
+                         << " (关键词:" << keyword << ")";
+                break;
+            }
+        }
+        if (excluded) continue;
+
+        // 第二步：检查是否包含时政关键词
+        bool isPolitical = false;
+        QString matchedKeyword;
+        for (const QString &keyword : politicalKeywords) {
+            if (text.contains(keyword, Qt::CaseInsensitive)) {
+                isPolitical = true;
+                matchedKeyword = keyword;
+                break;
+            }
+        }
+
+        // 第三步：检查来源是否是官方权威媒体（补充筛选）
+        bool isOfficialSource = false;
+        for (const QString &source : officialSources) {
+            if (item.source.contains(source, Qt::CaseInsensitive)) {
+                isOfficialSource = true;
+                break;
+            }
+        }
+
+        // 通过条件：必须同时满足 (时政关键词 OR 官方媒体) 且不包含排除关键词
+        if (isPolitical || isOfficialSource) {
+            filtered.append(item);
+            qDebug() << "[RealNewsProvider] 保留时政新闻:" << item.title.left(40)
+                     << " (关键词:" << matchedKeyword << " 官媒:" << isOfficialSource << ")";
+        } else {
+            qDebug() << "[RealNewsProvider] 过滤非时政:" << item.title.left(40);
+        }
+    }
+
+    qDebug() << "[RealNewsProvider] 时政热点筛选完成: 原" << items.size()
+             << "条 → 筛选后" << filtered.size() << "条";
+    return filtered;
+}
+
+QList<NewsItem> RealNewsProvider::parseTouTiaoResponse(const QByteArray &data)
+{
+    QList<NewsItem> items;
+
+    // 网易新闻返回 JSONP 格式: data_callback([...])
+    // 数据编码为 GBK，使用 QStringDecoder (Qt6)
+    QStringDecoder decoder("GBK");
+    if (!decoder.isValid()) {
+        qWarning() << "[RealNewsProvider] GBK 解码器创建失败，尝试 GB18030";
+        decoder = QStringDecoder("GB18030");
+    }
+
+    QString text = decoder(data);
+
+    if (text.isEmpty()) {
+        qWarning() << "[RealNewsProvider] GBK 解码后文本为空，原始数据长度:" << data.size();
+        return items;
+    }
+
+    qDebug() << "[RealNewsProvider] 解码后文本长度:" << text.length() << "前100字符:" << text.left(100);
+
+    // 提取 JSON 数组部分（使用非贪婪匹配，避免匹配到最后的括号）
+    QRegularExpression jsonRegex(R"(data_callback\((.*)\)\s*$)", QRegularExpression::DotMatchesEverythingOption);
+    QRegularExpressionMatch match = jsonRegex.match(text);
+
+    if (!match.hasMatch()) {
+        qWarning() << "[RealNewsProvider] 网易新闻 JSONP 解析失败，文本开头:" << text.left(200);
+        return items;
+    }
+    
+    QString jsonStr = match.captured(1);
+    QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
+    
+    if (doc.isNull() || !doc.isArray()) {
+        qWarning() << "[RealNewsProvider] 网易新闻 JSON 解析失败";
+        return items;
+    }
+
+    QJsonArray dataArray = doc.array();
+
+    for (const QJsonValue &val : dataArray) {
+        QJsonObject obj = val.toObject();
+
+        NewsItem item;
+        item.id = obj["docid"].toString();
+        if (item.id.isEmpty()) {
+            item.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        }
+        item.title = obj["title"].toString();
+        
+        // 获取图片 URL (网易使用 imgurl 或 imgsrc)
+        item.imageUrl = obj["imgurl"].toString();
+        if (item.imageUrl.isEmpty()) {
+            item.imageUrl = obj["imgsrc"].toString();
+        }
+        
+        // 确保图片 URL 是完整的
+        if (!item.imageUrl.isEmpty() && !item.imageUrl.startsWith("http")) {
+            item.imageUrl = "http:" + item.imageUrl;
+        }
+        
+        // 热度值（如果没有则设为0，不再随机生成）
+        item.hotScore = obj["hot"].toVariant().toInt();
+        if (item.hotScore <= 0) item.hotScore = 0;
+        
+        // 链接
+        item.url = obj["url"].toString();
+        if (item.url.isEmpty()) {
+            item.url = obj["docurl"].toString();
+        }
+        
+        // 来源和分类
+        item.source = obj["source"].toString();
+        if (item.source.isEmpty()) {
+            item.source = "网易新闻";
+        }
+        item.category = "国内";
+        
+        // 摘要
+        item.summary = obj["digest"].toString();
+        if (item.summary.isEmpty()) {
+            item.summary = item.title;
+        }
+        
+        // 发布时间
+        QString timeStr = obj["ptime"].toString();
+        item.publishTime = QDateTime::fromString(timeStr, "yyyy-MM-dd HH:mm:ss");
+        if (!item.publishTime.isValid()) {
+            item.publishTime = QDateTime::currentDateTime();
+        }
+
+        if (item.isValid()) {
+            items.append(item);
+        }
+    }
+
+    qDebug() << "[RealNewsProvider] 网易新闻解析完成，" << items.size() << "条新闻";
+    return items;
+}
+
+void RealNewsProvider::fetchFromTouTiaoHotBoard()
+{
+    // 今日头条热榜 API - 备用（也需要筛选时政新闻）
+    QUrl url("https://www.toutiao.com/hot-event/hot-board/?origin=toutiao_pc");
+
+    QNetworkRequest request(url);
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+    request.setRawHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36");
+    request.setTransferTimeout(15000);
+
+    QNetworkReply *reply = m_networkManager->get(request);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        if (reply->error() == QNetworkReply::NoError) {
+            QByteArray data = reply->readAll();
+            QList<NewsItem> items = parseTouTiaoHotBoardResponse(data);
+
+            // 同样需要筛选时政新闻！
+            items = filterPoliticalNews(items);
+
+            if (!items.isEmpty()) {
+                if (items.size() > m_currentLimit) {
+                    items = items.mid(0, m_currentLimit);
+                }
+                m_cachedNews = items;
+                emit newsListReceived(items);
+                emit loadingFinished();
+                qDebug() << "[RealNewsProvider] 今日头条热榜时政筛选完成，" << items.size() << "条新闻";
+            } else {
+                qWarning() << "[RealNewsProvider] 今日头条热榜无时政新闻，降级到韩小韩";
+                fetchFromHanXiaoHan();
+            }
+        } else {
+            qWarning() << "[RealNewsProvider] 今日头条热榜请求失败:" << reply->errorString();
+            fetchFromHanXiaoHan();
+        }
+        reply->deleteLater();
+    });
+}
+
+QList<NewsItem> RealNewsProvider::parseTouTiaoHotBoardResponse(const QByteArray &data)
+{
+    QList<NewsItem> items;
+
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (doc.isNull() || !doc.isObject()) {
+        return items;
+    }
+
+    QJsonObject root = doc.object();
+    QJsonArray dataArray = root["data"].toArray();
+
+    for (const QJsonValue &val : dataArray) {
+        QJsonObject obj = val.toObject();
+
+        NewsItem item;
+        item.id = obj["ClusterId"].toString();
+        if (item.id.isEmpty()) {
+            item.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        }
+        item.title = obj["Title"].toString();
+        
+        QJsonObject imgObj = obj["Image"].toObject();
+        item.imageUrl = imgObj["url"].toString();
+        
+        qint64 hotValue = obj["HotValue"].toVariant().toLongLong();
+        item.hotScore = qMin(100, qMax(10, static_cast<int>(hotValue / 100000)));
+        
+        QString clusterId = obj["ClusterId"].toString();
+        item.url = QString("https://www.toutiao.com/trending/%1/").arg(clusterId);
+        
+        item.source = "今日头条";
+        item.category = "国内";
+        item.summary = item.title;
+        item.publishTime = QDateTime::currentDateTime();
+
+        if (item.isValid()) {
+            items.append(item);
+        }
+    }
+
+    return items;
 }
 
 void RealNewsProvider::fetchFromHanXiaoHan()
@@ -256,10 +617,44 @@ void RealNewsProvider::fetchFromRSS()
         return;
     }
 
-    m_pendingRSSCount = m_rssSources.size();
     m_aggregatedNews.clear();
 
+    // 根据分类筛选要加载的 RSS 源
+    QList<QPair<QString, QString>> sourcesToFetch;
+
     for (const auto &source : m_rssSources) {
+        bool isInternational = source.first.contains("国际") ||
+                              source.first.contains("BBC") ||
+                              source.first.contains("world");
+
+        // 如果是"国际"分类，只加载国际源
+        if (m_currentCategory == "国际") {
+            if (isInternational) {
+                sourcesToFetch.append(source);
+            }
+        }
+        // 如果是"国内"分类，只加载国内源
+        else if (m_currentCategory == "国内") {
+            if (!isInternational) {
+                sourcesToFetch.append(source);
+            }
+        }
+        // "全部"或空，加载所有源
+        else {
+            sourcesToFetch.append(source);
+        }
+    }
+
+    if (sourcesToFetch.isEmpty()) {
+        emit errorOccurred("没有适合该分类的 RSS 数据源");
+        emit loadingFinished();
+        return;
+    }
+
+    m_pendingRSSCount = sourcesToFetch.size();
+    qDebug() << "[RealNewsProvider] 加载 RSS 源，分类:" << m_currentCategory << "源数量:" << m_pendingRSSCount;
+
+    for (const auto &source : sourcesToFetch) {
         QUrl url(source.second);
         QNetworkRequest request(url);
         request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
@@ -274,6 +669,7 @@ void RealNewsProvider::fetchFromRSS()
                 QByteArray data = reply->readAll();
                 QList<NewsItem> items = parseRSSResponse(data, sourceName);
                 m_aggregatedNews.append(items);
+                qDebug() << "[RealNewsProvider] RSS 源" << sourceName << "获取成功，" << items.size() << "条新闻";
             } else {
                 qWarning() << "[RealNewsProvider] RSS 获取失败:" << sourceName << reply->errorString();
             }
@@ -294,20 +690,11 @@ void RealNewsProvider::fetchFromRSS()
                     m_aggregatedNews = m_aggregatedNews.mid(0, m_currentLimit);
                 }
 
-                // 根据分类筛选
-                if (!m_currentCategory.isEmpty()) {
-                    QList<NewsItem> filtered;
-                    for (const auto &item : m_aggregatedNews) {
-                        if (item.category == m_currentCategory) {
-                            filtered.append(item);
-                        }
-                    }
-                    m_aggregatedNews = filtered;
-                }
-
                 m_cachedNews = m_aggregatedNews;
                 emit newsListReceived(m_aggregatedNews);
                 emit loadingFinished();
+
+                qDebug() << "[RealNewsProvider] RSS 新闻聚合完成，共" << m_aggregatedNews.size() << "条";
             }
         });
     }
@@ -365,7 +752,8 @@ QList<NewsItem> RealNewsProvider::parseTianXingResponse(const QByteArray &data, 
         item.summary = obj["description"].toString();
         item.content = obj["content"].toString();
         item.source = obj["source"].toString();
-        item.imageUrl = obj["picUrl"].toString();
+        // 国内新闻不需要图片，只要内容
+        item.imageUrl = QString();  // 清空图片URL
         item.url = obj["url"].toString();
 
         // 如果 summary 为空，使用标题的前 80 个字符
@@ -426,7 +814,7 @@ QList<NewsItem> RealNewsProvider::parseTianXingResponse(const QByteArray &data, 
             item.category = "国内";
         }
 
-        item.hotScore = 50 + (QRandomGenerator::global()->bounded(50));  // 模拟热度
+        item.hotScore = 0; // 真实数据无热度，不再随机生成
 
         if (item.isValid()) {
             items.append(item);
@@ -501,8 +889,36 @@ QList<NewsItem> RealNewsProvider::parseRSSResponse(const QByteArray &data, const
                     if (currentItem.summary.isEmpty() && !currentItem.content.isEmpty()) {
                         currentItem.summary = currentItem.content.left(100) + "...";
                     }
-                    currentItem.hotScore = 30 + (QRandomGenerator::global()->bounded(70));
-                    items.append(currentItem);
+                    currentItem.hotScore = 0; // 真实数据无热度，不再随机生成
+
+                    // 如果是国际新闻源，过滤掉涉及中国的新闻
+                    if (currentItem.category == "国际") {
+                        static const QStringList chinaRelatedKeywords = {
+                            "中国", "中共", "中方", "北京", "习近平", "李强",
+                            "台湾", "台北", "香港", "澳门", "新疆", "西藏",
+                            "中美", "中俄", "中欧", "中日", "中韩", "中印",
+                            "华为", "大疆", "TikTok", "字节跳动", "阿里", "腾讯",
+                            "人民币", "一带一路", "孔子学院"
+                        };
+
+                        bool isChinaRelated = false;
+                        QString fullText = currentItem.title + " " + currentItem.summary;
+
+                        for (const QString &keyword : chinaRelatedKeywords) {
+                            if (fullText.contains(keyword, Qt::CaseInsensitive)) {
+                                isChinaRelated = true;
+                                break;
+                            }
+                        }
+
+                        // 只添加非中国相关的国际新闻
+                        if (!isChinaRelated) {
+                            items.append(currentItem);
+                        }
+                    } else {
+                        // 国内新闻正常添加
+                        items.append(currentItem);
+                    }
                 }
             }
         } else if (token == QXmlStreamReader::Characters && inItem) {
@@ -622,6 +1038,57 @@ void RealNewsProvider::finalizeNewsAggregation()
               [](const NewsItem &a, const NewsItem &b) {
                   return a.publishTime > b.publishTime;
               });
+
+    // 去重：基于 URL 和标题去重（避免多个源返回相同新闻）
+    // 性能优化：使用 QSet 快速查找，时间复杂度 O(n)
+    static constexpr int TITLE_PREFIX_LENGTH = 30;      // 标题前缀匹配长度
+    static constexpr int MIN_PREFIX_MATCH_LENGTH = 15;  // 最小前缀匹配长度
+
+    QList<NewsItem> deduplicatedNews;
+    QSet<QString> seenUrls;        // 已见过的 URL
+    QSet<QString> seenTitles;      // 已见过的标题（规范化后）
+    QSet<QString> seenPrefixes;    // 已见过的标题前缀（性能优化）
+
+    for (const NewsItem &item : m_aggregatedNews) {
+        bool isDuplicate = false;
+
+        // 规范化标题：去除空格、转小写
+        QString normalizedTitle = item.title.simplified().toLower();
+        QString titlePrefix = normalizedTitle.left(TITLE_PREFIX_LENGTH);
+
+        // 检查1：URL 完全相同
+        if (!item.url.isEmpty() && seenUrls.contains(item.url)) {
+            isDuplicate = true;
+            qDebug() << "[RealNewsProvider] 去重: URL重复 -" << item.title.left(40);
+        }
+        // 检查2：标题完全相同
+        else if (seenTitles.contains(normalizedTitle)) {
+            isDuplicate = true;
+            qDebug() << "[RealNewsProvider] 去重: 标题重复 -" << item.title.left(40);
+        }
+        // 检查3：标题前缀相同（性能优化：O(1) 查找）
+        else if (titlePrefix.length() >= MIN_PREFIX_MATCH_LENGTH &&
+                 seenPrefixes.contains(titlePrefix)) {
+            isDuplicate = true;
+            qDebug() << "[RealNewsProvider] 去重: 前缀重复 -" << item.title.left(40);
+        }
+
+        // 如果不是重复，加入结果并记录
+        if (!isDuplicate) {
+            deduplicatedNews.append(item);
+            if (!item.url.isEmpty()) {
+                seenUrls.insert(item.url);
+            }
+            seenTitles.insert(normalizedTitle);
+            if (normalizedTitle.length() >= TITLE_PREFIX_LENGTH) {
+                seenPrefixes.insert(titlePrefix);
+            }
+        }
+    }
+
+    qDebug() << "[RealNewsProvider] 去重: 原" << m_aggregatedNews.size()
+             << "条 → 去重后" << deduplicatedNews.size() << "条";
+    m_aggregatedNews = deduplicatedNews;
 
     // 根据分类筛选
     if (!m_currentCategory.isEmpty() && m_currentCategory != "全部") {

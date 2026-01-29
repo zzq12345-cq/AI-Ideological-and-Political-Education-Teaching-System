@@ -9,9 +9,10 @@
  * @brief 真实新闻提供者
  *
  * 对接多个新闻数据源：
- * 1. 韩小韩 API - 免费热点新闻（无需Key）
- * 2. 天行数据 API - 综合新闻（需Key）
- * 3. RSS 订阅 - 人民网、新华网（备用）
+ * 1. 今日头条热榜 API - 免费热点新闻（带图片，推荐）
+ * 2. 韩小韩 API - 免费热点新闻（无需Key）
+ * 3. 天行数据 API - 综合新闻（需Key，图文不匹配）
+ * 4. RSS 订阅 - 人民网、新华网（备用）
  */
 class RealNewsProvider : public INewsProvider {
     Q_OBJECT
@@ -19,6 +20,7 @@ class RealNewsProvider : public INewsProvider {
 public:
     // 数据源类型
     enum class DataSource {
+        TouTiao,     // 今日头条热榜（推荐，图文匹配）
         HanXiaoHan,  // 韩小韩（免费）
         TianXing,    // 天行数据
         JuHe,        // 聚合数据
@@ -55,10 +57,15 @@ private slots:
     void onTianXingReplyFinished(QNetworkReply *reply);
 
 private:
+    void fetchFromTouTiao();  // 网易新闻国内频道（主要）
+    void fetchFromTouTiaoHotBoard();  // 今日头条热榜（备用）
     void fetchFromHanXiaoHan();
     void fetchFromTianXing(int limit, const QString &category);
     void fetchFromRSS();
     void finalizeNewsAggregation();  // 聚合完成后统一处理
+    QList<NewsItem> filterPoliticalNews(const QList<NewsItem> &items);  // 筛选思政新闻
+    QList<NewsItem> parseTouTiaoResponse(const QByteArray &data);  // 解析网易新闻
+    QList<NewsItem> parseTouTiaoHotBoardResponse(const QByteArray &data);  // 解析今日头条热榜
     QList<NewsItem> parseHanXiaoHanResponse(const QByteArray &data);
     QList<NewsItem> parseTianXingResponse(const QByteArray &data, const QString &endpoint = QString());
     QList<NewsItem> parseRSSResponse(const QByteArray &data, const QString &sourceName);
