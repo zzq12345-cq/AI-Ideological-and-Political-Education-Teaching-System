@@ -12,6 +12,9 @@
 #include "../ui/HotspotTrackingWidget.h"
 #include "../services/HotspotService.h"
 #include "../hotspot/RealNewsProvider.h"
+#include "../settings/UserSettingsDialog.h"
+#include "../settings/UserSettingsManager.h"
+#include "../analytics/DataAnalyticsWidget.h"
 #include "../config/embedded_keys.h"
 #include <QApplication>
 #include <QMessageBox>
@@ -788,7 +791,12 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     m_streamUpdatePending = false;
     connect(m_streamUpdateTimer, &QTimer::timeout, this, [this]() {
         if (m_streamUpdatePending && m_bubbleChatWidget) {
-            m_bubbleChatWidget->updateLastAIMessage(m_currentAIResponse);
+            // 过滤 Markdown 格式符号
+            QString displayText = m_currentAIResponse;
+            displayText.remove(QRegularExpression("^##\\s*", QRegularExpression::MultilineOption));
+            displayText.remove(QRegularExpression("//+\\s*"));
+            displayText.remove(QRegularExpression("\\*\\*"));
+            m_bubbleChatWidget->updateLastAIMessage(displayText);
             m_streamUpdatePending = false;
         }
     });
@@ -971,8 +979,8 @@ void ModernMainWindow::setupCentralWidget()
     newsTrackingBtn = new QPushButton("时政新闻");
     aiPreparationBtn = new QPushButton("AI智能备课");
     resourceManagementBtn = new QPushButton("试题库");
-    learningAnalysisBtn = new QPushButton("学情与教评");
-  
+    learningAnalysisBtn = new QPushButton("数据分析");
+
     // 底部按钮
     settingsBtn = new QPushButton("系统设置");
     helpBtn = new QPushButton("帮助中心");
@@ -1074,6 +1082,11 @@ void ModernMainWindow::setupCentralWidget()
     m_hotspotWidget->setHotspotService(m_hotspotService);
     m_hotspotWidget->setDifyService(m_difyService);
     contentStack->addWidget(m_hotspotWidget);
+
+    // 创建数据分析报告页面
+    m_dataAnalyticsWidget = new DataAnalyticsWidget(this);
+    m_dataAnalyticsWidget->setDifyService(m_difyService);
+    contentStack->addWidget(m_dataAnalyticsWidget);
 
     // 连接时政热点"生成案例"信号 - 自动切换到AI对话页面并发送请求
     connect(m_hotspotWidget, &HotspotTrackingWidget::teachingContentRequested, this, [this](const NewsItem &news) {
@@ -1197,9 +1210,9 @@ void ModernMainWindow::createSidebarProfile()
     avatarLayout->setSpacing(14);
 
     // 头像占位符 - 扁平化设计，去掉白色边框
-    QLabel *avatarLabel = new QLabel();
-    avatarLabel->setFixedSize(40, 40); // 调整尺寸，更符合扁平设计
-    avatarLabel->setStyleSheet(QString(
+    m_avatarLabel = new QLabel();
+    m_avatarLabel->setFixedSize(40, 40); // 调整尺寸，更符合扁平设计
+    m_avatarLabel->setStyleSheet(QString(
         "QLabel {"
         "  background-color: %1;"
         "  border-radius: 20px;"  // 调整为完全圆形
@@ -1209,26 +1222,58 @@ void ModernMainWindow::createSidebarProfile()
         "  border: none;"  // 移除边框
         "}"
     ).arg(PATRIOTIC_RED));
-    avatarLabel->setAlignment(Qt::AlignCenter);
-    avatarLabel->setText("王");
+    m_avatarLabel->setAlignment(Qt::AlignCenter);
+    m_avatarLabel->setText(UserSettingsManager::instance()->avatarInitial());
 
     // 用户信息
     QVBoxLayout *userInfoLayout = new QVBoxLayout();
     userInfoLayout->setContentsMargins(0, 0, 0, 0);
     userInfoLayout->setSpacing(4);
 
-    QLabel *nameLabel = new QLabel("王老师");
-    nameLabel->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 15px; font-weight: bold;"); // 调整字体大小
+    m_userNameLabel = new QLabel(UserSettingsManager::instance()->displayName());
+    m_userNameLabel->setStyleSheet("color: " + PRIMARY_TEXT + "; font-size: 15px; font-weight: bold;"); // 调整字体大小
 
-    QLabel *roleLabel = new QLabel("思政教研组");
+    QLabel *roleLabel = new QLabel(UserSettingsManager::instance()->department());
     roleLabel->setStyleSheet("color: " + SECONDARY_TEXT + "; font-size: 13px;"); // 使用标准次文本颜色，适配白色背景
 
-    userInfoLayout->addWidget(nameLabel);
+    userInfoLayout->addWidget(m_userNameLabel);
     userInfoLayout->addWidget(roleLabel);
 
-    avatarLayout->addWidget(avatarLabel);
+    avatarLayout->addWidget(m_avatarLabel);
     avatarLayout->addLayout(userInfoLayout);
     avatarLayout->addStretch();
+
+    // 个人信息设置按钮
+    QPushButton *profileSettingsBtn = new QPushButton();
+    profileSettingsBtn->setIcon(QIcon(":/icons/resources/icons/settings.svg"));
+    profileSettingsBtn->setIconSize(QSize(18, 18));
+    profileSettingsBtn->setFixedSize(32, 32);
+    profileSettingsBtn->setCursor(Qt::PointingHandCursor);
+    profileSettingsBtn->setToolTip("个人信息设置");
+    profileSettingsBtn->setStyleSheet(QString(
+        "QPushButton {"
+        "  background-color: transparent;"
+        "  border: none;"
+        "  border-radius: 16px;"
+        "}"
+        "QPushButton:hover {"
+        "  background-color: %1;"
+        "}"
+        "QPushButton:pressed {"
+        "  background-color: %2;"
+        "}"
+    ).arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED_TINT));
+    connect(profileSettingsBtn, &QPushButton::clicked, this, [this]() {
+        UserSettingsDialog dialog(this);
+        dialog.exec();
+    });
+    avatarLayout->addWidget(profileSettingsBtn);
+
+    // 监听用户设置变化，更新头像和名称
+    connect(UserSettingsManager::instance(), &UserSettingsManager::settingsChanged, this, [this]() {
+        m_avatarLabel->setText(UserSettingsManager::instance()->avatarInitial());
+        m_userNameLabel->setText(UserSettingsManager::instance()->displayName());
+    });
 
     profileLayout->addLayout(avatarLayout);
 
@@ -1928,9 +1973,23 @@ void ModernMainWindow::onResourceManagementClicked()
 
 void ModernMainWindow::onLearningAnalysisClicked()
 {
-    onTeacherCenterClicked();
+    qDebug() << "切换到数据分析报告页面";
+
+    // 重置所有侧边栏按钮样式
+    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-    this->statusBar()->showMessage("学情与教评");
+    settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+
+    // 切换到数据分析报告页面
+    if (m_dataAnalyticsWidget) {
+        contentStack->setCurrentWidget(m_dataAnalyticsWidget);
+        m_dataAnalyticsWidget->refresh();  // 刷新数据
+        this->statusBar()->showMessage("数据分析报告");
+    }
 }
 
 void ModernMainWindow::onNewsTrackingClicked()
@@ -1962,7 +2021,8 @@ void ModernMainWindow::onNewsTrackingClicked()
 
 void ModernMainWindow::onSettingsClicked()
 {
-    QMessageBox::information(this, "系统设置", "系统设置功能正在开发中...");
+    UserSettingsDialog dialog(this);
+    dialog.exec();
 }
 
 void ModernMainWindow::onHelpClicked()
@@ -2466,12 +2526,18 @@ void ModernMainWindow::onAIStreamChunk(const QString &chunk)
     // 累积响应
     m_currentAIResponse += chunk;
 
+    // 过滤 Markdown 格式符号用于显示
+    QString displayText = m_currentAIResponse;
+    displayText.remove(QRegularExpression("^##\\s*", QRegularExpression::MultilineOption));
+    displayText.remove(QRegularExpression("//+\\s*"));
+    displayText.remove(QRegularExpression("\\*\\*"));
+
     // 如果是第一个 chunk，先添加一个空的 AI 消息
     if (m_currentAIResponse.length() == chunk.length()) {
         qDebug() << "[ModernMainWindow] Adding first AI message placeholder";
         m_bubbleChatWidget->addMessage("", false); // 添加空的 AI 消息占位
         // 第一个 chunk 立即更新
-        m_bubbleChatWidget->updateLastAIMessage(m_currentAIResponse);
+        m_bubbleChatWidget->updateLastAIMessage(displayText);
     } else {
         // 使用节流机制：标记有待更新，如果定时器没在运行则启动
         m_streamUpdatePending = true;

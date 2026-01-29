@@ -39,6 +39,7 @@ class ChatHistoryWidget;
 class PPTXGenerator;
 class HotspotTrackingWidget;
 class HotspotService;
+class DataAnalyticsWidget;
 
 class ModernMainWindow : public QMainWindow
 {
@@ -112,6 +113,8 @@ private:
     QFrame *sidebar;
     QVBoxLayout *sidebarLayout;
     QFrame *profileWidget;
+    QLabel *m_avatarLabel;      // 头像显示（显示姓氏首字）
+    QLabel *m_userNameLabel;    // 用户名显示
 
     // 侧边栏导航按钮
     QPushButton *teacherCenterBtn;      // 教师中心
@@ -138,6 +141,9 @@ private:
     // 时政新闻相关组件
     HotspotTrackingWidget *m_hotspotWidget;
     HotspotService *m_hotspotService;
+
+    // 数据分析报告组件
+    DataAnalyticsWidget *m_dataAnalyticsWidget;
 
     // 顶部工具栏 (Header)
     QFrame *headerWidget;
