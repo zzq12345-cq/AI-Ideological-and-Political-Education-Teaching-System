@@ -36,6 +36,14 @@
         <file>resources/icons/edit.svg</file>
         <file>resources/icons/image.svg</file>
         <file>resources/icons/play.svg</file>
+        <file>resources/icons/user.svg</file>
+        <file>resources/icons/tag.svg</file>
+        <file>resources/icons/building.svg</file>
+        <file>resources/icons/award.svg</file>
+        <file>resources/icons/info-card.svg</file>
+        <file>resources/icons/message-circle.svg</file>
+        <file>resources/icons/arrow-up.svg</file>
+        <file>resources/icons/arrow-down.svg</file>
     </qresource>
     <qresource prefix="/styles">
         <file>resources/styles/auth.qss</file>

@@ -900,13 +900,15 @@ QString HotspotTrackingWidget::formatTimeAgo(const QDateTime &time)
 void HotspotTrackingWidget::clearNewsGrid()
 {
     // 取消所有待处理的图片请求，避免悬空指针导致图片错位
-    for (auto it = m_pendingImages.begin(); it != m_pendingImages.end(); ++it) {
-        QNetworkReply *reply = it.key();
+    // 先复制 keys 再遍历，避免迭代器失效导致崩溃
+    QList<QNetworkReply*> replies = m_pendingImages.keys();
+    m_pendingImages.clear();  // 先清空，防止回调时访问已删除的 label
+
+    for (QNetworkReply *reply : replies) {
         reply->abort();
         reply->deleteLater();
     }
-    m_pendingImages.clear();
-    
+
     QLayoutItem *item;
     while ((item = m_newsGridLayout->takeAt(0)) != nullptr) {
         if (item->widget()) {

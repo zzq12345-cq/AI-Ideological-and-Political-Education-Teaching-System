@@ -9,8 +9,8 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network QuickWidgets Svg)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Charts QuickWidgets Svg)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network QuickWidgets Svg SvgWidgets PrintSupport)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Charts QuickWidgets Svg SvgWidgets PrintSupport)
 
 set(PROJECT_SOURCES
     src/main/main.cpp
@@ -68,6 +68,14 @@ set(PROJECT_SOURCES
     src/hotspot/MockNewsProvider.h
     src/hotspot/RealNewsProvider.cpp
     src/hotspot/RealNewsProvider.h
+    src/settings/UserSettingsDialog.cpp
+    src/settings/UserSettingsDialog.h
+    src/settings/UserSettingsManager.cpp
+    src/settings/UserSettingsManager.h
+    src/analytics/DataAnalyticsWidget.cpp
+    src/analytics/DataAnalyticsWidget.h
+    src/analytics/AnalyticsDataService.cpp
+    src/analytics/AnalyticsDataService.h
     src/config/embedded_keys.h
     resources.qrc
     resources/QtTheme/QtTheme.qrc
@@ -89,6 +97,8 @@ target_link_libraries(AILoginSystem PRIVATE
     Qt${QT_VERSION_MAJOR}::Charts
     Qt${QT_VERSION_MAJOR}::QuickWidgets
     Qt${QT_VERSION_MAJOR}::Svg
+    Qt${QT_VERSION_MAJOR}::SvgWidgets
+    Qt${QT_VERSION_MAJOR}::PrintSupport
 )
 
 # 设置目标属性

@@ -549,12 +549,12 @@ void RealNewsProvider::fetchFromTianXing(int limit, const QString &category)
     if (needInternational) pendingCount++;
     m_pendingTianXingCount = pendingCount;
 
-    // 请求国内新闻（天行 API）
+    // 请求国内新闻（天行 API）- 固定12条
     if (needDomestic) {
         QUrl url(QString("https://apis.tianapi.com/guonei/index"));
         QUrlQuery query;
         query.addQueryItem("key", m_tianxingKey);
-        query.addQueryItem("num", QString::number(qMin(limit, 50)));
+        query.addQueryItem("num", QString::number(13));  // 国内固定13条
         url.setQuery(query);
 
         QNetworkRequest request(url);
@@ -586,13 +586,13 @@ void RealNewsProvider::fetchFromTianXing(int limit, const QString &category)
         request.setTransferTimeout(20000);  // BBC RSS 数据较大，给更长超时
 
         QNetworkReply *reply = m_networkManager->get(request);
-        connect(reply, &QNetworkReply::finished, this, [this, reply, limit]() {
+        connect(reply, &QNetworkReply::finished, this, [this, reply]() {
             if (reply->error() == QNetworkReply::NoError) {
                 QByteArray data = reply->readAll();
                 QList<NewsItem> items = parseRSSResponse(data, "BBC中文-国际");
-                // 限制国际新闻数量
-                if (items.size() > limit / 2) {
-                    items = items.mid(0, limit / 2);
+                // 国际新闻固定13条
+                if (items.size() > 13) {
+                    items = items.mid(0, 13);
                 }
                 m_aggregatedNews.append(items);
                 qDebug() << "[RealNewsProvider] BBC RSS 获取成功，" << items.size() << "条国际新闻";
@@ -891,34 +891,9 @@ QList<NewsItem> RealNewsProvider::parseRSSResponse(const QByteArray &data, const
                     }
                     currentItem.hotScore = 0; // 真实数据无热度，不再随机生成
 
-                    // 如果是国际新闻源，过滤掉涉及中国的新闻
-                    if (currentItem.category == "国际") {
-                        static const QStringList chinaRelatedKeywords = {
-                            "中国", "中共", "中方", "北京", "习近平", "李强",
-                            "台湾", "台北", "香港", "澳门", "新疆", "西藏",
-                            "中美", "中俄", "中欧", "中日", "中韩", "中印",
-                            "华为", "大疆", "TikTok", "字节跳动", "阿里", "腾讯",
-                            "人民币", "一带一路", "孔子学院"
-                        };
-
-                        bool isChinaRelated = false;
-                        QString fullText = currentItem.title + " " + currentItem.summary;
-
-                        for (const QString &keyword : chinaRelatedKeywords) {
-                            if (fullText.contains(keyword, Qt::CaseInsensitive)) {
-                                isChinaRelated = true;
-                                break;
-                            }
-                        }
-
-                        // 只添加非中国相关的国际新闻
-                        if (!isChinaRelated) {
-                            items.append(currentItem);
-                        }
-                    } else {
-                        // 国内新闻正常添加
-                        items.append(currentItem);
-                    }
+                    // 国际新闻直接添加，不再过滤中国相关内容
+                    // 时政课堂需要关注与中国相关的国际动态
+                    items.append(currentItem);
                 }
             }
         } else if (token == QXmlStreamReader::Characters && inItem) {

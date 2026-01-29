@@ -57,7 +57,8 @@ void HotspotService::refreshHotNews(const QString &category)
     }
     
     qDebug() << "[HotspotService] Refreshing hot news, category:" << category;
-    m_newsProvider->fetchHotNews(20, category);
+    // 国内13条 + 国际13条 = 26条
+    m_newsProvider->fetchHotNews(26, category);
 }
 
 void HotspotService::searchNews(const QString &keyword)
