@@ -168,6 +168,13 @@ void QuestionBankWindow::setupLayout()
             this, [this](const QString &id) {
                 updateAddToBasketButton(id, false);
             });
+    // 试题篮清空时，重置所有按钮状态
+    connect(QuestionBasket::instance(), &QuestionBasket::cleared,
+            this, [this]() {
+                for (auto it = m_addToBasketButtons.begin(); it != m_addToBasketButtons.end(); ++it) {
+                    updateAddToBasketButton(it.key(), false);
+                }
+            });
 }
 
 QWidget *QuestionBankWindow::buildHeader()

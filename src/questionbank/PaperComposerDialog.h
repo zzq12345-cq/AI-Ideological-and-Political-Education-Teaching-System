@@ -46,12 +46,8 @@ private:
     // UI 组件
     QLineEdit *m_titleEdit = nullptr;
     QTableWidget *m_questionTable = nullptr;
-    QLabel *m_totalScoreLabel = nullptr;
-    QLabel *m_questionCountLabel = nullptr;
+    QLabel *m_summaryLabel = nullptr;  // 合并后的统计标签
     QPushButton *m_exportButton = nullptr;
-    QPushButton *m_moveUpButton = nullptr;
-    QPushButton *m_moveDownButton = nullptr;
-    QPushButton *m_removeButton = nullptr;
 
     void updateSummary();
 };
