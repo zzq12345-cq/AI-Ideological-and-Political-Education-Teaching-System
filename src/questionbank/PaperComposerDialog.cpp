@@ -23,16 +23,16 @@
 namespace {
 
 // ==================== 核心样式常量 ====================
-const QString kPrimaryColor = "#B71C1C";        // 党建红
-const QString kPrimaryLight = "#FFEBEE";        // 浅红背景
-const QString kAccentColor = "#FF8F00";         // 聚焦态 - 琥珀橙
-const QString kAccentLight = "#FFF3E0";         // 聚焦背景
-const QString kErrorColor = "#D32F2F";          // 错误红
-const QString kErrorLight = "#FFCDD2";          // 错误背景
-const QString kTextPrimary = "#212121";
-const QString kTextSecondary = "#757575";
+const QString kPrimaryColor = "#D32F2F";          // 主色红
+const QString kPrimaryLight = "#FFEBEE";          // 浅红背景
+const QString kAccentColor = "#FF8F00";           // 聚焦态 - 琥珀橙
+const QString kAccentLight = "#FFF3E0";           // 聚焦背景
+const QString kErrorColor = "#D32F2F";            // 错误红
+const QString kErrorLight = "#FFCDD2";            // 错误背景
+const QString kTextPrimary = "#1A1A2E";           // 深邃文字
+const QString kTextSecondary = "#6B7280";         // 次要文字
 const QString kBorderColor = "#E0E0E0";
-const QString kBackgroundLight = "#FAFAFA";
+const QString kBackgroundLight = "#F8F9FC";
 
 void applyShadow(QWidget *target, qreal blurRadius, const QPointF &offset, const QColor &color)
 {
@@ -44,232 +44,228 @@ void applyShadow(QWidget *target, qreal blurRadius, const QPointF &offset, const
     target->setGraphicsEffect(shadow);
 }
 
-// ==================== 完整的 QSS 样式表 ====================
+// ==================== 现代风格样式表 ====================
 QString getDialogStyleSheet()
 {
     return R"(
-/* ========== 对话框整体 ========== */
+/* ========== 对话框整体 - 干净简洁背景 ========== */
 QDialog {
-    background: #FAFAFA;
-    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: #F5F5F5;
+    font-family: "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
-/* ========== QLineEdit 输入框 ========== */
+/* ========== 输入框 - 现代扁平风格 ========== */
 QLineEdit {
-    background: #FFFFFF;
-    border: 1.5px solid #E0E0E0;
-    border-radius: 8px;
-    padding: 0 16px;
-    font-size: 14px;
-    color: #212121;
+    background: rgba(255,255,255,0.95);
+    border: 2px solid rgba(0,0,0,0.06);
+    border-radius: 14px;
+    padding: 0 20px;
+    font-size: 15px;
+    font-weight: 500;
+    color: #1A1A2E;
     selection-background-color: #FFCC80;
 }
 
 QLineEdit:hover {
-    border-color: #BDBDBD;
+    background: rgba(255,255,255,1);
+    border-color: rgba(211,47,47,0.15);
 }
 
-/* 聚焦态 - 使用琥珀橙，避免红色焦虑感 */
 QLineEdit:focus {
-    border: 2px solid #FF8F00;
-    background: #FFFBF5;
-    padding: 0 15px; /* 补偿边框增粗 */
+    background: #FFFFFF;
+    border: 2px solid #D32F2F;
 }
 
-/* 错误态 - 通过自定义属性触发 */
 QLineEdit[isError="true"] {
-    border: 2px solid #D32F2F;
-    background: #FFF5F5;
-    padding: 0 15px;
+    border: 2px solid #EF4444;
+    background: #FEF2F2;
 }
 
 QLineEdit::placeholder {
-    color: #9E9E9E;
+    color: #9CA3AF;
+    font-weight: 400;
 }
 
-/* ========== QTableWidget 表格 ========== */
+/* ========== 表格 - 现代卡片风格 ========== */
 QTableWidget {
     background: #FFFFFF;
     border: 1px solid #E0E0E0;
     border-radius: 12px;
-    gridline-color: #F5F5F5;
-    outline: 0; /* 移除虚线框 */
+    outline: none;
+    gridline-color: transparent;
+    selection-background-color: transparent;
+}
+
+QTableWidget:focus {
+    border: 1px solid #E0E0E0;
+    outline: none;
 }
 
 QTableWidget::item {
-    padding: 12px 8px;
-    border-bottom: 1px solid #F5F5F5;
-    outline: 0;
+    padding: 14px 10px;
+    border: none;
+    border-bottom: 1px solid #F0F0F0;
+    background: transparent;
+    outline: none;
 }
 
 QTableWidget::item:selected {
-    background: #FFF3E0;
-    color: #212121;
+    background: #FFF8F8;
+    color: #1A1A2E;
+    border: none;
+    outline: none;
+}
+
+QTableWidget::item:focus {
+    background: #FFF8F8;
+    border: none;
+    outline: none;
 }
 
 QTableWidget::item:hover {
     background: #FAFAFA;
 }
 
-/* 表头样式 - 增加高度和视觉层次 */
+/* 表头 - 简约透明风格 */
 QHeaderView::section {
-    background: linear-gradient(to bottom, #FAFAFA, #F5F5F5);
-    color: #424242;
-    font-size: 13px;
+    background: transparent;
+    color: #6B7280;
+    font-size: 11px;
     font-weight: 600;
-    padding: 14px 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 14px 10px;
     border: none;
-    border-bottom: 2px solid #E0E0E0;
-    border-right: 1px solid #EEEEEE;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
 }
 
-QHeaderView::section:last {
-    border-right: none;
-}
-
-/* 滚动条美化 */
-QTableWidget QScrollBar:vertical {
-    width: 8px;
+/* 精致滚动条 */
+QScrollBar:vertical {
+    width: 6px;
     background: transparent;
-    margin: 4px 0;
+    margin: 0;
 }
 
-QTableWidget QScrollBar::handle:vertical {
-    background: #BDBDBD;
-    border-radius: 4px;
-    min-height: 30px;
+QScrollBar::handle:vertical {
+    background: rgba(0,0,0,0.12);
+    border-radius: 3px;
+    min-height: 40px;
 }
 
-QTableWidget QScrollBar::handle:vertical:hover {
-    background: #9E9E9E;
+QScrollBar::handle:vertical:hover {
+    background: rgba(0,0,0,0.2);
 }
 
-QTableWidget QScrollBar::add-line:vertical,
-QTableWidget QScrollBar::sub-line:vertical {
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical,
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
     height: 0;
+    background: transparent;
 }
 
-/* ========== QSpinBox 数字输入 - 表格内扁平化 ========== */
+/* ========== 分值输入 - 低调灰色风格 ========== */
 QSpinBox {
-    background: transparent;
-    border: 1px solid transparent;
+    background: #F5F7FA;
+    border: none;
     border-radius: 6px;
-    padding: 4px 8px;
+    padding: 6px 10px;
     font-size: 14px;
-    font-weight: 600;
-    color: #B71C1C;
+    font-weight: 500;
+    color: #303133;
     min-width: 50px;
+    outline: none;
 }
 
 QSpinBox:hover {
-    background: #FFF3E0;
-    border-color: #FFE0B2;
+    background: #EBEEF5;
 }
 
 QSpinBox:focus {
     background: #FFFFFF;
-    border: 1.5px solid #FF8F00;
+    border: 1px solid #E4E7ED;
+    outline: none;
 }
 
-/* 隐藏原生箭头按钮 */
 QSpinBox::up-button,
 QSpinBox::down-button {
     width: 0;
     border: none;
 }
 
-/* ========== QPushButton 按钮系统 ========== */
-/* 主要操作按钮 */
+/* ========== 主要按钮 - 教育蓝色调 ========== */
 QPushButton#primaryButton {
-    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #C62828, stop:1 #B71C1C);
+    background: #409EFF;
     color: #FFFFFF;
     border: none;
     border-radius: 8px;
     font-size: 14px;
-    font-weight: 600;
-    padding: 0 28px;
+    font-weight: 500;
+    padding: 0 24px;
 }
 
 QPushButton#primaryButton:hover {
-    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #D32F2F, stop:1 #C62828);
+    background: #66B1FF;
 }
 
 QPushButton#primaryButton:pressed {
-    background: #9A0007;
+    background: #3A8EE6;
 }
 
 QPushButton#primaryButton:disabled {
-    background: #BDBDBD;
-    color: #757575;
+    background: #E5E7EB;
+    color: #9CA3AF;
 }
 
-/* 次要操作按钮 */
+/* 次要按钮 - 文字按钮风格 */
 QPushButton#secondaryButton {
-    background: #FFFFFF;
-    color: #424242;
-    border: 1.5px solid #E0E0E0;
+    background: transparent;
+    color: #606266;
+    border: none;
     border-radius: 8px;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 400;
     padding: 0 20px;
 }
 
 QPushButton#secondaryButton:hover {
-    background: #F5F5F5;
-    border-color: #BDBDBD;
+    background: #F5F7FA;
+    color: #409EFF;
 }
 
 QPushButton#secondaryButton:pressed {
-    background: #EEEEEE;
+    background: #EBEEF5;
 }
 
-/* 行内操作按钮（表格内） */
+/* 行内操作按钮 - 可见但低调 */
 QPushButton#inlineActionButton {
     background: transparent;
     border: none;
     border-radius: 4px;
-    padding: 4px 8px;
+    padding: 0;
     font-size: 12px;
-    color: #757575;
+    font-weight: 400;
+    color: #909399;
 }
 
 QPushButton#inlineActionButton:hover {
-    background: #FFEBEE;
-    color: #B71C1C;
+    background: #ECF5FF;
+    color: #409EFF;
 }
 
 QPushButton#inlineDeleteButton {
     background: transparent;
     border: none;
     border-radius: 4px;
-    padding: 4px;
-    font-size: 16px;
-    font-weight: bold;
-    color: #BDBDBD;
+    padding: 0;
+    font-size: 12px;
+    font-weight: 400;
+    color: #909399;
 }
 
 QPushButton#inlineDeleteButton:hover {
-    background: #FFEBEE;
-    color: #D32F2F;
-}
-
-/* ========== 徽章样式 ========== */
-QLabel#badgeLabel {
-    background: #FFEBEE;
-    color: #B71C1C;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 4px 12px;
-    border-radius: 12px;
-}
-
-QLabel#scoreBadge {
-    background: #B71C1C;
-    color: #FFFFFF;
-    font-size: 13px;
-    font-weight: 700;
-    padding: 6px 14px;
-    border-radius: 14px;
+    background: #FEF0F0;
+    color: #F56C6C;
 }
 )";
 }
@@ -280,8 +276,8 @@ PaperComposerDialog::PaperComposerDialog(QWidget *parent)
     : QDialog(parent)
 {
     setWindowTitle("组卷预览");
-    setMinimumSize(860, 640);
-    resize(920, 720);
+    setMinimumSize(900, 680);
+    resize(980, 780);
 
     // 应用全局样式
     setStyleSheet(getDialogStyleSheet());
@@ -294,32 +290,37 @@ PaperComposerDialog::PaperComposerDialog(QWidget *parent)
 void PaperComposerDialog::setupUI()
 {
     auto *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(28, 24, 28, 24);
+    mainLayout->setContentsMargins(32, 28, 32, 28);
     mainLayout->setSpacing(0);
 
-    // ==================== 顶部标题栏（整合标题 + 统计徽章） ====================
+    // ==================== 顶部标题栏（现代毛玻璃风格） ====================
     auto *headerFrame = new QFrame(this);
     headerFrame->setObjectName("headerFrame");
     headerFrame->setStyleSheet(
         "QFrame#headerFrame {"
         "  background: #FFFFFF;"
-        "  border-radius: 12px;"
-        "  border: 1px solid #EEEEEE;"
+        "  border-radius: 8px;"
+        "  border: 1px solid #EBEEF5;"
         "}"
     );
-    applyShadow(headerFrame, 8, QPointF(0, 2), QColor(0, 0, 0, 15));
 
     auto *headerLayout = new QHBoxLayout(headerFrame);
     headerLayout->setContentsMargins(20, 16, 20, 16);
     headerLayout->setSpacing(16);
 
-    // 左侧：标题输入
+    // 左侧：标题和统计信息
     auto *titleGroup = new QWidget(headerFrame);
-    auto *titleGroupLayout = new QHBoxLayout(titleGroup);
+    auto *titleGroupLayout = new QVBoxLayout(titleGroup);
     titleGroupLayout->setContentsMargins(0, 0, 0, 0);
-    titleGroupLayout->setSpacing(12);
+    titleGroupLayout->setSpacing(4);
 
-    auto *titleIcon = new QLabel(titleGroup);
+    // 标题输入行
+    auto *titleRow = new QWidget(titleGroup);
+    auto *titleRowLayout = new QHBoxLayout(titleRow);
+    titleRowLayout->setContentsMargins(0, 0, 0, 0);
+    titleRowLayout->setSpacing(12);
+
+    auto *titleIcon = new QLabel(titleRow);
     QSvgRenderer clipboardRenderer(QString(":/icons/resources/icons/clipboard.svg"));
     if (clipboardRenderer.isValid()) {
         QPixmap clipboardPixmap(20, 20);
@@ -330,26 +331,25 @@ void PaperComposerDialog::setupUI()
     }
     titleIcon->setStyleSheet("QLabel { background: transparent; }");
 
-    m_titleEdit = new QLineEdit(titleGroup);
-    m_titleEdit->setPlaceholderText("请输入试卷标题...");
+    m_titleEdit = new QLineEdit(titleRow);
+    m_titleEdit->setPlaceholderText("输入试卷标题...");
     m_titleEdit->setText("思政课程单元测试");
     m_titleEdit->setFixedHeight(44);
-    m_titleEdit->setMinimumWidth(320);
+    m_titleEdit->setMinimumWidth(400);
 
-    titleGroupLayout->addWidget(titleIcon);
-    titleGroupLayout->addWidget(m_titleEdit);
+    titleRowLayout->addWidget(titleIcon);
+    titleRowLayout->addWidget(m_titleEdit);
+    titleRowLayout->addStretch();
 
-    // 右侧：统计徽章（整合到标题栏）
-    m_questionCountLabel = new QLabel("0 题", headerFrame);
-    m_questionCountLabel->setObjectName("badgeLabel");
+    // 统计信息 - 合并为一行低调灰色文字
+    m_summaryLabel = new QLabel("共 0 题，合计 0 分", titleGroup);
+    m_summaryLabel->setStyleSheet("QLabel { color: #909399; font-size: 13px; font-weight: 400; padding-left: 32px; }");
 
-    m_totalScoreLabel = new QLabel("0 分", headerFrame);
-    m_totalScoreLabel->setObjectName("scoreBadge");
+    titleGroupLayout->addWidget(titleRow);
+    titleGroupLayout->addWidget(m_summaryLabel);
 
     headerLayout->addWidget(titleGroup);
     headerLayout->addStretch();
-    headerLayout->addWidget(m_questionCountLabel);
-    headerLayout->addWidget(m_totalScoreLabel);
 
     mainLayout->addWidget(headerFrame);
     mainLayout->addSpacing(16);
@@ -371,13 +371,13 @@ void PaperComposerDialog::setupUI()
     m_questionTable->setColumnWidth(1, 90);
     m_questionTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
     m_questionTable->setColumnWidth(3, 80);
-    m_questionTable->setColumnWidth(4, 100);  // 行内操作列
+    m_questionTable->setColumnWidth(4, 76);  // 行内操作列
 
-    // 行高
-    m_questionTable->verticalHeader()->setDefaultSectionSize(56);
+    // 行高 - 更宽松
+    m_questionTable->verticalHeader()->setDefaultSectionSize(64);
 
     mainLayout->addWidget(m_questionTable, 1);
-    mainLayout->addSpacing(20);
+    mainLayout->addSpacing(24);
 
     // ==================== 底部操作栏 ====================
     auto *footerFrame = new QFrame(this);
@@ -385,21 +385,20 @@ void PaperComposerDialog::setupUI()
     footerLayout->setContentsMargins(0, 0, 0, 0);
     footerLayout->setSpacing(12);
 
-    // 左侧提示
-    auto *tipLabel = new QLabel(" 点击表格内按钮可调整顺序或移除试题", footerFrame);
-    tipLabel->setStyleSheet("QLabel { color: #9E9E9E; font-size: 12px; }");
+    // 左侧提示 - 更精致的样式
+    auto *tipLabel = new QLabel("点击表格内按钮可调整顺序或移除试题", footerFrame);
+    tipLabel->setStyleSheet("QLabel { color: #9CA3AF; font-size: 12px; font-weight: 400; }");
 
     // 右侧按钮
     auto *cancelButton = new QPushButton("取消", footerFrame);
     cancelButton->setObjectName("secondaryButton");
-    cancelButton->setFixedSize(100, 44);
+    cancelButton->setFixedSize(80, 40);
     cancelButton->setCursor(Qt::PointingHandCursor);
 
     m_exportButton = new QPushButton("导出试卷", footerFrame);
     m_exportButton->setObjectName("primaryButton");
-    m_exportButton->setFixedSize(140, 44);
+    m_exportButton->setFixedSize(120, 40);
     m_exportButton->setCursor(Qt::PointingHandCursor);
-    applyShadow(m_exportButton, 12, QPointF(0, 4), QColor(183, 28, 28, 80));
 
     footerLayout->addWidget(tipLabel);
     footerLayout->addStretch();
@@ -446,14 +445,41 @@ void PaperComposerDialog::populateTable()
         indexItem->setForeground(QColor("#757575"));
         m_questionTable->setItem(i, 0, indexItem);
 
-        // 题型 - 带颜色标签效果
+        // 题型 - 彩色药丸标签
         QString typeName = typeNames.value(q.questionType, q.questionType);
-        auto *typeItem = new QTableWidgetItem(typeName);
-        typeItem->setTextAlignment(Qt::AlignCenter);
-        typeItem->setFlags(typeItem->flags() & ~Qt::ItemIsEditable);
-        typeItem->setForeground(QColor("#B71C1C"));
-        typeItem->setFont(QFont("Microsoft YaHei", 10, QFont::Medium));
-        m_questionTable->setItem(i, 1, typeItem);
+
+        // 创建题型标签 Widget
+        auto *typeWidget = new QWidget(m_questionTable);
+        auto *typeLayout = new QHBoxLayout(typeWidget);
+        typeLayout->setContentsMargins(0, 0, 0, 0);
+        typeLayout->setAlignment(Qt::AlignCenter);
+
+        auto *typeLabel = new QLabel(typeName, typeWidget);
+        typeLabel->setAlignment(Qt::AlignCenter);
+        typeLabel->setFixedHeight(24);
+
+        // 根据题型设置不同颜色 - 低饱和度胶囊风格
+        QString typeStyle;
+        if (q.questionType == "single_choice" || q.questionType == "multi_choice") {
+            // 选择题 - 淡蓝色
+            typeStyle = "background: #ECF5FF; color: #409EFF; border-radius: 12px; padding: 4px 14px; font-size: 11px; font-weight: 500;";
+        } else if (q.questionType == "material_essay") {
+            // 材料题 - 淡紫色
+            typeStyle = "background: #F4F4F5; color: #909399; border-radius: 12px; padding: 4px 14px; font-size: 11px; font-weight: 500;";
+        } else if (q.questionType == "short_answer" || q.questionType == "essay") {
+            // 简答/论述题 - 淡绿色
+            typeStyle = "background: #F0F9EB; color: #67C23A; border-radius: 12px; padding: 4px 14px; font-size: 11px; font-weight: 500;";
+        } else if (q.questionType == "fill_blank") {
+            // 填空题 - 淡橙色
+            typeStyle = "background: #FDF6EC; color: #E6A23C; border-radius: 12px; padding: 4px 14px; font-size: 11px; font-weight: 500;";
+        } else {
+            // 其他题型 - 中性灰
+            typeStyle = "background: #F5F7FA; color: #606266; border-radius: 12px; padding: 4px 14px; font-size: 11px; font-weight: 500;";
+        }
+        typeLabel->setStyleSheet(typeStyle);
+
+        typeLayout->addWidget(typeLabel);
+        m_questionTable->setCellWidget(i, 1, typeWidget);
 
         // 题目预览
         QString preview = q.stem.left(45);
@@ -480,16 +506,16 @@ void PaperComposerDialog::populateTable()
                 });
         m_questionTable->setCellWidget(i, 3, scoreWidget);
 
-        // 行内操作按钮组
+        // 行内操作按钮组 - 更加低调
         auto *actionWidget = new QWidget(m_questionTable);
         auto *actionLayout = new QHBoxLayout(actionWidget);
-        actionLayout->setContentsMargins(4, 0, 4, 0);
-        actionLayout->setSpacing(2);
+        actionLayout->setContentsMargins(0, 0, 8, 0);
+        actionLayout->setSpacing(0);
 
         // 上移按钮
-        auto *upBtn = new QPushButton("↑", actionWidget);
+        auto *upBtn = new QPushButton("∧", actionWidget);
         upBtn->setObjectName("inlineActionButton");
-        upBtn->setFixedSize(28, 28);
+        upBtn->setFixedSize(22, 22);
         upBtn->setCursor(Qt::PointingHandCursor);
         upBtn->setToolTip("上移");
         int currentRow = i;
@@ -502,9 +528,9 @@ void PaperComposerDialog::populateTable()
         });
 
         // 下移按钮
-        auto *downBtn = new QPushButton("↓", actionWidget);
+        auto *downBtn = new QPushButton("∨", actionWidget);
         downBtn->setObjectName("inlineActionButton");
-        downBtn->setFixedSize(28, 28);
+        downBtn->setFixedSize(22, 22);
         downBtn->setCursor(Qt::PointingHandCursor);
         downBtn->setToolTip("下移");
         connect(downBtn, &QPushButton::clicked, this, [this, currentRow]() {
@@ -518,7 +544,7 @@ void PaperComposerDialog::populateTable()
         // 删除按钮
         auto *delBtn = new QPushButton("×", actionWidget);
         delBtn->setObjectName("inlineDeleteButton");
-        delBtn->setFixedSize(28, 28);
+        delBtn->setFixedSize(22, 22);
         delBtn->setCursor(Qt::PointingHandCursor);
         delBtn->setToolTip("移除");
         QString questionId = q.id;
@@ -541,8 +567,7 @@ void PaperComposerDialog::updateSummary()
     int count = QuestionBasket::instance()->count();
     int totalScore = QuestionBasket::instance()->totalScore();
 
-    m_questionCountLabel->setText(QString("%1 题").arg(count));
-    m_totalScoreLabel->setText(QString("%1 分").arg(totalScore));
+    m_summaryLabel->setText(QString("共 %1 题，合计 %2 分").arg(count).arg(totalScore));
 
     m_exportButton->setEnabled(count > 0);
 }
@@ -650,6 +675,9 @@ void PaperComposerDialog::onExportPaper()
     if (reply == QMessageBox::Yes) {
         QDesktopServices::openUrl(QUrl::fromLocalFile(fileName));
     }
+
+    // 导出成功后清空试题篮
+    QuestionBasket::instance()->clear();
 
     emit paperExported(fileName);
     accept();
