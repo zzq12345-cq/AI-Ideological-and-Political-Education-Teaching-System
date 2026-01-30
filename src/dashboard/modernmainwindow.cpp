@@ -1609,9 +1609,11 @@ void ModernMainWindow::createDashboard()
         textLayout->setSpacing(4);
 
         QLabel *titleLbl = new QLabel(title);
+        titleLbl->setFixedHeight(22);  // 固定高度，保证布局一致
         titleLbl->setStyleSheet(QString("font-size: 15px; font-weight: 600; color: %1; background: transparent;").arg(StyleConfig::TEXT_PRIMARY));
         
         QLabel *descLbl = new QLabel(desc);
+        descLbl->setFixedHeight(20);  // 固定高度，避免不同文字长度导致布局不一致
         descLbl->setStyleSheet(QString("font-size: 12px; color: %1; background: transparent;").arg(StyleConfig::TEXT_SECONDARY));
 
         textLayout->addWidget(titleLbl);
