@@ -3,6 +3,7 @@
 #include "QuestionBasket.h"
 #include "QuestionBasketWidget.h"
 #include "../ui/moderncheckbox.h"
+#include "../shared/StyleConfig.h"
 
 #include <QAbstractButton>
 #include <QButtonGroup>
@@ -27,23 +28,32 @@
 #include <QStyle>
 #include <QTextBrowser>
 #include <QVBoxLayout>
+#include <QPainter>
 #include "../ui/NetworkImageTextBrowser.h"
 #include <algorithm>
 
 namespace {
 constexpr int kPageMaxWidth = 1280;
 constexpr int kSidebarWidth = 320;
-constexpr int kComboHeight = 48;
-constexpr int kFilterButtonHeight = 40;
+constexpr int kComboHeight = 44;
+constexpr int kFilterButtonHeight = 30;
 constexpr int kGenerateButtonHeight = 40;
 constexpr int kPrimaryActionHeight = 52;
 constexpr int kActionButtonHeight = 44;
 constexpr int kOptionMinHeight = 60;
-constexpr int kCardPadding = 32;
+constexpr int kCardPadding = 28;
 
-const QColor kPrimaryColor("#D9001B");
-const QColor kSidebarShadowColor(18, 24, 38, 30);
-const QColor kButtonShadowColor(217, 0, 27, 90);
+// 绿色主题配色 - 教育成长风格（统一色系）
+const QColor kPrimaryGreen("#2E7D32");      // 主色：深绿
+const QColor kPrimaryGreenLight("#4CAF50"); // 浅绿
+const QColor kMintGreen("#E8F5E9");         // 薄荷绿背景
+const QColor kMintGreenHover("#C8E6C9");    // 薄荷绿hover
+const QColor kTextPrimary("#212121");       // 主文字
+const QColor kTextSecondary("#616161");     // 副文字
+const QColor kBorderLight("#E0E0E0");       // 浅边框
+const QColor kCardBg("#FFFFFF");            // 卡片背景
+const QColor kSidebarShadowColor(46, 125, 50, 20);  // 绿色阴影
+const QColor kButtonShadowColor(46, 125, 50, 60);   // 按钮阴影
 
 QWidget *resolveOptionFrame(QObject *node)
 {
@@ -111,7 +121,17 @@ void QuestionBankWindow::setupLayout()
     pageLayout->setContentsMargins(0, 0, 0, 0);
     pageLayout->setSpacing(0);
 
-    pageLayout->addWidget(buildHeader());
+    // ====== 悬浮卡片风格：Header 外层包装器，添加外边距 ======
+    auto *headerWrapper = new QWidget(pageContainer);
+    headerWrapper->setObjectName("headerWrapper");
+    headerWrapper->setStyleSheet("QWidget#headerWrapper { background: transparent; }");
+    auto *headerWrapperLayout = new QVBoxLayout(headerWrapper);
+    // 四周 20px 外边距，实现悬浮效果
+    headerWrapperLayout->setContentsMargins(20, 16, 20, 0);
+    headerWrapperLayout->setSpacing(0);
+    headerWrapperLayout->addWidget(buildHeader());
+
+    pageLayout->addWidget(headerWrapper);
     pageLayout->addWidget(buildBody(), 1);
 
     rootLayout->addWidget(pageContainer);
@@ -154,50 +174,132 @@ QWidget *QuestionBankWindow::buildHeader()
 {
     auto *header = new QFrame(this);
     header->setObjectName("pageHeader");
+    header->setFixedHeight(120);
+
+    // 绿色渐变 + 玻璃质感（教育成长风格）
+    header->setStyleSheet(
+        "QFrame#pageHeader {"
+        "    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, "
+        "        stop:0 #2E7D32, stop:0.3 #388E3C, stop:0.7 #43A047, stop:1 #1B5E20);"
+        "    border-radius: 20px;"
+        "    border: 1px solid rgba(255,255,255,0.15);"
+        "}"
+    );
+
+    // 添加阴影效果
+    QGraphicsDropShadowEffect *headerShadow = new QGraphicsDropShadowEffect(header);
+    headerShadow->setBlurRadius(20);
+    headerShadow->setOffset(0, 6);
+    headerShadow->setColor(QColor(46, 125, 50, 80));
+    header->setGraphicsEffect(headerShadow);
 
     auto *layout = new QHBoxLayout(header);
-    layout->setContentsMargins(24, 20, 24, 20);
-    layout->setSpacing(12);
+    layout->setContentsMargins(32, 20, 32, 20);
+    layout->setSpacing(20);
 
+    // 返回按钮 - 玻璃风格
     auto *backButton = new QPushButton(header);
     backButton->setObjectName("backButton");
     backButton->setCursor(Qt::PointingHandCursor);
-    backButton->setMinimumHeight(40);
-    backButton->setMinimumWidth(120);
-
-    // 使用QtTheme图标
-    backButton->setIcon(QIcon(":/QtTheme/icon/chevron_left/#424242.svg"));
-    backButton->setIconSize(QSize(20, 20));
-    backButton->setText(QStringLiteral("返回主界面"));
-
-    // 点击返回按钮发射信号
+    backButton->setFixedHeight(40);
+    backButton->setMinimumWidth(110);
+    backButton->setIcon(QIcon(":/QtTheme/icon/chevron_left/#e0e0e0.svg"));
+    backButton->setIconSize(QSize(18, 18));
+    backButton->setText(QStringLiteral("< 返回"));
+    backButton->setStyleSheet(
+        "QPushButton#backButton {"
+        "    background: rgba(255,255,255,0.15);"
+        "    border: 1px solid rgba(255,255,255,0.25);"
+        "    border-radius: 20px;"
+        "    padding: 8px 16px;"
+        "    font-size: 14px;"
+        "    font-weight: 600;"
+        "    color: white;"
+        "}"
+        "QPushButton#backButton:hover {"
+        "    background: rgba(255,255,255,0.25);"
+        "    border: 1px solid rgba(255,255,255,0.4);"
+        "}"
+        "QPushButton#backButton:pressed {"
+        "    background: rgba(255,255,255,0.1);"
+        "}"
+    );
     connect(backButton, &QPushButton::clicked, this, &QuestionBankWindow::backRequested);
 
+    // 装饰图标容器
+    QLabel *iconDecor = new QLabel(header);
+    iconDecor->setFixedSize(52, 52);
+    iconDecor->setStyleSheet(
+        "background: rgba(255,255,255,0.15);"
+        "border-radius: 14px;"
+        "border: 1px solid rgba(255,255,255,0.2);"
+    );
+    iconDecor->setAlignment(Qt::AlignCenter);
+    QPixmap bookIcon(":/icons/resources/icons/book.svg");
+    if (!bookIcon.isNull()) {
+        // 将图标染成白色
+        QPixmap whiteIcon(bookIcon.size());
+        whiteIcon.fill(Qt::transparent);
+        QPainter painter(&whiteIcon);
+        painter.setCompositionMode(QPainter::CompositionMode_Source);
+        painter.drawPixmap(0, 0, bookIcon);
+        painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+        painter.fillRect(whiteIcon.rect(), Qt::white);
+        painter.end();
+        iconDecor->setPixmap(whiteIcon.scaled(26, 26, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    }
+
+    // 标题区域
     auto *titleWrapper = new QWidget(header);
+    titleWrapper->setStyleSheet("background: transparent;");
     auto *titleLayout = new QVBoxLayout(titleWrapper);
     titleLayout->setContentsMargins(0, 0, 0, 0);
     titleLayout->setSpacing(6);
 
     auto *title = new QLabel(QStringLiteral("AI 智能备课 · 试题库"), titleWrapper);
     title->setObjectName("pageTitle");
+    title->setStyleSheet(
+        "font-size: 26px; font-weight: 800; color: white; background: transparent;"
+        "letter-spacing: 2px;"
+    );
 
-    auto *subtitle = new QLabel(QStringLiteral("根据教材、章节与难度智能筛选题目"), titleWrapper);
+    auto *subtitle = new QLabel(QStringLiteral("◆ 智能筛选  ◆ 海量题库  ◆ 精准匹配"), titleWrapper);
     subtitle->setObjectName("pageSubtitle");
+    subtitle->setStyleSheet(
+        "font-size: 13px; color: rgba(255,255,255,0.8); background: transparent;"
+        "font-weight: 500; letter-spacing: 1px;"
+    );
 
     titleLayout->addWidget(title);
     titleLayout->addWidget(subtitle);
 
-    layout->addWidget(backButton, 0, Qt::AlignLeft);
-    layout->addWidget(titleWrapper, 1);
-
-    // 注意：阴影效果可能影响子控件的事件传递
-    // applyShadow(header, 24, QPointF(0, 8), QColor(0, 0, 0, 20));
-    header->setStyleSheet(
-        "QFrame#pageHeader {"
-        "  background: transparent;"
-        "  border-bottom: 1px solid #e0e0e0;"
+    // 右侧搜索框
+    auto *searchInput = new QLineEdit(header);
+    searchInput->setPlaceholderText("搜索试题...");
+    searchInput->setFixedSize(240, 40);
+    searchInput->setStyleSheet(
+        "QLineEdit {"
+        "    background-color: rgba(255,255,255,0.12);"
+        "    border: 1px solid rgba(255,255,255,0.2);"
+        "    border-radius: 20px;"
+        "    padding: 8px 16px;"
+        "    font-size: 14px;"
+        "    color: white;"
+        "}"
+        "QLineEdit::placeholder {"
+        "    color: rgba(255,255,255,0.6);"
+        "}"
+        "QLineEdit:focus {"
+        "    background-color: rgba(255,255,255,0.2);"
+        "    border: 2px solid rgba(255,255,255,0.5);"
         "}"
     );
+
+    layout->addWidget(backButton, 0, Qt::AlignLeft | Qt::AlignVCenter);
+    layout->addWidget(iconDecor, 0, Qt::AlignVCenter);
+    layout->addWidget(titleWrapper, 1, Qt::AlignVCenter);
+    layout->addWidget(searchInput, 0, Qt::AlignRight | Qt::AlignVCenter);
+
     return header;
 }
 
@@ -258,7 +360,7 @@ QWidget *QuestionBankWindow::buildSidebar()
     courseLabel->setProperty("role", "comboLabel");
     auto *courseValue = new QLabel(QStringLiteral("道德与法治"), courseWrapper);
     courseValue->setObjectName("fixedCourseLabel");
-    courseValue->setStyleSheet("QLabel { background: #FFF5F5; border: 1px solid #FFCDD2; border-radius: 8px; padding: 12px 16px; color: #333; font-size: 14px; }");
+    courseValue->setStyleSheet("QLabel { background: #F5F7FA; border: 1px solid #E0E0E0; border-radius: 8px; padding: 12px 16px; color: #424242; font-size: 14px; }");
     courseLayout->addWidget(courseLabel);
     courseLayout->addWidget(courseValue);
     layout->addWidget(courseWrapper);
@@ -386,8 +488,8 @@ QWidget *QuestionBankWindow::createFilterButtons(const QString &labelText,
     gridHost->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
     auto *grid = new QGridLayout(gridHost);
     grid->setContentsMargins(0, 0, 0, 0);
-    grid->setHorizontalSpacing(12);
-    grid->setVerticalSpacing(12);
+    grid->setHorizontalSpacing(8);
+    grid->setVerticalSpacing(8);
     grid->setSizeConstraint(QLayout::SetMinimumSize);
 
     // 设置网格列拉伸，确保按钮平均分布
@@ -447,8 +549,8 @@ QButtonGroup *QuestionBankWindow::createFilterButtonsWithGroup(const QString &la
     gridHost->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
     auto *grid = new QGridLayout(gridHost);
     grid->setContentsMargins(0, 0, 0, 0);
-    grid->setHorizontalSpacing(12);
-    grid->setVerticalSpacing(12);
+    grid->setHorizontalSpacing(8);
+    grid->setVerticalSpacing(8);
     grid->setSizeConstraint(QLayout::SetMinimumSize);
 
     for (int col = 0; col < columnCount; ++col) {
@@ -804,12 +906,13 @@ void QuestionBankWindow::displayQuestions(const QList<PaperQuestion> &questions)
         sectionLabel->setObjectName("sectionTitle");
         sectionLabel->setStyleSheet(
             "QLabel {"
-            "  font-size: 18px;"
-            "  font-weight: bold;"
-            "  color: #D9001B;"
-            "  padding: 16px 0 8px 0;"
-            "  border-bottom: 2px solid #D9001B;"
-            "  margin-bottom: 12px;"
+            "  font-size: 17px;"
+            "  font-weight: 600;"
+            "  color: #2E7D32;"
+            "  padding: 16px 0 12px 0;"
+            "  border-bottom: none;"
+            "  margin-bottom: 8px;"
+            "  letter-spacing: 0.5px;"
             "}"
         );
         m_questionListLayout->addWidget(sectionLabel);
@@ -841,12 +944,13 @@ void QuestionBankWindow::displayQuestions(const QList<PaperQuestion> &questions)
         sectionLabel->setObjectName("sectionTitle");
         sectionLabel->setStyleSheet(
             "QLabel {"
-            "  font-size: 18px;"
-            "  font-weight: bold;"
-            "  color: #D9001B;"
-            "  padding: 16px 0 8px 0;"
-            "  border-bottom: 2px solid #D9001B;"
-            "  margin-bottom: 12px;"
+            "  font-size: 17px;"
+            "  font-weight: 600;"
+            "  color: #2E7D32;"
+            "  padding: 16px 0 12px 0;"
+            "  border-bottom: none;"
+            "  margin-bottom: 8px;"
+            "  letter-spacing: 0.5px;"
             "}"
         );
         m_questionListLayout->addWidget(sectionLabel);
@@ -901,28 +1005,29 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
         headerLayout->setContentsMargins(0, 0, 0, 8);
         headerLayout->setSpacing(10);
 
-        // 题号徽章
-        auto *indexBadge = new QLabel(QString("第%1题").arg(index), headerRow);
+        // 题号徽章 - 简约灰色设计
+        auto *indexBadge = new QLabel(QString("No.%1").arg(index), headerRow);
         indexBadge->setStyleSheet(
             "QLabel {"
-            "  background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #D9001B, stop:1 #B80018);"
-            "  color: #fff;"
-            "  font-size: 12px;"
+            "  background: transparent;"
+            "  color: #9E9E9E;"
+            "  font-size: 13px;"
             "  font-weight: 600;"
-            "  padding: 4px 12px;"
-            "  border-radius: 12px;"
+            "  padding: 0;"
             "}"
         );
 
-        // 题型标签
+        // 题型标签 - 空心标签设计
         auto *typeTag = new QLabel("材料论述题", headerRow);
         typeTag->setStyleSheet(
             "QLabel {"
-            "  background: #FFF5F5;"
-            "  color: #B71C1C;"
+            "  background: transparent;"
+            "  color: #2E7D32;"
             "  font-size: 12px;"
-            "  padding: 4px 10px;"
-            "  border-radius: 10px;"
+            "  font-weight: 500;"
+            "  padding: 4px 12px;"
+            "  border: 1px solid #C8E6C9;"
+            "  border-radius: 12px;"
             "}"
         );
 
@@ -932,14 +1037,14 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
         layout->addWidget(headerRow);
 
         if (!parsed.material.isEmpty()) {
-            // 材料内容区域
+        // 材料内容区域 - 绿色左边框
         auto *materialFrame = new QFrame(card);
         materialFrame->setObjectName("materialFrame");
         materialFrame->setStyleSheet(
             "QFrame#materialFrame {"
-            "  background: #f8f9fa;"
-            "  border-left: 4px solid #D9001B;"
-            "  border-radius: 8px;"
+            "  background: #FAFAFA;"
+            "  border-left: 3px solid #4CAF50;"
+            "  border-radius: 0 8px 8px 0;"
             "  padding: 16px;"
             "}"
         );
@@ -949,7 +1054,7 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
         materialLayout->setSpacing(8);
 
         auto *materialTitle = new QLabel("【阅读材料】", materialFrame);
-        materialTitle->setStyleSheet("QLabel { font-weight: bold; color: #D9001B; font-size: 14px; }");
+        materialTitle->setStyleSheet("QLabel { font-weight: 600; color: #2E7D32; font-size: 13px; }");
         materialLayout->addWidget(materialTitle);
 
         // 使用 NetworkImageTextBrowser 支持网络图片加载
@@ -1082,16 +1187,15 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
         headerLayout->setContentsMargins(0, 0, 0, 8);
         headerLayout->setSpacing(10);
 
-        // 题号徽章
-        auto *indexBadge = new QLabel(QString("第%1题").arg(index), headerRow);
+        // 题号徽章 - 简约灰色设计
+        auto *indexBadge = new QLabel(QString("No.%1").arg(index), headerRow);
         indexBadge->setStyleSheet(
             "QLabel {"
-            "  background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #D9001B, stop:1 #B80018);"
-            "  color: #fff;"
-            "  font-size: 12px;"
+            "  background: transparent;"
+            "  color: #9E9E9E;"
+            "  font-size: 13px;"
             "  font-weight: 600;"
-            "  padding: 4px 12px;"
-            "  border-radius: 12px;"
+            "  padding: 0;"
             "}"
         );
 
@@ -1106,10 +1210,12 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
         typeTag->setStyleSheet(
             "QLabel {"
             "  background: transparent;"
-            "  color: #666;"
+            "  color: #757575;"
             "  font-size: 12px;"
-            "  padding: 4px 10px;"
-            "  border-radius: 10px;"
+            "  font-weight: 500;"
+            "  padding: 4px 12px;"
+            "  border: 1px solid #E0E0E0;"
+            "  border-radius: 12px;"
             "}"
         );
 
@@ -1180,18 +1286,21 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
                 optionLabel->setObjectName("optionItem");
                 optionLabel->setWordWrap(true);
                 optionLabel->setCursor(Qt::PointingHandCursor);
-                // 透明背景 + 悬停效果
+                // 块状化选项设计 - hover时变薄荷绿
                 optionLabel->setStyleSheet(
                     "QLabel#optionItem {"
-                    "  padding: 10px 14px;"
-                    "  background: transparent;"
-                    "  border-radius: 6px;"
-                    "  color: #333;"
+                    "  padding: 12px 16px;"
+                    "  background: #FAFAFA;"
+                    "  border: 1px solid #EEEEEE;"
+                    "  border-radius: 8px;"
+                    "  color: #424242;"
                     "  line-height: 1.5;"
+                    "  margin: 2px 0;"
                     "}"
                     "QLabel#optionItem:hover {"
-                    "  background: #FFF5F5;"
-                    "  color: #B71C1C;"
+                    "  background: #E8F5E9;"
+                    "  border-color: #C8E6C9;"
+                    "  color: #2E7D32;"
                     "}"
                 );
                 optionsLayout->addWidget(optionLabel);
@@ -1237,7 +1346,7 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
 
     addToBasketBtn->setStyleSheet(
         "QPushButton#addToBasketButton {"
-        "  background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #D9001B, stop:1 #B80018);"
+        "  background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2E7D32, stop:1 #388E3C);"
         "  color: #fff;"
         "  border: none;"
         "  border-radius: 18px;"
@@ -1246,10 +1355,10 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
         "  font-weight: 600;"
         "}"
         "QPushButton#addToBasketButton:hover {"
-        "  background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #E52B3C, stop:1 #C9001F);"
+        "  background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #388E3C, stop:1 #43A047);"
         "}"
         "QPushButton#addToBasketButton:disabled {"
-        "  background: #28a745;"
+        "  background: #81C784;"
         "}"
     );
 

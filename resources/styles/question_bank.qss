@@ -1,27 +1,21 @@
-/* QtTheme融合配色方案 - 安全应用 */
+/* ====================================================================
+   试题库样式表 - 绿色主题（教育成长风格）
+   主色调: #2E7D32 ~ #4CAF50 (绿色系)
+   ==================================================================== */
+
 QuestionBankWindow#questionBankWindow {
-    background: #fafafa; /* QtTheme主背景色 */
+    background: #FAFAFA;
     font-family: "Lexend", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
-    color: #424242; /* QtTheme主文本色 */
+    color: #424242;
     font-size: 14px;
 }
 
-/* 全局样式重置 - 移除所有装饰性元素 */
+/* ==================== 全局样式重置 ==================== */
 QLabel {
     border: none;
     padding: 0;
     margin: 0;
     background: transparent;
-}
-
-/* 确保选项文本样式正确 - QtTheme融合 */
-QLabel[role="optionText"] {
-    font-size: 15px;
-    color: #424242; /* QtTheme主文本色 */
-    border: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    background: transparent !important;
 }
 
 QWidget#pageContainer,
@@ -31,30 +25,11 @@ QScrollArea#contentScrollArea {
     background: transparent;
 }
 
+/* ==================== 顶部导航栏 ==================== */
 QFrame#pageHeader {
     background: transparent;
     border-radius: 16px;
-    border: 1px solid #e8eaf6;
-}
-
-/* QtTheme融合的返回按钮样式 */
-QPushButton#backButton {
-    background: #ffebee;
-    color: #c62828;
-    border: none;
-    border-radius: 6px;
-    padding: 8px 16px;
-    font-weight: 600;
-}
-
-QPushButton#backButton:hover {
-    background: rgba(229, 57, 53, 0.16);
-    color: #e53935;
-}
-
-QPushButton#backButton:pressed {
-    background: rgba(198, 40, 40, 0.22);
-    color: #c62828;
+    border: 1px solid #E8F5E9;
 }
 
 QLabel#pageTitle {
@@ -68,10 +43,39 @@ QLabel#pageSubtitle {
     color: #757575;
 }
 
+/* ==================== 侧边栏 ==================== */
 QFrame#filterSidebar {
     background: #FFFFFF;
-    border: 1px solid #e8eaf6;
+    border: 1px solid #E8F5E9;
     border-radius: 12px;
+}
+
+/* 隐藏侧边栏粗滚动条 */
+QScrollArea#filterSidebarScroll {
+    background: transparent;
+}
+
+QScrollArea#filterSidebarScroll QScrollBar:vertical {
+    width: 4px;
+    background: transparent;
+}
+
+QScrollArea#filterSidebarScroll QScrollBar::handle:vertical {
+    background: #C8E6C9;
+    border-radius: 2px;
+    min-height: 30px;
+}
+
+QScrollArea#filterSidebarScroll QScrollBar::handle:vertical:hover {
+    background: #A5D6A7;
+}
+
+QScrollArea#filterSidebarScroll QScrollBar::add-line:vertical,
+QScrollArea#filterSidebarScroll QScrollBar::sub-line:vertical,
+QScrollArea#filterSidebarScroll QScrollBar::add-page:vertical,
+QScrollArea#filterSidebarScroll QScrollBar::sub-page:vertical {
+    height: 0;
+    background: transparent;
 }
 
 QLabel#sidebarTitle {
@@ -80,36 +84,31 @@ QLabel#sidebarTitle {
     color: #212121;
 }
 
-QLabel#sidebarHint {
-    font-size: 13px;
-    color: #757575;
-    line-height: 1.5;
-}
-
 QLabel[role="comboLabel"] {
     font-size: 13px;
     font-weight: 600;
     color: #424242;
 }
 
+/* 下拉框样式 - 白底灰边框 */
 QComboBox[role="filterSelect"] {
     background: #FFFFFF;
-    border: 1px solid #e8eaf6;
+    border: 1px solid #E0E0E0;
     border-radius: 8px;
     padding: 0 12px;
     padding-right: 32px;
-    min-height: 48px;
-    max-height: 48px;
+    min-height: 44px;
+    max-height: 44px;
     font-size: 14px;
     color: #424242;
 }
 
 QComboBox[role="filterSelect"]:hover {
-    border-color: #ef5350;
+    border-color: #4CAF50;
 }
 
 QComboBox[role="filterSelect"]:focus {
-    border-color: #e53935;
+    border-color: #2E7D32;
 }
 
 QComboBox[role="filterSelect"]::drop-down {
@@ -124,207 +123,96 @@ QComboBox[role="filterSelect"]::down-arrow {
     height: 0px;
 }
 
+/* 筛选按钮 - 胶囊式设计 */
 QPushButton[role="filterButton"] {
     background: #FFFFFF;
-    color: #424242;
-    border-radius: 5px;
-    border: 1px solid transparent;
+    color: #616161;
+    border-radius: 15px;
+    border: 1px solid #E0E0E0;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
     padding: 0 12px;
-    min-height: 40px;
+    min-height: 30px;
 }
 
 QPushButton[role="filterButton"]:hover {
-    background: #FFFFFF;
+    background: #F5F5F5;
+    border-color: #BDBDBD;
 }
 
+/* 选中状态 - 薄荷绿 */
 QPushButton[role="filterButton"]:checked {
-    background: rgba(229, 57, 53, 0.14);
-    color: #e53935;
-    border-color: rgba(229, 57, 53, 0.45);
+    background: #E8F5E9;
+    color: #2E7D32;
+    border-color: #A5D6A7;
+    font-weight: 600;
 }
 
 QPushButton[role="filterButton"]:checked:hover {
-    background: rgba(229, 57, 53, 0.22);
+    background: #C8E6C9;
 }
 
-/* QtTheme融合的生成按钮样式 - Primary配色 */
-QPushButton#generateButton {
-    background: #ef5350; /* QtTheme Primary主色 */
-    color: #ffffff; /* QtTheme Primary文本色 */
-    border-radius: 4px; /* QtTheme圆角设计 */
-    border: none; /* QtTheme无边框设计 */
-    font-size: 16px;
-    font-weight: 700;
-    min-height: 56px;
-    max-height: 56px;
-    letter-spacing: 0.4px;
-    padding: 8px 16px; /* QtTheme标准按钮内边距 */
-}
-
-QPushButton#generateButton[hovered="true"] {
-    background: #e53935; /* QtTheme Primary悬停色 */
-    color: #ffffff;
-}
-
-QPushButton#generateButton:pressed {
-    background: #c62828; /* QtTheme Primary按下色 */
-    color: #ffffff;
-}
-
-QPushButton#generateButton:disabled {
-    background: rgba(229, 57, 53, 0.35);
-    color: #ffffff;
-}
-
+/* ==================== 试题卡片 ==================== */
 QFrame#questionCard {
     background: #FFFFFF;
-    border-radius: 24px;
-    border: 1px solid #e8eaf6;
-}
-
-QFrame#cardHeader {
-    border-bottom: 1px solid #e8eaf6;
-    padding-bottom: 12px;
-}
-
-QLabel#cardTitle {
-    font-size: 22px;
-    font-weight: 700;
-    color: #212121;
-}
-
-QLabel#cardSubtitle {
-    font-size: 14px;
-    color: #757575;
-}
-
-QLabel#progressLabel {
-    font-size: 12px;
-    color: #9e9e9e;
-}
-
-QLabel#progressValue {
-    font-size: 14px;
-    font-weight: 600;
-    color: #424242;
-}
-
-QProgressBar#progressBar {
-    background: #e8eaf6;
-    border: none;
-    border-radius: 999px;
-    height: 8px;
-}
-
-QProgressBar#progressBar::chunk {
-    background: #ef5350;
-    border-radius: 999px;
+    border-radius: 16px;
+    border: 1px solid #EEEEEE;
 }
 
 QFrame#tagRow QLabel {
     padding: 0;
     border-radius: 0;
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 12px;
+    font-weight: 500;
     background: transparent;
-    color: #424242;
-}
-
-QLabel#tagType {
-    background: transparent;
-    color: #e53935;
-}
-
-QLabel#tagDifficulty {
-    background: transparent;
-    color: #ef5350;
-}
-
-QLabel#tagChapter {
-    background: transparent;
-    color: #7b1fa2;
+    color: #757575;
 }
 
 QLabel#questionStem {
-    font-size: 18px;
-    font-weight: 600;
+    font-size: 16px;
+    font-weight: 500;
     color: #212121;
     line-height: 1.7;
 }
 
-/* 现代化选项容器样式 */
-QWidget[role="optionItem"] {
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    margin: 2px 4px;
-}
-
-QWidget[role="optionItem"]:hover {
-    background: #fff5f5;
-    border-color: #ffebee;
-}
-
-QWidget[role="optionItem"][selected="true"] {
-    background: #FFFFFF;
-    border: 1px solid #ef5350;
-    border-radius: 8px;
-}
-
-QWidget[role="optionItem"][selected="true"] QLabel[role="optionKey"] {
-    background: #ef5350;
-    color: #FFFFFF;
-}
-
-QWidget[role="optionItem"][selected="true"] QLabel[role="optionText"] {
-    color: #2C3E50;
-    font-weight: 500;
-}
-
+/* 选项面板 */
 QFrame#optionsPanel {
     background: transparent;
     border: none;
 }
 
-
+/* ==================== 答案区域 ==================== */
 QFrame#answerSection {
-    background: rgba(56, 142, 60, 0.12);
-    border: 1px solid rgba(56, 142, 60, 0.4);
-    border-radius: 18px;
+    background: #E8F5E9;
+    border: 1px solid #C8E6C9;
+    border-radius: 12px;
 }
 
 QLabel#answerTitle {
     font-size: 13px;
     font-weight: 700;
-    color: #388e3c;
-    letter-spacing: 0.6px;
+    color: #2E7D32;
+    letter-spacing: 0.5px;
 }
 
 QLabel#answerValue {
-    font-size: 26px;
+    font-size: 20px;
     font-weight: 700;
-    color: #388e3c;
+    color: #2E7D32;
 }
 
-QLabel#answerDescription {
-    font-size: 14px;
-    color: rgba(56, 142, 60, 0.85);
-    line-height: 1.6;
-}
-
+/* ==================== 解析区域 ==================== */
 QFrame#analysisSection {
-    background: #FFFFFF;
-    border: 1px dashed #e8eaf6;
-    border-radius: 18px;
+    background: #FAFAFA;
+    border: 1px dashed #E0E0E0;
+    border-radius: 12px;
 }
 
 QLabel#analysisTitle {
     font-size: 13px;
     font-weight: 700;
-    color: #c62828;
-    letter-spacing: 0.6px;
+    color: #616161;
+    letter-spacing: 0.5px;
 }
 
 QLabel#analysisDescription {
@@ -333,8 +221,9 @@ QLabel#analysisDescription {
     line-height: 1.7;
 }
 
+/* ==================== 操作按钮 ==================== */
 QFrame#actionRow QPushButton {
-    border-radius: 999px;
+    border-radius: 20px;
     font-size: 14px;
     font-weight: 600;
     padding: 10px 24px;
@@ -346,32 +235,68 @@ QFrame#cardActionRow {
 }
 
 QPushButton#primaryActionButton {
-    background: #e53935;
+    background: #2E7D32;
     color: #FFFFFF;
-    border: 1px solid #e53935;
+    border: none;
 }
 
 QPushButton#primaryActionButton:hover {
-    background: #c62828;
-    border-color: #c62828;
+    background: #388E3C;
 }
 
 QPushButton#secondaryButton {
     background: #FFFFFF;
-    border: 1px solid #e53935;
-    color: #e53935;
+    border: 1px solid #4CAF50;
+    color: #2E7D32;
 }
 
 QPushButton#secondaryButton:hover {
-    background: rgba(229, 57, 53, 0.1);
+    background: #E8F5E9;
 }
 
 QPushButton#ghostButton {
     background: transparent;
-    border: 1px dashed #ef5350;
-    color: #ef5350;
+    border: 1px dashed #81C784;
+    color: #4CAF50;
 }
 
 QPushButton#ghostButton:hover {
-    background: rgba(239, 83, 80, 0.12);
+    background: #E8F5E9;
+}
+
+/* ==================== 进度条 ==================== */
+QProgressBar#progressBar {
+    background: #E8F5E9;
+    border: none;
+    border-radius: 4px;
+    height: 8px;
+}
+
+QProgressBar#progressBar::chunk {
+    background: #4CAF50;
+    border-radius: 4px;
+}
+
+/* ==================== 内容区域滚动条 ==================== */
+QScrollArea#contentScrollArea QScrollBar:vertical {
+    width: 6px;
+    background: transparent;
+}
+
+QScrollArea#contentScrollArea QScrollBar::handle:vertical {
+    background: #C8E6C9;
+    border-radius: 3px;
+    min-height: 40px;
+}
+
+QScrollArea#contentScrollArea QScrollBar::handle:vertical:hover {
+    background: #A5D6A7;
+}
+
+QScrollArea#contentScrollArea QScrollBar::add-line:vertical,
+QScrollArea#contentScrollArea QScrollBar::sub-line:vertical,
+QScrollArea#contentScrollArea QScrollBar::add-page:vertical,
+QScrollArea#contentScrollArea QScrollBar::sub-page:vertical {
+    height: 0;
+    background: transparent;
 }
