@@ -8,22 +8,13 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QApplication>
+#include <QFile>
+#include <QDebug>
 
 const QString ChatWidget::USER_BUBBLE_COLOR = StyleConfig::PATRIOTIC_RED_DARK;
 const QString ChatWidget::AI_BUBBLE_COLOR = StyleConfig::BG_CARD;
 const QString ChatWidget::USER_TEXT_COLOR = "#FFFFFF";
 const QString ChatWidget::AI_TEXT_COLOR = StyleConfig::TEXT_PRIMARY;
-
-// 主题配色常量
-namespace ThemeColors {
-    const QString PRIMARY_RED = StyleConfig::PATRIOTIC_RED;
-    const QString ACCENT_GOLD = StyleConfig::GOLD_ACCENT;
-    const QString BG_WARM_GRAY = StyleConfig::BG_APP;
-    const QString BG_CARD = StyleConfig::BG_CARD;
-    const QString TEXT_PRIMARY = StyleConfig::TEXT_PRIMARY;
-    const QString TEXT_SECONDARY = StyleConfig::TEXT_SECONDARY;
-    const QString BORDER_LIGHT = StyleConfig::BORDER_LIGHT;
-}
 
 ChatWidget::ChatWidget(QWidget *parent)
     : QWidget(parent)
@@ -148,115 +139,21 @@ void ChatWidget::setupUI()
 
 void ChatWidget::setupStyles()
 {
-    // 整体样式 - 思政红金主题
-    setStyleSheet(R"(
-        ChatWidget {
-            background-color: #f5f5f5;
-        }
-
-        /* 滚动区域 */
-        QScrollArea#chatScrollArea {
-            background-color: #f5f5f5;
-            border: none;
-        }
-
-        /* 消息容器 */
-        QWidget#messageContainer {
-            background-color: #f5f5f5;
-        }
-
-        /* 滚动条样式 */
-        QScrollBar:vertical {
-            background: transparent;
-            width: 8px;
-            margin: 0;
-        }
-        QScrollBar::handle:vertical {
-            background: rgba(183, 28, 28, 0.3);
-            border-radius: 4px;
-            min-height: 40px;
-        }
-        QScrollBar::handle:vertical:hover {
-            background: rgba(183, 28, 28, 0.5);
-        }
-        QScrollBar::add-line:vertical,
-        QScrollBar::sub-line:vertical,
-        QScrollBar::add-page:vertical,
-        QScrollBar::sub-page:vertical {
-            background: none;
-            height: 0;
-        }
-
-        /* 底部区域 */
-        QWidget#bottomWidget {
-            background: transparent;
-            border: none;
-        }
-
-        /* 输入框容器 - 悬浮卡片风格 */
-        QFrame#inputContainer {
-            background-color: #ffffff;
-            border-radius: 28px;
-            border: 1px solid #e5e7eb;
-        }
-        QFrame#inputContainer:focus-within {
-            border: 1.5px solid #E53935;
-        }
-
-        /* 加号按钮 */
-        QPushButton#plusBtn {
-            background-color: #e5e7eb;
-            color: #718096;
-            border-radius: 16px;
-            border: none;
-            font-size: 18px;
-            font-weight: bold;
-            padding-bottom: 2px;
-        }
-        QPushButton#plusBtn:hover {
-            background-color: #E53935;
-            color: #ffffff;
-        }
-
-        /* 输入框 */
-        QLineEdit#chatInputEdit {
-            background-color: transparent;
-            border: none;
-            padding: 0 12px;
-            font-size: 15px;
-            color: #2d3748;
-        }
-        QLineEdit#chatInputEdit::placeholder {
-            color: #a0aec0;
-        }
-
-        /* 发送按钮 - 思政红 */
-        QPushButton#chatSendBtn {
-            background-color: #E53935;
-            color: #ffffff;
-            border: none;
-            border-radius: 16px;
-            font-size: 16px;
-            font-weight: bold;
-        }
-        QPushButton#chatSendBtn:hover {
-            background-color: #991b1b;
-        }
-        QPushButton#chatSendBtn:pressed {
-            background-color: #7f1d1d;
-        }
-        QPushButton#chatSendBtn:disabled {
-            background-color: #e5e7eb;
-            color: #a0aec0;
-        }
-
-        /* 提示文字 */
-        QLabel#tipLabel {
-            color: #a0aec0;
-            font-size: 12px;
-            background: transparent;
-        }
-    )");
+    // 从外部 QSS 文件加载样式（样式与逻辑分离）
+    QFile styleFile(":/styles/resources/styles/ChatWidget.qss");
+    if (styleFile.open(QFile::ReadOnly | QFile::Text)) {
+        setStyleSheet(QString::fromUtf8(styleFile.readAll()));
+        styleFile.close();
+        qDebug() << "[ChatWidget] Loaded external stylesheet successfully";
+    } else {
+        qWarning() << "[ChatWidget] Failed to load ChatWidget.qss, using fallback styles";
+        // 如果加载失败，使用最小化的回退样式
+        setStyleSheet(R"(
+            ChatWidget { background-color: #f5f5f5; }
+            QScrollArea#chatScrollArea { background-color: #f5f5f5; border: none; }
+            QWidget#messageContainer { background-color: #f5f5f5; }
+        )");
+    }
 }
 
 QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
@@ -370,7 +267,7 @@ QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
             "   letter-spacing: 0.3px;"
             "}"
         ).arg(AI_TEXT_COLOR));
-        
+
         // 为 AI 消息添加可折叠的思考过程区域
         m_lastAIThinkingWidget = new QWidget();
         m_lastAIThinkingWidget->setVisible(false); // 默认隐藏
@@ -398,7 +295,7 @@ QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
             "   color: #2b7de9;"
             "}"
         );
-        
+
         QLabel *thinkingTitleLabel = new QLabel("思考过程");
         thinkingTitleLabel->setStyleSheet(
             "QLabel {"

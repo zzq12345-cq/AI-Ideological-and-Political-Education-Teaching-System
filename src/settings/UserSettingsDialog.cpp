@@ -13,6 +13,7 @@
 #include <QFile>
 #include <QPalette>
 #include <QStyleFactory>
+#include <QCheckBox>
 
 UserSettingsDialog::UserSettingsDialog(QWidget *parent)
     : QDialog(parent)
