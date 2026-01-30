@@ -1,0 +1,121 @@
+/*
+ * ChatWidget 样式表
+ * 思政红金主题 - AI 对话组件
+ */
+
+/* ========== 整体容器 ========== */
+ChatWidget {
+    background-color: #f5f5f5;
+}
+
+/* ========== 滚动区域 ========== */
+QScrollArea#chatScrollArea {
+    background-color: #f5f5f5;
+    border: none;
+}
+
+/* ========== 消息容器 ========== */
+QWidget#messageContainer {
+    background-color: #f5f5f5;
+}
+
+/* ========== 滚动条样式 ========== */
+QScrollBar:vertical {
+    background: transparent;
+    width: 8px;
+    margin: 0;
+}
+
+QScrollBar::handle:vertical {
+    background: rgba(183, 28, 28, 0.3);
+    border-radius: 4px;
+    min-height: 40px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: rgba(183, 28, 28, 0.5);
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical,
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    background: none;
+    height: 0;
+}
+
+/* ========== 底部区域 ========== */
+QWidget#bottomWidget {
+    background: transparent;
+    border: none;
+}
+
+/* ========== 输入框容器 - 悬浮卡片风格 ========== */
+QFrame#inputContainer {
+    background-color: #ffffff;
+    border-radius: 28px;
+    border: 1px solid #e5e7eb;
+}
+
+QFrame#inputContainer:focus-within {
+    border: 1.5px solid #E53935;
+}
+
+/* ========== 加号按钮 ========== */
+QPushButton#plusBtn {
+    background-color: #e5e7eb;
+    color: #718096;
+    border-radius: 16px;
+    border: none;
+    font-size: 18px;
+    font-weight: bold;
+    padding-bottom: 2px;
+}
+
+QPushButton#plusBtn:hover {
+    background-color: #E53935;
+    color: #ffffff;
+}
+
+/* ========== 输入框 ========== */
+QLineEdit#chatInputEdit {
+    background-color: transparent;
+    border: none;
+    padding: 0 12px;
+    font-size: 15px;
+    color: #2d3748;
+}
+
+QLineEdit#chatInputEdit::placeholder {
+    color: #a0aec0;
+}
+
+/* ========== 发送按钮 - 思政红 ========== */
+QPushButton#chatSendBtn {
+    background-color: #E53935;
+    color: #ffffff;
+    border: none;
+    border-radius: 16px;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+QPushButton#chatSendBtn:hover {
+    background-color: #991b1b;
+}
+
+QPushButton#chatSendBtn:pressed {
+    background-color: #7f1d1d;
+}
+
+QPushButton#chatSendBtn:disabled {
+    background-color: #e5e7eb;
+    color: #a0aec0;
+}
+
+/* ========== 提示文字 ========== */
+QLabel#tipLabel {
+    color: #a0aec0;
+    font-size: 12px;
+    background: transparent;
+}

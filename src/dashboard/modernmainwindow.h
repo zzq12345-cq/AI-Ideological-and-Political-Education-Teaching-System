@@ -105,61 +105,61 @@ private:
                               int trendDirection);
 
     // 核心UI组件
-    QWidget *centralWidget;
-    QVBoxLayout *mainLayout;
-    QHBoxLayout *contentLayout;
+    QWidget *centralWidget = nullptr;
+    QVBoxLayout *mainLayout = nullptr;
+    QHBoxLayout *contentLayout = nullptr;
 
     // 侧边栏
-    QFrame *sidebar;
-    QVBoxLayout *sidebarLayout;
-    QFrame *profileWidget;
-    QLabel *m_avatarLabel;      // 头像显示（显示姓氏首字）
-    QLabel *m_userNameLabel;    // 用户名显示
+    QFrame *sidebar = nullptr;
+    QVBoxLayout *sidebarLayout = nullptr;
+    QFrame *profileWidget = nullptr;
+    QLabel *m_avatarLabel = nullptr;      // 头像显示（显示姓氏首字）
+    QLabel *m_userNameLabel = nullptr;    // 用户名显示
 
     // 侧边栏导航按钮
-    QPushButton *teacherCenterBtn;      // 教师中心
-    QPushButton *newsTrackingBtn;       // 时政新闻
-    QPushButton *aiPreparationBtn;      // AI智能备课
-    QPushButton *resourceManagementBtn; // 资源库管理
-    QPushButton *learningAnalysisBtn;   // 学情与教评
-    QPushButton *dataAnalysisBtn;       // 数据分析报告 (新)
-    
+    QPushButton *teacherCenterBtn = nullptr;      // 教师中心
+    QPushButton *newsTrackingBtn = nullptr;       // 时政新闻
+    QPushButton *aiPreparationBtn = nullptr;      // AI智能备课
+    QPushButton *resourceManagementBtn = nullptr; // 资源库管理
+    QPushButton *learningAnalysisBtn = nullptr;   // 学情与教评
+    QPushButton *dataAnalysisBtn = nullptr;       // 数据分析报告 (新)
+
     // 底部菜单
-    QPushButton *settingsBtn;           // 系统设置
-    QPushButton *helpBtn;               // 帮助中心
+    QPushButton *settingsBtn = nullptr;           // 系统设置
+    QPushButton *helpBtn = nullptr;               // 帮助中心
 
     // 主内容区域
-    QStackedWidget *contentStack;
-    QWidget *dashboardWidget;
-    QScrollArea *dashboardScrollArea;
-    AIPreparationWidget *aiPreparationWidget;
+    QStackedWidget *contentStack = nullptr;
+    QWidget *dashboardWidget = nullptr;
+    QScrollArea *dashboardScrollArea = nullptr;
+    AIPreparationWidget *aiPreparationWidget = nullptr;
 
     // 试题库相关组件
-    QuestionBankWindow *questionBankWindow;
-    QuestionRepository *questionRepository;
+    QuestionBankWindow *questionBankWindow = nullptr;
+    QuestionRepository *questionRepository = nullptr;
 
     // 时政新闻相关组件
-    HotspotTrackingWidget *m_hotspotWidget;
-    HotspotService *m_hotspotService;
+    HotspotTrackingWidget *m_hotspotWidget = nullptr;
+    HotspotService *m_hotspotService = nullptr;
 
     // 数据分析报告组件
-    DataAnalyticsWidget *m_dataAnalyticsWidget;
+    DataAnalyticsWidget *m_dataAnalyticsWidget = nullptr;
 
     // 顶部工具栏 (Header)
-    QFrame *headerWidget;
-    QHBoxLayout *headerLayout;
-    QLabel *titleLabel;
-    QLineEdit *searchInput;
-    QPushButton *notificationBtn;
-    QPushButton *headerProfileBtn;
+    QFrame *headerWidget = nullptr;
+    QHBoxLayout *headerLayout = nullptr;
+    QLabel *titleLabel = nullptr;
+    QLineEdit *searchInput = nullptr;
+    QPushButton *notificationBtn = nullptr;
+    QPushButton *headerProfileBtn = nullptr;
 
     // 仪表板内容组件
-    QLabel *welcomeLabel;
-    QLabel *subtitleLabel;
+    QLabel *welcomeLabel = nullptr;
+    QLabel *subtitleLabel = nullptr;
 
     // 核心功能卡片
-    QFrame *welcomeCard;
-    QFrame *quickAccessCard;
+    QFrame *welcomeCard = nullptr;
+    QFrame *quickAccessCard = nullptr;
     
     // 移除旧版组件变量
     // QFrame *coreFeaturesFrame; ...
@@ -169,25 +169,25 @@ private:
     AIChatDialog *m_chatDialog = nullptr;  // AI 对话框（备用）
     class ChatWidget *m_bubbleChatWidget = nullptr;  // 气泡样式聊天组件（主面板用）
     ChatHistoryWidget *m_chatHistoryWidget = nullptr;  // 历史记录侧边栏
-    QWidget *m_chatContainer;  // 聊天容器
-    QStackedWidget *m_sidebarStack;  // 侧边栏切换栈
-    QFrame *m_chatWidget;        // 输入框容器
-    QLineEdit *m_chatInput;
-    QPushButton *m_sendBtn;
+    QWidget *m_chatContainer = nullptr;  // 聊天容器
+    QStackedWidget *m_sidebarStack = nullptr;  // 侧边栏切换栈
+    QFrame *m_chatWidget = nullptr;        // 输入框容器
+    QLineEdit *m_chatInput = nullptr;
+    QPushButton *m_sendBtn = nullptr;
     QString m_currentAIResponse;  // 累积流式响应
-    QTimer *m_streamUpdateTimer;  // 流式更新节流定时器
-    bool m_streamUpdatePending;   // 是否有待处理的更新
-    PPTXGenerator *m_pptxGenerator;  // PPTX 生成器
+    QTimer *m_streamUpdateTimer = nullptr;  // 流式更新节流定时器
+    bool m_streamUpdatePending = false;   // 是否有待处理的更新
+    PPTXGenerator *m_pptxGenerator = nullptr;  // PPTX 生成器
 
     // PPT 模拟生成相关
-    QTimer *m_pptSimulationTimer;     // PPT 模拟思考定时器
-    int m_pptSimulationStep;          // 当前模拟步骤
+    QTimer *m_pptSimulationTimer = nullptr;     // PPT 模拟思考定时器
+    int m_pptSimulationStep = 0;          // 当前模拟步骤
     QString m_pendingPPTPath;         // 待提供的 PPT 文件路径
-    int m_pptQuestionStep;            // PPT 问答阶段（0=未开始，1-3=问问题，4=生成中）
+    int m_pptQuestionStep = 0;            // PPT 问答阶段（0=未开始，1-3=问问题，4=生成中）
     QStringList m_pptUserAnswers;     // 用户的回答记录
-    QTimer *m_pptTypingTimer;         // 打字效果定时器
+    QTimer *m_pptTypingTimer = nullptr;         // 打字效果定时器
     QString m_pptTypingText;          // 待打字的完整文本
-    int m_pptTypingIndex;             // 当前打字位置
+    int m_pptTypingIndex = 0;             // 当前打字位置
     void startPPTSimulation(const QString &userMessage);  // 开始 PPT 模拟生成
     void onPPTSimulationStep();       // PPT 模拟步骤处理
     bool isPPTGenerationRequest(const QString &message);  // 检测是否是 PPT 生成请求
@@ -196,21 +196,21 @@ private:
     void onPPTTypingStep();           // 打字效果定时器回调
 
     // 欢迎面板（首页显示，对话后隐藏）
-    QWidget *m_welcomePanel;
-    QWidget *m_welcomeInputWidget;  // 欢迎页面底部输入框
-    QStackedWidget *m_mainStack;    // 主内容切换栈
-    bool m_isConversationStarted;   // 是否已开始对话
+    QWidget *m_welcomePanel = nullptr;
+    QWidget *m_welcomeInputWidget = nullptr;  // 欢迎页面底部输入框
+    QStackedWidget *m_mainStack = nullptr;    // 主内容切换栈
+    bool m_isConversationStarted = false;   // 是否已开始对话
 
     // 数据
     QString currentUserRole;
     QString currentUsername;
 
     // 菜单动作
-    QAction *profileAction;
-    QAction *settingsAction;
-    QAction *helpAction;
-    QAction *aboutAction;
-    QAction *logoutAction;
+    QAction *profileAction = nullptr;
+    QAction *settingsAction = nullptr;
+    QAction *helpAction = nullptr;
+    QAction *aboutAction = nullptr;
+    QAction *logoutAction = nullptr;
 };
 
 #endif // MODERNMAINWINDOW_H

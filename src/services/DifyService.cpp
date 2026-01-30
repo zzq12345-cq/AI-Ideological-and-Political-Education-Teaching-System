@@ -89,26 +89,7 @@ void DifyService::sendMessage(const QString &message, const QString &conversatio
 
     // 构建请求 URL
     QUrl url(m_baseUrl + "/chat-messages");
-    QNetworkRequest request(url);
-
-    // 设置请求头
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
-    
-    // 配置 SSL
-    QSslConfiguration sslConfig = request.sslConfiguration();
-    sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);  // 暂时禁用 SSL 验证用于调试
-    request.setSslConfiguration(sslConfig);
-
-    // 设置超时时间（给 AI 足够的思考时间）
-    request.setTransferTimeout(120000);  // 120秒超时
-
-    // 强制使用 HTTP/1.1 避免 HTTP/2 协议错误
-    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
-
-#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
-    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-#endif
+    QNetworkRequest request = createConfiguredRequest(url, 120000);
 
     // 构建请求体 - Agent 应用使用 streaming 模式
     QJsonObject body;
@@ -270,6 +251,73 @@ void DifyService::resetStreamFilters()
     m_hasTruncated = false;
 }
 
+// 统一创建已配置的网络请求，消除重复的 SSL/HTTP2/超时配置
+QNetworkRequest DifyService::createConfiguredRequest(const QUrl &url, int timeout)
+{
+    QNetworkRequest request(url);
+
+    // 设置请求头
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
+
+    // 配置 SSL（开发环境暂时禁用验证）
+    QSslConfiguration sslConfig = request.sslConfiguration();
+    sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
+    request.setSslConfiguration(sslConfig);
+
+    // 禁用 HTTP/2 避免协议错误
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+
+    // 设置超时
+    request.setTransferTimeout(timeout);
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+#endif
+
+    return request;
+}
+
+// 统一处理流式文本，消除 message/agent_message/text_chunk 重复逻辑
+void DifyService::handleStreamText(const QString &text)
+{
+    if (m_ignoreFurtherContent) {
+        return;
+    }
+
+    // 过滤 think/analysis 标签
+    QString filteredText = filterThinkTagsStreaming(text);
+    if (filteredText.isEmpty()) {
+        return;
+    }
+
+    // 检查是否超过最大字符数限制
+    const int remaining = m_maxResponseChars - m_fullResponse.length();
+    if (remaining <= 0) {
+        if (!m_hasTruncated) {
+            m_fullResponse += "…";
+            emit streamChunkReceived("…");
+            m_hasTruncated = true;
+        }
+        m_ignoreFurtherContent = true;
+        return;
+    }
+
+    // 处理需要截断的情况
+    if (filteredText.length() > remaining) {
+        const QString clipped = filteredText.left(remaining);
+        m_fullResponse += clipped + "…";
+        emit streamChunkReceived(clipped + "…");
+        m_hasTruncated = true;
+        m_ignoreFurtherContent = true;
+        return;
+    }
+
+    // 正常累加并发射信号
+    m_fullResponse += filteredText;
+    emit streamChunkReceived(filteredText);
+}
+
 static int partialSuffixLength(const QString &text, const QStringList &tokens)
 {
     int best = 0;
@@ -392,39 +440,9 @@ void DifyService::parseStreamResponse(const QByteArray &data)
         }
 
         if (event == "message") {
-            // 普通消息块
-            if (m_ignoreFurtherContent) {
-                continue;
-            }
+            // 普通消息块 - 使用统一处理方法
             QString answer = obj["answer"].toString();
-            // 过滤 think/analysis 标签（支持跨 chunk）
-            QString filteredAnswer = filterThinkTagsStreaming(answer);
-            if (filteredAnswer.isEmpty()) {
-                continue;
-            }
-
-            const int remaining = m_maxResponseChars - m_fullResponse.length();
-            if (remaining <= 0) {
-                if (!m_hasTruncated) {
-                    m_fullResponse += "…";
-                    emit streamChunkReceived("…");
-                    m_hasTruncated = true;
-                }
-                m_ignoreFurtherContent = true;
-                continue;
-            }
-
-            if (filteredAnswer.length() > remaining) {
-                const QString clipped = filteredAnswer.left(remaining);
-                m_fullResponse += clipped + "…";
-                emit streamChunkReceived(clipped + "…");
-                m_hasTruncated = true;
-                m_ignoreFurtherContent = true;
-                continue;
-            }
-
-            m_fullResponse += filteredAnswer;
-            emit streamChunkReceived(filteredAnswer);
+            handleStreamText(answer);
 
         } else if (event == "message_end") {
             // 消息结束
@@ -449,71 +467,19 @@ void DifyService::parseStreamResponse(const QByteArray &data)
             continue;
             
         } else if (event == "agent_message") {
-            // Agent 消息（如果使用 Agent 类型应用）
-            if (m_ignoreFurtherContent) {
-                continue;
-            }
+            // Agent 消息 - 使用统一处理方法
             QString answer = obj["answer"].toString();
-            // 过滤 think/analysis 标签（支持跨 chunk）
-            QString filteredAnswer = filterThinkTagsStreaming(answer);
-            if (filteredAnswer.isEmpty()) {
-                continue;
-            }
+            handleStreamText(answer);
 
-            const int remaining = m_maxResponseChars - m_fullResponse.length();
-            if (remaining <= 0) {
-                if (!m_hasTruncated) {
-                    m_fullResponse += "…";
-                    emit streamChunkReceived("…");
-                    m_hasTruncated = true;
-                }
-                m_ignoreFurtherContent = true;
-                continue;
-            }
-
-            if (filteredAnswer.length() > remaining) {
-                const QString clipped = filteredAnswer.left(remaining);
-                m_fullResponse += clipped + "…";
-                emit streamChunkReceived(clipped + "…");
-                m_hasTruncated = true;
-                m_ignoreFurtherContent = true;
-                continue;
-            }
-
-            m_fullResponse += filteredAnswer;
-            emit streamChunkReceived(filteredAnswer);
-            
         } else if (event == "text_chunk") {
-            // 工作流应用的文本块事件
-            if (m_ignoreFurtherContent) {
-                continue;
-            }
-            // 工作流返回的文本在 data.text 中
+            // 工作流文本块 - 使用统一处理方法
             QJsonObject dataObj = obj["data"].toObject();
             QString text = dataObj["text"].toString();
             if (text.isEmpty()) {
                 text = obj["text"].toString();  // 备用字段
             }
-            
-            QString filteredText = filterThinkTagsStreaming(text);
-            if (filteredText.isEmpty()) {
-                continue;
-            }
+            handleStreamText(text);
 
-            const int remaining = m_maxResponseChars - m_fullResponse.length();
-            if (remaining <= 0) {
-                if (!m_hasTruncated) {
-                    m_fullResponse += "…";
-                    emit streamChunkReceived("…");
-                    m_hasTruncated = true;
-                }
-                m_ignoreFurtherContent = true;
-                continue;
-            }
-
-            m_fullResponse += filteredText;
-            emit streamChunkReceived(filteredText);
-            
         } else if (event == "workflow_started" || event == "node_started" || event == "node_finished" || event == "workflow_finished") {
             // 跳过工作流相关事件
             qDebug() << "[DifyService] Skipping workflow event:" << event;
@@ -536,15 +502,7 @@ void DifyService::fetchConversations(int limit)
     query.addQueryItem("sort_by", "-updated_at");
     url.setQuery(query);
 
-    QNetworkRequest request(url);
-    request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
-    request.setRawHeader("Content-Type", "application/json");
-
-    // 配置 SSL
-    QSslConfiguration sslConfig = request.sslConfiguration();
-    sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
-    request.setSslConfiguration(sslConfig);
-    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+    QNetworkRequest request = createConfiguredRequest(url);
 
     qDebug() << "[DifyService] Fetching conversations from:" << url.toString();
 
@@ -593,15 +551,7 @@ void DifyService::fetchMessages(const QString &conversationId, int limit)
     query.addQueryItem("limit", QString::number(limit));
     url.setQuery(query);
 
-    QNetworkRequest request(url);
-    request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
-    request.setRawHeader("Content-Type", "application/json");
-
-    // 配置 SSL
-    QSslConfiguration sslConfig = request.sslConfiguration();
-    sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
-    request.setSslConfiguration(sslConfig);
-    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+    QNetworkRequest request = createConfiguredRequest(url);
 
     qDebug() << "[DifyService] Fetching messages for conversation:" << conversationId;
 
@@ -645,15 +595,7 @@ void DifyService::fetchAppInfo()
     query.addQueryItem("user", m_userId);
     url.setQuery(query);
 
-    QNetworkRequest request(url);
-    request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
-    request.setRawHeader("Content-Type", "application/json");
-
-    // 配置 SSL
-    QSslConfiguration sslConfig = request.sslConfiguration();
-    sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
-    request.setSslConfiguration(sslConfig);
-    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+    QNetworkRequest request = createConfiguredRequest(url);
 
     qDebug() << "[DifyService] Fetching app info from:" << url.toString();
 

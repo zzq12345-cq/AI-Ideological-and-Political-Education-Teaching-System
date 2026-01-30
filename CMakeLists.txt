@@ -24,6 +24,10 @@ set(PROJECT_SOURCES
     src/auth/supabase/supabaseconfig.h
     src/dashboard/modernmainwindow.cpp
     src/dashboard/modernmainwindow.h
+    src/dashboard/ChatManager.cpp
+    src/dashboard/ChatManager.h
+    src/dashboard/SidebarManager.cpp
+    src/dashboard/SidebarManager.h
     src/questionbank/questionbankwindow.cpp
     src/questionbank/questionbankwindow.h
     src/questionbank/QuestionRepository.cpp

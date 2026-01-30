@@ -49,6 +49,7 @@
         <file>resources/styles/auth.qss</file>
         <file>resources/styles/question_bank.qss</file>
         <file>resources/styles/qt_theme_safe.qss</file>
+        <file>resources/styles/ChatWidget.qss</file>
     </qresource>
     <qresource prefix="/QtTheme">
         <file>resources/QtTheme/icon/chevron_down/#bdbdbd.svg</file>

@@ -146,6 +146,12 @@ private:
     QString filterThinkTagsStreaming(const QString &text);
     void resetStreamFilters();
 
+    // 统一处理流式文本（消除 message/agent_message/text_chunk 重复逻辑）
+    void handleStreamText(const QString &text);
+
+    // 创建已配置的网络请求（统一 SSL、HTTP/2、超时设置）
+    QNetworkRequest createConfiguredRequest(const QUrl &url, int timeout = 120000);
+
     QNetworkAccessManager *m_networkManager;
     QNetworkReply *m_currentReply;
     QString m_apiKey;
