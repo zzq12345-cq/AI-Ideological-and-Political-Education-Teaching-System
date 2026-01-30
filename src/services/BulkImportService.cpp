@@ -243,9 +243,25 @@ void BulkImportService::onParseCompleted(const QList<PaperQuestion> &questions)
             qDebug() << "BulkImportService: 工作流已直接插入" << questions.size() << "道题目到数据库";
             m_totalQuestions += questions.size();
         } else {
-            // 需要通过 PaperService 添加到数据库
-            m_paperService->addQuestions(questions);
-            m_totalQuestions += questions.size();
+            // 过滤：只保留大题（材料题、简答题、论述题等非选择题）
+            QList<PaperQuestion> bigQuestions;
+            for (const PaperQuestion &q : questions) {
+                QString type = q.questionType.toLower();
+                // 只保留大题类型，跳过选择题、判断题、填空题
+                if (type == "short_answer" || type == "essay" ||
+                    type == "material_essay" || type == "analysis" ||
+                    type == "discussion" || type == "comprehensive") {
+                    bigQuestions.append(q);
+                }
+            }
+
+            qDebug() << "BulkImportService: 过滤后保留" << bigQuestions.size() << "道大题（跳过选择题/判断题/填空题）";
+
+            if (!bigQuestions.isEmpty()) {
+                // 需要通过 PaperService 添加到数据库
+                m_paperService->addQuestions(bigQuestions);
+                m_totalQuestions += bigQuestions.size();
+            }
         }
     }
 
