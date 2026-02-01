@@ -72,16 +72,43 @@ void PersonalAnalyticsPage::refresh()
 
 void PersonalAnalyticsPage::setupUI()
 {
+    // 学习班级分析页面的布局方式，用 ScrollArea 包装避免重叠
+    QWidget *scrollContent = new QWidget();
+    scrollContent->setObjectName("scrollContent");
+    QVBoxLayout *contentLayout = new QVBoxLayout(scrollContent);
+    contentLayout->setContentsMargins(32, 32, 32, 32);
+    contentLayout->setSpacing(32);
+
+    // 主布局只放 ScrollArea
     m_mainLayout = new QVBoxLayout(this);
-    m_mainLayout->setContentsMargins(24, 20, 24, 24);
-    m_mainLayout->setSpacing(20);
+    m_mainLayout->setContentsMargins(0, 0, 0, 0);
 
     createHeader();
-    createScoreTrendChart();
-    createKnowledgeRadarChart();
-    createAIAdviceArea();
+    contentLayout->addWidget(m_headerFrame);
 
-    m_mainLayout->addStretch();
+    createScoreTrendChart();
+    // 通过 parentWidget 获取趋势图的 Frame
+    QFrame *trendFrame = qobject_cast<QFrame*>(m_trendChartView->parentWidget());
+    if (trendFrame) contentLayout->addWidget(trendFrame);
+
+    createKnowledgeRadarChart();
+    // 通过 parentWidget 获取雷达图的 Frame
+    QFrame *radarFrame = qobject_cast<QFrame*>(m_radarWidget->parentWidget());
+    if (radarFrame) contentLayout->addWidget(radarFrame);
+
+    createAIAdviceArea();
+    contentLayout->addWidget(m_adviceFrame);
+
+    contentLayout->addStretch();
+
+    // 包装进 ScrollArea，再也不会重叠了
+    QScrollArea *scrollArea = new QScrollArea(this);
+    scrollArea->setWidget(scrollContent);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setStyleSheet("background: transparent;");
+
+    m_mainLayout->addWidget(scrollArea);
 }
 
 void PersonalAnalyticsPage::setupStyles()
@@ -100,11 +127,18 @@ void PersonalAnalyticsPage::createHeader()
     m_headerFrame->setFixedHeight(60);
     m_headerFrame->setStyleSheet(QString(
         "QFrame#personalHeader {"
-        "    background-color: %1;"
-        "    border-radius: 12px;"
+        "    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 %1, stop:1 #FFFFFF);"
+        "    border-radius: 16px;"
         "    border: 1px solid %2;"
         "}"
-    ).arg(StyleConfig::BG_CARD, StyleConfig::BORDER_LIGHT));
+    ).arg(StyleConfig::PATRIOTIC_RED_TINT, StyleConfig::BORDER_LIGHT));
+
+    // 给Header加点阴影，显得高级
+    QGraphicsDropShadowEffect *headerShadow = new QGraphicsDropShadowEffect(this);
+    headerShadow->setBlurRadius(20);
+    headerShadow->setColor(QColor(0, 0, 0, 20));
+    headerShadow->setOffset(0, 4);
+    m_headerFrame->setGraphicsEffect(headerShadow);
 
     QHBoxLayout *headerLayout = new QHBoxLayout(m_headerFrame);
     headerLayout->setContentsMargins(20, 10, 20, 10);
@@ -148,8 +182,7 @@ void PersonalAnalyticsPage::createHeader()
     headerLayout->addWidget(m_classCombo);
     headerLayout->addWidget(studentLabel);
     headerLayout->addWidget(m_studentCombo);
-
-    m_mainLayout->addWidget(m_headerFrame);
+    // 不在这里添加到布局，由 setupUI 统一管理
 }
 
 void PersonalAnalyticsPage::createScoreTrendChart()
@@ -159,26 +192,52 @@ void PersonalAnalyticsPage::createScoreTrendChart()
     chartFrame->setMinimumHeight(280);
     chartFrame->setStyleSheet(QString(
         "QFrame#trendChartFrame {"
-        "    background-color: %1;"
-        "    border-radius: 12px;"
-        "    border: 1px solid %2;"
+        "    background-color: white;"
+        "    border-radius: 16px;"
+        "    border: 1px solid %1;"
         "}"
-    ).arg(StyleConfig::BG_CARD, StyleConfig::BORDER_LIGHT));
+    ).arg(StyleConfig::BORDER_LIGHT));
+
+    // 阴影是必须的
+    QGraphicsDropShadowEffect *chartShadow = new QGraphicsDropShadowEffect(this);
+    chartShadow->setBlurRadius(25);
+    chartShadow->setColor(QColor(0, 0, 0, 15));
+    chartShadow->setOffset(0, 6);
+    chartFrame->setGraphicsEffect(chartShadow);
 
     QVBoxLayout *layout = new QVBoxLayout(chartFrame);
-    layout->setContentsMargins(20, 16, 20, 16);
-    layout->setSpacing(12);
+    layout->setContentsMargins(24, 20, 24, 20);
+    layout->setSpacing(16);
 
-    // 标题
-    QHBoxLayout *titleRow = new QHBoxLayout();
-    QLabel *iconLabel = new QLabel();
-    iconLabel->setPixmap(QIcon(":/icons/resources/icons/analytics.svg").pixmap(16, 16));
+    // 标题行容器
+    QWidget *titleContainer = new QWidget();
+    QHBoxLayout *titleRow = new QHBoxLayout(titleContainer);
+    titleRow->setContentsMargins(0, 0, 0, 0);
+
+    // 图标装饰背景
+    QLabel *iconBg = new QLabel();
+    iconBg->setFixedSize(32, 32);
+    iconBg->setStyleSheet(QString(
+        "background-color: %1; border-radius: 8px;"
+    ).arg(StyleConfig::PATRIOTIC_RED_TINT));
+    iconBg->setAlignment(Qt::AlignCenter);
+
+    QLabel *iconLabel = new QLabel(iconBg);
+    iconLabel->setPixmap(QIcon(":/icons/resources/icons/analytics.svg").pixmap(18, 18));
     iconLabel->setStyleSheet("background: transparent;");
-    QLabel *titleLabel = new QLabel("成绩趋势");
+
+    // 把iconLabel放进iconBg的正中心
+    QHBoxLayout *iconLayout = new QHBoxLayout(iconBg);
+    iconLayout->setContentsMargins(0, 0, 0, 0);
+    iconLayout->addWidget(iconLabel, 0, Qt::AlignCenter);
+
+    QLabel *titleLabel = new QLabel("成绩趋势分析");
     titleLabel->setStyleSheet(QString(
-        "font-size: 16px; font-weight: 700; color: %1; background: transparent;"
+        "font-size: 18px; font-weight: 800; color: %1; background: transparent;"
     ).arg(StyleConfig::TEXT_PRIMARY));
-    titleRow->addWidget(iconLabel);
+
+    titleRow->addWidget(iconBg);
+    titleRow->addSpacing(8);
     titleRow->addWidget(titleLabel);
     titleRow->addStretch();
 
@@ -228,10 +287,9 @@ void PersonalAnalyticsPage::createScoreTrendChart()
     m_trendChartView->setRenderHint(QPainter::Antialiasing);
     m_trendChartView->setStyleSheet("background: transparent; border: none;");
 
-    layout->addLayout(titleRow);
+    layout->addWidget(titleContainer);
     layout->addWidget(m_trendChartView);
-
-    m_mainLayout->addWidget(chartFrame);
+    // 不在这里添加到布局，由 setupUI 统一管理
 }
 
 void PersonalAnalyticsPage::createKnowledgeRadarChart()
@@ -241,25 +299,48 @@ void PersonalAnalyticsPage::createKnowledgeRadarChart()
     radarFrame->setMinimumHeight(300);
     radarFrame->setStyleSheet(QString(
         "QFrame#radarChartFrame {"
-        "    background-color: %1;"
-        "    border-radius: 12px;"
-        "    border: 1px solid %2;"
+        "    background-color: white;"
+        "    border-radius: 16px;"
+        "    border: 1px solid %1;"
         "}"
-    ).arg(StyleConfig::BG_CARD, StyleConfig::BORDER_LIGHT));
+    ).arg(StyleConfig::BORDER_LIGHT));
+
+    QGraphicsDropShadowEffect *radarShadow = new QGraphicsDropShadowEffect(this);
+    radarShadow->setBlurRadius(25);
+    radarShadow->setColor(QColor(0, 0, 0, 15));
+    radarShadow->setOffset(0, 6);
+    radarFrame->setGraphicsEffect(radarShadow);
 
     QVBoxLayout *layout = new QVBoxLayout(radarFrame);
-    layout->setContentsMargins(20, 16, 20, 16);
-    layout->setSpacing(12);
+    layout->setContentsMargins(24, 20, 24, 20);
+    layout->setSpacing(16);
 
-    QHBoxLayout *radarTitleRow = new QHBoxLayout();
-    QLabel *radarIcon = new QLabel();
-    radarIcon->setPixmap(QIcon(":/icons/resources/icons/award.svg").pixmap(16, 16));
+    QWidget *titleContainer = new QWidget();
+    QHBoxLayout *radarTitleRow = new QHBoxLayout(titleContainer);
+    radarTitleRow->setContentsMargins(0, 0, 0, 0);
+
+    QLabel *iconBg = new QLabel();
+    iconBg->setFixedSize(32, 32);
+    iconBg->setStyleSheet(QString(
+        "background-color: %1; border-radius: 8px;"
+    ).arg(StyleConfig::PATRIOTIC_RED_TINT));
+    iconBg->setAlignment(Qt::AlignCenter);
+
+    QLabel *radarIcon = new QLabel(iconBg);
+    radarIcon->setPixmap(QIcon(":/icons/resources/icons/award.svg").pixmap(18, 18));
     radarIcon->setStyleSheet("background: transparent;");
-    QLabel *titleLabel = new QLabel("知识点掌握度");
+
+    QHBoxLayout *iconLayout = new QHBoxLayout(iconBg);
+    iconLayout->setContentsMargins(0, 0, 0, 0);
+    iconLayout->addWidget(radarIcon, 0, Qt::AlignCenter);
+
+    QLabel *titleLabel = new QLabel("知识掌握多维分析");
     titleLabel->setStyleSheet(QString(
-        "font-size: 16px; font-weight: 700; color: %1; background: transparent;"
+        "font-size: 18px; font-weight: 800; color: %1; background: transparent;"
     ).arg(StyleConfig::TEXT_PRIMARY));
-    radarTitleRow->addWidget(radarIcon);
+
+    radarTitleRow->addWidget(iconBg);
+    radarTitleRow->addSpacing(8);
     radarTitleRow->addWidget(titleLabel);
     radarTitleRow->addStretch();
 
@@ -267,10 +348,9 @@ void PersonalAnalyticsPage::createKnowledgeRadarChart()
     m_radarWidget = new RadarChartWidget();
     m_radarWidget->setMinimumHeight(250);
 
-    layout->addLayout(radarTitleRow);
+    layout->addWidget(titleContainer);
     layout->addWidget(m_radarWidget);
-
-    m_mainLayout->addWidget(radarFrame);
+    // 不在这里添加到布局，由 setupUI 统一管理
 }
 
 void PersonalAnalyticsPage::createAIAdviceArea()
@@ -280,63 +360,84 @@ void PersonalAnalyticsPage::createAIAdviceArea()
     m_adviceFrame->setMinimumHeight(150);
     m_adviceFrame->setStyleSheet(QString(
         "QFrame#adviceFrame {"
-        "    background-color: %1;"
-        "    border-radius: 12px;"
-        "    border: 1px solid %2;"
+        "    background-color: #F8FAFC;"
+        "    border-radius: 16px;"
+        "    border: 1px solid %1;"
         "}"
-    ).arg(StyleConfig::BG_CARD, StyleConfig::BORDER_LIGHT));
+    ).arg(StyleConfig::BORDER_LIGHT));
+
+    QGraphicsDropShadowEffect *adviceShadow = new QGraphicsDropShadowEffect(this);
+    adviceShadow->setBlurRadius(20);
+    adviceShadow->setColor(QColor(0, 0, 0, 10));
+    adviceShadow->setOffset(0, 4);
+    m_adviceFrame->setGraphicsEffect(adviceShadow);
 
     QVBoxLayout *layout = new QVBoxLayout(m_adviceFrame);
-    layout->setContentsMargins(20, 16, 20, 16);
-    layout->setSpacing(12);
+    layout->setContentsMargins(24, 20, 24, 20);
+    layout->setSpacing(16);
 
     // 标题行
-    QHBoxLayout *titleRow = new QHBoxLayout();
-    QLabel *aiIcon = new QLabel();
-    aiIcon->setPixmap(QIcon(":/icons/resources/icons/robot.svg").pixmap(16, 16));
+    QWidget *titleContainer = new QWidget();
+    QHBoxLayout *titleRow = new QHBoxLayout(titleContainer);
+    titleRow->setContentsMargins(0, 0, 0, 0);
+
+    QLabel *iconBg = new QLabel();
+    iconBg->setFixedSize(32, 32);
+    iconBg->setStyleSheet(QString(
+        "background-color: #EBF8FF; border-radius: 8px;"
+    ));
+    iconBg->setAlignment(Qt::AlignCenter);
+
+    QLabel *aiIcon = new QLabel(iconBg);
+    aiIcon->setPixmap(QIcon(":/icons/resources/icons/robot.svg").pixmap(18, 18));
     aiIcon->setStyleSheet("background: transparent;");
-    QLabel *titleLabel = new QLabel("AI 个性化学习建议");
+
+    QHBoxLayout *iconLayout = new QHBoxLayout(iconBg);
+    iconLayout->setContentsMargins(0, 0, 0, 0);
+    iconLayout->addWidget(aiIcon, 0, Qt::AlignCenter);
+
+    QLabel *titleLabel = new QLabel("AI 个性化学情诊断");
     titleLabel->setStyleSheet(QString(
-        "font-size: 16px; font-weight: 700; color: %1; background: transparent;"
+        "font-size: 18px; font-weight: 800; color: %1; background: transparent;"
     ).arg(StyleConfig::TEXT_PRIMARY));
 
-    m_generateAdviceBtn = new QPushButton("生成建议");
-    m_generateAdviceBtn->setFixedHeight(32);
+    m_generateAdviceBtn = new QPushButton("开始分析");
+    m_generateAdviceBtn->setFixedHeight(36);
     m_generateAdviceBtn->setCursor(Qt::PointingHandCursor);
     m_generateAdviceBtn->setStyleSheet(QString(
         "QPushButton {"
-        "    background: %1;"
+        "    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 %1, stop:1 #EF5350);"
         "    color: white;"
         "    border: none;"
-        "    border-radius: 16px;"
-        "    padding: 0 20px;"
-        "    font-size: 13px;"
-        "    font-weight: 600;"
+        "    border-radius: 18px;"
+        "    padding: 0 24px;"
+        "    font-size: 14px;"
+        "    font-weight: 700;"
         "}"
-        "QPushButton:hover { background: #C62828; }"
+        "QPushButton:hover { background: %2; }"
+        "QPushButton:pressed { background: %3; }"
         "QPushButton:disabled { background: #CBD5E0; }"
-    ).arg(StyleConfig::PATRIOTIC_RED));
-    connect(m_generateAdviceBtn, &QPushButton::clicked,
-            this, &PersonalAnalyticsPage::onGenerateAdviceClicked);
+    ).arg(StyleConfig::PATRIOTIC_RED, StyleConfig::PATRIOTIC_RED_DARK, StyleConfig::PATRIOTIC_RED_DARK));
 
-    titleRow->addWidget(aiIcon);
+    titleRow->addWidget(iconBg);
+    titleRow->addSpacing(8);
     titleRow->addWidget(titleLabel);
     titleRow->addStretch();
     titleRow->addWidget(m_generateAdviceBtn);
 
-    // 建议内容
-    m_adviceContent = new QLabel("选择学生后，点击「生成建议」获取AI个性化学习建议。");
+    // 建议内容展示区（加个半透明背景显得更专业）
+    m_adviceContent = new QLabel("请点击右侧「开始分析」按钮，AI 将根据您的学习轨迹、薄弱环节为您提供 1 对 1 教学辅导建议。");
     m_adviceContent->setWordWrap(true);
     m_adviceContent->setAlignment(Qt::AlignTop | Qt::AlignLeft);
     m_adviceContent->setStyleSheet(QString(
-        "color: %1; font-size: 14px; line-height: 1.6; background: transparent; padding: 8px 0;"
-    ).arg(StyleConfig::TEXT_SECONDARY));
+        "color: %1; font-size: 15px; line-height: 1.8; background-color: rgba(255, 255, 255, 0.6); "
+        "border-radius: 12px; padding: 16px; border: 1px dashed #CBD5E0;"
+    ).arg(StyleConfig::TEXT_PRIMARY));
 
-    layout->addLayout(titleRow);
+    layout->addWidget(titleContainer);
     layout->addWidget(m_adviceContent);
     layout->addStretch();
-
-    m_mainLayout->addWidget(m_adviceFrame);
+    // 不在这里添加到布局，由 setupUI 统一管理
 }
 
 void PersonalAnalyticsPage::onClassChanged(int index)

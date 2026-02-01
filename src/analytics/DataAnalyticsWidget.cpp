@@ -267,7 +267,8 @@ void DataAnalyticsWidget::createNavigationBar()
 void DataAnalyticsWidget::onViewChanged(int viewType)
 {
     if (m_stackedWidget) {
-        m_stackedWidget->setCurrentIndex(viewType);
+        // 使用动画切换页面
+        animatePageSwitch(viewType);
         qDebug() << "[DataAnalyticsWidget] Switched to view:" << viewType;
 
         // 刷新对应页面的数据
@@ -277,6 +278,49 @@ void DataAnalyticsWidget::onViewChanged(int viewType)
             m_classPage->refresh();
         }
     }
+}
+
+void DataAnalyticsWidget::animatePageSwitch(int newIndex)
+{
+    QWidget *currentWidget = m_stackedWidget->currentWidget();
+    QWidget *nextWidget = m_stackedWidget->widget(newIndex);
+
+    if (!currentWidget || !nextWidget || currentWidget == nextWidget) {
+        m_stackedWidget->setCurrentIndex(newIndex);
+        return;
+    }
+
+    // 淡出当前页面 + 淡入新页面的动画
+    QGraphicsOpacityEffect *fadeOutEffect = new QGraphicsOpacityEffect(currentWidget);
+    QGraphicsOpacityEffect *fadeInEffect = new QGraphicsOpacityEffect(nextWidget);
+    currentWidget->setGraphicsEffect(fadeOutEffect);
+    nextWidget->setGraphicsEffect(fadeInEffect);
+
+    QPropertyAnimation *fadeOut = new QPropertyAnimation(fadeOutEffect, "opacity");
+    fadeOut->setDuration(150);
+    fadeOut->setStartValue(1.0);
+    fadeOut->setEndValue(0.0);
+    fadeOut->setEasingCurve(QEasingCurve::OutCubic);
+
+    QPropertyAnimation *fadeIn = new QPropertyAnimation(fadeInEffect, "opacity");
+    fadeIn->setDuration(150);
+    fadeIn->setStartValue(0.0);
+    fadeIn->setEndValue(1.0);
+    fadeIn->setEasingCurve(QEasingCurve::InCubic);
+
+    // 淡出完成后切换页面并淡入
+    connect(fadeOut, &QPropertyAnimation::finished, this, [this, newIndex, currentWidget, nextWidget, fadeIn]() {
+        m_stackedWidget->setCurrentIndex(newIndex);
+        currentWidget->setGraphicsEffect(nullptr);  // 清除旧页面的效果
+        fadeIn->start(QAbstractAnimation::DeleteWhenStopped);
+    });
+
+    // 淡入完成后清除效果
+    connect(fadeIn, &QPropertyAnimation::finished, this, [nextWidget]() {
+        nextWidget->setGraphicsEffect(nullptr);
+    });
+
+    fadeOut->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
 void DataAnalyticsWidget::createOverviewPage()

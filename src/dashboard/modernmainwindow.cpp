@@ -15,6 +15,9 @@
 #include "../settings/UserSettingsDialog.h"
 #include "../settings/UserSettingsManager.h"
 #include "../analytics/DataAnalyticsWidget.h"
+#include "../notifications/NotificationService.h"
+#include "../notifications/ui/NotificationWidget.h"
+#include "../notifications/ui/NotificationBadge.h"
 #include "../config/embedded_keys.h"
 #include <QApplication>
 #include <QMessageBox>
@@ -849,6 +852,13 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     connect(m_difyService, &DifyService::requestStarted, this, &ModernMainWindow::onAIRequestStarted);
     connect(m_difyService, &DifyService::requestFinished, this, &ModernMainWindow::onAIRequestFinished);
 
+    // 初始化通知服务
+    m_notificationService = new NotificationService(this);
+    // TODO: 从登录状态获取用户ID，暂时用用户名模拟
+    m_notificationService->setCurrentUserId(username);
+    connect(m_notificationService, &NotificationService::unreadCountChanged,
+            this, &ModernMainWindow::onUnreadCountChanged);
+
     initUI();
     setupMenuBar();
     setupStatusBar();
@@ -1459,6 +1469,19 @@ void ModernMainWindow::createHeaderWidget()
     headerLayout->addWidget(searchWrapper);
     headerLayout->addSpacing(12);
     headerLayout->addWidget(notificationBtn);
+
+    // 通知按钮上添加小红点
+    m_notificationBadge = new NotificationBadge(notificationBtn);
+    m_notificationBadge->move(notificationBtn->width() - 14, -2);
+    m_notificationBadge->setCount(0);
+
+    // 创建通知弹窗
+    m_notificationWidget = new NotificationWidget(m_notificationService, this);
+    m_notificationWidget->hide();
+
+    // 连接通知按钮点击事件
+    connect(notificationBtn, &QPushButton::clicked, this, &ModernMainWindow::onNotificationBtnClicked);
+
     headerLayout->addWidget(headerProfileBtn);
 
     // 搜索框快捷键
@@ -2911,5 +2934,31 @@ void ModernMainWindow::onPPTSimulationStep()
             m_pptQuestionStep = 0;
             m_pptUserAnswers.clear();
         });
+    }
+}
+
+// ========== 通知系统相关槽函数 ==========
+
+void ModernMainWindow::onNotificationBtnClicked()
+{
+    if (!m_notificationWidget) return;
+
+    if (m_notificationWidget->isPopupVisible()) {
+        m_notificationWidget->hidePopup();
+    } else {
+        // 计算弹窗位置（在通知按钮下方）
+        QPoint btnPos = notificationBtn->mapToGlobal(QPoint(0, notificationBtn->height()));
+        // 弹窗右对齐到按钮
+        int popupX = btnPos.x() + notificationBtn->width() - m_notificationWidget->width();
+        int popupY = btnPos.y() + 8;
+        m_notificationWidget->move(popupX, popupY);
+        m_notificationWidget->showPopup();
+    }
+}
+
+void ModernMainWindow::onUnreadCountChanged(int count)
+{
+    if (m_notificationBadge) {
+        m_notificationBadge->setCount(count);
     }
 }

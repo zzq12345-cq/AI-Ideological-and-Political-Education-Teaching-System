@@ -40,6 +40,9 @@ class PPTXGenerator;
 class HotspotTrackingWidget;
 class HotspotService;
 class DataAnalyticsWidget;
+class NotificationService;
+class NotificationWidget;
+class NotificationBadge;
 
 class ModernMainWindow : public QMainWindow
 {
@@ -60,6 +63,10 @@ private slots:
     void onQuickPreparationClicked();
     void onStartClassClicked();
     void onEnterClassClicked();
+
+    // 通知相关槽函数
+    void onNotificationBtnClicked();
+    void onUnreadCountChanged(int count);
 
     // AI 对话相关槽函数
     void onSendChatMessage();
@@ -145,12 +152,17 @@ private:
     // 数据分析报告组件
     DataAnalyticsWidget *m_dataAnalyticsWidget = nullptr;
 
+    // 通知系统组件
+    NotificationService *m_notificationService = nullptr;
+    NotificationWidget *m_notificationWidget = nullptr;
+
     // 顶部工具栏 (Header)
     QFrame *headerWidget = nullptr;
     QHBoxLayout *headerLayout = nullptr;
     QLabel *titleLabel = nullptr;
     QLineEdit *searchInput = nullptr;
     QPushButton *notificationBtn = nullptr;
+    NotificationBadge *m_notificationBadge = nullptr;  // 通知小红点
     QPushButton *headerProfileBtn = nullptr;
 
     // 仪表板内容组件

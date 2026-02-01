@@ -75,33 +75,58 @@ void ClassAnalyticsPage::refresh()
     updateWeakPointsChart();
 }
 
+#include <QScrollArea>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+
 void ClassAnalyticsPage::setupUI()
 {
+    // 创建一个中心部件和布局，放进 ScrollArea
+    QWidget *scrollContent = new QWidget();
+    scrollContent->setObjectName("scrollContent");
+    QVBoxLayout *contentLayout = new QVBoxLayout(scrollContent);
+    contentLayout->setContentsMargins(32, 32, 32, 32);
+    contentLayout->setSpacing(32);
+
+    // 真正的布局容器应该是 contentLayout
     m_mainLayout = new QVBoxLayout(this);
-    m_mainLayout->setContentsMargins(24, 20, 24, 24);
-    m_mainLayout->setSpacing(20);
+    m_mainLayout->setContentsMargins(0, 0, 0, 0);
 
     createHeader();
+    contentLayout->addWidget(m_headerFrame);
 
-    // 上部分：成绩分布 + 排名表格
+    // 第一行：成绩分布 + 排名表格
     QHBoxLayout *topRow = new QHBoxLayout();
-    topRow->setSpacing(20);
+    topRow->setSpacing(32);
 
     createDistributionChart();
     createRankingTable();
 
-    // 获取分布图和排名表的frame
     QFrame *distFrame = qobject_cast<QFrame*>(m_distributionChartView->parentWidget());
     QFrame *rankFrame = qobject_cast<QFrame*>(m_rankingTable->parentWidget());
     if (distFrame) topRow->addWidget(distFrame, 1);
     if (rankFrame) topRow->addWidget(rankFrame, 1);
 
-    m_mainLayout->addLayout(topRow);
+    contentLayout->addLayout(topRow);
 
-    createWeakPointsChart();
+    // 第二行：薄弱知识点
+    QFrame *weakFrame = createWeakPointsChart();
+    contentLayout->addWidget(weakFrame);
+
+    // 第三行：AI 智能助手
     createAIAdviceArea();
+    contentLayout->addWidget(m_adviceFrame);
 
-    m_mainLayout->addStretch();
+    contentLayout->addStretch();
+
+    // 包装进 ScrollArea
+    QScrollArea *scrollArea = new QScrollArea(this);
+    scrollArea->setWidget(scrollContent);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setStyleSheet("background: transparent;");
+
+    m_mainLayout->addWidget(scrollArea);
 }
 
 void ClassAnalyticsPage::setupStyles()
@@ -116,23 +141,23 @@ void ClassAnalyticsPage::createHeader()
     m_headerFrame->setFixedHeight(60);
     m_headerFrame->setStyleSheet(QString(
         "QFrame#classHeader {"
-        "    background-color: %1;"
+        "    background-color: white;"
         "    border-radius: 12px;"
-        "    border: 1px solid %2;"
+        "    border: 1px solid #E2E8F0;"
         "}"
-    ).arg(StyleConfig::BG_CARD, StyleConfig::BORDER_LIGHT));
+    ));
 
     QHBoxLayout *headerLayout = new QHBoxLayout(m_headerFrame);
     headerLayout->setContentsMargins(20, 10, 20, 10);
     headerLayout->setSpacing(16);
 
-    QLabel *titleLabel = new QLabel("班级整体分析");
+    QLabel *titleLabel = new QLabel("班级学情综合分析");
     titleLabel->setStyleSheet(QString(
-        "font-size: 18px; font-weight: 700; color: %1; background: transparent;"
-    ).arg(StyleConfig::TEXT_PRIMARY));
+        "font-size: 18px; font-weight: 700; color: #1E293B; background: transparent;"
+    ));
 
-    QLabel *classLabel = new QLabel("班级:");
-    classLabel->setStyleSheet("color: #718096; font-size: 14px; background: transparent;");
+    QLabel *classLabel = new QLabel("选择班级:");
+    classLabel->setStyleSheet("color: #64748B; font-size: 14px; background: transparent;");
     m_classCombo = new QComboBox();
     m_classCombo->setFixedWidth(160);
     m_classCombo->setStyleSheet(
@@ -148,19 +173,20 @@ void ClassAnalyticsPage::createHeader()
     connect(m_classCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ClassAnalyticsPage::onClassChanged);
 
-    m_exportBtn = new QPushButton("导出报告");
+    m_exportBtn = new QPushButton("导出数据报告");
     m_exportBtn->setFixedHeight(34);
     m_exportBtn->setCursor(Qt::PointingHandCursor);
     m_exportBtn->setStyleSheet(
         "QPushButton {"
-        "    background: transparent;"
-        "    color: #718096;"
+        "    background-color: transparent;"
+        "    color: #64748B;"
         "    border: 1px solid #E2E8F0;"
-        "    border-radius: 17px;"
+        "    border-radius: 8px;"
         "    padding: 0 16px;"
         "    font-size: 13px;"
+        "    font-weight: 500;"
         "}"
-        "QPushButton:hover { background: #F7FAFC; border-color: #CBD5E0; }"
+        "QPushButton:hover { background-color: #F8FAFC; border-color: #CBD5E0; }"
     );
     connect(m_exportBtn, &QPushButton::clicked, this, &ClassAnalyticsPage::onExportClicked);
 
@@ -180,31 +206,48 @@ void ClassAnalyticsPage::createDistributionChart()
     chartFrame->setMinimumHeight(280);
     chartFrame->setStyleSheet(QString(
         "QFrame#distChartFrame {"
-        "    background-color: %1;"
+        "    background-color: white;"
         "    border-radius: 12px;"
-        "    border: 1px solid %2;"
+        "    border: 1px solid #E2E8F0;"
         "}"
-    ).arg(StyleConfig::BG_CARD, StyleConfig::BORDER_LIGHT));
+    ));
 
     QVBoxLayout *layout = new QVBoxLayout(chartFrame);
-    layout->setContentsMargins(20, 16, 20, 16);
-    layout->setSpacing(12);
+    layout->setContentsMargins(24, 20, 24, 20);
+    layout->setSpacing(16);
 
-    QHBoxLayout *distTitleRow = new QHBoxLayout();
-    QLabel *distIcon = new QLabel();
-    distIcon->setPixmap(QIcon(":/icons/resources/icons/menu.svg").pixmap(16, 16));
-    distIcon->setStyleSheet("background: transparent;");
-    QLabel *titleLabel = new QLabel("成绩分布");
+    QWidget *titleContainer = new QWidget();
+    QHBoxLayout *distTitleRow = new QHBoxLayout(titleContainer);
+    distTitleRow->setContentsMargins(0, 0, 0, 0);
+
+    QLabel *iconBg = new QLabel();
+    iconBg->setFixedSize(32, 32);
+    iconBg->setStyleSheet(QString(
+        "background-color: #EEF2FF; border-radius: 8px;"
+    ));
+    iconBg->setAlignment(Qt::AlignCenter);
+
+    QLabel *distIcon = new QLabel(iconBg);
+    distIcon->setPixmap(QIcon(":/icons/resources/icons/menu.svg").pixmap(18, 18));
+    distIcon->setStyleSheet("background: transparent; color: #6366F1;");
+
+    QHBoxLayout *iconLayout = new QHBoxLayout(iconBg);
+    iconLayout->setContentsMargins(0, 0, 0, 0);
+    iconLayout->addWidget(distIcon, 0, Qt::AlignCenter);
+
+    QLabel *titleLabel = new QLabel("班级成绩分布");
     titleLabel->setStyleSheet(QString(
-        "font-size: 16px; font-weight: 700; color: %1; background: transparent;"
-    ).arg(StyleConfig::TEXT_PRIMARY));
-    distTitleRow->addWidget(distIcon);
+        "font-size: 16px; font-weight: 700; color: #1E293B; background: transparent;"
+    ));
+
+    distTitleRow->addWidget(iconBg);
+    distTitleRow->addSpacing(8);
     distTitleRow->addWidget(titleLabel);
     distTitleRow->addStretch();
 
     m_gradeBarSet = new QBarSet("人数");
     *m_gradeBarSet << 0 << 0 << 0 << 0;
-    m_gradeBarSet->setColor(QColor("#4299E1"));
+    m_gradeBarSet->setColor(QColor(StyleConfig::PRIMARY_INDIGO));
 
     QBarSeries *barSeries = new QBarSeries();
     barSeries->append(m_gradeBarSet);
@@ -235,7 +278,7 @@ void ClassAnalyticsPage::createDistributionChart()
     m_distributionChartView->setRenderHint(QPainter::Antialiasing);
     m_distributionChartView->setStyleSheet("background: transparent; border: none;");
 
-    layout->addLayout(distTitleRow);
+    layout->addWidget(titleContainer);
     layout->addWidget(m_distributionChartView);
 }
 
@@ -246,31 +289,48 @@ void ClassAnalyticsPage::createRankingTable()
     tableFrame->setMinimumHeight(280);
     tableFrame->setStyleSheet(QString(
         "QFrame#rankingFrame {"
-        "    background-color: %1;"
+        "    background-color: white;"
         "    border-radius: 12px;"
-        "    border: 1px solid %2;"
+        "    border: 1px solid #E2E8F0;"
         "}"
-    ).arg(StyleConfig::BG_CARD, StyleConfig::BORDER_LIGHT));
+    ));
 
     QVBoxLayout *layout = new QVBoxLayout(tableFrame);
-    layout->setContentsMargins(20, 16, 20, 16);
-    layout->setSpacing(12);
+    layout->setContentsMargins(24, 20, 24, 20);
+    layout->setSpacing(16);
 
-    QHBoxLayout *rankTitleRow = new QHBoxLayout();
-    QLabel *rankIcon = new QLabel();
-    rankIcon->setPixmap(QIcon(":/icons/resources/icons/award.svg").pixmap(16, 16));
+    QWidget *titleContainer = new QWidget();
+    QHBoxLayout *rankTitleRow = new QHBoxLayout(titleContainer);
+    rankTitleRow->setContentsMargins(0, 0, 0, 0);
+
+    QLabel *iconBg = new QLabel();
+    iconBg->setFixedSize(32, 32);
+    iconBg->setStyleSheet(QString(
+        "background-color: #FFFBEB; border-radius: 8px;"
+    ));
+    iconBg->setAlignment(Qt::AlignCenter);
+
+    QLabel *rankIcon = new QLabel(iconBg);
+    rankIcon->setPixmap(QIcon(":/icons/resources/icons/award.svg").pixmap(18, 18));
     rankIcon->setStyleSheet("background: transparent;");
-    QLabel *rankTitleLabel = new QLabel("学生排名 (Top 10)");
+
+    QHBoxLayout *iconLayout = new QHBoxLayout(iconBg);
+    iconLayout->setContentsMargins(0, 0, 0, 0);
+    iconLayout->addWidget(rankIcon, 0, Qt::AlignCenter);
+
+    QLabel *rankTitleLabel = new QLabel("班级优秀生光荣榜");
     rankTitleLabel->setStyleSheet(QString(
-        "font-size: 16px; font-weight: 700; color: %1; background: transparent;"
-    ).arg(StyleConfig::TEXT_PRIMARY));
-    rankTitleRow->addWidget(rankIcon);
+        "font-size: 16px; font-weight: 700; color: #1E293B; background: transparent;"
+    ));
+
+    rankTitleRow->addWidget(iconBg);
+    rankTitleRow->addSpacing(8);
     rankTitleRow->addWidget(rankTitleLabel);
     rankTitleRow->addStretch();
 
     m_rankingTable = new QTableWidget();
     m_rankingTable->setColumnCount(4);
-    m_rankingTable->setHorizontalHeaderLabels({"排名", "姓名", "学号", "平均分"});
+    m_rankingTable->setHorizontalHeaderLabels({"排名", "姓名", "学号", "综合分"});
     m_rankingTable->horizontalHeader()->setStretchLastSection(true);
     m_rankingTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     m_rankingTable->verticalHeader()->setVisible(false);
@@ -280,69 +340,93 @@ void ClassAnalyticsPage::createRankingTable()
     m_rankingTable->setStyleSheet(
         "QTableWidget {"
         "    background: white;"
-        "    border: 1px solid #E2E8F0;"
-        "    border-radius: 8px;"
-        "    gridline-color: #E2E8F0;"
+        "    border: 1px solid #F1F5F9;"
+        "    border-radius: 12px;"
+        "    gridline-color: #F8FAFC;"
+        "    font-size: 14px;"
         "}"
-        "QTableWidget::item { padding: 8px; }"
+        "QTableWidget::item {"
+        "    padding: 12px;"
+        "    border-bottom: 1px solid #F1F5F9;"
+        "}"
+        "QTableWidget::item:selected {"
+        "    background-color: #EEF2FF;"
+        "    color: #4F46E5;"
+        "}"
         "QHeaderView::section {"
-        "    background: #F7FAFC;"
-        "    color: #4A5568;"
-        "    font-weight: 600;"
-        "    padding: 8px;"
+        "    background: #F8FAFC;"
+        "    color: #64748B;"
+        "    font-weight: 700;"
+        "    padding: 12px;"
         "    border: none;"
-        "    border-bottom: 1px solid #E2E8F0;"
+        "    border-bottom: 2px solid #F1F5F9;"
         "}"
     );
 
-    layout->addLayout(rankTitleRow);
+    layout->addWidget(titleContainer);
     layout->addWidget(m_rankingTable);
 }
 
-void ClassAnalyticsPage::createWeakPointsChart()
+QFrame* ClassAnalyticsPage::createWeakPointsChart()
 {
     QFrame *chartFrame = new QFrame();
     chartFrame->setObjectName("weakPointsFrame");
-    chartFrame->setMinimumHeight(200);
+    chartFrame->setMinimumHeight(320);
     chartFrame->setStyleSheet(QString(
         "QFrame#weakPointsFrame {"
-        "    background-color: %1;"
+        "    background-color: white;"
         "    border-radius: 12px;"
-        "    border: 1px solid %2;"
+        "    border: 1px solid #E2E8F0;"
         "}"
-    ).arg(StyleConfig::BG_CARD, StyleConfig::BORDER_LIGHT));
+    ));
 
     QVBoxLayout *layout = new QVBoxLayout(chartFrame);
-    layout->setContentsMargins(20, 16, 20, 16);
-    layout->setSpacing(12);
+    layout->setContentsMargins(24, 20, 24, 20);
+    layout->setSpacing(16);
 
-    QHBoxLayout *weakTitleRow = new QHBoxLayout();
-    QLabel *weakIcon = new QLabel();
-    weakIcon->setPixmap(QIcon(":/icons/resources/icons/alert.svg").pixmap(16, 16));
+    QWidget *titleContainer = new QWidget();
+    QHBoxLayout *weakTitleRow = new QHBoxLayout(titleContainer);
+    weakTitleRow->setContentsMargins(0, 0, 0, 0);
+
+    QLabel *iconBg = new QLabel();
+    iconBg->setFixedSize(32, 32);
+    iconBg->setStyleSheet(QString(
+        "background-color: #FFF7ED; border-radius: 8px;"
+    ));
+    iconBg->setAlignment(Qt::AlignCenter);
+
+    QLabel *weakIcon = new QLabel(iconBg);
+    weakIcon->setPixmap(QIcon(":/icons/resources/icons/alert.svg").pixmap(18, 18));
     weakIcon->setStyleSheet("background: transparent;");
-    QLabel *weakTitleLabel = new QLabel("薄弱知识点分析");
+
+    QHBoxLayout *iconLayout = new QHBoxLayout(iconBg);
+    iconLayout->setContentsMargins(0, 0, 0, 0);
+    iconLayout->addWidget(weakIcon, 0, Qt::AlignCenter);
+
+    QLabel *weakTitleLabel = new QLabel("重点关注薄弱知识点");
     weakTitleLabel->setStyleSheet(QString(
-        "font-size: 16px; font-weight: 700; color: %1; background: transparent;"
-    ).arg(StyleConfig::TEXT_PRIMARY));
-    weakTitleRow->addWidget(weakIcon);
+        "font-size: 16px; font-weight: 700; color: #EA580C; background: transparent;"
+    ));
+
+    weakTitleRow->addWidget(iconBg);
+    weakTitleRow->addSpacing(8);
     weakTitleRow->addWidget(weakTitleLabel);
     weakTitleRow->addStretch();
 
-    // 使用水平条形图显示知识点掌握度
     QChart *chart = new QChart();
     chart->setAnimationOptions(QChart::SeriesAnimations);
     chart->legend()->setVisible(false);
     chart->setBackgroundVisible(false);
-    chart->setMargins(QMargins(0, 0, 0, 0));
+    chart->setMargins(QMargins(140, 0, 40, 10));
 
     m_weakPointsChartView = new QChartView(chart);
     m_weakPointsChartView->setRenderHint(QPainter::Antialiasing);
     m_weakPointsChartView->setStyleSheet("background: transparent; border: none;");
 
-    layout->addLayout(weakTitleRow);
+    layout->addWidget(titleContainer);
     layout->addWidget(m_weakPointsChartView);
 
-    m_mainLayout->addWidget(chartFrame);
+    return chartFrame;
 }
 
 void ClassAnalyticsPage::createAIAdviceArea()
@@ -352,57 +436,73 @@ void ClassAnalyticsPage::createAIAdviceArea()
     m_adviceFrame->setMinimumHeight(150);
     m_adviceFrame->setStyleSheet(QString(
         "QFrame#classAdviceFrame {"
-        "    background-color: %1;"
+        "    background-color: #F0F7FF;"
         "    border-radius: 12px;"
-        "    border: 1px solid %2;"
+        "    border: 1px solid #E0E7FF;"
         "}"
-    ).arg(StyleConfig::BG_CARD, StyleConfig::BORDER_LIGHT));
+    ));
 
     QVBoxLayout *layout = new QVBoxLayout(m_adviceFrame);
-    layout->setContentsMargins(20, 16, 20, 16);
-    layout->setSpacing(12);
+    layout->setContentsMargins(32, 24, 32, 24);
+    layout->setSpacing(20);
 
-    QHBoxLayout *titleRow = new QHBoxLayout();
-    QLabel *aiIcon = new QLabel();
-    aiIcon->setPixmap(QIcon(":/icons/resources/icons/robot.svg").pixmap(16, 16));
-    aiIcon->setStyleSheet("background: transparent;");
-    QLabel *titleLabel = new QLabel("AI 班级教学建议");
+    QWidget *titleContainer = new QWidget();
+    QHBoxLayout *titleRow = new QHBoxLayout(titleContainer);
+    titleRow->setContentsMargins(0, 0, 0, 0);
+
+    QLabel *iconBg = new QLabel();
+    iconBg->setFixedSize(36, 36);
+    iconBg->setStyleSheet(QString(
+        "background-color: #E0E7FF; border-radius: 8px;"
+    ));
+    iconBg->setAlignment(Qt::AlignCenter);
+
+    QLabel *aiIcon = new QLabel(iconBg);
+    aiIcon->setPixmap(QIcon(":/icons/resources/icons/robot.svg").pixmap(20, 20));
+    aiIcon->setStyleSheet("background: transparent; color: #4F46E5;");
+
+    QHBoxLayout *iconLayout = new QHBoxLayout(iconBg);
+    iconLayout->setContentsMargins(0, 0, 0, 0);
+    iconLayout->addWidget(aiIcon, 0, Qt::AlignCenter);
+
+    QLabel *titleLabel = new QLabel("AI 智能教学分析助手");
     titleLabel->setStyleSheet(QString(
-        "font-size: 16px; font-weight: 700; color: %1; background: transparent;"
-    ).arg(StyleConfig::TEXT_PRIMARY));
+        "font-size: 18px; font-weight: 700; color: #1E293B; background: transparent;"
+    ));
 
-    m_generateAdviceBtn = new QPushButton("生成建议");
-    m_generateAdviceBtn->setFixedHeight(32);
+    m_generateAdviceBtn = new QPushButton("开启智能诊断");
+    m_generateAdviceBtn->setFixedHeight(40);
     m_generateAdviceBtn->setCursor(Qt::PointingHandCursor);
     m_generateAdviceBtn->setStyleSheet(QString(
         "QPushButton {"
-        "    background: %1;"
-        "    color: white;"
-        "    border: none;"
-        "    border-radius: 16px;"
-        "    padding: 0 20px;"
-        "    font-size: 13px;"
+        "    background-color: #FFFFFF;"
+        "    color: #4F46E5;"
+        "    border: 1px solid #C7D2FE;"
+        "    border-radius: 8px;"
+        "    padding: 0 24px;"
+        "    font-size: 14px;"
         "    font-weight: 600;"
         "}"
-        "QPushButton:hover { background: #C62828; }"
-        "QPushButton:disabled { background: #CBD5E0; }"
-    ).arg(StyleConfig::PATRIOTIC_RED));
-    connect(m_generateAdviceBtn, &QPushButton::clicked,
-            this, &ClassAnalyticsPage::onGenerateAdviceClicked);
+        "QPushButton:hover { background-color: #F8FAFC; border-color: #A5B4FC; }"
+        "QPushButton:pressed { background-color: #F1F5F9; }"
+        "QPushButton:disabled { background-color: #F1F5F9; color: #94A3B8; }"
+    ));
 
-    titleRow->addWidget(aiIcon);
+    titleRow->addWidget(iconBg);
+    titleRow->addSpacing(12);
     titleRow->addWidget(titleLabel);
     titleRow->addStretch();
     titleRow->addWidget(m_generateAdviceBtn);
 
-    m_adviceContent = new QLabel("选择班级后，点击「生成建议」获取AI班级教学建议。");
+    m_adviceContent = new QLabel("点击「开启智能诊断」，AI 将为您生成针对性的班级学情改进方案。");
     m_adviceContent->setWordWrap(true);
     m_adviceContent->setAlignment(Qt::AlignTop | Qt::AlignLeft);
     m_adviceContent->setStyleSheet(QString(
-        "color: %1; font-size: 14px; line-height: 1.6; background: transparent; padding: 8px 0;"
-    ).arg(StyleConfig::TEXT_SECONDARY));
+        "color: #475569; font-size: 15px; line-height: 1.6; "
+        "background-color: transparent; padding: 0;"
+    ));
 
-    layout->addLayout(titleRow);
+    layout->addWidget(titleContainer);
     layout->addWidget(m_adviceContent);
     layout->addStretch();
 
@@ -445,13 +545,29 @@ void ClassAnalyticsPage::updateRankingTable()
         m_rankingTable->setItem(i, 2, new QTableWidgetItem(pair.first.studentNo()));
         m_rankingTable->setItem(i, 3, new QTableWidgetItem(QString::number(pair.second, 'f', 1)));
 
-        // 前三名特殊样式
         if (i < 3) {
+            QString rankColor;
+            if (i == 0) rankColor = StyleConfig::RANK_GOLD;
+            else if (i == 1) rankColor = StyleConfig::RANK_SILVER;
+            else rankColor = StyleConfig::RANK_BRONZE;
+
             for (int col = 0; col < 4; ++col) {
                 QTableWidgetItem *item = m_rankingTable->item(i, col);
                 if (item) {
-                    item->setBackground(QColor("#FFFAF0"));
-                    item->setForeground(QColor("#DD6B20"));
+                    item->setBackground(QColor(rankColor).lighter(190));
+                    item->setForeground(QColor(rankColor).darker(110));
+                    if (col == 1 || col == 3) {
+                        QFont font = item->font();
+                        font.setBold(true);
+                        item->setFont(font);
+                    }
+                }
+            }
+        } else {
+            for (int col = 0; col < 4; ++col) {
+                QTableWidgetItem *item = m_rankingTable->item(i, col);
+                if (item) {
+                    item->setForeground(QColor(StyleConfig::SLATE_TEXT));
                 }
             }
         }
@@ -464,20 +580,28 @@ void ClassAnalyticsPage::updateWeakPointsChart()
 
     auto kps = m_dataSource->getClassKnowledgePoints(m_currentClassId);
 
-    // 重新创建图表
     QChart *chart = m_weakPointsChartView->chart();
     chart->removeAllSeries();
 
-    // 只显示前5个薄弱知识点
+    for (auto axis : chart->axes()) {
+        chart->removeAxis(axis);
+    }
+
     int showCount = qMin(kps.size(), 5);
     QBarSet *barSet = new QBarSet("掌握率");
-    barSet->setColor(QColor(StyleConfig::PATRIOTIC_RED));
+
+    QLinearGradient gradient(0, 0, 1, 0);
+    gradient.setColorAt(0.0, QColor("#FDBA74"));
+    gradient.setColorAt(1.0, QColor("#F97316"));
+    gradient.setCoordinateMode(QGradient::ObjectMode);
+    barSet->setBrush(QBrush(gradient));
+    barSet->setPen(Qt::NoPen);
 
     QStringList categories;
     for (int i = 0; i < showCount; ++i) {
         *barSet << kps[i].masteryRate();
         QString name = kps[i].name();
-        if (name.length() > 8) name = name.left(7) + "...";
+        if (name.length() > 10) name = name.left(9) + "...";
         categories << name;
     }
 
@@ -485,17 +609,26 @@ void ClassAnalyticsPage::updateWeakPointsChart()
     series->append(barSet);
     series->setLabelsVisible(true);
     series->setLabelsFormat("@value%");
+    series->setLabelsPosition(QAbstractBarSeries::LabelsOutsideEnd);
     chart->addSeries(series);
 
-    // 重新设置坐标轴
-    chart->createDefaultAxes();
-    if (!chart->axes(Qt::Horizontal).isEmpty()) {
-        QValueAxis *axisX = qobject_cast<QValueAxis*>(chart->axes(Qt::Horizontal).first());
-        if (axisX) {
-            axisX->setRange(0, 100);
-            axisX->setLabelFormat("%d%%");
-        }
-    }
+    QBarCategoryAxis *axisY = new QBarCategoryAxis();
+    axisY->append(categories);
+    axisY->setLabelsColor(QColor("#64748B"));
+    axisY->setGridLineVisible(false);
+    axisY->setLineVisible(false);
+    chart->addAxis(axisY, Qt::AlignLeft);
+    series->attachAxis(axisY);
+
+    QValueAxis *axisX = new QValueAxis();
+    axisX->setRange(0, 100);
+    axisX->setLabelFormat("%d%%");
+    axisX->setLabelsColor(QColor("#94A3B8"));
+    axisX->setGridLineColor(QColor("#F1F5F9"));
+    chart->addAxis(axisX, Qt::AlignBottom);
+    series->attachAxis(axisX);
+
+    chart->setMargins(QMargins(140, 0, 40, 10));
 }
 
 void ClassAnalyticsPage::onGenerateAdviceClicked()
@@ -505,8 +638,8 @@ void ClassAnalyticsPage::onGenerateAdviceClicked()
     m_isGenerating = true;
     m_currentAdvice.clear();
     m_generateAdviceBtn->setEnabled(false);
-    m_generateAdviceBtn->setText("生成中...");
-    m_adviceContent->setText("正在分析班级数据，生成教学建议...");
+    m_generateAdviceBtn->setText("诊断中...");
+    m_adviceContent->setText("正在利用 AI 深度分析班级数据，请稍候...");
 
     auto stats = m_dataSource->getClassStatistics(m_currentClassId);
     auto kps = m_dataSource->getClassKnowledgePoints(m_currentClassId);
@@ -514,7 +647,7 @@ void ClassAnalyticsPage::onGenerateAdviceClicked()
 
     QString weakPoints;
     for (int i = 0; i < qMin(kps.size(), 3); ++i) {
-        weakPoints += kps[i].name() + "(" + QString::number(kps[i].masteryRate(), 'f', 0) + "%)、";
+        weakPoints += kps[i].name() + "(" + QString::number(kps[i].masteryRate(), 'f', 1) + "%)、";
     }
 
     QString prompt = QString(
@@ -524,7 +657,7 @@ void ClassAnalyticsPage::onGenerateAdviceClicked()
         "平均分：%3\n"
         "及格率：%4%\n"
         "薄弱知识点：%5\n\n"
-        "请给出3-5条针对性的教学改进建议，帮助提升班级整体思政课成绩。"
+        "请给出3-5条针对性的教学改进建议。"
     ).arg(cls.name())
      .arg(stats.totalStudents())
      .arg(QString::number(stats.averageScore(), 'f', 1))
@@ -544,7 +677,7 @@ void ClassAnalyticsPage::onAIRequestFinished()
 {
     m_isGenerating = false;
     m_generateAdviceBtn->setEnabled(true);
-    m_generateAdviceBtn->setText("重新生成");
+    m_generateAdviceBtn->setText("重新诊断");
 }
 
 void ClassAnalyticsPage::onExportClicked()

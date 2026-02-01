@@ -95,8 +95,8 @@ void AnalyticsNavigationBar::updateButtonStyles()
      .arg(StyleConfig::TEXT_PRIMARY)
      .arg(StyleConfig::BORDER_LIGHT)
      .arg("#F0F4F8")
-     .arg(StyleConfig::PATRIOTIC_RED)
-     .arg(StyleConfig::PATRIOTIC_RED);
+     .arg(StyleConfig::PRIMARY_INDIGO)
+     .arg(StyleConfig::PRIMARY_INDIGO);
 
     for (QPushButton *btn : m_buttons) {
         btn->setStyleSheet(baseStyle);
