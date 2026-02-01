@@ -106,6 +106,15 @@ set(PROJECT_SOURCES
     src/analytics/ui/ClassAnalyticsPage.h
     src/analytics/ui/RadarChartWidget.cpp
     src/analytics/ui/RadarChartWidget.h
+    # 通知模块
+    src/notifications/models/Notification.cpp
+    src/notifications/models/Notification.h
+    src/notifications/NotificationService.cpp
+    src/notifications/NotificationService.h
+    src/notifications/ui/NotificationBadge.cpp
+    src/notifications/ui/NotificationBadge.h
+    src/notifications/ui/NotificationWidget.cpp
+    src/notifications/ui/NotificationWidget.h
     src/config/embedded_keys.h
     resources.qrc
     resources/QtTheme/QtTheme.qrc

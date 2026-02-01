@@ -14,7 +14,16 @@ namespace StyleConfig {
     inline const QString SUCCESS_GREEN = "#388E3C";
     inline const QString INFO_BLUE = "#1976D2";
     inline const QString WARNING_ORANGE = "#F57C00";
-    
+
+    // 现代 UI 扩展色 (Lao Wang's Professional Palette)
+    inline const QString PRIMARY_INDIGO = "#6366F1";
+    inline const QString ACCENT_EMERALD = "#10B981";
+    inline const QString RANK_GOLD = "#F59E0B";
+    inline const QString RANK_SILVER = "#94A3B8";
+    inline const QString RANK_BRONZE = "#B45309";
+    inline const QString DARK_NAVY = "#0F172A";
+    inline const QString SLATE_TEXT = "#475569";
+
     inline const QString TEXT_PRIMARY = "#1A1A1A";
     inline const QString TEXT_SECONDARY = "#6B7280";
     inline const QString TEXT_LIGHT = "#9CA3AF";

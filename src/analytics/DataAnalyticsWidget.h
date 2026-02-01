@@ -10,6 +10,8 @@
 #include <QFrame>
 #include <QScrollArea>
 #include <QStackedWidget>
+#include <QPropertyAnimation>
+#include <QParallelAnimationGroup>
 
 // Qt Charts
 #include <QtCharts/QChartView>
@@ -64,6 +66,7 @@ private:
     void createAIReportArea(QVBoxLayout *layout);
     void updateMetricsDisplay();
     void updateCharts();
+    void animatePageSwitch(int newIndex);
 
     // 创建单个指标卡片
     QFrame* createMetricCard(const QString &iconPath,

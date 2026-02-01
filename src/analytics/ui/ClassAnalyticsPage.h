@@ -50,7 +50,7 @@ private:
     void createHeader();
     void createDistributionChart();
     void createRankingTable();
-    void createWeakPointsChart();
+    QFrame* createWeakPointsChart();
     void createAIAdviceArea();
     void updateCharts();
     void updateRankingTable();
