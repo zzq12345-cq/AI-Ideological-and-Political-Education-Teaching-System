@@ -1,5 +1,9 @@
 #include "DataAnalyticsWidget.h"
 #include "AnalyticsDataService.h"
+#include "ui/AnalyticsNavigationBar.h"
+#include "ui/PersonalAnalyticsPage.h"
+#include "ui/ClassAnalyticsPage.h"
+#include "datasources/MockDataSource.h"
 #include "../services/DifyService.h"
 #include "../shared/StyleConfig.h"
 #include <QDebug>
@@ -22,12 +26,18 @@ DataAnalyticsWidget::DataAnalyticsWidget(QWidget *parent)
     : QWidget(parent)
     , m_difyService(nullptr)
     , m_dataService(AnalyticsDataService::instance())
+    , m_mockDataSource(new MockDataSource())
     , m_isGeneratingReport(false)
     , m_barChartView(nullptr)
     , m_lineChartView(nullptr)
     , m_gradeBarSet(nullptr)
     , m_participationSeries(nullptr)
     , m_completionSeries(nullptr)
+    , m_navigationBar(nullptr)
+    , m_stackedWidget(nullptr)
+    , m_overviewPage(nullptr)
+    , m_personalPage(nullptr)
+    , m_classPage(nullptr)
 {
     setupUI();
     setupStyles();
@@ -54,10 +64,17 @@ void DataAnalyticsWidget::setDifyService(DifyService *service)
                 this, &DataAnalyticsWidget::onAIResponseReceived);
         connect(m_difyService, &DifyService::streamChunkReceived,
                 this, &DataAnalyticsWidget::onAIStreamChunk);
-        // 流式模式结束时也要更新按钮状态
         connect(m_difyService, &DifyService::requestFinished, this, [this]() {
             onAIResponseReceived(QString());
         });
+    }
+
+    // 传递给子页面
+    if (m_personalPage) {
+        m_personalPage->setDifyService(service);
+    }
+    if (m_classPage) {
+        m_classPage->setDifyService(service);
     }
 }
 
@@ -65,6 +82,14 @@ void DataAnalyticsWidget::refresh()
 {
     qDebug() << "[DataAnalyticsWidget] Refreshing data...";
     m_dataService->refreshData();
+
+    // 刷新子页面
+    if (m_personalPage) {
+        m_personalPage->refresh();
+    }
+    if (m_classPage) {
+        m_classPage->refresh();
+    }
 }
 
 void DataAnalyticsWidget::onDataRefreshed()
@@ -76,18 +101,31 @@ void DataAnalyticsWidget::onDataRefreshed()
 void DataAnalyticsWidget::setupUI()
 {
     m_mainLayout = new QVBoxLayout(this);
-    m_mainLayout->setContentsMargins(32, 28, 32, 32);
-    m_mainLayout->setSpacing(24);
+    m_mainLayout->setContentsMargins(24, 20, 24, 24);
+    m_mainLayout->setSpacing(16);
 
     createHeader();
-    createMetricsCards();
-    createChartsArea();
-    createAIReportArea();
+    createNavigationBar();
 
-    m_mainLayout->addStretch();
+    // 创建堆叠容器
+    m_stackedWidget = new QStackedWidget();
+    m_stackedWidget->setStyleSheet("background: transparent;");
 
-    // 初始化显示
-    updateMetricsDisplay();
+    // 创建三个页面
+    createOverviewPage();
+
+    m_personalPage = new PersonalAnalyticsPage();
+    m_personalPage->setDataSource(m_mockDataSource);
+
+    m_classPage = new ClassAnalyticsPage();
+    m_classPage->setDataSource(m_mockDataSource);
+
+    // 添加到堆叠容器
+    m_stackedWidget->addWidget(m_overviewPage);
+    m_stackedWidget->addWidget(m_personalPage);
+    m_stackedWidget->addWidget(m_classPage);
+
+    m_mainLayout->addWidget(m_stackedWidget, 1);
 }
 
 void DataAnalyticsWidget::setupStyles()
@@ -103,7 +141,7 @@ void DataAnalyticsWidget::setupStyles()
 void DataAnalyticsWidget::createHeader()
 {
     m_headerFrame = new QFrame();
-    m_headerFrame->setFixedHeight(120);
+    m_headerFrame->setFixedHeight(100);
     m_headerFrame->setObjectName("headerFrame");
     m_headerFrame->setStyleSheet(QString(
         "QFrame#headerFrame {"
@@ -121,18 +159,18 @@ void DataAnalyticsWidget::createHeader()
     m_headerFrame->setGraphicsEffect(shadow);
 
     QHBoxLayout *headerLayout = new QHBoxLayout(m_headerFrame);
-    headerLayout->setContentsMargins(32, 20, 32, 20);
+    headerLayout->setContentsMargins(28, 16, 28, 16);
     headerLayout->setSpacing(20);
 
     // 左侧标题区
     QHBoxLayout *titleArea = new QHBoxLayout();
-    titleArea->setSpacing(16);
+    titleArea->setSpacing(14);
 
     QLabel *iconContainer = new QLabel();
-    iconContainer->setFixedSize(52, 52);
+    iconContainer->setFixedSize(48, 48);
     iconContainer->setStyleSheet(
         "background: rgba(255,255,255,0.15);"
-        "border-radius: 14px;"
+        "border-radius: 12px;"
         "border: 1px solid rgba(255,255,255,0.2);"
     );
     iconContainer->setAlignment(Qt::AlignCenter);
@@ -140,20 +178,20 @@ void DataAnalyticsWidget::createHeader()
     if (iconPix.isNull()) {
         iconPix = QPixmap(":/icons/resources/icons/dashboard.svg");
     }
-    iconContainer->setPixmap(iconPix.scaled(26, 26, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    iconContainer->setPixmap(iconPix.scaled(24, 24, Qt::KeepAspectRatio, Qt::SmoothTransformation));
 
     QVBoxLayout *titleTextLayout = new QVBoxLayout();
-    titleTextLayout->setSpacing(4);
+    titleTextLayout->setSpacing(2);
 
     QLabel *titleLabel = new QLabel("数据分析报告");
     titleLabel->setStyleSheet(
-        "font-size: 26px; font-weight: 800; color: white; background: transparent;"
+        "font-size: 22px; font-weight: 800; color: white; background: transparent;"
         "letter-spacing: 2px;"
     );
 
-    QLabel *subtitleLabel = new QLabel("教学数据可视化 | 学情分析 | AI 智能报告");
+    QLabel *subtitleLabel = new QLabel("数据概览 | 个人学情 | 班级分析");
     subtitleLabel->setStyleSheet(
-        "font-size: 13px; color: rgba(255,255,255,0.75); background: transparent;"
+        "font-size: 12px; color: rgba(255,255,255,0.75); background: transparent;"
         "font-weight: 500;"
     );
 
@@ -167,15 +205,15 @@ void DataAnalyticsWidget::createHeader()
     m_exportBtn = new QPushButton("导出报告");
     m_exportBtn->setIcon(QIcon(":/icons/resources/icons/document.svg"));
     m_exportBtn->setIconSize(QSize(16, 16));
-    m_exportBtn->setFixedHeight(40);
+    m_exportBtn->setFixedHeight(36);
     m_exportBtn->setCursor(Qt::PointingHandCursor);
     m_exportBtn->setStyleSheet(
         "QPushButton {"
         "    background: rgba(255,255,255,0.12);"
         "    color: white;"
         "    border: 1px solid rgba(255,255,255,0.25);"
-        "    border-radius: 20px;"
-        "    padding: 0 24px;"
+        "    border-radius: 18px;"
+        "    padding: 0 20px;"
         "    font-size: 13px;"
         "    font-weight: 600;"
         "}"
@@ -189,7 +227,7 @@ void DataAnalyticsWidget::createHeader()
     m_refreshBtn = new QPushButton("刷新数据");
     m_refreshBtn->setIcon(QIcon(":/icons/resources/icons/dashboard.svg"));
     m_refreshBtn->setIconSize(QSize(16, 16));
-    m_refreshBtn->setFixedHeight(40);
+    m_refreshBtn->setFixedHeight(36);
     m_refreshBtn->setCursor(Qt::PointingHandCursor);
     m_refreshBtn->setStyleSheet(
         "QPushButton {"
@@ -197,8 +235,8 @@ void DataAnalyticsWidget::createHeader()
         "        stop:0 rgba(255,255,255,0.25), stop:1 rgba(255,255,255,0.12));"
         "    color: white;"
         "    border: 1px solid rgba(255,255,255,0.3);"
-        "    border-radius: 20px;"
-        "    padding: 0 24px;"
+        "    border-radius: 18px;"
+        "    padding: 0 20px;"
         "    font-size: 13px;"
         "    font-weight: 700;"
         "}"
@@ -217,7 +255,50 @@ void DataAnalyticsWidget::createHeader()
     m_mainLayout->addWidget(m_headerFrame);
 }
 
-void DataAnalyticsWidget::createMetricsCards()
+void DataAnalyticsWidget::createNavigationBar()
+{
+    m_navigationBar = new AnalyticsNavigationBar();
+    connect(m_navigationBar, &AnalyticsNavigationBar::viewChanged,
+            this, &DataAnalyticsWidget::onViewChanged);
+
+    m_mainLayout->addWidget(m_navigationBar);
+}
+
+void DataAnalyticsWidget::onViewChanged(int viewType)
+{
+    if (m_stackedWidget) {
+        m_stackedWidget->setCurrentIndex(viewType);
+        qDebug() << "[DataAnalyticsWidget] Switched to view:" << viewType;
+
+        // 刷新对应页面的数据
+        if (viewType == 1 && m_personalPage) {
+            m_personalPage->refresh();
+        } else if (viewType == 2 && m_classPage) {
+            m_classPage->refresh();
+        }
+    }
+}
+
+void DataAnalyticsWidget::createOverviewPage()
+{
+    m_overviewPage = new QWidget();
+    m_overviewPage->setStyleSheet("background: transparent;");
+
+    QVBoxLayout *overviewLayout = new QVBoxLayout(m_overviewPage);
+    overviewLayout->setContentsMargins(0, 0, 0, 0);
+    overviewLayout->setSpacing(20);
+
+    createMetricsCards(overviewLayout);
+    createChartsArea(overviewLayout);
+    createAIReportArea(overviewLayout);
+
+    overviewLayout->addStretch();
+
+    // 初始化显示
+    updateMetricsDisplay();
+}
+
+void DataAnalyticsWidget::createMetricsCards(QVBoxLayout *layout)
 {
     m_metricsContainer = new QWidget();
     m_metricsContainer->setStyleSheet("background: transparent;");
@@ -266,7 +347,7 @@ void DataAnalyticsWidget::createMetricsCards()
     metricsLayout->addWidget(card2);
     metricsLayout->addWidget(card3);
 
-    m_mainLayout->addWidget(m_metricsContainer);
+    layout->addWidget(m_metricsContainer);
 }
 
 QFrame* DataAnalyticsWidget::createMetricCard(const QString &iconPath,
@@ -277,7 +358,7 @@ QFrame* DataAnalyticsWidget::createMetricCard(const QString &iconPath,
 {
     QFrame *card = new QFrame();
     card->setObjectName("metricCard");
-    card->setMinimumHeight(120);
+    card->setMinimumHeight(110);
     card->setStyleSheet(QString(
         "QFrame#metricCard {"
         "    background-color: %1;"
@@ -297,36 +378,36 @@ QFrame* DataAnalyticsWidget::createMetricCard(const QString &iconPath,
     card->setGraphicsEffect(shadow);
 
     QHBoxLayout *cardLayout = new QHBoxLayout(card);
-    cardLayout->setContentsMargins(20, 18, 20, 18);
-    cardLayout->setSpacing(16);
+    cardLayout->setContentsMargins(18, 16, 18, 16);
+    cardLayout->setSpacing(14);
 
     // 左侧图标
     QLabel *iconLabel = new QLabel();
-    iconLabel->setFixedSize(48, 48);
+    iconLabel->setFixedSize(44, 44);
     iconLabel->setStyleSheet(
         "background: qlineargradient(x1:0, y1:0, x2:1, y2:1,"
         "    stop:0 #EBF8FF, stop:1 #BEE3F8);"
-        "border-radius: 12px;"
+        "border-radius: 11px;"
     );
     iconLabel->setAlignment(Qt::AlignCenter);
     QPixmap pix(iconPath);
     if (!pix.isNull()) {
-        iconLabel->setPixmap(pix.scaled(24, 24, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        iconLabel->setPixmap(pix.scaled(22, 22, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     }
 
     // 右侧内容
     QVBoxLayout *contentLayout = new QVBoxLayout();
-    contentLayout->setSpacing(6);
+    contentLayout->setSpacing(4);
 
     QLabel *titleLabel = new QLabel(title);
     titleLabel->setStyleSheet(QString(
-        "color: %1; font-size: 13px; font-weight: 500; background: transparent;"
+        "color: %1; font-size: 12px; font-weight: 500; background: transparent;"
     ).arg(StyleConfig::TEXT_SECONDARY));
 
     QLabel *valueLabel = new QLabel(value);
     valueLabel->setObjectName("valueLabel");
     valueLabel->setStyleSheet(QString(
-        "color: %1; font-size: 28px; font-weight: 800; background: transparent;"
+        "color: %1; font-size: 26px; font-weight: 800; background: transparent;"
     ).arg(StyleConfig::TEXT_PRIMARY));
 
     // 变化指示
@@ -334,22 +415,16 @@ QFrame* DataAnalyticsWidget::createMetricCard(const QString &iconPath,
     changeLayout->setSpacing(4);
 
     QLabel *arrowLabel = new QLabel();
-    arrowLabel->setFixedSize(14, 14);
-    QString arrowIcon = isPositive ? ":/icons/resources/icons/arrow-up.svg" : ":/icons/resources/icons/arrow-down.svg";
-    QPixmap arrowPix(arrowIcon);
-    if (!arrowPix.isNull()) {
-        arrowLabel->setPixmap(arrowPix.scaled(14, 14, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    } else {
-        arrowLabel->setText(isPositive ? "↑" : "↓");
-        arrowLabel->setStyleSheet(QString("color: %1; font-size: 12px; background: transparent;")
-            .arg(isPositive ? "#38A169" : "#E53E3E"));
-    }
+    arrowLabel->setFixedSize(12, 12);
+    arrowLabel->setText(isPositive ? "↑" : "↓");
+    arrowLabel->setStyleSheet(QString("color: %1; font-size: 11px; background: transparent;")
+        .arg(isPositive ? "#38A169" : "#E53E3E"));
 
     QLabel *changeLabel = new QLabel(change + " 较上周");
     changeLabel->setObjectName("changeLabel");
     QString changeColor = isPositive ? "#38A169" : "#E53E3E";
     changeLabel->setStyleSheet(QString(
-        "color: %1; font-size: 12px; font-weight: 500; background: transparent;"
+        "color: %1; font-size: 11px; font-weight: 500; background: transparent;"
     ).arg(changeColor));
 
     changeLayout->addWidget(arrowLabel);
@@ -384,11 +459,11 @@ void DataAnalyticsWidget::updateMetricsDisplay()
     }
 }
 
-void DataAnalyticsWidget::createChartsArea()
+void DataAnalyticsWidget::createChartsArea(QVBoxLayout *layout)
 {
     m_chartsContainer = new QWidget();
     m_chartsContainer->setStyleSheet("background: transparent;");
-    m_chartsContainer->setMinimumHeight(300);
+    m_chartsContainer->setMinimumHeight(280);
 
     QHBoxLayout *chartsLayout = new QHBoxLayout(m_chartsContainer);
     chartsLayout->setContentsMargins(0, 0, 0, 0);
@@ -406,15 +481,16 @@ void DataAnalyticsWidget::createChartsArea()
     ).arg(StyleConfig::BG_CARD).arg(StyleConfig::RADIUS_L).arg(StyleConfig::BORDER_LIGHT));
 
     QVBoxLayout *distLayout = new QVBoxLayout(distributionCard);
-    distLayout->setContentsMargins(20, 16, 20, 16);
-    distLayout->setSpacing(12);
+    distLayout->setContentsMargins(18, 14, 18, 14);
+    distLayout->setSpacing(10);
 
     // 标题行
     QHBoxLayout *distTitleRow = new QHBoxLayout();
     QLabel *distIcon = new QLabel();
-    distIcon->setPixmap(QIcon(":/icons/resources/icons/menu.svg").pixmap(18, 18));
+    distIcon->setPixmap(QIcon(":/icons/resources/icons/menu.svg").pixmap(16, 16));
+    distIcon->setStyleSheet("background: transparent;");
     QLabel *distTitle = new QLabel("成绩分布");
-    distTitle->setStyleSheet(QString("color: %1; font-size: 16px; font-weight: 700; background: transparent;")
+    distTitle->setStyleSheet(QString("color: %1; font-size: 15px; font-weight: 700; background: transparent;")
         .arg(StyleConfig::TEXT_PRIMARY));
     distTitleRow->addWidget(distIcon);
     distTitleRow->addWidget(distTitle);
@@ -455,7 +531,7 @@ void DataAnalyticsWidget::createChartsArea()
 
     m_barChartView = new QChartView(barChart);
     m_barChartView->setRenderHint(QPainter::Antialiasing);
-    m_barChartView->setMinimumHeight(220);
+    m_barChartView->setMinimumHeight(200);
     m_barChartView->setStyleSheet("background: transparent; border: none;");
 
     distLayout->addLayout(distTitleRow);
@@ -473,15 +549,16 @@ void DataAnalyticsWidget::createChartsArea()
     ).arg(StyleConfig::BG_CARD).arg(StyleConfig::RADIUS_L).arg(StyleConfig::BORDER_LIGHT));
 
     QVBoxLayout *trendLayout = new QVBoxLayout(trendCard);
-    trendLayout->setContentsMargins(20, 16, 20, 16);
-    trendLayout->setSpacing(12);
+    trendLayout->setContentsMargins(18, 14, 18, 14);
+    trendLayout->setSpacing(10);
 
     // 标题行
     QHBoxLayout *trendTitleRow = new QHBoxLayout();
     QLabel *trendIcon = new QLabel();
-    trendIcon->setPixmap(QIcon(":/icons/resources/icons/analytics.svg").pixmap(18, 18));
+    trendIcon->setPixmap(QIcon(":/icons/resources/icons/analytics.svg").pixmap(16, 16));
+    trendIcon->setStyleSheet("background: transparent;");
     QLabel *trendTitle = new QLabel("学习趋势 (近30天)");
-    trendTitle->setStyleSheet(QString("color: %1; font-size: 16px; font-weight: 700; background: transparent;")
+    trendTitle->setStyleSheet(QString("color: %1; font-size: 15px; font-weight: 700; background: transparent;")
         .arg(StyleConfig::TEXT_PRIMARY));
     trendTitleRow->addWidget(trendIcon);
     trendTitleRow->addWidget(trendTitle);
@@ -538,7 +615,7 @@ void DataAnalyticsWidget::createChartsArea()
 
     m_lineChartView = new QChartView(lineChart);
     m_lineChartView->setRenderHint(QPainter::Antialiasing);
-    m_lineChartView->setMinimumHeight(220);
+    m_lineChartView->setMinimumHeight(200);
     m_lineChartView->setStyleSheet("background: transparent; border: none;");
 
     trendLayout->addLayout(trendTitleRow);
@@ -547,7 +624,7 @@ void DataAnalyticsWidget::createChartsArea()
     chartsLayout->addWidget(distributionCard, 1);
     chartsLayout->addWidget(trendCard, 1);
 
-    m_mainLayout->addWidget(m_chartsContainer);
+    layout->addWidget(m_chartsContainer);
 }
 
 void DataAnalyticsWidget::updateCharts()
@@ -575,11 +652,11 @@ void DataAnalyticsWidget::updateCharts()
     }
 }
 
-void DataAnalyticsWidget::createAIReportArea()
+void DataAnalyticsWidget::createAIReportArea(QVBoxLayout *layout)
 {
     m_aiReportFrame = new QFrame();
     m_aiReportFrame->setObjectName("aiReportFrame");
-    m_aiReportFrame->setMinimumHeight(200);
+    m_aiReportFrame->setMinimumHeight(180);
     m_aiReportFrame->setStyleSheet(QString(
         "QFrame#aiReportFrame {"
         "    background-color: %1;"
@@ -589,34 +666,23 @@ void DataAnalyticsWidget::createAIReportArea()
     ).arg(StyleConfig::BG_CARD).arg(StyleConfig::RADIUS_L).arg(StyleConfig::BORDER_LIGHT));
 
     QVBoxLayout *reportLayout = new QVBoxLayout(m_aiReportFrame);
-    reportLayout->setContentsMargins(24, 20, 24, 20);
-    reportLayout->setSpacing(16);
+    reportLayout->setContentsMargins(20, 16, 20, 16);
+    reportLayout->setSpacing(14);
 
     // 标题行
     QHBoxLayout *titleRow = new QHBoxLayout();
 
     QLabel *aiIcon = new QLabel();
-    aiIcon->setFixedSize(32, 32);
-    aiIcon->setStyleSheet(
-        "background: qlineargradient(x1:0, y1:0, x2:1, y2:1,"
-        "    stop:0 #FEF2F2, stop:1 #FFF7ED);"
-        "border-radius: 8px;"
-    );
-    aiIcon->setAlignment(Qt::AlignCenter);
-    QPixmap robotPix(":/icons/resources/icons/robot.svg");
-    if (!robotPix.isNull()) {
-        aiIcon->setPixmap(robotPix.scaled(18, 18, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    }
-
+    aiIcon->setFixedSize(24, 24);
+    aiIcon->setPixmap(QIcon(":/icons/resources/icons/robot.svg").pixmap(18, 18));
+    aiIcon->setStyleSheet("background: transparent;");
     QLabel *titleLabel = new QLabel("AI 智能分析报告");
     titleLabel->setStyleSheet(QString(
-        "color: %1; font-size: 18px; font-weight: 700; background: transparent;"
+        "color: %1; font-size: 16px; font-weight: 700; background: transparent;"
     ).arg(StyleConfig::TEXT_PRIMARY));
 
     m_generateReportBtn = new QPushButton("生成报告");
-    m_generateReportBtn->setIcon(QIcon(":/icons/resources/icons/sparkle.svg"));
-    m_generateReportBtn->setIconSize(QSize(14, 14));
-    m_generateReportBtn->setFixedHeight(34);
+    m_generateReportBtn->setFixedHeight(32);
     m_generateReportBtn->setCursor(Qt::PointingHandCursor);
     m_generateReportBtn->setStyleSheet(QString(
         "QPushButton {"
@@ -624,8 +690,8 @@ void DataAnalyticsWidget::createAIReportArea()
         "        stop:0 %1, stop:1 #C62828);"
         "    color: white;"
         "    border: none;"
-        "    border-radius: 17px;"
-        "    padding: 0 20px;"
+        "    border-radius: 16px;"
+        "    padding: 0 18px;"
         "    font-size: 13px;"
         "    font-weight: 600;"
         "}"
@@ -640,17 +706,15 @@ void DataAnalyticsWidget::createAIReportArea()
     connect(m_generateReportBtn, &QPushButton::clicked, this, &DataAnalyticsWidget::onGenerateReportClicked);
 
     QPushButton *copyBtn = new QPushButton("复制");
-    copyBtn->setIcon(QIcon(":/icons/resources/icons/document.svg"));
-    copyBtn->setIconSize(QSize(14, 14));
-    copyBtn->setFixedHeight(34);
+    copyBtn->setFixedHeight(32);
     copyBtn->setCursor(Qt::PointingHandCursor);
     copyBtn->setStyleSheet(QString(
         "QPushButton {"
         "    background-color: transparent;"
         "    color: %1;"
         "    border: 1.5px solid %2;"
-        "    border-radius: 17px;"
-        "    padding: 0 16px;"
+        "    border-radius: 16px;"
+        "    padding: 0 14px;"
         "    font-size: 13px;"
         "    font-weight: 600;"
         "}"
@@ -679,7 +743,7 @@ void DataAnalyticsWidget::createAIReportArea()
     // 报告内容区
     m_aiReportContent = new QLabel();
     m_aiReportContent->setWordWrap(true);
-    m_aiReportContent->setMinimumHeight(100);
+    m_aiReportContent->setMinimumHeight(80);
     m_aiReportContent->setAlignment(Qt::AlignTop | Qt::AlignLeft);
     m_aiReportContent->setStyleSheet(QString(
         "color: %1;"
@@ -698,7 +762,7 @@ void DataAnalyticsWidget::createAIReportArea()
     reportLayout->addWidget(m_aiReportContent);
     reportLayout->addStretch();
 
-    m_mainLayout->addWidget(m_aiReportFrame);
+    layout->addWidget(m_aiReportFrame);
 }
 
 void DataAnalyticsWidget::onRefreshClicked()
@@ -720,7 +784,6 @@ void DataAnalyticsWidget::onExportClicked()
         return;
     }
 
-    // 使用屏幕分辨率，避免高DPI缩放问题
     QPrinter printer(QPrinter::ScreenResolution);
     printer.setOutputFormat(QPrinter::PdfFormat);
     printer.setOutputFileName(fileName);
@@ -733,19 +796,15 @@ void DataAnalyticsWidget::onExportClicked()
         return;
     }
 
-    // 获取页面尺寸
     QRect pageRect = printer.pageRect(QPrinter::DevicePixel).toRect();
     int pageWidth = pageRect.width();
-    int pageHeight = pageRect.height();
     int margin = 40;
     int contentWidth = pageWidth - 2 * margin;
 
-    // 设置字体 - macOS 使用系统字体
     QFont titleFont("PingFang SC", 22, QFont::Bold);
     QFont subtitleFont("PingFang SC", 14, QFont::Bold);
     QFont contentFont("PingFang SC", 11);
 
-    // 备用字体
     if (!QFontDatabase::hasFamily("PingFang SC")) {
         titleFont = QFont("Helvetica", 22, QFont::Bold);
         subtitleFont = QFont("Helvetica", 14, QFont::Bold);
@@ -756,19 +815,17 @@ void DataAnalyticsWidget::onExportClicked()
     int lineHeight = 28;
     int sectionGap = 40;
 
-    // ========== 标题 ==========
+    // 标题
     painter.setFont(titleFont);
     painter.setPen(QColor("#1A365D"));
     QRect titleRect(margin, yPos, contentWidth, 40);
     painter.drawText(titleRect, Qt::AlignCenter, "数据分析报告");
     yPos += 50;
 
-    // 分割线
     painter.setPen(QPen(QColor("#E2E8F0"), 2));
     painter.drawLine(margin, yPos, pageWidth - margin, yPos);
     yPos += 20;
 
-    // 生成时间
     painter.setFont(contentFont);
     painter.setPen(QColor("#718096"));
     QRect timeRect(margin, yPos, contentWidth, lineHeight);
@@ -776,7 +833,7 @@ void DataAnalyticsWidget::onExportClicked()
                      "生成时间: " + QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss"));
     yPos += sectionGap;
 
-    // ========== 核心指标 ==========
+    // 核心指标
     painter.setFont(subtitleFont);
     painter.setPen(QColor("#2D3748"));
     painter.drawText(margin, yPos, contentWidth, lineHeight, Qt::AlignLeft, "一、核心指标");
@@ -810,7 +867,7 @@ void DataAnalyticsWidget::onExportClicked()
     painter.drawText(margin + 20, yPos, contentWidth, lineHeight, Qt::AlignLeft, text3);
     yPos += sectionGap;
 
-    // ========== 成绩分布 ==========
+    // 成绩分布
     painter.setFont(subtitleFont);
     painter.setPen(QColor("#2D3748"));
     painter.drawText(margin, yPos, contentWidth, lineHeight, Qt::AlignLeft, "二、成绩分布");
@@ -833,25 +890,18 @@ void DataAnalyticsWidget::onExportClicked()
                      QString("• 不及格 (<60分): %1 人").arg(gradeData.fail));
     yPos += sectionGap;
 
-    // ========== AI 分析报告 ==========
+    // AI分析
     if (!m_currentAIResponse.isEmpty()) {
         painter.setFont(subtitleFont);
         painter.setPen(QColor("#2D3748"));
         painter.drawText(margin, yPos, contentWidth, lineHeight, Qt::AlignLeft, "三、AI 智能分析");
         yPos += lineHeight + 15;
 
-        // 使用 QTextDocument 正确渲染多行文本
         QTextDocument doc;
         doc.setDefaultFont(contentFont);
         doc.setTextWidth(contentWidth - 20);
         doc.setPlainText(m_currentAIResponse);
 
-        // 设置文档样式
-        QTextOption textOption;
-        textOption.setWrapMode(QTextOption::WordWrap);
-        doc.setDefaultTextOption(textOption);
-
-        // 移动画布到正确位置并渲染
         painter.save();
         painter.translate(margin + 20, yPos);
         painter.setPen(QColor("#4A5568"));
@@ -882,7 +932,6 @@ void DataAnalyticsWidget::onGenerateReportClicked()
     m_generateReportBtn->setText("生成中...");
     m_aiReportContent->setText("正在分析数据，生成报告中...");
 
-    // 使用真实数据构建分析提示词
     QString dataSummary = m_dataService->getDataSummary();
     QString prompt = QString(
         "请根据以下教学数据，生成一份简洁的分析报告：\n\n"
@@ -903,7 +952,6 @@ void DataAnalyticsWidget::onAIResponseReceived(const QString &response)
     m_generateReportBtn->setEnabled(true);
     m_generateReportBtn->setText("重新生成");
 
-    // 最终清理一次 Markdown 符号
     QString cleaned = m_currentAIResponse;
     cleaned.remove(QRegularExpression("^##\\s*", QRegularExpression::MultilineOption));
     cleaned.remove(QRegularExpression("//+\\s*$"));
@@ -917,13 +965,9 @@ void DataAnalyticsWidget::onAIStreamChunk(const QString &chunk)
 {
     m_currentAIResponse += chunk;
 
-    // 过滤 Markdown 格式符号
     QString displayText = m_currentAIResponse;
-    // 去掉 ## 标题标记
     displayText.remove(QRegularExpression("^##\\s*", QRegularExpression::MultilineOption));
-    // 去掉 // 注释符号
     displayText.remove(QRegularExpression("//+\\s*"));
-    // 去掉 ** 加粗符号
     displayText.remove(QRegularExpression("\\*\\*"));
 
     m_aiReportContent->setText(displayText);
