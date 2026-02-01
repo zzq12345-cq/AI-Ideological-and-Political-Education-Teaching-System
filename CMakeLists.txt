@@ -80,6 +80,32 @@ set(PROJECT_SOURCES
     src/analytics/DataAnalyticsWidget.h
     src/analytics/AnalyticsDataService.cpp
     src/analytics/AnalyticsDataService.h
+    # 数据模型
+    src/analytics/models/Student.cpp
+    src/analytics/models/Student.h
+    src/analytics/models/CourseClass.cpp
+    src/analytics/models/CourseClass.h
+    src/analytics/models/ScoreRecord.cpp
+    src/analytics/models/ScoreRecord.h
+    src/analytics/models/KnowledgePoint.cpp
+    src/analytics/models/KnowledgePoint.h
+    src/analytics/models/AnalysisResult.cpp
+    src/analytics/models/AnalysisResult.h
+    src/analytics/models/ClassStatistics.cpp
+    src/analytics/models/ClassStatistics.h
+    # 数据源接口和实现
+    src/analytics/interfaces/IAnalyticsDataSource.h
+    src/analytics/datasources/MockDataSource.cpp
+    src/analytics/datasources/MockDataSource.h
+    # UI组件
+    src/analytics/ui/AnalyticsNavigationBar.cpp
+    src/analytics/ui/AnalyticsNavigationBar.h
+    src/analytics/ui/PersonalAnalyticsPage.cpp
+    src/analytics/ui/PersonalAnalyticsPage.h
+    src/analytics/ui/ClassAnalyticsPage.cpp
+    src/analytics/ui/ClassAnalyticsPage.h
+    src/analytics/ui/RadarChartWidget.cpp
+    src/analytics/ui/RadarChartWidget.h
     src/config/embedded_keys.h
     resources.qrc
     resources/QtTheme/QtTheme.qrc
