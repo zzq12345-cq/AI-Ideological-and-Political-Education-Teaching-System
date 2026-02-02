@@ -1472,7 +1472,8 @@ void ModernMainWindow::createHeaderWidget()
 
     // 通知按钮上添加小红点
     m_notificationBadge = new NotificationBadge(notificationBtn);
-    m_notificationBadge->move(notificationBtn->width() - 14, -2);
+    // 按钮固定40x40，小红点18x18，放在右上角
+    m_notificationBadge->move(24, -4);
     m_notificationBadge->setCount(0);
 
     // 创建通知弹窗

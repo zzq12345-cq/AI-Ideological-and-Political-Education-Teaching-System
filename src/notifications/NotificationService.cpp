@@ -135,6 +135,8 @@ void NotificationService::markAsRead(const QString &notificationId)
     QByteArray data = QJsonDocument(body).toJson();
 
     QNetworkReply *reply = m_networkManager->sendCustomRequest(request, "PATCH", data);
+    // 设置property以便在回调中获取notificationId
+    reply->setProperty("notificationId", notificationId);
     connect(reply, &QNetworkReply::finished, this, &NotificationService::onMarkAsReadFinished);
 }
 
