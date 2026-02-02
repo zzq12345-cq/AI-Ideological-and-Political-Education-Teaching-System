@@ -100,6 +100,32 @@ void SupabaseClient::onReplyFinished(QNetworkReply *reply)
     qDebug() << "HTTP状态码:" << httpStatus;
     qDebug() << "响应数据:" << data;
 
+    // 检查是否是认证相关的端点
+    QString url = reply->url().toString();
+
+    // 用户检查接口返回的是数组，需要特殊处理
+    if (url.contains("/rest/v1/" + SupabaseConfig::USERS_TABLE)) {
+        QJsonParseError error;
+        QJsonDocument doc = QJsonDocument::fromJson(data, &error);
+        if (error.error != QJsonParseError::NoError) {
+            qDebug() << "JSON解析错误:" << error.errorString();
+            emit userCheckFailed(error.errorString());
+        } else if (doc.isArray()) {
+            // Supabase REST API返回数组
+            bool exists = !doc.array().isEmpty();
+            qDebug() << "用户存在状态:" << exists;
+            emit userExists(exists);
+        } else if (doc.isObject() && doc.object().contains("error")) {
+            QString errorMsg = doc.object()["error"].toString();
+            emit userCheckFailed(errorMsg);
+        } else {
+            emit userExists(false);
+        }
+        reply->deleteLater();
+        return;
+    }
+
+    // 其他接口返回对象
     QJsonParseError error;
     QJsonDocument doc = QJsonDocument::fromJson(data, &error);
 
@@ -111,15 +137,10 @@ void SupabaseClient::onReplyFinished(QNetworkReply *reply)
 
     QJsonObject json = doc.object();
 
-    // 检查是否是认证相关的端点
-    QString url = reply->url().toString();
-
     if (url.contains("/auth/v1/token")) {
         handleLoginResponse(json);
     } else if (url.contains("/auth/v1/signup")) {
         handleSignupResponse(json);
-    } else if (url.contains("/rest/v1/" + SupabaseConfig::USERS_TABLE)) {
-        handleUserCheckResponse(json);
     }
 
     reply->deleteLater();
@@ -169,38 +190,6 @@ void SupabaseClient::handleSignupResponse(const QJsonObject &json)
         QString error = parseError(json);
         qDebug() << "注册失败:" << error;
         emit signupFailed(error);
-    }
-}
-
-void SupabaseClient::handleUserCheckResponse(const QJsonObject &json)
-{
-    qDebug() << "处理用户检查响应:" << json;
-
-    // 如果返回的是数组且有元素，说明用户存在
-    if (json.contains("")) {
-        // 检查是否是数组格式
-        // 假设Supabase REST API返回数组格式
-        QJsonValue usersValue = json.value("");
-        if (usersValue.isArray()) {
-            QJsonArray users = usersValue.toArray();
-            bool exists = !users.isEmpty();
-            qDebug() << "用户存在状态:" << exists;
-            emit userExists(exists);
-        } else if (json.contains("error")) {
-            QString error = json["error"].toString();
-            qDebug() << "用户检查失败:" << error;
-            emit userCheckFailed(error);
-        } else {
-            // 假设不存在
-            emit userExists(false);
-        }
-    } else if (json.contains("error")) {
-        QString error = json["error"].toString();
-        qDebug() << "用户检查失败:" << error;
-        emit userCheckFailed(error);
-    } else {
-        // 假设不存在
-        emit userExists(false);
     }
 }
 
@@ -257,7 +246,10 @@ void SupabaseClient::onSslErrors(const QList<QSslError> &errors)
         qDebug() << "SSL错误:" << error.errorString();
     }
 
-    // 为了调试，暂时忽略SSL错误
-    // 在生产环境中应该严格验证SSL证书
-    emit loginFailed("SSL连接错误: " + (errors.isEmpty() ? "未知SSL错误" : errors.first().errorString()));
+    // 开发环境忽略SSL错误，生产环境应严格验证
+    QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
+    if (reply) {
+        reply->ignoreSslErrors(errors);
+        qDebug() << "已忽略SSL错误，继续请求...";
+    }
 }

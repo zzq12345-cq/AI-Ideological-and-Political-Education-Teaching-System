@@ -49,7 +49,6 @@ private slots:
 
 private:
     QNetworkRequest createRequest(const QString &endpoint) const;
-    void handleNetworkReply(QNetworkReply *reply);
 
     QNetworkAccessManager *m_networkManager;
     QString m_currentUserId;

@@ -259,9 +259,20 @@ bool NotificationWidget::eventFilter(QObject *watched, QEvent *event)
 {
     if (event->type() == QEvent::MouseButtonPress) {
         auto *mouseEvent = static_cast<QMouseEvent*>(event);
+
+        // 检查是否点击了通知项
+        QWidget *widget = qobject_cast<QWidget*>(watched);
+        if (widget && widget->property("notificationId").isValid()) {
+            QString notificationId = widget->property("notificationId").toString();
+            if (!notificationId.isEmpty()) {
+                onNotificationItemClicked(notificationId);
+                return true;
+            }
+        }
+
+        // 点击弹窗外部关闭
         if (!geometry().contains(mouseEvent->globalPosition().toPoint())) {
-            hidePopup();
-            qApp->removeEventFilter(this);
+            hidePopup();  // hidePopup内部已经移除事件过滤器
             return true;
         }
     }

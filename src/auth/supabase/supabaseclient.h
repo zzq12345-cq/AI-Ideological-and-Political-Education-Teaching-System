@@ -60,7 +60,6 @@ private:
     // 处理不同类型的响应
     void handleLoginResponse(const QJsonObject &json);
     void handleSignupResponse(const QJsonObject &json);
-    void handleUserCheckResponse(const QJsonObject &json);
 
     // 解析错误
     QString parseError(const QJsonObject &json);
