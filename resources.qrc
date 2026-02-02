@@ -44,6 +44,17 @@
         <file>resources/icons/message-circle.svg</file>
         <file>resources/icons/arrow-up.svg</file>
         <file>resources/icons/arrow-down.svg</file>
+        <file>resources/icons/ai-robot.svg</file>
+        <file>resources/icons/ai-sparkle.svg</file>
+        <file>resources/icons/loading-spinner.svg</file>
+        <file>resources/icons/chat-bubble.svg</file>
+        <file>resources/icons/document-edit.svg</file>
+        <file>resources/icons/save.svg</file>
+        <file>resources/icons/bold.svg</file>
+        <file>resources/icons/italic.svg</file>
+        <file>resources/icons/heading.svg</file>
+        <file>resources/icons/list-bullet.svg</file>
+        <file>resources/icons/list-numbered.svg</file>
     </qresource>
     <qresource prefix="/styles">
         <file>resources/styles/auth.qss</file>
@@ -178,5 +189,8 @@
         <file>resources/QtTheme/icon/chevron_down/#388e3c.svg</file>
         <file>resources/QtTheme/icon/chevron_right/#f57c00.svg</file>
         <file>resources/QtTheme/icon/chevron_down/#f57c00.svg</file>
+    </qresource>
+    <qresource prefix="/data">
+        <file>resources/data/curriculum_morality_law.json</file>
     </qresource>
 </RCC>

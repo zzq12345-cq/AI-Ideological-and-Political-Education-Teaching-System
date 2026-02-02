@@ -18,6 +18,7 @@
 #include "../notifications/NotificationService.h"
 #include "../notifications/ui/NotificationWidget.h"
 #include "../notifications/ui/NotificationBadge.h"
+#include "../ui/LessonPlanEditor.h"
 #include "../config/embedded_keys.h"
 #include <QApplication>
 #include <QMessageBox>
@@ -2429,10 +2430,59 @@ void ModernMainWindow::createAIChatWidget()
         m_difyService->fetchAppInfo();  // 获取动态开场白
     }
     
-    // 创建气泡样式聊天组件
+    // ========== 创建AI智能备课标签页 ==========
+    m_aiTabWidget = new QTabWidget();
+    m_aiTabWidget->setDocumentMode(true);  // 更现代的外观，无边框
+
+    // 标签页1：AI对话 - 使用SVG图标
     m_bubbleChatWidget = new ChatWidget();
     m_bubbleChatWidget->setPlaceholderText("向AI助手发送信息...");
-    containerLayout->addWidget(m_bubbleChatWidget, 1);
+    m_aiTabWidget->addTab(m_bubbleChatWidget, QIcon(":/icons/resources/icons/chat-bubble.svg"), "AI对话");
+
+    // 标签页2：教案编辑器 - 使用SVG图标
+    m_lessonPlanEditor = new LessonPlanEditor();
+    m_aiTabWidget->addTab(m_lessonPlanEditor, QIcon(":/icons/resources/icons/document-edit.svg"), "教案编辑");
+
+    // 设置标签页样式 - 思政红主题（专业版）
+    m_aiTabWidget->setStyleSheet(R"(
+        QTabWidget::pane {
+            border: none;
+            background: #F8F9FA;
+        }
+        QTabBar {
+            background: transparent;
+        }
+        QTabBar::tab {
+            background: #FFFFFF;
+            color: #666666;
+            padding: 14px 28px;
+            padding-left: 12px;
+            margin-right: 2px;
+            border: 1px solid #E8E8E8;
+            border-bottom: none;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            min-width: 120px;
+        }
+        QTabBar::tab:selected {
+            background: #F8F9FA;
+            color: #C62828;
+            border-color: #E8E8E8;
+            border-bottom: 3px solid #C62828;
+            margin-bottom: -1px;
+        }
+        QTabBar::tab:hover:!selected {
+            background: #FAFAFA;
+            color: #333333;
+        }
+        QTabBar::tab:!selected {
+            margin-top: 2px;
+        }
+    )");
+
+    containerLayout->addWidget(m_aiTabWidget, 1);
     
     // 连接动态开场白信号
     connect(m_difyService, &DifyService::appInfoReceived, this, [this](const QString &name, const QString &introduction) {
