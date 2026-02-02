@@ -236,6 +236,7 @@ void NotificationWidget::showPopup()
 
 void NotificationWidget::hidePopup()
 {
+    qApp->removeEventFilter(this);
     hide();
     emit popupClosed();
 }
