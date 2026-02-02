@@ -23,6 +23,7 @@
 #include <QQuickWidget>
 #include <QQmlContext>
 #include <QTextEdit>
+#include <QTabWidget>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class ModernMainWindow; }
@@ -43,6 +44,7 @@ class DataAnalyticsWidget;
 class NotificationService;
 class NotificationWidget;
 class NotificationBadge;
+class LessonPlanEditor;
 
 class ModernMainWindow : public QMainWindow
 {
@@ -182,6 +184,8 @@ private:
     class ChatWidget *m_bubbleChatWidget = nullptr;  // 气泡样式聊天组件（主面板用）
     ChatHistoryWidget *m_chatHistoryWidget = nullptr;  // 历史记录侧边栏
     QWidget *m_chatContainer = nullptr;  // 聊天容器
+    QTabWidget *m_aiTabWidget = nullptr;  // AI智能备课标签页容器
+    LessonPlanEditor *m_lessonPlanEditor = nullptr;  // 教案编辑器
     QStackedWidget *m_sidebarStack = nullptr;  // 侧边栏切换栈
     QFrame *m_chatWidget = nullptr;        // 输入框容器
     QLineEdit *m_chatInput = nullptr;
