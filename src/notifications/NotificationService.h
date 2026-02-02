@@ -49,6 +49,7 @@ private slots:
 
 private:
     QNetworkRequest createRequest(const QString &endpoint) const;
+    void loadSampleNotifications();  // 加载示例通知数据
 
     QNetworkAccessManager *m_networkManager;
     QString m_currentUserId;
