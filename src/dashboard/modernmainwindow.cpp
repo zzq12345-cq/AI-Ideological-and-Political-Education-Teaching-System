@@ -1442,31 +1442,6 @@ void ModernMainWindow::createHeaderWidget()
           LIGHT_GRAY,                     // 按下状态 - 灰色背景
           PRIMARY_TEXT));                 // 按下状态 - 深色文字
 
-    // 头部头像
-    headerProfileBtn = new QPushButton();
-    headerProfileBtn->setFixedSize(40, 40);
-    headerProfileBtn->setStyleSheet(QString(
-        "QPushButton {"
-        "  background: %1;"
-        "  color: white;"
-        "  border: none;"
-        "  border-radius: 20px;"
-        "  font-size: 14px;"
-        "  font-weight: bold;"
-        "}"
-        "QPushButton[actionState=\"hover\"] {"
-        "  background: %2;"
-        "}"
-        "QPushButton[actionState=\"pressed\"] {"
-        "  background: %3;"
-        "}"
-    ).arg(PATRIOTIC_RED,
-          PATRIOTIC_RED_DARK,
-          PATRIOTIC_RED_DEEP_TONE));
-    headerProfileBtn->setText("王");
-    // 移除通知按钮的ButtonHoverAnimator，避免红色光晕效果
-    new ButtonHoverAnimator(headerProfileBtn, headerProfileBtn, 2);
-
     headerLayout->addWidget(searchWrapper);
     headerLayout->addSpacing(12);
     headerLayout->addWidget(notificationBtn);
@@ -1483,8 +1458,6 @@ void ModernMainWindow::createHeaderWidget()
 
     // 连接通知按钮点击事件
     connect(notificationBtn, &QPushButton::clicked, this, &ModernMainWindow::onNotificationBtnClicked);
-
-    headerLayout->addWidget(headerProfileBtn);
 
     // 搜索框快捷键
     auto slashShortcut = new QShortcut(QKeySequence("/"), this);
