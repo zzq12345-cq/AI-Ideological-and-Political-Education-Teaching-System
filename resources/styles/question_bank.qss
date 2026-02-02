@@ -113,14 +113,14 @@ QComboBox[role="filterSelect"]:focus {
 
 QComboBox[role="filterSelect"]::drop-down {
     border: none;
-    width: 0px;
-    height: 0px;
+    width: 28px;
+    padding-right: 8px;
 }
 
 QComboBox[role="filterSelect"]::down-arrow {
-    image: none;
-    width: 0px;
-    height: 0px;
+    image: url(:/icons/resources/icons/arrow-down.svg);
+    width: 12px;
+    height: 12px;
 }
 
 /* 筛选按钮 - 胶囊式设计 */
