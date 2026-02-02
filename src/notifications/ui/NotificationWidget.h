@@ -59,7 +59,6 @@ private:
     QScrollArea *m_scrollArea = nullptr;
     QVBoxLayout *m_listLayout = nullptr;
     QLabel *m_emptyLabel = nullptr;
-    QFrame *m_loadingOverlay = nullptr;
 
     // 服务
     NotificationService *m_service = nullptr;
