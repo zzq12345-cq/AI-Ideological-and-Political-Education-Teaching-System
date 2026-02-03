@@ -55,6 +55,12 @@
         <file>resources/icons/heading.svg</file>
         <file>resources/icons/list-bullet.svg</file>
         <file>resources/icons/list-numbered.svg</file>
+        <file>resources/icons/attendance.svg</file>
+        <file>resources/icons/chart-bar.svg</file>
+        <file>resources/icons/export.svg</file>
+        <file>resources/icons/refresh.svg</file>
+        <file>resources/icons/check-all.svg</file>
+        <file>resources/icons/note-add.svg</file>
     </qresource>
     <qresource prefix="/styles">
         <file>resources/styles/auth.qss</file>

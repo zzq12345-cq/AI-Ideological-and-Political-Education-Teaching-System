@@ -1,0 +1,44 @@
+{
+  "task_id": "IMPL-3",
+  "title": "班级整体分析页面 - ClassAnalyticsPage",
+  "description": "创建班级整体分析页面组件，展示班级成绩分布、学生排名和薄弱知识点分析",
+  "status": "pending",
+  "priority": "high",
+  "session_id": "WFS-class-data-analytics",
+  "scope": {
+    "files_to_create": [
+      "src/analytics/ui/ClassAnalyticsPage.h",
+      "src/analytics/ui/ClassAnalyticsPage.cpp"
+    ],
+    "files_to_modify": [
+      "CMakeLists.txt"
+    ]
+  },
+  "requirements": [
+    "班级选择器: QComboBox下拉选择班级",
+    "成绩分布柱状图: 优秀/良好/及格/不及格分布 (QBarSeries)",
+    "学生排名表格: QTableWidget显示排名、姓名、成绩、变化",
+    "薄弱知识点分析: 水平条形图显示班级各知识点平均掌握度",
+    "班级趋势对比: 与其他班级/年级平均对比",
+    "AI班级教学建议: 基于数据生成教学改进建议",
+    "导出功能: 支持导出班级分析报告"
+  ],
+  "ui_components": [
+    "QComboBox - 班级选择器",
+    "QChartView - 成绩分布柱状图",
+    "QTableWidget - 学生排名表格",
+    "QChartView - 薄弱知识点条形图",
+    "QLabel - AI建议内容",
+    "QPushButton - 导出按钮"
+  ],
+  "acceptance_criteria": [
+    "切换班级后数据正确更新",
+    "排名表格支持排序",
+    "薄弱知识点从低到高排序显示",
+    "AI建议针对班级特点生成",
+    "导出PDF功能正常"
+  ],
+  "estimated_effort": "high",
+  "dependencies": ["IMPL-1"],
+  "blocked_by": ["IMPL-1"]
+}

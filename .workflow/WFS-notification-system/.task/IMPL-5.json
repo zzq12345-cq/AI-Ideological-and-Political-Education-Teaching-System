@@ -1,0 +1,149 @@
+{
+  "id": "IMPL-5",
+  "title": "CMakeLists 和 Supabase 数据库配置",
+  "status": "pending",
+  "meta": {
+    "priority": "medium",
+    "estimated_effort": "small",
+    "dependencies": ["IMPL-1", "IMPL-2", "IMPL-3"],
+    "blocked_by": [],
+    "focus_paths": ["CMakeLists.txt", "docs/"]
+  },
+  "context": {
+    "description": "更新 CMakeLists.txt 添加通知模块的所有新文件，并创建 Supabase 数据库表结构文档。CMakeLists.txt 需要添加 8 个新源文件（4个头文件 + 4个实现文件）。数据库文档包含 notifications 表的 SQL DDL 和 RLS 策略。",
+    "acceptance_criteria": [
+      "CMakeLists.txt 添加 8 个新文件: 4 个 .h + 4 个 .cpp",
+      "新文件按模块分组添加注释: # 通知系统",
+      "创建 docs/supabase/notifications.sql 包含表结构 DDL",
+      "notifications 表包含 8 个字段: id, type, title, content, sender_id, receiver_id, created_at, is_read",
+      "SQL 包含 RLS 策略: 用户只能查看自己的通知",
+      "项目编译通过: cmake --build build --target AILoginSystem"
+    ],
+    "reference_patterns": [
+      "CMakeLists.txt:79-109 - analytics 模块文件添加模式",
+      "Supabase REST API 文档 - 表结构设计"
+    ]
+  },
+  "flow_control": {
+    "pre_analysis": [
+      {
+        "step": "load_cmake",
+        "commands": [
+          "Read(CMakeLists.txt)"
+        ],
+        "output_to": "cmake_content"
+      },
+      {
+        "step": "find_insertion_point",
+        "commands": [
+          "bash(grep -n '# 数据模型\\|# UI组件\\|resources.qrc' CMakeLists.txt)"
+        ],
+        "output_to": "insertion_points"
+      }
+    ],
+    "implementation_steps": [
+      {
+        "step": 1,
+        "title": "添加通知模块到 CMakeLists.txt",
+        "description": "在 PROJECT_SOURCES 中添加 8 个新文件",
+        "modification_points": [
+          "在 # UI组件 注释后或 resources.qrc 前添加注释: # 通知系统",
+          "添加 src/notifications/models/Notification.cpp",
+          "添加 src/notifications/models/Notification.h",
+          "添加 src/notifications/NotificationService.cpp",
+          "添加 src/notifications/NotificationService.h",
+          "添加 src/notifications/ui/NotificationWidget.cpp",
+          "添加 src/notifications/ui/NotificationWidget.h",
+          "添加 src/notifications/ui/NotificationBadge.cpp",
+          "添加 src/notifications/ui/NotificationBadge.h"
+        ],
+        "logic_flow": [
+          "定位 resources.qrc 行",
+          "在其前插入注释和 8 个文件路径",
+          "保持与其他模块一致的格式"
+        ],
+        "depends_on": [],
+        "output": "cmake_updated"
+      },
+      {
+        "step": 2,
+        "title": "创建数据库文档目录",
+        "description": "创建 docs/supabase/ 目录存放数据库脚本",
+        "modification_points": [
+          "创建目录 docs/supabase/",
+          "创建文件 docs/supabase/notifications.sql"
+        ],
+        "logic_flow": [
+          "mkdir -p docs/supabase",
+          "创建 SQL 文件"
+        ],
+        "depends_on": [1],
+        "output": "docs_directory"
+      },
+      {
+        "step": 3,
+        "title": "编写 notifications 表 DDL",
+        "description": "创建 Supabase notifications 表结构",
+        "modification_points": [
+          "定义 notification_type 枚举: homework_submission, leave_approval, grade_release, system_announcement",
+          "创建 notifications 表",
+          "8 个字段: id(uuid PK), type(notification_type), title(text), content(text), sender_id(uuid), receiver_id(uuid), created_at(timestamptz), is_read(boolean)",
+          "设置默认值: id=gen_random_uuid(), created_at=now(), is_read=false"
+        ],
+        "logic_flow": [
+          "CREATE TYPE notification_type AS ENUM",
+          "CREATE TABLE notifications",
+          "添加字段约束和默认值",
+          "创建 receiver_id 索引加速查询"
+        ],
+        "depends_on": [2],
+        "output": "table_ddl"
+      },
+      {
+        "step": 4,
+        "title": "编写 RLS 策略",
+        "description": "添加行级安全策略",
+        "modification_points": [
+          "启用 RLS: ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;",
+          "创建 SELECT 策略: 用户只能查看 receiver_id = auth.uid() 的通知",
+          "创建 UPDATE 策略: 用户只能更新自己的通知的 is_read 字段",
+          "创建 INSERT 策略: 系统或管理员可以创建通知"
+        ],
+        "logic_flow": [
+          "ENABLE ROW LEVEL SECURITY",
+          "CREATE POLICY select_own_notifications",
+          "CREATE POLICY update_own_notifications",
+          "CREATE POLICY insert_notifications (FOR system_admin)"
+        ],
+        "depends_on": [3],
+        "output": "rls_policies"
+      },
+      {
+        "step": 5,
+        "title": "验证编译",
+        "description": "确保项目编译通过",
+        "modification_points": [
+          "运行 cmake -B build -S .",
+          "运行 cmake --build build --target AILoginSystem",
+          "检查无编译错误"
+        ],
+        "logic_flow": [
+          "重新生成 CMake 配置",
+          "编译项目",
+          "验证无链接错误"
+        ],
+        "depends_on": [1],
+        "output": "build_verification"
+      }
+    ],
+    "validation": [
+      "验证 CMake 文件修改: grep -c 'notifications' CMakeLists.txt >= 8",
+      "验证 SQL 文件存在: ls docs/supabase/notifications.sql",
+      "验证编译成功: cmake --build build --target AILoginSystem 2>&1 | tail -1 | grep -q 'Built target\\|100%'"
+    ],
+    "target_files": [
+      "CMakeLists.txt:modify:add-8-lines",
+      "docs/supabase/notifications.sql:new:0-60"
+    ]
+  }
+}

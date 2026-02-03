@@ -1,0 +1,40 @@
+{
+  "task_id": "IMPL-1",
+  "title": "数据模型层 - Student/CourseClass/ScoreRecord/KnowledgePoint",
+  "description": "创建数据分析所需的核心数据模型，为个人分析和班级分析提供数据基础",
+  "status": "pending",
+  "priority": "high",
+  "session_id": "WFS-class-data-analytics",
+  "scope": {
+    "files_to_create": [
+      "src/analytics/models/Student.h",
+      "src/analytics/models/Student.cpp",
+      "src/analytics/models/CourseClass.h",
+      "src/analytics/models/CourseClass.cpp",
+      "src/analytics/models/ScoreRecord.h",
+      "src/analytics/models/ScoreRecord.cpp",
+      "src/analytics/models/KnowledgePoint.h",
+      "src/analytics/models/KnowledgePoint.cpp"
+    ],
+    "files_to_modify": [
+      "CMakeLists.txt"
+    ]
+  },
+  "requirements": [
+    "Student模型: id, name, classId, studentNo, avatar(可选)",
+    "CourseClass模型: id, name, teacherId, studentCount, grade",
+    "ScoreRecord模型: studentId, subject, score, date, knowledgePoint, examType",
+    "KnowledgePoint模型: name, masteryRate(0-100), questionCount, category",
+    "所有模型支持JSON序列化/反序列化",
+    "遵循Qt对象模型，使用Q_PROPERTY"
+  ],
+  "acceptance_criteria": [
+    "所有模型类可正常编译",
+    "支持从QJsonObject构造",
+    "支持转换为QJsonObject",
+    "添加到CMakeLists.txt后编译通过"
+  ],
+  "estimated_effort": "medium",
+  "dependencies": [],
+  "blocked_by": []
+}

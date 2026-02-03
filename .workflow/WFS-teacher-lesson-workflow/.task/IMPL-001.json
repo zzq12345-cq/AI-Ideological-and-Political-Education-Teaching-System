@@ -1,0 +1,76 @@
+{
+  "id": "IMPL-001",
+  "title": "CurriculumService课程目录服务",
+  "status": "completed",
+
+  "meta": {
+    "type": "feature",
+    "agent": "@code-developer",
+    "priority": "P0",
+    "phase": "Phase 1: 基础服务",
+    "estimated_days": 0.5,
+    "version": "2.0",
+    "activeForm": "完善课程目录服务"
+  },
+
+  "context": {
+    "requirements": ["教案编辑器需要课程目录数据"],
+    "focus_paths": [
+      "src/services/CurriculumService.h",
+      "src/services/CurriculumService.cpp",
+      "resources/data/curriculum_morality_law.json"
+    ],
+    "acceptance": [
+      "CurriculumService能正确加载课程目录JSON",
+      "支持年级→学期→单元→课时级联查询",
+      "支持课时搜索功能"
+    ],
+    "depends_on": [],
+    "artifacts": []
+  },
+
+  "flow_control": {
+    "pre_analysis": [],
+    "implementation_approach": [
+      {
+        "step": 1,
+        "title": "验证已创建的文件",
+        "description": "确认CurriculumService.h/cpp和JSON文件已正确创建",
+        "depends_on": []
+      },
+      {
+        "step": 2,
+        "title": "添加到CMakeLists.txt",
+        "description": "确保CurriculumService能被编译",
+        "depends_on": [1]
+      }
+    ],
+    "target_files": [
+      "src/services/CurriculumService.h",
+      "src/services/CurriculumService.cpp",
+      "resources/data/curriculum_morality_law.json",
+      "resources.qrc"
+    ]
+  },
+
+  "deliverables": [
+    "CurriculumService.h/cpp - 课程目录服务类",
+    "curriculum_morality_law.json - 道德与法治课程目录(53课时)",
+    "resources.qrc更新 - 添加/data资源前缀"
+  ],
+
+  "completion_note": "已在2026-02-02完成创建，待验证编译",
+
+  "replan_history": [
+    {
+      "version": "2.0",
+      "timestamp": "2026-02-02T21:15:00+08:00",
+      "reason": "任务重构：简化为4个任务，聚焦教案编辑器",
+      "changes": [
+        "从原IMPL-001~010重构为新的4任务方案",
+        "此任务已基本完成，标记为completed"
+      ],
+      "input_source": "user_decision"
+    }
+  ]
+}

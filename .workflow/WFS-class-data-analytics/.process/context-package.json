@@ -1,0 +1,133 @@
+{
+  "metadata": {
+    "session_id": "WFS-class-data-analytics",
+    "task_description": "为课程班添加数据分析功能，支持个人维度和全班维度的学情分析",
+    "keywords": ["数据分析", "个人学情", "全班分析", "成绩趋势", "知识点掌握", "可视化图表", "Qt Charts"],
+    "complexity": "high",
+    "tech_stack": ["Qt6", "C++17", "Qt Charts", "Supabase"],
+    "created_at": "2026-02-01T03:45:00Z"
+  },
+  "project_context": {
+    "architecture_patterns": [
+      "Widget-based UI (Qt Widgets)",
+      "Service Layer Pattern (DifyService, AnalyticsDataService)",
+      "Singleton Pattern (AnalyticsDataService::instance())",
+      "Signal-Slot Pattern",
+      "Stacked Widget Navigation"
+    ],
+    "coding_conventions": {
+      "class_naming": "PascalCase (DataAnalyticsWidget)",
+      "member_prefix": "m_ (m_dataService)",
+      "signals_slots": "camelCase (onDataRefreshed)",
+      "comments_language": "中文",
+      "code_style": "Qt官方风格"
+    },
+    "tech_stack": {
+      "framework": "Qt 6.9.3",
+      "language": "C++17",
+      "build": "CMake 3.16+",
+      "backend": "Supabase (PostgreSQL)",
+      "ai_service": "Dify API (SSE流式)",
+      "charts": "Qt Charts"
+    }
+  },
+  "assets": {
+    "documentation": [
+      {"path": "CLAUDE.md", "relevance": 0.9, "description": "项目概述和技术栈说明"}
+    ],
+    "source_code": [
+      {"path": "src/analytics/DataAnalyticsWidget.h", "relevance": 1.0, "description": "现有数据分析Widget头文件，包含UI组件和图表"},
+      {"path": "src/analytics/DataAnalyticsWidget.cpp", "relevance": 1.0, "description": "现有数据分析Widget实现，约930行，包含指标卡片、柱状图、折线图、AI报告"},
+      {"path": "src/analytics/AnalyticsDataService.h", "relevance": 1.0, "description": "数据服务接口，提供MetricData、GradeDistribution、TrendPoint等结构"},
+      {"path": "src/analytics/AnalyticsDataService.cpp", "relevance": 0.95, "description": "数据服务实现，目前使用模拟数据"},
+      {"path": "src/dashboard/modernmainwindow.h", "relevance": 0.85, "description": "主界面头文件，包含DataAnalyticsWidget的集成"},
+      {"path": "src/dashboard/modernmainwindow.cpp", "relevance": 0.8, "description": "主界面实现，侧边栏导航和页面切换"},
+      {"path": "src/services/DifyService.h", "relevance": 0.7, "description": "AI服务接口，用于生成AI分析报告"},
+      {"path": "src/questionbank/QuestionRepository.h", "relevance": 0.6, "description": "试题库，可能包含成绩数据源"}
+    ],
+    "config": [
+      {"path": "CMakeLists.txt", "relevance": 0.9, "description": "构建配置，已包含Qt Charts依赖"}
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "internal": [
+      {"from": "DataAnalyticsWidget", "to": "AnalyticsDataService", "type": "uses"},
+      {"from": "DataAnalyticsWidget", "to": "DifyService", "type": "uses"},
+      {"from": "ModernMainWindow", "to": "DataAnalyticsWidget", "type": "contains"},
+      {"from": "AnalyticsDataService", "to": "QRandomGenerator", "type": "uses"}
+    ],
+    "external": [
+      {"name": "Qt Charts", "version": "6.x", "usage": "QChartView, QBarSeries, QLineSeries等图表组件"},
+      {"name": "Supabase", "usage": "后端数据存储（待对接）"},
+      {"name": "Dify API", "usage": "AI智能分析报告生成"}
+    ]
+  },
+  "existing_features": {
+    "current_analytics": {
+      "metrics": ["课堂参与度", "作业完成率", "目标达成率"],
+      "charts": ["成绩分布柱状图", "学习趋势折线图(近30天)"],
+      "ai_report": "基于DifyService的AI智能分析报告",
+      "export": "PDF导出功能"
+    },
+    "data_service": {
+      "type": "单例模式",
+      "data_source": "模拟数据 (QRandomGenerator)",
+      "structures": ["MetricData", "GradeDistribution", "TrendPoint"]
+    }
+  },
+  "conflict_detection": {
+    "risk_level": "medium",
+    "risk_factors": [
+      "现有DataAnalyticsWidget需要重构为支持多视图模式",
+      "AnalyticsDataService需要扩展支持个人/班级维度查询",
+      "可能需要新增数据模型（Student、Class、Score等）",
+      "需要与Supabase后端对接真实数据"
+    ],
+    "affected_modules": [
+      "src/analytics/DataAnalyticsWidget",
+      "src/analytics/AnalyticsDataService",
+      "src/dashboard/modernmainwindow",
+      "CMakeLists.txt"
+    ],
+    "mitigation_strategy": "采用增量式重构：1)先新增个人/班级子页面组件 2)扩展数据服务接口 3)保持现有功能不变"
+  },
+  "implementation_hints": {
+    "suggested_structure": {
+      "ui_components": [
+        "PersonalAnalyticsPage - 个人学情分析页面",
+        "ClassAnalyticsPage - 班级整体分析页面",
+        "AnalyticsNavigationBar - 个人/班级切换导航"
+      ],
+      "data_models": [
+        "Student - 学生模型（id, name, class_id）",
+        "CourseClass - 班级模型（id, name, teacher_id）",
+        "ScoreRecord - 成绩记录（student_id, subject, score, date）",
+        "KnowledgePoint - 知识点掌握度"
+      ],
+      "services": [
+        "扩展AnalyticsDataService支持个人/班级数据查询",
+        "新增SupabaseAnalyticsProvider对接真实数据"
+      ]
+    },
+    "personal_analytics_features": [
+      "个人成绩趋势图（折线图）",
+      "知识点掌握雷达图",
+      "学习轨迹时间线",
+      "与班级平均对比",
+      "AI个性化学习建议"
+    ],
+    "class_analytics_features": [
+      "班级成绩分布（柱状图）",
+      "学生排名表格",
+      "薄弱知识点分析",
+      "班级整体趋势",
+      "AI班级教学建议"
+    ]
+  },
+  "statistics": {
+    "total_files_analyzed": 12,
+    "relevant_files": 8,
+    "lines_of_code_in_scope": 1500
+  }
+}

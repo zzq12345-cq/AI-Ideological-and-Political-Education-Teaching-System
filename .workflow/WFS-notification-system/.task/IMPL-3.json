@@ -1,0 +1,165 @@
+{
+  "id": "IMPL-3",
+  "title": "通知UI组件",
+  "status": "pending",
+  "meta": {
+    "priority": "high",
+    "estimated_effort": "large",
+    "dependencies": ["IMPL-2"],
+    "blocked_by": ["IMPL-2"],
+    "focus_paths": ["src/notifications/ui/"]
+  },
+  "context": {
+    "description": "创建通知中心 UI 组件，包括 NotificationWidget（通知列表弹窗）和 NotificationBadge（小红点组件）。参考 ChatHistoryWidget 的列表展示模式和 StyleConfig.h 的样式配置。实现通知列表滚动、未读标识、点击标记已读、全部已读按钮等交互功能。",
+    "acceptance_criteria": [
+      "4个文件创建: 验证 ls src/notifications/ui/*.{h,cpp} | wc -l = 4",
+      "NotificationWidget 包含: 1个 QScrollArea 通知列表, 1个全部已读按钮, 1个空状态提示",
+      "NotificationBadge 包含: 1个圆形红点, 1个数字显示, 动态隐藏逻辑(count=0时隐藏)",
+      "4种通知类型图标: 使用不同颜色/图标区分作业、请假、成绩、公告",
+      "样式使用 StyleConfig.h 中的常量: PATRIOTIC_RED, BG_CARD, TEXT_PRIMARY 等",
+      "通知项布局: 图标(40x40) + 标题/内容(flex) + 时间(右对齐) + 未读点(8x8)"
+    ],
+    "reference_patterns": [
+      "src/ui/ChatHistoryWidget.h - 列表展示+滚动模式",
+      "src/shared/StyleConfig.h - 样式常量使用",
+      "src/analytics/ui/PersonalAnalyticsPage.h - 复杂 UI 组件结构"
+    ]
+  },
+  "flow_control": {
+    "pre_analysis": [
+      {
+        "step": "load_ui_references",
+        "commands": [
+          "Read(src/ui/ChatHistoryWidget.h)",
+          "Read(src/ui/ChatHistoryWidget.cpp)",
+          "Read(src/shared/StyleConfig.h)"
+        ],
+        "output_to": "ui_references"
+      },
+      {
+        "step": "verify_directory",
+        "commands": [
+          "bash(mkdir -p src/notifications/ui)"
+        ],
+        "output_to": "directory_created"
+      }
+    ],
+    "implementation_steps": [
+      {
+        "step": 1,
+        "title": "创建 NotificationBadge 小红点组件",
+        "description": "实现未读数量小红点显示组件",
+        "modification_points": [
+          "创建 src/notifications/ui/NotificationBadge.h (约40行)",
+          "创建 src/notifications/ui/NotificationBadge.cpp (约60行)",
+          "继承 QLabel",
+          "实现 setCount(int) 方法",
+          "实现 count() getter",
+          "重写 paintEvent() 绘制圆形背景"
+        ],
+        "logic_flow": [
+          "构造函数设置固定大小 18x18",
+          "设置红色背景 PATRIOTIC_RED",
+          "setCount(): count>99 显示 99+, count=0 隐藏",
+          "paintEvent: 绘制圆形+居中数字"
+        ],
+        "depends_on": [],
+        "output": "badge_component"
+      },
+      {
+        "step": 2,
+        "title": "创建 NotificationWidget 头文件",
+        "description": "定义通知列表弹窗类接口",
+        "modification_points": [
+          "创建 src/notifications/ui/NotificationWidget.h (约80行)",
+          "继承 QWidget",
+          "声明 setNotifications(QList<Notification>)",
+          "声明 setUnreadCount(int)",
+          "声明信号: notificationClicked(QString id), markAllReadClicked()",
+          "声明私有成员: m_scrollArea, m_listWidget, m_emptyLabel, m_markAllReadBtn"
+        ],
+        "logic_flow": [
+          "前向声明 Notification 类",
+          "声明公有方法",
+          "声明信号",
+          "声明私有槽函数",
+          "声明私有 UI 成员"
+        ],
+        "depends_on": [1],
+        "output": "widget_header"
+      },
+      {
+        "step": 3,
+        "title": "实现 NotificationWidget 布局",
+        "description": "实现弹窗的基础布局和样式",
+        "modification_points": [
+          "创建 src/notifications/ui/NotificationWidget.cpp (约200行)",
+          "构造函数中创建 QVBoxLayout 主布局",
+          "创建顶部栏: 标题 + 全部已读按钮",
+          "创建 QScrollArea 包装 QWidget 列表容器",
+          "创建空状态 QLabel 居中显示",
+          "设置固定宽度 360px, 最大高度 480px"
+        ],
+        "logic_flow": [
+          "initUI(): 创建主布局",
+          "createHeader(): 标题Label + markAllReadBtn",
+          "createListArea(): QScrollArea + 内容 QWidget",
+          "createEmptyState(): 空状态提示",
+          "应用样式: 白色背景, 圆角 16px, 阴影效果"
+        ],
+        "depends_on": [2],
+        "output": "widget_layout"
+      },
+      {
+        "step": 4,
+        "title": "实现通知项渲染",
+        "description": "实现单条通知的 UI 渲染逻辑",
+        "modification_points": [
+          "实现 createNotificationItem(Notification) 返回 QWidget*",
+          "布局: 水平 [图标QLabel 40x40] + 垂直[标题+内容+时间] + [未读点]",
+          "根据 NotificationType 设置不同图标颜色",
+          "未读通知显示 8x8 红点",
+          "点击事件连接到 onNotificationClicked() 槽"
+        ],
+        "logic_flow": [
+          "创建 QFrame 容器",
+          "左侧: 圆角图标区域，背景色按类型区分",
+          "中间: 标题(14px粗体) + 内容(12px灰色截断) + 时间(10px)",
+          "右侧: 未读红点(isRead=false时显示)",
+          "安装 eventFilter 捕获点击"
+        ],
+        "depends_on": [3],
+        "output": "item_rendering"
+      },
+      {
+        "step": 5,
+        "title": "实现数据绑定和交互",
+        "description": "实现列表数据更新和用户交互处理",
+        "modification_points": [
+          "实现 setNotifications(): 清空列表 + 循环添加通知项",
+          "实现 onNotificationClicked(): 发射信号 + 更新未读状态",
+          "实现 onMarkAllReadClicked(): 发射信号",
+          "实现 showEmpty() / hideEmpty(): 控制空状态显示"
+        ],
+        "logic_flow": [
+          "setNotifications: 删除旧 widgets, 创建新 widgets, 更新空状态",
+          "onNotificationClicked: emit notificationClicked(id), 移除该项红点",
+          "onMarkAllReadClicked: emit markAllReadClicked(), 隐藏所有红点"
+        ],
+        "depends_on": [4],
+        "output": "data_binding"
+      }
+    ],
+    "validation": [
+      "验证文件存在: ls src/notifications/ui/{NotificationWidget,NotificationBadge}.{h,cpp} | wc -l = 4",
+      "验证 StyleConfig 引用: grep -c 'StyleConfig' src/notifications/ui/NotificationWidget.cpp >= 3",
+      "验证信号声明: grep -c 'notificationClicked\\|markAllReadClicked' src/notifications/ui/NotificationWidget.h = 2"
+    ],
+    "target_files": [
+      "src/notifications/ui/NotificationBadge.h:new:0-40",
+      "src/notifications/ui/NotificationBadge.cpp:new:0-60",
+      "src/notifications/ui/NotificationWidget.h:new:0-80",
+      "src/notifications/ui/NotificationWidget.cpp:new:0-200"
+    ]
+  }
+}

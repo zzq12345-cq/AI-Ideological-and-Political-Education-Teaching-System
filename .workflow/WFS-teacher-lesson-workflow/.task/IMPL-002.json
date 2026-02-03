@@ -1,0 +1,182 @@
+{
+  "id": "IMPL-002",
+  "title": "LessonPlanEditor教案编辑器",
+  "status": "pending",
+
+  "meta": {
+    "type": "feature",
+    "agent": "@code-developer",
+    "priority": "P0",
+    "phase": "Phase 2: 核心功能",
+    "estimated_days": 1.5,
+    "version": "2.0",
+    "activeForm": "实现教案编辑器"
+  },
+
+  "context": {
+    "requirements": ["US-105", "教师需要AI辅助生成教案"],
+    "focus_paths": [
+      "src/ui/LessonPlanEditor.h",
+      "src/ui/LessonPlanEditor.cpp",
+      "src/services/CurriculumService.h",
+      "src/services/DifyService.h",
+      "src/utils/MarkdownRenderer.h"
+    ],
+    "acceptance": [
+      "所见即所得富文本编辑正常（无需用户了解Markdown）",
+      "课程选择下拉框正常（年级→学期→单元→课时级联）",
+      "AI生成教案流程正常（流式输出转HTML显示）",
+      "工具栏格式按钮正常（加粗、标题、列表等）",
+      "保存功能正常"
+    ],
+    "depends_on": ["IMPL-001"],
+    "artifacts": [
+      "resources/data/curriculum_morality_law.json"
+    ],
+    "design_decision": "所见即所得编辑器，对普通老师友好，无需了解Markdown语法"
+  },
+
+  "flow_control": {
+    "pre_analysis": [
+      {
+        "step": "read_curriculum_service",
+        "action": "阅读CurriculumService接口，了解课程目录数据结构",
+        "target": "src/services/CurriculumService.h",
+        "on_error": "fail"
+      },
+      {
+        "step": "read_dify_service",
+        "action": "阅读DifyService流式响应接口，了解AI生成集成方式",
+        "target": "src/services/DifyService.h",
+        "on_error": "fail"
+      },
+      {
+        "step": "read_markdown_renderer",
+        "action": "阅读MarkdownRenderer，用于AI输出转HTML",
+        "target": "src/utils/MarkdownRenderer.h",
+        "on_error": "fail"
+      }
+    ],
+    "implementation_approach": [
+      {
+        "step": 1,
+        "title": "创建LessonPlanEditor基础结构",
+        "description": "QTextEdit富文本模式 + 工具栏 + 课程选择区域",
+        "details": [
+          "使用QTextEdit::setAcceptRichText(true)开启富文本模式",
+          "创建顶部课程选择区：4个QComboBox级联（年级→学期→单元→课时）",
+          "创建工具栏：加粗、斜体、标题、列表、编号等按钮"
+        ],
+        "depends_on": []
+      },
+      {
+        "step": 2,
+        "title": "实现工具栏格式化功能",
+        "description": "点击按钮应用格式，无需用户了解Markdown语法",
+        "details": [
+          "加粗：QTextCharFormat::setFontWeight",
+          "斜体：QTextCharFormat::setFontItalic",
+          "标题：根据级别设置字号和粗体",
+          "列表：QTextListFormat::ListDisc",
+          "编号：QTextListFormat::ListDecimal"
+        ],
+        "depends_on": [1]
+      },
+      {
+        "step": 3,
+        "title": "集成课程目录选择",
+        "description": "使用CurriculumService填充下拉框，级联选择",
+        "details": [
+          "初始化时调用CurriculumService::instance()->loadCurriculum()",
+          "年级变化时更新学期列表",
+          "学期变化时更新单元列表",
+          "单元变化时更新课时列表",
+          "课时选择后构建教案标题"
+        ],
+        "depends_on": [1]
+      },
+      {
+        "step": 4,
+        "title": "集成AI生成教案",
+        "description": "调用DifyService生成教案，流式输出转HTML显示",
+        "details": [
+          "点击'AI生成教案'按钮触发",
+          "构建prompt：使用课时标题和小节信息",
+          "连接streamChunkReceived信号",
+          "收到Markdown流式内容，用MarkdownRenderer转HTML",
+          "实时更新到QTextEdit"
+        ],
+        "depends_on": [1, 3]
+      },
+      {
+        "step": 5,
+        "title": "实现保存功能",
+        "description": "保存教案内容",
+        "details": [
+          "保存：将HTML内容存储到本地或数据库"
+        ],
+        "depends_on": [1, 2, 3, 4]
+      }
+    ],
+    "target_files": [
+      "src/ui/LessonPlanEditor.h",
+      "src/ui/LessonPlanEditor.cpp"
+    ]
+  },
+
+  "deliverables": [
+    "src/ui/LessonPlanEditor.h/cpp - 教案编辑器组件",
+    "所见即所得富文本编辑（QTextEdit富文本模式）",
+    "课程选择级联下拉框（集成CurriculumService）",
+    "工具栏格式化按钮（加粗、标题、列表等）",
+    "AI一键生成教案（复用DifyService + MarkdownRenderer）",
+    "保存功能"
+  ],
+
+  "ui_design": {
+    "layout": "单编辑区所见即所得",
+    "sections": [
+      {
+        "name": "课程选择区",
+        "position": "顶部",
+        "components": ["年级下拉框", "学期下拉框", "单元下拉框", "课时下拉框", "AI生成按钮", "保存按钮"]
+      },
+      {
+        "name": "工具栏",
+        "position": "编辑区上方",
+        "components": ["加粗", "斜体", "标题级别", "无序列表", "有序列表", "分割线"]
+      },
+      {
+        "name": "编辑区",
+        "position": "主体",
+        "components": ["QTextEdit富文本编辑器"],
+        "note": "用户直接编辑，像Word一样，无需了解Markdown"
+      },
+      {
+        "name": "状态栏",
+        "position": "底部",
+        "components": ["字数统计", "保存状态"]
+      }
+    ],
+    "user_flow": [
+      "1. 从下拉框选择课时（年级→学期→单元→课时）",
+      "2. 点击'AI生成教案'按钮",
+      "3. AI实时生成内容填入编辑器（已格式化）",
+      "4. 用户直接修改编辑（像用Word一样）",
+      "5. 点击保存"
+    ]
+  },
+
+  "replan_history": [
+    {
+      "version": "2.0",
+      "timestamp": "2026-02-02T21:15:00+08:00",
+      "reason": "任务重构：简化为4个任务，聚焦教案编辑器",
+      "changes": [
+        "从原IMPL-008迁移并简化",
+        "放到src/ui/目录下，与其他UI组件一致"
+      ],
+      "input_source": "user_decision"
+    }
+  ]
+}

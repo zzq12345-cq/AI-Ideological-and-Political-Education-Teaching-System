@@ -1,0 +1,122 @@
+{
+  "id": "IMPL-003",
+  "title": "AI智能备课页面改造（添加标签页）",
+  "status": "pending",
+
+  "meta": {
+    "type": "integration",
+    "agent": "@code-developer",
+    "priority": "P0",
+    "phase": "Phase 3: 集成",
+    "estimated_days": 0.5,
+    "version": "2.0",
+    "activeForm": "改造AI智能备课页面"
+  },
+
+  "context": {
+    "requirements": ["在AI智能备课页面添加教案编辑功能"],
+    "focus_paths": [
+      "src/dashboard/modernmainwindow.cpp",
+      "src/dashboard/modernmainwindow.h",
+      "src/ui/LessonPlanEditor.h"
+    ],
+    "acceptance": [
+      "AI智能备课页面显示两个标签页：AI对话、教案编辑",
+      "点击AI对话标签显示现有ChatWidget",
+      "点击教案编辑标签显示LessonPlanEditor",
+      "默认显示AI对话标签",
+      "标签切换流畅无闪烁"
+    ],
+    "depends_on": ["IMPL-002"],
+    "artifacts": [],
+    "design_decision": "在现有AI智能备课页面添加标签页，保持入口不变"
+  },
+
+  "flow_control": {
+    "pre_analysis": [
+      {
+        "step": "read_main_window",
+        "action": "分析ModernMainWindow中onAIPreparationClicked的实现",
+        "target": "src/dashboard/modernmainwindow.cpp",
+        "on_error": "fail"
+      },
+      {
+        "step": "read_chat_container",
+        "action": "了解m_chatContainer的结构",
+        "target": "src/dashboard/modernmainwindow.cpp",
+        "on_error": "fail"
+      }
+    ],
+    "implementation_approach": [
+      {
+        "step": 1,
+        "title": "创建AI智能备课容器",
+        "description": "创建包含标签页的新容器替换原m_chatContainer",
+        "details": [
+          "创建QWidget容器",
+          "添加QTabWidget或自定义标签栏",
+          "标签1：AI对话（现有ChatWidget）",
+          "标签2：教案编辑（LessonPlanEditor）"
+        ],
+        "depends_on": []
+      },
+      {
+        "step": 2,
+        "title": "修改onAIPreparationClicked",
+        "description": "切换到新的AI智能备课容器",
+        "details": [
+          "将m_mainStack切换到新容器",
+          "保持侧边栏切换逻辑不变"
+        ],
+        "depends_on": [1]
+      },
+      {
+        "step": 3,
+        "title": "样式调整",
+        "description": "确保标签页样式与整体风格一致",
+        "details": [
+          "使用思政红主题色",
+          "标签页切换动画"
+        ],
+        "depends_on": [1, 2]
+      }
+    ],
+    "target_files": [
+      "src/dashboard/modernmainwindow.h",
+      "src/dashboard/modernmainwindow.cpp"
+    ]
+  },
+
+  "deliverables": [
+    "AI智能备课页面改造（添加标签页切换）",
+    "标签1：AI对话（保持现有功能）",
+    "标签2：教案编辑（集成LessonPlanEditor）"
+  ],
+
+  "ui_design": {
+    "layout": "标签页切换",
+    "mockup": [
+      "┌────────────────────────────────────────────┐",
+      "│  AI智能备课                                │",
+      "├────────────────────────────────────────────┤",
+      "│  [💬 AI对话]   [📝 教案编辑]               │",
+      "├────────────────────────────────────────────┤",
+      "│                                            │",
+      "│   当前标签页内容区域                        │",
+      "│                                            │",
+      "└────────────────────────────────────────────┘"
+    ]
+  },
+
+  "replan_history": [
+    {
+      "version": "2.0",
+      "timestamp": "2026-02-02T21:15:00+08:00",
+      "reason": "任务重构：简化为4个任务，聚焦教案编辑器",
+      "changes": [
+        "新增任务：改造AI智能备课页面添加标签页"
+      ],
+      "input_source": "user_decision"
+    }
+  ]
+}

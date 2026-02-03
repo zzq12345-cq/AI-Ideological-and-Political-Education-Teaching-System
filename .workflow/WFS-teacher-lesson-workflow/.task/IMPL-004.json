@@ -1,0 +1,95 @@
+{
+  "id": "IMPL-004",
+  "title": "集成测试和调优",
+  "status": "pending",
+
+  "meta": {
+    "type": "testing",
+    "agent": "@code-developer",
+    "priority": "P1",
+    "phase": "Phase 4: 测试",
+    "estimated_days": 0.5,
+    "version": "2.0",
+    "activeForm": "集成测试"
+  },
+
+  "context": {
+    "requirements": ["确保所有功能正常工作"],
+    "focus_paths": [
+      "src/ui/LessonPlanEditor.cpp",
+      "src/dashboard/modernmainwindow.cpp",
+      "src/services/CurriculumService.cpp"
+    ],
+    "acceptance": [
+      "课程目录加载正常",
+      "级联下拉框选择正常",
+      "AI生成教案流式输出正常",
+      "富文本编辑格式化正常",
+      "保存功能正常",
+      "标签页切换正常",
+      "无内存泄漏"
+    ],
+    "depends_on": ["IMPL-003"],
+    "artifacts": []
+  },
+
+  "flow_control": {
+    "pre_analysis": [],
+    "implementation_approach": [
+      {
+        "step": 1,
+        "title": "功能测试",
+        "description": "测试所有用户流程",
+        "details": [
+          "测试课程选择级联",
+          "测试AI生成教案",
+          "测试富文本编辑",
+          "测试保存功能",
+          "测试标签页切换"
+        ],
+        "depends_on": []
+      },
+      {
+        "step": 2,
+        "title": "边界情况测试",
+        "description": "测试异常情况处理",
+        "details": [
+          "网络断开时AI生成的处理",
+          "空内容保存的处理",
+          "课程目录加载失败的处理"
+        ],
+        "depends_on": [1]
+      },
+      {
+        "step": 3,
+        "title": "性能和样式调优",
+        "description": "优化用户体验",
+        "details": [
+          "检查内存使用",
+          "调整UI样式",
+          "优化响应速度"
+        ],
+        "depends_on": [1, 2]
+      }
+    ],
+    "target_files": []
+  },
+
+  "deliverables": [
+    "功能测试通过",
+    "边界情况处理完善",
+    "UI样式统一"
+  ],
+
+  "replan_history": [
+    {
+      "version": "2.0",
+      "timestamp": "2026-02-02T21:15:00+08:00",
+      "reason": "任务重构：简化为4个任务，聚焦教案编辑器",
+      "changes": [
+        "新增任务：集成测试和调优"
+      ],
+      "input_source": "user_decision"
+    }
+  ]
+}
