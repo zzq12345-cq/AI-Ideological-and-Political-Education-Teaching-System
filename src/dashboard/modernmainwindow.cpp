@@ -2372,11 +2372,20 @@ void ModernMainWindow::createAIChatWidget()
     });
     
     connect(m_chatHistoryWidget, &ChatHistoryWidget::historyItemSelected, this, [this](const QString &id) {
-        // 加载选中对话的消息历史
+        // 1. 确保主界面切换到 AI 对话容器
+        if (m_mainStack && m_mainStack->currentWidget() != m_chatContainer) {
+            m_mainStack->setCurrentWidget(m_chatContainer);
+            m_isConversationStarted = true;
+        }
+
+        // 2. 强制切换到 "AI对话" 标签页 (索引 0)
+        if (m_aiTabWidget) {
+            m_aiTabWidget->setCurrentIndex(0);
+        }
+
+        // 3. 加载选中对话的消息历史
         if (m_difyService) {
             m_difyService->fetchMessages(id);
-            // 设置当前会话ID以便继续对话
-            // (需要在收到消息后处理)
         }
     });
     
