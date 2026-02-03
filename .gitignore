@@ -131,3 +131,5 @@ app.log
 config/secrets/
 run_app.sh
 src/config/embedded_keys.h
+.claude/
+.workflow/
