@@ -119,6 +119,14 @@ set(PROJECT_SOURCES
     src/notifications/ui/NotificationBadge.h
     src/notifications/ui/NotificationWidget.cpp
     src/notifications/ui/NotificationWidget.h
+    src/attendance/models/AttendanceRecord.cpp
+    src/attendance/models/AttendanceRecord.h
+    src/attendance/models/AttendanceStatus.h
+    src/attendance/models/AttendanceSummary.h
+    src/attendance/services/AttendanceService.cpp
+    src/attendance/services/AttendanceService.h
+    src/attendance/ui/AttendanceWidget.cpp
+    src/attendance/ui/AttendanceWidget.h
     src/config/embedded_keys.h
     resources.qrc
     resources/QtTheme/QtTheme.qrc

@@ -18,6 +18,8 @@
 #include "../notifications/NotificationService.h"
 #include "../notifications/ui/NotificationWidget.h"
 #include "../notifications/ui/NotificationBadge.h"
+#include "../attendance/ui/AttendanceWidget.h"
+#include "../attendance/services/AttendanceService.h"
 #include "../ui/LessonPlanEditor.h"
 #include "../config/embedded_keys.h"
 #include <QApplication>
@@ -990,6 +992,7 @@ void ModernMainWindow::setupCentralWidget()
     newsTrackingBtn = new QPushButton("时政新闻");
     aiPreparationBtn = new QPushButton("AI智能备课");
     resourceManagementBtn = new QPushButton("试题库");
+    attendanceBtn = new QPushButton("考勤管理");
     learningAnalysisBtn = new QPushButton("数据分析");
 
     // 底部按钮
@@ -1001,6 +1004,7 @@ void ModernMainWindow::setupCentralWidget()
     newsTrackingBtn->setVisible(true);
     aiPreparationBtn->setVisible(true);
     resourceManagementBtn->setVisible(true);
+    attendanceBtn->setVisible(true);
     learningAnalysisBtn->setVisible(true);
     settingsBtn->setVisible(true);
     helpBtn->setVisible(true);
@@ -1012,6 +1016,7 @@ void ModernMainWindow::setupCentralWidget()
     newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
@@ -1021,6 +1026,7 @@ void ModernMainWindow::setupCentralWidget()
     connect(newsTrackingBtn, &QPushButton::clicked, this, [=]() { qDebug() << "时政新闻按钮被点击"; onNewsTrackingClicked(); });
     connect(aiPreparationBtn, &QPushButton::clicked, this, [=]() { qDebug() << "AI智能备课按钮被点击"; onAIPreparationClicked(); });
     connect(resourceManagementBtn, &QPushButton::clicked, this, [=]() { qDebug() << "试题库按钮被点击"; onResourceManagementClicked(); });
+    connect(attendanceBtn, &QPushButton::clicked, this, [=]() { qDebug() << "考勤管理按钮被点击"; onAttendanceClicked(); });
     connect(learningAnalysisBtn, &QPushButton::clicked, this, [=]() { qDebug() << "学情与教评按钮被点击"; onLearningAnalysisClicked(); });
     connect(settingsBtn, &QPushButton::clicked, this, [=]() { qDebug() << "系统设置按钮被点击"; onSettingsClicked(); });
     connect(helpBtn, &QPushButton::clicked, this, [=]() { qDebug() << "帮助中心按钮被点击"; onHelpClicked(); });
@@ -1039,6 +1045,7 @@ void ModernMainWindow::setupCentralWidget()
     sidebarLayout->addWidget(newsTrackingBtn);
     sidebarLayout->addWidget(aiPreparationBtn);
     sidebarLayout->addWidget(resourceManagementBtn);
+    sidebarLayout->addWidget(attendanceBtn);
     sidebarLayout->addWidget(learningAnalysisBtn);
     sidebarLayout->addStretch();
     sidebarLayout->addWidget(settingsBtn);
@@ -1098,6 +1105,13 @@ void ModernMainWindow::setupCentralWidget()
     m_dataAnalyticsWidget = new DataAnalyticsWidget(this);
     m_dataAnalyticsWidget->setDifyService(m_difyService);
     contentStack->addWidget(m_dataAnalyticsWidget);
+
+    // 创建考勤管理页面
+    m_attendanceWidget = new AttendanceWidget(this);
+    auto *attendanceService = new AttendanceService(this);
+    attendanceService->setCurrentUserId("teacher_001");  // TODO: 使用实际登录用户ID
+    m_attendanceWidget->setAttendanceService(attendanceService);
+    contentStack->addWidget(m_attendanceWidget);
 
     // 连接时政热点"生成案例"信号 - 自动切换到AI对话页面并发送请求
     connect(m_hotspotWidget, &HotspotTrackingWidget::teachingContentRequested, this, [this](const NewsItem &news) {
@@ -1185,6 +1199,7 @@ void ModernMainWindow::applySidebarIcons()
     setIcon(newsTrackingBtn, "view-statistics", QStyle::SP_FileDialogContentsView);
     setIcon(aiPreparationBtn, "system-run", QStyle::SP_MediaPlay);
     setIcon(resourceManagementBtn, "folder", QStyle::SP_DirIcon);
+    setIcon(attendanceBtn, "x-office-calendar", QStyle::SP_FileDialogListView);
     setIcon(learningAnalysisBtn, "view-list-details", QStyle::SP_FileDialogDetailedView);
     setIcon(settingsBtn, "settings-configure", QStyle::SP_FileDialogDetailedView);
     setIcon(helpBtn, "help-browser", QStyle::SP_MessageBoxQuestion);
@@ -1907,6 +1922,7 @@ void ModernMainWindow::onTeacherCenterClicked()
     newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
 
@@ -1933,6 +1949,7 @@ void ModernMainWindow::onAIPreparationClicked()
     newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
@@ -1958,6 +1975,7 @@ void ModernMainWindow::onResourceManagementClicked()
     newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
@@ -1971,6 +1989,27 @@ void ModernMainWindow::onResourceManagementClicked()
     }
 }
 
+void ModernMainWindow::onAttendanceClicked()
+{
+    qDebug() << "切换到考勤管理页面";
+
+    // 重置所有侧边栏按钮样式
+    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    attendanceBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+
+    // 切换到考勤管理页面
+    if (m_attendanceWidget) {
+        contentStack->setCurrentWidget(m_attendanceWidget);
+        this->statusBar()->showMessage("考勤管理");
+    }
+}
+
 void ModernMainWindow::onLearningAnalysisClicked()
 {
     qDebug() << "切换到数据分析报告页面";
@@ -1980,6 +2019,7 @@ void ModernMainWindow::onLearningAnalysisClicked()
     newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
     settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
@@ -2000,6 +2040,7 @@ void ModernMainWindow::onNewsTrackingClicked()
     teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
 
@@ -2402,61 +2443,60 @@ void ModernMainWindow::createAIChatWidget()
         m_difyService->fetchConversations();
         m_difyService->fetchAppInfo();  // 获取动态开场白
     }
-    
+
     // ========== 创建AI智能备课标签页 ==========
     m_aiTabWidget = new QTabWidget();
-    m_aiTabWidget->setDocumentMode(true);  // 更现代的外观，无边框
+    m_aiTabWidget->setDocumentMode(true);  // 更现代的外观,无边框
 
-    // 标签页1：AI对话 - 使用SVG图标
-    m_bubbleChatWidget = new ChatWidget();
-    m_bubbleChatWidget->setPlaceholderText("向AI助手发送信息...");
-    m_aiTabWidget->addTab(m_bubbleChatWidget, QIcon(":/icons/resources/icons/chat-bubble.svg"), "AI对话");
-
-    // 标签页2：教案编辑器 - 使用SVG图标
-    m_lessonPlanEditor = new LessonPlanEditor();
-    m_aiTabWidget->addTab(m_lessonPlanEditor, QIcon(":/icons/resources/icons/document-edit.svg"), "教案编辑");
-
-    // 设置标签页样式 - 思政红主题（专业版）
+    // 样式设置（思政红主题）
     m_aiTabWidget->setStyleSheet(R"(
         QTabWidget::pane {
             border: none;
             background: #F8F9FA;
         }
-        QTabBar {
-            background: transparent;
-        }
         QTabBar::tab {
             background: #FFFFFF;
             color: #666666;
             padding: 14px 28px;
-            padding-left: 12px;
-            margin-right: 2px;
-            border: 1px solid #E8E8E8;
+            margin-right: 4px;
+            border: 1px solid #E0E0E0;
             border-bottom: none;
-            border-top-left-radius: 10px;
-            border-top-right-radius: 10px;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
             font-size: 14px;
             font-weight: 500;
-            min-width: 120px;
         }
         QTabBar::tab:selected {
             background: #F8F9FA;
             color: #C62828;
-            border-color: #E8E8E8;
             border-bottom: 3px solid #C62828;
-            margin-bottom: -1px;
+            font-weight: 600;
         }
-        QTabBar::tab:hover:!selected {
-            background: #FAFAFA;
-            color: #333333;
-        }
-        QTabBar::tab:!selected {
-            margin-top: 2px;
+        QTabBar::tab:hover {
+            background: #F5F5F5;
+            color: #C62828;
         }
     )");
 
+    // 标签页1: AI对话 - 使用SVG图标
+    m_bubbleChatWidget = new ChatWidget();
+    m_bubbleChatWidget->setPlaceholderText("向AI助手发送信息...");
+    m_aiTabWidget->addTab(m_bubbleChatWidget, QIcon(":/icons/resources/icons/chat-bubble.svg"), "AI对话");
+
+    // 标签页2: 教案编辑器 - 使用SVG图标
+    m_lessonPlanEditor = new LessonPlanEditor();
+    m_aiTabWidget->addTab(m_lessonPlanEditor, QIcon(":/icons/resources/icons/document-edit.svg"), "教案编辑");
+
+    // 连接教案编辑器的保存信号
+    connect(m_lessonPlanEditor, &LessonPlanEditor::saveRequested,
+            this, [this](const QString &title, const QString &content) {
+        qDebug() << "[ModernMainWindow] 教案已保存：" << title;
+        // 可在此处理保存到数据库等逻辑
+    });
+
+    // 添加标签页容器到主布局
     containerLayout->addWidget(m_aiTabWidget, 1);
-    
+
     // 连接动态开场白信号
     connect(m_difyService, &DifyService::appInfoReceived, this, [this](const QString &name, const QString &introduction) {
         if (m_bubbleChatWidget && !introduction.isEmpty()) {
@@ -2468,53 +2508,57 @@ void ModernMainWindow::createAIChatWidget()
     
     // 显示开场白
     QString openingMessage = "老师您好！我是智慧课堂助手，请问有什么可以帮你？";
-    m_bubbleChatWidget->addMessage(openingMessage, false);
+    if (m_bubbleChatWidget) {
+        m_bubbleChatWidget->addMessage(openingMessage, false);
+    }
 
     // 连接消息发送信号到 Dify 服务
-    connect(m_bubbleChatWidget, &ChatWidget::messageSent, this, [this](const QString &message) {
-        if (message.trimmed().isEmpty()) return;
+    if (m_bubbleChatWidget) {
+        connect(m_bubbleChatWidget, &ChatWidget::messageSent, this, [this](const QString &message) {
+            if (message.trimmed().isEmpty()) return;
 
-        // 首次发送消息时，切换到聊天界面并切换侧边栏
-        if (m_mainStack && m_mainStack->currentWidget() != m_chatContainer) {
-            m_mainStack->setCurrentWidget(m_chatContainer);
-            swapToHistorySidebar();  // 切换到历史记录侧边栏
-            m_isConversationStarted = true;
-        }
+            // 首次发送消息时，切换到聊天界面并切换侧边栏
+            if (m_mainStack && m_mainStack->currentWidget() != m_chatContainer) {
+                m_mainStack->setCurrentWidget(m_chatContainer);
+                swapToHistorySidebar();  // 切换到历史记录侧边栏
+                m_isConversationStarted = true;
+            }
 
-        // 显示用户消息
-        m_bubbleChatWidget->addMessage(message, true);
+            // 显示用户消息
+            m_bubbleChatWidget->addMessage(message, true);
 
-        // 如果正在 PPT 问答阶段或打字中，继续问答流程
-        if (m_pptQuestionStep > 0 && m_pptQuestionStep <= 5) {
-            // 如果还在打字中，忽略用户输入
-            if (m_pptTypingTimer->isActive()) {
+            // 如果正在 PPT 问答阶段或打字中，继续问答流程
+            if (m_pptQuestionStep > 0 && m_pptQuestionStep <= 5) {
+                // 如果还在打字中，忽略用户输入
+                if (m_pptTypingTimer->isActive()) {
+                    return;
+                }
+                // 如果已经进入生成阶段，忽略
+                if (m_pptQuestionStep == 5) {
+                    return;
+                }
+                handlePPTConversation(message);
                 return;
             }
-            // 如果已经进入生成阶段，忽略
-            if (m_pptQuestionStep == 5) {
+
+            // 检测是否是 PPT 生成请求
+            if (isPPTGenerationRequest(message)) {
+                // 开始问答流程
+                m_pptQuestionStep = 1;
+                m_pptUserAnswers.clear();
+                handlePPTConversation(message);
                 return;
             }
-            handlePPTConversation(message);
-            return;
-        }
 
-        // 检测是否是 PPT 生成请求
-        if (isPPTGenerationRequest(message)) {
-            // 开始问答流程
-            m_pptQuestionStep = 1;
-            m_pptUserAnswers.clear();
-            handlePPTConversation(message);
-            return;
-        }
+            // 清空累积响应
+            m_currentAIResponse.clear();
 
-        // 清空累积响应
-        m_currentAIResponse.clear();
-
-        // 直接发送到 Dify，使用 Dify 中配置的提示词
-        if (m_difyService) {
-            m_difyService->sendMessage(message);
-        }
-    });
+            // 直接发送到 Dify，使用 Dify 中配置的提示词
+            if (m_difyService) {
+                m_difyService->sendMessage(message);
+            }
+        });
+    }
 }
 
 void ModernMainWindow::swapToHistorySidebar()

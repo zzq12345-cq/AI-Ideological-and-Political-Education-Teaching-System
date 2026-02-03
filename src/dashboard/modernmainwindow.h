@@ -23,6 +23,7 @@
 #include <QQuickWidget>
 #include <QQmlContext>
 #include <QTextEdit>
+
 #include <QTabWidget>
 
 QT_BEGIN_NAMESPACE
@@ -44,6 +45,7 @@ class DataAnalyticsWidget;
 class NotificationService;
 class NotificationWidget;
 class NotificationBadge;
+class AttendanceWidget;  // 考勤管理组件
 class LessonPlanEditor;
 
 class ModernMainWindow : public QMainWindow
@@ -60,6 +62,7 @@ private slots:
     void onAIPreparationClicked();
     void onResourceManagementClicked();
     void onLearningAnalysisClicked();
+    void onAttendanceClicked();       // 考勤管理
     void onSettingsClicked();
     void onHelpClicked();
     void onQuickPreparationClicked();
@@ -131,6 +134,7 @@ private:
     QPushButton *aiPreparationBtn = nullptr;      // AI智能备课
     QPushButton *resourceManagementBtn = nullptr; // 资源库管理
     QPushButton *learningAnalysisBtn = nullptr;   // 学情与教评
+    QPushButton *attendanceBtn = nullptr;         // 考勤管理
     QPushButton *dataAnalysisBtn = nullptr;       // 数据分析报告 (新)
 
     // 底部菜单
@@ -154,6 +158,9 @@ private:
     // 数据分析报告组件
     DataAnalyticsWidget *m_dataAnalyticsWidget = nullptr;
 
+    // 考勤管理组件
+    AttendanceWidget *m_attendanceWidget = nullptr;
+
     // 通知系统组件
     NotificationService *m_notificationService = nullptr;
     NotificationWidget *m_notificationWidget = nullptr;
@@ -165,7 +172,6 @@ private:
     QLineEdit *searchInput = nullptr;
     QPushButton *notificationBtn = nullptr;
     NotificationBadge *m_notificationBadge = nullptr;  // 通知小红点
-    QPushButton *headerProfileBtn = nullptr;
 
     // 仪表板内容组件
     QLabel *welcomeLabel = nullptr;
@@ -183,9 +189,9 @@ private:
     AIChatDialog *m_chatDialog = nullptr;  // AI 对话框（备用）
     class ChatWidget *m_bubbleChatWidget = nullptr;  // 气泡样式聊天组件（主面板用）
     ChatHistoryWidget *m_chatHistoryWidget = nullptr;  // 历史记录侧边栏
+    QTabWidget *m_aiTabWidget = nullptr;           // AI智能备课标签页容器
+    LessonPlanEditor *m_lessonPlanEditor = nullptr; // 教案编辑器
     QWidget *m_chatContainer = nullptr;  // 聊天容器
-    QTabWidget *m_aiTabWidget = nullptr;  // AI智能备课标签页容器
-    LessonPlanEditor *m_lessonPlanEditor = nullptr;  // 教案编辑器
     QStackedWidget *m_sidebarStack = nullptr;  // 侧边栏切换栈
     QFrame *m_chatWidget = nullptr;        // 输入框容器
     QLineEdit *m_chatInput = nullptr;

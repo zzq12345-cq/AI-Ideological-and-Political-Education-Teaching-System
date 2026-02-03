@@ -1,0 +1,46 @@
+{
+  "task_id": "IMPL-4",
+  "title": "导航栏与页面集成 - AnalyticsNavigationBar",
+  "description": "创建分析维度切换导航栏，并将个人/班级分析页面集成到DataAnalyticsWidget",
+  "status": "pending",
+  "priority": "high",
+  "session_id": "WFS-class-data-analytics",
+  "scope": {
+    "files_to_create": [
+      "src/analytics/ui/AnalyticsNavigationBar.h",
+      "src/analytics/ui/AnalyticsNavigationBar.cpp"
+    ],
+    "files_to_modify": [
+      "src/analytics/DataAnalyticsWidget.h",
+      "src/analytics/DataAnalyticsWidget.cpp",
+      "CMakeLists.txt"
+    ]
+  },
+  "requirements": [
+    "导航栏样式: 类似Tab切换，红色主题高亮当前选中",
+    "三个标签: [概览] [个人分析] [班级分析]",
+    "概览标签显示现有的整体数据分析",
+    "使用QStackedWidget管理页面切换",
+    "切换动画: 平滑淡入淡出效果",
+    "保持现有DataAnalyticsWidget功能不变"
+  ],
+  "ui_components": [
+    "AnalyticsNavigationBar - 自定义导航栏组件",
+    "QStackedWidget - 页面切换容器",
+    "QPropertyAnimation - 切换动画"
+  ],
+  "integration_points": [
+    "DataAnalyticsWidget.setupUI() 中添加导航栏",
+    "创建QStackedWidget包含: 概览页/个人页/班级页",
+    "连接导航栏信号到页面切换槽"
+  ],
+  "acceptance_criteria": [
+    "导航栏样式与整体UI风格一致",
+    "点击标签正确切换页面",
+    "切换动画流畅无闪烁",
+    "概览页保持原有功能完整"
+  ],
+  "estimated_effort": "medium",
+  "dependencies": ["IMPL-2", "IMPL-3"],
+  "blocked_by": ["IMPL-2", "IMPL-3"]
+}
