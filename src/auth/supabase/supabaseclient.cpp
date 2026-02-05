@@ -10,6 +10,9 @@ SupabaseClient::SupabaseClient(QObject *parent)
     qDebug() << "Supabase客户端初始化...";
     qDebug() << "SSL支持:" << QSslSocket::supportsSsl();
     qDebug() << "SSL版本:" << QSslSocket::sslLibraryVersionString();
+
+    connect(m_networkManager, &QNetworkAccessManager::authenticationRequired,
+            this, &SupabaseClient::onAuthRequired);
 }
 
 SupabaseClient::~SupabaseClient()
@@ -81,7 +84,15 @@ void SupabaseClient::sendRequest(const QString &endpoint, const QJsonObject &dat
         qDebug() << "请求已发送，等待响应...";
     } else {
         qDebug() << "错误：无法创建网络请求";
-        emit loginFailed("无法创建网络请求");
+        if (endpoint.contains("/auth/v1/token")) {
+            emit loginFailed("无法创建网络请求");
+        } else if (endpoint.contains("/auth/v1/signup")) {
+            emit signupFailed("无法创建网络请求");
+        } else if (endpoint.contains("/rest/v1/" + SupabaseConfig::USERS_TABLE)) {
+            emit userCheckFailed("无法创建网络请求");
+        } else {
+            emit loginFailed("无法创建网络请求");
+        }
     }
 }
 
@@ -131,6 +142,13 @@ void SupabaseClient::onReplyFinished(QNetworkReply *reply)
 
     if (error.error != QJsonParseError::NoError) {
         qDebug() << "JSON解析错误:" << error.errorString();
+        if (url.contains("/auth/v1/token")) {
+            emit loginFailed(error.errorString());
+        } else if (url.contains("/auth/v1/signup")) {
+            emit signupFailed(error.errorString());
+        } else if (url.contains("/rest/v1/" + SupabaseConfig::USERS_TABLE)) {
+            emit userCheckFailed(error.errorString());
+        }
         reply->deleteLater();
         return;
     }
@@ -236,7 +254,18 @@ void SupabaseClient::onNetworkError(QNetworkReply::NetworkError error)
     }
 
     qDebug() << "网络错误详情:" << errorString;
-    emit loginFailed(errorString);
+
+    QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
+    const QString url = reply ? reply->url().toString() : QString();
+    if (url.contains("/auth/v1/token")) {
+        emit loginFailed(errorString);
+    } else if (url.contains("/auth/v1/signup")) {
+        emit signupFailed(errorString);
+    } else if (url.contains("/rest/v1/" + SupabaseConfig::USERS_TABLE)) {
+        emit userCheckFailed(errorString);
+    } else {
+        emit loginFailed(errorString);
+    }
 }
 
 void SupabaseClient::onSslErrors(const QList<QSslError> &errors)

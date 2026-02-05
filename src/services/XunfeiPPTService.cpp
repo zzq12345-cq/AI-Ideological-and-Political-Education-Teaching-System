@@ -77,6 +77,9 @@ void XunfeiPPTService::generatePPT(const QString &query, const QString &author, 
     }
     
     m_cancelled = false;
+    m_progressErrorCount = 0;
+    m_progressMissingUrlCount = 0;
+    m_progressTimer->stop();
     emit generationStarted();
     emit progressUpdated(0, "正在创建 PPT 生成任务...");
     
@@ -178,6 +181,9 @@ void XunfeiPPTService::checkProgress()
     }
     
     QNetworkReply *reply = m_networkManager->get(request);
+    if (reply) {
+        reply->setProperty("sid", m_currentSid);
+    }
     connect(reply, &QNetworkReply::finished, this, &XunfeiPPTService::onProgressReply);
 }
 
@@ -187,15 +193,26 @@ void XunfeiPPTService::onProgressReply()
     if (!reply) return;
     
     reply->deleteLater();
-    
+
     if (m_cancelled) {
         m_progressTimer->stop();
         return;
     }
-    
+
+    const QString replySid = reply->property("sid").toString();
+    if (!replySid.isEmpty() && replySid != m_currentSid) {
+        qDebug() << "[XunfeiPPTService] 忽略旧任务进度回复:" << replySid;
+        return;
+    }
+
     if (reply->error() != QNetworkReply::NoError) {
         qDebug() << "[XunfeiPPTService] Progress query error:" << reply->errorString();
-        return;  // 继续轮询，不中断
+        m_progressErrorCount++;
+        if (m_progressErrorCount >= m_maxProgressRetries) {
+            m_progressTimer->stop();
+            emit errorOccurred(QString("进度查询失败: %1").arg(reply->errorString()));
+        }
+        return;
     }
     
     QByteArray responseData = reply->readAll();
@@ -207,8 +224,11 @@ void XunfeiPPTService::onProgressReply()
     int code = obj["code"].toInt();
     if (code != 0) {
         QString desc = obj["desc"].toString();
-        m_progressTimer->stop();
-        emit errorOccurred(QString("进度查询失败: %1").arg(desc));
+        m_progressErrorCount++;
+        if (m_progressErrorCount >= m_maxProgressRetries) {
+            m_progressTimer->stop();
+            emit errorOccurred(QString("进度查询失败: %1").arg(desc));
+        }
         return;
     }
     
@@ -220,10 +240,18 @@ void XunfeiPPTService::onProgressReply()
     emit progressUpdated(process, QString("正在生成 PPT... %1%").arg(process));
     
     // 检查是否完成
-    if (process >= 100 && !pptUrl.isEmpty()) {
-        m_progressTimer->stop();
-        qDebug() << "[XunfeiPPTService] PPT generated:" << pptUrl;
-        emit generationFinished(pptUrl, coverUrl);
+    if (process >= 100) {
+        if (!pptUrl.isEmpty()) {
+            m_progressTimer->stop();
+            qDebug() << "[XunfeiPPTService] PPT generated:" << pptUrl;
+            emit generationFinished(pptUrl, coverUrl);
+        } else {
+            m_progressMissingUrlCount++;
+            if (m_progressMissingUrlCount >= m_maxProgressRetries) {
+                m_progressTimer->stop();
+                emit errorOccurred("生成完成但未返回 PPT 链接");
+            }
+        }
     }
 }
 

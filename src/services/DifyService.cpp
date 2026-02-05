@@ -85,6 +85,8 @@ void DifyService::sendMessage(const QString &message, const QString &conversatio
     // 清空累积响应
     m_fullResponse.clear();
     m_streamBuffer.clear();
+    m_sseEvent.clear();
+    m_sseDataLines.clear();
     resetStreamFilters();
 
     // 构建请求 URL
@@ -115,10 +117,11 @@ void DifyService::sendMessage(const QString &message, const QString &conversatio
     QJsonDocument doc(body);
     QByteArray jsonData = doc.toJson();
 
-    qDebug() << "[DifyService] Sending message:" << message;
+    const QString maskedApiKey = m_apiKey.left(qMin(6, m_apiKey.length())) + "****";
+    qDebug() << "[DifyService] Sending message length:" << message.length();
     qDebug() << "[DifyService] Request URL:" << url.toString();
-    qDebug() << "[DifyService] API Key:" << m_apiKey.left(10) + "...";
-    qDebug() << "[DifyService] Request body:" << doc.toJson(QJsonDocument::Compact);
+    qDebug() << "[DifyService] API Key:" << maskedApiKey;
+    qDebug() << "[DifyService] Request body size:" << jsonData.size() << "fields:" << body.keys();
 
     emit requestStarted();
 
@@ -160,6 +163,10 @@ void DifyService::onReplyFinished()
     // 对于流式响应，RemoteHostClosedError 是正常的（服务器完成发送后关闭连接）
     QNetworkReply::NetworkError error = m_currentReply->error();
     if (error != QNetworkReply::NoError && error != QNetworkReply::RemoteHostClosedError) {
+        if (!m_streamBuffer.isEmpty() || !m_sseEvent.isEmpty() || !m_sseDataLines.isEmpty()) {
+            qDebug() << "[DifyService] Flush pending stream on error";
+            parseStreamResponse(QByteArray());
+        }
         QString errorMsg = m_currentReply->errorString();
         int httpStatus = m_currentReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         QByteArray responseData = m_currentReply->readAll();
@@ -188,6 +195,11 @@ void DifyService::onReplyFinished()
         // 发送完整响应
         QByteArray responseData = m_currentReply->readAll();
         qDebug() << "[DifyService] Request successful, response data length:" << responseData.length();
+
+        if (!m_streamBuffer.isEmpty() || !m_sseEvent.isEmpty() || !m_sseDataLines.isEmpty()) {
+            qDebug() << "[DifyService] Flush pending stream on finish";
+            parseStreamResponse(QByteArray());
+        }
 
         // 对于 blocking 模式，直接解析响应
         if (!responseData.isEmpty()) {
@@ -401,37 +413,46 @@ void DifyService::parseStreamResponse(const QByteArray &data)
     // Dify 使用 SSE (Server-Sent Events) 格式，部分 JSON 可能跨分片
     QString buffer = m_streamBuffer + QString::fromUtf8(data);
     QStringList lines = buffer.split('\n');
+    const bool endedWithNewline = buffer.endsWith('\n');
+    const bool forceFlush = data.isEmpty();
     m_streamBuffer.clear();
 
     // 如果最后一行不完整，暂存到缓冲区，等待下一个分片
-    if (!buffer.endsWith('\n') && !lines.isEmpty()) {
+    if (!endedWithNewline && !lines.isEmpty() && !forceFlush) {
         QString lastLine = lines.takeLast();
         if (!lastLine.trimmed().isEmpty()) {
             m_streamBuffer = lastLine;
         }
     }
 
-    for (QString line : lines) {
-        line = line.trimmed();
-        if (!line.startsWith("data: ")) {
-            continue;
+    auto flushEvent = [this]() {
+        if (m_sseDataLines.isEmpty()) {
+            m_sseEvent.clear();
+            return;
         }
+        const QString jsonStr = m_sseDataLines.join("\n");
+        m_sseDataLines.clear();
 
-        QString jsonStr = line.mid(6);  // 去掉 "data: " 前缀
         if (jsonStr.isEmpty() || jsonStr == "[DONE]") {
             qDebug() << "[DifyService] Stream finished [DONE]";
-            continue;
+            m_sseEvent.clear();
+            return;
         }
 
         QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
         if (doc.isNull() || !doc.isObject()) {
             qDebug() << "[DifyService] Failed to parse JSON:" << jsonStr.left(100);
-            continue;
+            m_sseEvent.clear();
+            return;
         }
 
         QJsonObject obj = doc.object();
         QString event = obj["event"].toString();
-        
+        if (event.isEmpty() && !m_sseEvent.isEmpty()) {
+            event = m_sseEvent;
+        }
+        m_sseEvent.clear();
+
         // 详细日志：打印完整事件数据（仅用于调试）
         if (event != "workflow_started" && event != "node_started" && event != "node_finished" && event != "workflow_finished") {
             qDebug() << "[DifyService] Event:" << event << "Full JSON:" << jsonStr.left(300);
@@ -464,8 +485,7 @@ void DifyService::parseStreamResponse(const QByteArray &data)
             if (!thought.isEmpty()) {
                 emit thinkingChunkReceived(thought);
             }
-            continue;
-            
+
         } else if (event == "agent_message") {
             // Agent 消息 - 使用统一处理方法
             QString answer = obj["answer"].toString();
@@ -483,8 +503,36 @@ void DifyService::parseStreamResponse(const QByteArray &data)
         } else if (event == "workflow_started" || event == "node_started" || event == "node_finished" || event == "workflow_finished") {
             // 跳过工作流相关事件
             qDebug() << "[DifyService] Skipping workflow event:" << event;
+        }
+    };
+
+    for (QString line : lines) {
+        const QString trimmed = line.trimmed();
+        if (trimmed.isEmpty()) {
+            flushEvent();
             continue;
         }
+
+        if (trimmed.startsWith("event:")) {
+            const QString eventValue = trimmed.mid(6).trimmed();
+            if (!eventValue.isEmpty()) {
+                m_sseEvent = eventValue;
+            }
+            continue;
+        }
+
+        if (trimmed.startsWith("data:")) {
+            QString dataValue = trimmed.mid(5);
+            if (dataValue.startsWith(' ')) {
+                dataValue = dataValue.mid(1);
+            }
+            m_sseDataLines.append(dataValue);
+            continue;
+        }
+    }
+
+    if (forceFlush || (endedWithNewline && buffer.endsWith("\n\n"))) {
+        flushEvent();
     }
 }
 
