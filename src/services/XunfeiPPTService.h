@@ -102,10 +102,13 @@ private:
     QString m_apiSecret;
     QString m_baseUrl;
     QString m_currentSid;  // 当前任务 ID
-    
+
     QNetworkAccessManager *m_networkManager;
     QTimer *m_progressTimer;
     bool m_cancelled;
+    int m_progressErrorCount = 0;
+    int m_progressMissingUrlCount = 0;
+    int m_maxProgressRetries = 3;
 };
 
 #endif // XUNFEIPPTSERVICE_H

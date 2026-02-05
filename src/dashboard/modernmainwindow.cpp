@@ -1817,7 +1817,7 @@ void ModernMainWindow::createDashboard()
         if (m_bubbleChatWidget) {
             m_bubbleChatWidget->setInputText(text);
             // 触发发送（模拟回车）
-            QTimer::singleShot(50, [this]() {
+            QTimer::singleShot(50, this, [this]() {
                 if (m_bubbleChatWidget) {
                     // 手动触发发送
                     QString msg = m_bubbleChatWidget->inputText();

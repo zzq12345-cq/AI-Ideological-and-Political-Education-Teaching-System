@@ -128,7 +128,10 @@ private:
     QString m_lastError;
     QString m_fullResponse;
     QString m_streamBuffer;
-    
+    QString m_currentEvent;
+    QStringList m_sseDataLines;
+    bool m_hasStreamError = false;
+
     // 当前解析的元数据
     QString m_currentSubject;
     QString m_currentGrade;

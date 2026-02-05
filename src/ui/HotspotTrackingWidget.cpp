@@ -14,6 +14,120 @@
 #include <QSvgRenderer>
 #include <QEvent>
 
+namespace {
+
+bool containsKeyword(const QString &text, const QStringList &keywords)
+{
+    for (const QString &keyword : keywords) {
+        if (text.contains(keyword, Qt::CaseInsensitive)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// 仅用于头条卡片筛选，不影响列表数据本身
+bool isDomesticPoliticalHeadline(const NewsItem &news)
+{
+    if (news.category != "国内") {
+        return false;
+    }
+
+    const QString text = news.title + " " + news.summary + " " + news.source;
+
+    // 社会/娱乐等排除关键词 - 先排除再判断
+    static const QStringList excludeKeywords = {
+        // 事故灾难类
+        "车祸", "事故", "坠楼", "跳楼", "自杀", "凶杀", "命案", "火灾",
+        "爆炸", "塌方", "坍塌", "伤亡", "遇难", "死亡", "身亡", "溺水",
+        "触电", "中毒", "煤气", "意外", "惨剧",
+        // 犯罪类
+        "骗子", "诈骗", "盗窃", "抢劫", "绑架", "失踪", "贩毒", "贪污",
+        "偷窃", "强奸", "猥亵", "杀人", "杀害", "谋杀", "行凶", "砍人",
+        "报警", "逮捕", "抓捕", "犯罪", "嫌疑人", "作案", "案件", "刑事",
+        // 娱乐八卦类
+        "出轨", "离婚", "小三", "婆媳", "家暴", "吵架", "恋情", "分手",
+        "网红", "明星", "八卦", "绯闻", "整容", "炫富", "豪宅", "豪车",
+        "结婚", "订婚", "热恋", "复合", "前夫", "前妻", "恋爱",
+        // 博彩赌博类
+        "彩票", "赌博", "酒驾", "醉驾", "超速", "违章", "中奖", "博彩",
+        // 生活娱乐类
+        "宠物", "萌宠", "吃播", "减肥", "健身", "美食", "旅游",
+        "直播", "带货", "网购", "团购", "探店", "打卡", "测评",
+        // 社会琐事类
+        "吵架", "口角", "纠纷", "邻居", "停车", "物业", "业主",
+        "打架", "斗殴", "聚众", "闹事", "争执", "争吵", "冲突",
+        // 奇闻异事类
+        "路人", "围观", "现场", "目击", "爆料", "曝光", "揭秘",
+        "惊现", "惊人", "震惊", "吓人", "离奇", "诡异", "诡异",
+        "奇葩", "奇怪", "罕见", "罕见", "匪夷所思", "不可思议",
+        // 医疗健康类（个人案例）
+        "患者", "病人", "手术", "肿瘤", "癌症", "确诊", "治疗", "医院",
+        // 消费维权类（个案）
+        "投诉", "维权", "退款", "赔偿", "索赔", "质量问题", "假冒",
+        // 家庭矛盾类
+        "继母", "继父", "婆婆", "儿媳", "女婿", "岳父", "岳母",
+        // 情感故事类
+        "表白", "求婚", "情侣", "夫妻", "相亲", "约会", "男友", "女友",
+        // 校园社会类（非教育政策）
+        "学生打架", "校园霸凌", "师生冲突", "早恋",
+        // 其他社会八卦
+        "网友热议", "引发热议", "网传", "有人", "某男", "某女",
+        "一男子", "一女子", "男童", "女童", "老人", "老太",
+        // 标题党关键词
+        "太", "竟然", "居然", "竟", "万万没想到", "没想到"
+    };
+
+    if (containsKeyword(text, excludeKeywords)) {
+        return false;
+    }
+
+    // 时政关键词/官方媒体来源
+    static const QStringList politicalKeywords = {
+        // 领导人
+        "习近平", "李强", "赵乐际", "王沪宁", "蔡奇", "丁薛祥", "李希",
+        "总书记", "国家主席", "总理", "委员长", "政协主席", "国家副主席",
+        // 机构
+        "中央", "国务院", "全国人大", "全国政协", "中纪委", "中组部",
+        "外交部", "国防部", "发改委", "教育部", "科技部", "工信部",
+        "公安部", "民政部", "司法部", "财政部", "人社部", "自然资源部",
+        "生态环境部", "住建部", "交通运输部", "水利部", "农业农村部",
+        "商务部", "文旅部", "卫健委", "退役军人部", "应急管理部",
+        "中国人民银行", "审计署", "国资委", "海关总署", "税务总局",
+        "市场监管", "广电总局", "体育总局", "统计局", "医保局",
+        // 会议活动
+        "两会", "党代会", "中央全会", "政治局", "常委会", "座谈会",
+        "工作会议", "中央经济", "深改委", "国家安全", "中央财经",
+        // 政策理论
+        "改革", "政策", "法治", "依法治国", "从严治党", "党建",
+        "思想政治", "意识形态", "马克思", "社会主义", "新时代",
+        "中国特色", "现代化", "高质量发展", "共同富裕", "乡村振兴",
+        "一带一路", "双循环", "碳达峰", "碳中和", "数字中国",
+        // 外交国防
+        "外交", "国防", "军队", "解放军", "武警", "国际关系",
+        "中美", "中俄", "中欧", "台湾", "港澳", "统一",
+        // 其他时政
+        "省委", "市委", "党委", "人大代表", "政协委员",
+        "纪检", "巡视", "反腐", "廉政", "作风建设",
+        // 补充：经济、科技政策相关
+        "经济工作", "金融监管", "科技创新", "产业政策", "区域发展"
+    };
+
+    static const QStringList officialSources = {
+        "人民日报", "新华社", "新华网", "央视", "CCTV", "中国日报",
+        "光明日报", "经济日报", "解放军报", "中国青年报", "中国纪检监察报",
+        "求是", "半月谈", "环球时报", "参考消息", "中国政府网",
+        "人民网", "央广网", "中国网", "中国新闻网", "学习强国",
+        "央视新闻", "新华社", "人民政协网", "法制日报", "科技日报"
+    };
+
+    const bool isPolitical = containsKeyword(text, politicalKeywords);
+    const bool isOfficialSource = containsKeyword(news.source, officialSources);
+    return isPolitical || isOfficialSource;
+}
+
+} // namespace
+
 HotspotTrackingWidget::HotspotTrackingWidget(QWidget *parent)
     : QWidget(parent)
     , m_hotspotService(nullptr)
@@ -55,7 +169,7 @@ void HotspotTrackingWidget::loadImage(const QString &url, QLabel *label)
 
     // 发起网络请求
     QNetworkRequest request{QUrl(url)};
-    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, true);
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
     QNetworkReply *reply = m_networkManager->get(request);
     m_pendingImages[reply] = label;
 }
@@ -972,23 +1086,36 @@ void HotspotTrackingWidget::onNewsListUpdated(const QList<NewsItem> &newsList)
     int col = 0;
     const int columns = computeGridColumns();
 
+    int headlineIndex = 0;
+    if (columns > 1) {
+        for (int i = 0; i < newsList.size(); ++i) {
+            if (isDomesticPoliticalHeadline(newsList[i])) {
+                headlineIndex = i;
+                break;
+            }
+        }
+    }
+
     for (int i = 0; i < newsList.size(); ++i) {
         const NewsItem &news = newsList[i];
 
-        // 第一条作为头条，横跨全宽
-        if (i == 0 && columns > 1) {
-            QWidget *headline = createHeadlineCard(news);
-            m_newsGridLayout->addWidget(headline, row, 0, 1, columns);
-            row++;
-        } else {
-            QWidget *card = createNewsCard(news);
-            m_newsGridLayout->addWidget(card, row, col);
-
-            col++;
-            if (col >= columns) {
-                col = 0;
+        if (columns > 1) {
+            // 头条独占一行，优先选择“思政国内”新闻
+            if (i == headlineIndex) {
+                QWidget *headline = createHeadlineCard(news);
+                m_newsGridLayout->addWidget(headline, row, 0, 1, columns);
                 row++;
+                continue;
             }
+        }
+
+        QWidget *card = createNewsCard(news);
+        m_newsGridLayout->addWidget(card, row, col);
+
+        col++;
+        if (col >= columns) {
+            col = 0;
+            row++;
         }
     }
 
