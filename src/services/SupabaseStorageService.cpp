@@ -1,5 +1,6 @@
 #include "SupabaseStorageService.h"
 #include "../auth/supabase/supabaseconfig.h"
+#include "../utils/NetworkRequestFactory.h"
 #include <QNetworkRequest>
 #include <QHttpMultiPart>
 #include <QEventLoop>
@@ -61,16 +62,12 @@ QString SupabaseStorageService::uploadImage(const QByteArray &imageData,
 
     qDebug() << "[SupabaseStorageService] 上传图片到:" << uploadUrl;
 
-    // 构建请求
-    QNetworkRequest request;
-    request.setUrl(QUrl(uploadUrl));
+    // 构建请求（使用通用请求工厂，手动添加 Storage 特有的头）
+    QNetworkRequest request = NetworkRequestFactory::createGeneralRequest(QUrl(uploadUrl), 30000);
     request.setRawHeader("apikey", SupabaseConfig::SUPABASE_ANON_KEY.toUtf8());
     request.setRawHeader("Authorization", QString("Bearer %1").arg(SupabaseConfig::SUPABASE_ANON_KEY).toUtf8());
     request.setRawHeader("Content-Type", mimeType.toUtf8());
     request.setRawHeader("x-upsert", "true");  // 允许覆盖
-
-    // 禁用 HTTP/2
-    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
 
     // 同步上传（使用事件循环等待）
     QEventLoop loop;

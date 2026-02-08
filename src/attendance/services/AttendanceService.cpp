@@ -1,14 +1,11 @@
 #include "AttendanceService.h"
+#include "../../utils/NetworkRequestFactory.h"
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QUrlQuery>
 #include <QTimer>
 #include <QRandomGenerator>
-
-// Supabase配置（复用项目现有配置）
-static const QString SUPABASE_URL = "https://your-project.supabase.co";
-static const QString SUPABASE_ANON_KEY = "your-anon-key";
 
 AttendanceService::AttendanceService(QObject *parent)
     : QObject(parent)
@@ -27,18 +24,7 @@ void AttendanceService::setCurrentUserId(const QString &userId)
 
 QNetworkRequest AttendanceService::createRequest(const QString &endpoint) const
 {
-    QUrl url(SUPABASE_URL + endpoint);
-    QNetworkRequest request(url);
-
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    request.setRawHeader("apikey", SUPABASE_ANON_KEY.toUtf8());
-    request.setRawHeader("Authorization", ("Bearer " + SUPABASE_ANON_KEY).toUtf8());
-    request.setRawHeader("Prefer", "return=representation");
-
-    // 禁用HTTP/2（项目统一配置）
-    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
-
-    return request;
+    return NetworkRequestFactory::createSupabaseRequest(endpoint);
 }
 
 void AttendanceService::setLoading(bool loading)

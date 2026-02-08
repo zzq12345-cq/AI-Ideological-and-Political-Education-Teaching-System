@@ -1,5 +1,5 @@
 #include "NotificationService.h"
-#include "../auth/supabase/supabaseconfig.h"
+#include "../utils/NetworkRequestFactory.h"
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QDebug>
@@ -23,16 +23,7 @@ void NotificationService::setCurrentUserId(const QString &userId)
 
 QNetworkRequest NotificationService::createRequest(const QString &endpoint) const
 {
-    QUrl url(SupabaseConfig::SUPABASE_URL + endpoint);
-    QNetworkRequest request(url);
-    request.setRawHeader("apikey", SupabaseConfig::SUPABASE_ANON_KEY.toUtf8());
-    request.setRawHeader("Authorization", ("Bearer " + SupabaseConfig::SUPABASE_ANON_KEY).toUtf8());
-    request.setRawHeader("Content-Type", "application/json");
-    request.setRawHeader("Prefer", "return=representation");
-
-    // 禁用HTTP/2，避免macOS上的网络问题
-    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
-    return request;
+    return NetworkRequestFactory::createSupabaseRequest(endpoint);
 }
 
 void NotificationService::fetchNotifications()

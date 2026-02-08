@@ -1,5 +1,6 @@
 #include "PaperService.h"
 #include "../auth/supabase/supabaseconfig.h"
+#include "../utils/NetworkRequestFactory.h"
 #include <QNetworkRequest>
 #include <QUrlQuery>
 #include <QDebug>
@@ -331,18 +332,9 @@ void PaperService::searchQuestions(const QuestionSearchCriteria &criteria)
 void PaperService::sendRequest(const QString &endpoint, RequestType type,
                                const QJsonDocument &data, const QString &method)
 {
-    QString url = SupabaseConfig::SUPABASE_URL + endpoint;
-    qDebug() << "PaperService 请求:" << method << url;
+    qDebug() << "PaperService 请求:" << method << (SupabaseConfig::SUPABASE_URL + endpoint);
 
-    QNetworkRequest request(url);
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    request.setRawHeader("apikey", SupabaseConfig::SUPABASE_ANON_KEY.toUtf8());
-    request.setRawHeader("Prefer", "return=representation");  // 返回完整数据
-
-    // 如果有访问令牌，添加认证头
-    if (!m_accessToken.isEmpty()) {
-        request.setRawHeader("Authorization", QString("Bearer %1").arg(m_accessToken).toUtf8());
-    }
+    QNetworkRequest request = NetworkRequestFactory::createSupabaseRequest(endpoint, m_accessToken);
 
     QNetworkReply *reply = nullptr;
     if (method == "GET") {

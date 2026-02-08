@@ -62,6 +62,8 @@ set(PROJECT_SOURCES
     src/ui/AIChatDialog.h
     src/utils/MarkdownRenderer.cpp
     src/utils/MarkdownRenderer.h
+    src/utils/NetworkRequestFactory.cpp
+    src/utils/NetworkRequestFactory.h
     src/ui/ChatHistoryWidget.cpp
     src/ui/ChatHistoryWidget.h
     src/ui/NetworkImageTextBrowser.cpp
@@ -197,6 +199,8 @@ set(SHARED_SERVICES
     src/services/SupabaseStorageService.h
     src/auth/supabase/supabaseconfig.cpp
     src/auth/supabase/supabaseconfig.h
+    src/utils/NetworkRequestFactory.cpp
+    src/utils/NetworkRequestFactory.h
 )
 
 qt_add_executable(ImportTool
