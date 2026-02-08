@@ -1,9 +1,21 @@
 #include "supabaseconfig.h"
+#include <QtGlobal>
 
-// 新 Supabase 项目配置
-const QString SupabaseConfig::SUPABASE_URL = "https://skbmskuipnhalgtcjkps.supabase.co";
-const QString SupabaseConfig::SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrYm1za3VpcG5oYWxndGNqa3BzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1ODI3NzYsImV4cCI6MjA4MjE1ODc3Nn0.UIBsfEJ_q0EC2GF51aXBbZY3U9NZ4ngClbO2O8SyVhM";
-const QString SupabaseConfig::SUPABASE_SERVICE_KEY = "";  // 如需要可后续填写
+namespace {
+QString fromEnvOrDefault(const char *key, const QString &defaultValue)
+{
+    const QString value = qEnvironmentVariable(key).trimmed();
+    return value.isEmpty() ? defaultValue : value;
+}
+}
+
+// Supabase 项目配置（优先读取环境变量）
+const QString SupabaseConfig::SUPABASE_URL =
+    fromEnvOrDefault("SUPABASE_URL", "https://your-project-id.supabase.co");
+const QString SupabaseConfig::SUPABASE_ANON_KEY =
+    fromEnvOrDefault("SUPABASE_ANON_KEY", "");
+const QString SupabaseConfig::SUPABASE_SERVICE_KEY =
+    fromEnvOrDefault("SUPABASE_SERVICE_KEY", "");
 
 const QString SupabaseConfig::USERS_TABLE = "teachers";
 const QString SupabaseConfig::AUTH_HEADER_NAME = "Authorization";

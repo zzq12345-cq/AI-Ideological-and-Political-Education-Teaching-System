@@ -8,6 +8,7 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QJsonArray>
+#include <QStringList>
 
 /**
  * @brief Dify Cloud API 服务类
@@ -56,6 +57,11 @@ public:
      * @brief 清除当前会话
      */
     void clearConversation();
+
+    /**
+     * @brief 设置当前会话 ID（用于继续历史对话）
+     */
+    void setCurrentConversationId(const QString &conversationId);
 
     /**
      * @brief 获取对话列表
@@ -161,7 +167,7 @@ private:
     QString m_userId;
     QString m_fullResponse;  // 累积完整响应
     QString m_streamBuffer;  // SSE 残留缓冲
-    QString m_sseEvent;       // SSE event 跨包缓存
+    QString m_sseEvent;      // SSE event 跨包缓存
     QStringList m_sseDataLines; // SSE data 多行累积
     QString m_tagRemainder;  // 跨 chunk 的标签残留缓冲
     QString m_hiddenTagName; // 当前隐藏块标签名（如 think/analysis）
