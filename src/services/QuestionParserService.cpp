@@ -1,24 +1,15 @@
 #include "QuestionParserService.h"
+#include "../utils/NetworkRequestFactory.h"
 #include <QNetworkRequest>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QUuid>
 #include <QDebug>
-#include <QSslConfiguration>
-#include <QSslSocket>
 #include <QRegularExpression>
 #include <QHttpMultiPart>
 #include <QMimeDatabase>
 #include <QFileInfo>
-
-namespace {
-bool allowInsecureSslForDebug()
-{
-    const QString value = qEnvironmentVariable("ALLOW_INSECURE_SSL").trimmed().toLower();
-    return value == "1" || value == "true" || value == "yes";
-}
-}
 
 QuestionParserService::QuestionParserService(QObject *parent)
     : QObject(parent)
@@ -103,19 +94,7 @@ void QuestionParserService::parseDocument(const QString &documentText,
     // 构建 Dify 工作流 API 请求
     // 使用 /workflows/run 端点
     QUrl url(m_baseUrl + "/workflows/run");
-    QNetworkRequest request(url);
-    
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
-    
-    if (allowInsecureSslForDebug()) {
-        qWarning() << "[QuestionParserService] ALLOW_INSECURE_SSL 已启用，使用不安全 TLS（仅用于开发调试）";
-        QSslConfiguration sslConfig = request.sslConfiguration();
-        sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
-        request.setSslConfiguration(sslConfig);
-    }
-    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
-    request.setTransferTimeout(300000);  // 5分钟超时（解析可能需要较长时间）
+    QNetworkRequest request = NetworkRequestFactory::createDifyRequest(url, m_apiKey, 300000);
     
     // 构建请求体
     // 输入变量名与 Dify 工作流中定义的变量名一致
@@ -235,17 +214,7 @@ void QuestionParserService::uploadFileToDify(const QString &filePath)
     
     // 创建请求
     QUrl url(m_baseUrl + "/files/upload");
-    QNetworkRequest request(url);
-    request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
-    
-    if (allowInsecureSslForDebug()) {
-        qWarning() << "[QuestionParserService] ALLOW_INSECURE_SSL 已启用，使用不安全 TLS（仅用于开发调试）";
-        QSslConfiguration sslConfig = request.sslConfiguration();
-        sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
-        request.setSslConfiguration(sslConfig);
-    }
-    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
-    request.setTransferTimeout(120000);  // 2分钟上传超时
+    QNetworkRequest request = NetworkRequestFactory::createDifyUploadRequest(url, m_apiKey, 120000);
     
     qDebug() << "[QuestionParserService] 上传 URL:" << url.toString();
     qDebug() << "[QuestionParserService] 文件 MIME 类型:" << mimeType;
@@ -324,19 +293,7 @@ void QuestionParserService::callWorkflowWithFile(const QString &uploadFileId)
 
     // 构建工作流请求
     QUrl url(m_baseUrl + "/workflows/run");
-    QNetworkRequest request(url);
-    
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
-    
-    if (allowInsecureSslForDebug()) {
-        qWarning() << "[QuestionParserService] ALLOW_INSECURE_SSL 已启用，使用不安全 TLS（仅用于开发调试）";
-        QSslConfiguration sslConfig = request.sslConfiguration();
-        sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
-        request.setSslConfiguration(sslConfig);
-    }
-    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
-    request.setTransferTimeout(600000);  // 10分钟解析超时（工作流含 AGENT 可能需要较长时间）
+    QNetworkRequest request = NetworkRequestFactory::createDifyRequest(url, m_apiKey, 600000);
     
     // 构建请求体 - 文件需要放在 inputs 中，变量名与 Dify 工作流开始节点定义的一致
     // Dify 工作流中定义的文件输入变量名是 "up"，类型是文件列表（数组）

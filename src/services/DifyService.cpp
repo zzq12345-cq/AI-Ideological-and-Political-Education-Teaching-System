@@ -1,23 +1,13 @@
 #include "DifyService.h"
+#include "../utils/NetworkRequestFactory.h"
 #include <QNetworkRequest>
 #include <QJsonArray>
 #include <QUuid>
 #include <QDebug>
 #include <QRegularExpression>
-#include <QSslConfiguration>
-#include <QSslSocket>
-#include <QtGlobal>
 #include <QUrlQuery>
 #include <QSettings>
 #include <QCoreApplication>
-
-namespace {
-bool allowInsecureSslForDebug()
-{
-    const QString value = qEnvironmentVariable("ALLOW_INSECURE_SSL").trimmed().toLower();
-    return value == "1" || value == "true" || value == "yes";
-}
-}
 
 DifyService::DifyService(QObject *parent)
     : QObject(parent)
@@ -253,7 +243,7 @@ void DifyService::onSslErrors(const QList<QSslError> &errors)
         qDebug() << "[DifyService] SSL Error:" << error.errorString();
     }
 
-    if (m_currentReply && allowInsecureSslForDebug()) {
+    if (m_currentReply && NetworkRequestFactory::allowInsecureSslForDebug()) {
         qWarning() << "[DifyService] ALLOW_INSECURE_SSL 已启用，忽略 SSL 错误（仅用于开发调试）";
         m_currentReply->ignoreSslErrors(errors);
         return;
@@ -273,34 +263,10 @@ void DifyService::resetStreamFilters()
     m_hasTruncated = false;
 }
 
-// 统一创建已配置的网络请求，消除重复的 SSL/HTTP2/超时配置
+// 统一创建已配置的网络请求，委托给 NetworkRequestFactory
 QNetworkRequest DifyService::createConfiguredRequest(const QUrl &url, int timeout)
 {
-    QNetworkRequest request(url);
-
-    // 设置请求头
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
-
-    // 默认启用严格 SSL 校验；仅在显式调试开关下允许不安全模式。
-    if (allowInsecureSslForDebug()) {
-        qWarning() << "[DifyService] ALLOW_INSECURE_SSL 已启用，使用不安全 TLS（仅用于开发调试）";
-        QSslConfiguration sslConfig = request.sslConfiguration();
-        sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
-        request.setSslConfiguration(sslConfig);
-    }
-
-    // 禁用 HTTP/2 避免协议错误
-    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
-
-    // 设置超时
-    request.setTransferTimeout(timeout);
-
-#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
-    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-#endif
-
-    return request;
+    return NetworkRequestFactory::createDifyRequest(url, m_apiKey, timeout);
 }
 
 // 统一处理流式文本，消除 message/agent_message/text_chunk 重复逻辑

@@ -1,16 +1,9 @@
 #include "supabaseclient.h"
 #include "supabaseconfig.h"
+#include "../../utils/NetworkRequestFactory.h"
 #include <QDebug>
 #include <QUrl>
 #include <QUrlQuery>
-
-namespace {
-bool allowInsecureSslForDebug()
-{
-    const QString value = qEnvironmentVariable("ALLOW_INSECURE_SSL").trimmed().toLower();
-    return value == "1" || value == "true" || value == "yes";
-}
-}
 
 SupabaseClient::SupabaseClient(QObject *parent)
     : QObject(parent)
@@ -294,7 +287,7 @@ void SupabaseClient::onSslErrors(const QList<QSslError> &errors)
     }
 
     QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
-    if (reply && allowInsecureSslForDebug()) {
+    if (reply && NetworkRequestFactory::allowInsecureSslForDebug()) {
         qWarning() << "ALLOW_INSECURE_SSL 已启用，忽略 SSL 错误（仅用于开发调试）";
         reply->ignoreSslErrors(errors);
         return;
