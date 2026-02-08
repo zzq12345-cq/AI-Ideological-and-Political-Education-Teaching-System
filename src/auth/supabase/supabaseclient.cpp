@@ -1,7 +1,16 @@
 #include "supabaseclient.h"
 #include "supabaseconfig.h"
 #include <QDebug>
-#include <QMessageBox>
+#include <QUrl>
+#include <QUrlQuery>
+
+namespace {
+bool allowInsecureSslForDebug()
+{
+    const QString value = qEnvironmentVariable("ALLOW_INSECURE_SSL").trimmed().toLower();
+    return value == "1" || value == "true" || value == "yes";
+}
+}
 
 SupabaseClient::SupabaseClient(QObject *parent)
     : QObject(parent)
@@ -50,15 +59,19 @@ void SupabaseClient::checkUserExists(const QString &email)
 {
     qDebug() << "检查用户是否存在:" << email;
 
-    QString endpoint = SupabaseConfig::SUPABASE_URL + "/rest/v1/" + SupabaseConfig::USERS_TABLE +
-                      "?select=id&email=eq." + email;
+    QUrl endpoint(SupabaseConfig::SUPABASE_URL + "/rest/v1/" + SupabaseConfig::USERS_TABLE);
+    QUrlQuery query;
+    query.addQueryItem("select", "id");
+    query.addQueryItem("email", "eq." + email);
+    endpoint.setQuery(query);
 
-    sendGetRequest(endpoint);
+    sendGetRequest(endpoint.toString(QUrl::FullyEncoded));
 }
 
 void SupabaseClient::sendRequest(const QString &endpoint, const QJsonObject &data, bool isPost)
 {
-    qDebug() << "发送请求到:" << endpoint;
+    const QUrl endpointUrl(endpoint);
+    qDebug() << "发送请求到:" << endpointUrl.path();
 
     QNetworkRequest request;
     request.setUrl(QUrl(endpoint));
@@ -108,11 +121,16 @@ void SupabaseClient::onReplyFinished(QNetworkReply *reply)
     QByteArray data = reply->readAll();
     int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
 
-    qDebug() << "HTTP状态码:" << httpStatus;
-    qDebug() << "响应数据:" << data;
-
     // 检查是否是认证相关的端点
     QString url = reply->url().toString();
+    const bool isAuthEndpoint = url.contains("/auth/v1/token") || url.contains("/auth/v1/signup");
+
+    qDebug() << "HTTP状态码:" << httpStatus << "URL:" << reply->url().path();
+    if (isAuthEndpoint) {
+        qDebug() << "认证接口响应长度:" << data.size();
+    } else {
+        qDebug() << "响应数据:" << data;
+    }
 
     // 用户检查接口返回的是数组，需要特殊处理
     if (url.contains("/rest/v1/" + SupabaseConfig::USERS_TABLE)) {
@@ -173,7 +191,7 @@ void SupabaseClient::onAuthRequired(QNetworkReply *reply, QAuthenticator *authen
 
 void SupabaseClient::handleLoginResponse(const QJsonObject &json)
 {
-    qDebug() << "处理登录响应:" << json;
+    qDebug() << "处理登录响应";
 
     if (json.contains("access_token")) {
         QString userId = json["user"].toObject()["id"].toString();
@@ -194,7 +212,7 @@ void SupabaseClient::handleLoginResponse(const QJsonObject &json)
 
 void SupabaseClient::handleSignupResponse(const QJsonObject &json)
 {
-    qDebug() << "处理注册响应:" << json;
+    qDebug() << "处理注册响应";
 
     if (json.contains("access_token")) {
         QString userId = json["user"].toObject()["id"].toString();
@@ -275,10 +293,26 @@ void SupabaseClient::onSslErrors(const QList<QSslError> &errors)
         qDebug() << "SSL错误:" << error.errorString();
     }
 
-    // 开发环境忽略SSL错误，生产环境应严格验证
     QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
-    if (reply) {
+    if (reply && allowInsecureSslForDebug()) {
+        qWarning() << "ALLOW_INSECURE_SSL 已启用，忽略 SSL 错误（仅用于开发调试）";
         reply->ignoreSslErrors(errors);
-        qDebug() << "已忽略SSL错误，继续请求...";
+        return;
+    }
+
+    if (reply) {
+        reply->abort();
+    }
+
+    const QString errorMsg = "SSL 证书校验失败，已拒绝建立不安全连接";
+    const QString url = reply ? reply->url().toString() : QString();
+    if (url.contains("/auth/v1/token")) {
+        emit loginFailed(errorMsg);
+    } else if (url.contains("/auth/v1/signup")) {
+        emit signupFailed(errorMsg);
+    } else if (url.contains("/rest/v1/" + SupabaseConfig::USERS_TABLE)) {
+        emit userCheckFailed(errorMsg);
+    } else {
+        emit loginFailed(errorMsg);
     }
 }

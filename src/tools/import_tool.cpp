@@ -13,13 +13,11 @@
 #include <QCommandLineParser>
 #include <QDebug>
 #include <QTimer>
+#include <QtGlobal>
 
 #include "../services/BulkImportService.h"
 #include "../services/PaperService.h"
 #include "../auth/supabase/supabaseconfig.h"
-
-// Dify 试题解析工作流 API Key
-const QString PARSER_API_KEY = "app-UGw7xWOmz5BIelpZnd4gBMG7";
 
 int main(int argc, char *argv[])
 {
@@ -70,6 +68,13 @@ int main(int argc, char *argv[])
         "token"
     );
     parser.addOption(tokenOption);
+
+    QCommandLineOption parserApiKeyOption(
+        QStringList() << "k" << "parser-api-key",
+        "Dify 解析工作流 API Key（也可通过 PARSER_API_KEY 或 DIFY_API_KEY 环境变量提供）",
+        "api_key"
+    );
+    parser.addOption(parserApiKeyOption);
     
     parser.process(app);
     
@@ -79,10 +84,23 @@ int main(int argc, char *argv[])
     QString subject = parser.value(subjectOption);
     QString grade = parser.value(gradeOption);
     QString token = parser.value(tokenOption);
+    QString parserApiKey = parser.value(parserApiKeyOption).trimmed();
+
+    if (parserApiKey.isEmpty()) {
+        parserApiKey = qEnvironmentVariable("PARSER_API_KEY").trimmed();
+    }
+    if (parserApiKey.isEmpty()) {
+        parserApiKey = qEnvironmentVariable("DIFY_API_KEY").trimmed();
+    }
     
     if (dirPath.isEmpty() && filePath.isEmpty()) {
         qCritical() << "错误：必须指定 --dir 或 --file 参数";
         parser.showHelp(1);
+        return 1;
+    }
+
+    if (parserApiKey.isEmpty()) {
+        qCritical() << "错误：未设置解析 API Key，请使用 --parser-api-key 或环境变量 PARSER_API_KEY/DIFY_API_KEY";
         return 1;
     }
     
@@ -111,7 +129,7 @@ int main(int argc, char *argv[])
     }
     
     BulkImportService *importService = new BulkImportService(paperService, &app);
-    importService->setParserApiKey(PARSER_API_KEY);
+    importService->setParserApiKey(parserApiKey);
     
     // 连接信号
     QObject::connect(importService, &BulkImportService::importStarted,

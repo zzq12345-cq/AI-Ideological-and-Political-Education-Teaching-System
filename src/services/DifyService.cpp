@@ -11,6 +11,14 @@
 #include <QSettings>
 #include <QCoreApplication>
 
+namespace {
+bool allowInsecureSslForDebug()
+{
+    const QString value = qEnvironmentVariable("ALLOW_INSECURE_SSL").trimmed().toLower();
+    return value == "1" || value == "true" || value == "yes";
+}
+}
+
 DifyService::DifyService(QObject *parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
@@ -61,6 +69,11 @@ QString DifyService::currentConversationId() const
 void DifyService::clearConversation()
 {
     m_conversationId.clear();
+}
+
+void DifyService::setCurrentConversationId(const QString &conversationId)
+{
+    m_conversationId = conversationId;
 }
 
 void DifyService::sendMessage(const QString &message, const QString &conversationId)
@@ -117,11 +130,9 @@ void DifyService::sendMessage(const QString &message, const QString &conversatio
     QJsonDocument doc(body);
     QByteArray jsonData = doc.toJson();
 
-    const QString maskedApiKey = m_apiKey.left(qMin(6, m_apiKey.length())) + "****";
     qDebug() << "[DifyService] Sending message length:" << message.length();
     qDebug() << "[DifyService] Request URL:" << url.toString();
-    qDebug() << "[DifyService] API Key:" << maskedApiKey;
-    qDebug() << "[DifyService] Request body size:" << jsonData.size() << "fields:" << body.keys();
+    qDebug() << "[DifyService] Request body size:" << jsonData.size();
 
     emit requestStarted();
 
@@ -142,10 +153,6 @@ void DifyService::onReadyRead()
 
     // 立即读取所有可用数据
     QByteArray data = m_currentReply->readAll();
-    qDebug() << "[DifyService] onReadyRead called, bytes received:" << data.size();
-    if (data.size() > 0 && data.size() < 500) {
-        qDebug() << "[DifyService] Raw data:" << data;
-    }
     if (!data.isEmpty()) {
         parseStreamResponse(data);
     }
@@ -173,8 +180,7 @@ void DifyService::onReplyFinished()
 
         qDebug() << "[DifyService] HTTP Error:" << httpStatus << "Error:" << errorMsg;
         qDebug() << "[DifyService] Network error code:" << m_currentReply->error();
-        qDebug() << "[DifyService] Response data:" << responseData;
-        qDebug() << "[DifyService] Response data (as string):" << QString::fromUtf8(responseData);
+        qDebug() << "[DifyService] Response data length:" << responseData.size();
 
         // 尝试解析错误响应
         QJsonDocument errorDoc = QJsonDocument::fromJson(responseData);
@@ -245,14 +251,18 @@ void DifyService::onSslErrors(const QList<QSslError> &errors)
     qDebug() << "[DifyService] SSL Errors occurred:";
     for (const QSslError &error : errors) {
         qDebug() << "[DifyService] SSL Error:" << error.errorString();
-        qDebug() << "[DifyService] SSL Error certificate:" << error.certificate().subjectInfo(QSslCertificate::CommonName);
     }
 
-    // 忽略 SSL 错误（仅用于开发环境）
-    if (m_currentReply) {
+    if (m_currentReply && allowInsecureSslForDebug()) {
+        qWarning() << "[DifyService] ALLOW_INSECURE_SSL 已启用，忽略 SSL 错误（仅用于开发调试）";
         m_currentReply->ignoreSslErrors(errors);
-        qDebug() << "[DifyService] Ignoring SSL errors and continuing...";
+        return;
     }
+
+    if (m_currentReply) {
+        m_currentReply->abort();
+    }
+    emit errorOccurred("SSL 证书校验失败，已拒绝建立不安全连接");
 }
 
 void DifyService::resetStreamFilters()
@@ -272,10 +282,13 @@ QNetworkRequest DifyService::createConfiguredRequest(const QUrl &url, int timeou
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
 
-    // 配置 SSL（开发环境暂时禁用验证）
-    QSslConfiguration sslConfig = request.sslConfiguration();
-    sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
-    request.setSslConfiguration(sslConfig);
+    // 默认启用严格 SSL 校验；仅在显式调试开关下允许不安全模式。
+    if (allowInsecureSslForDebug()) {
+        qWarning() << "[DifyService] ALLOW_INSECURE_SSL 已启用，使用不安全 TLS（仅用于开发调试）";
+        QSslConfiguration sslConfig = request.sslConfiguration();
+        sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
+        request.setSslConfiguration(sslConfig);
+    }
 
     // 禁用 HTTP/2 避免协议错误
     request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
@@ -410,14 +423,12 @@ QString DifyService::filterThinkTagsStreaming(const QString &text)
 
 void DifyService::parseStreamResponse(const QByteArray &data)
 {
-    // Dify 使用 SSE (Server-Sent Events) 格式，部分 JSON 可能跨分片
     QString buffer = m_streamBuffer + QString::fromUtf8(data);
     QStringList lines = buffer.split('\n');
     const bool endedWithNewline = buffer.endsWith('\n');
     const bool forceFlush = data.isEmpty();
     m_streamBuffer.clear();
 
-    // 如果最后一行不完整，暂存到缓冲区，等待下一个分片
     if (!endedWithNewline && !lines.isEmpty() && !forceFlush) {
         QString lastLine = lines.takeLast();
         if (!lastLine.trimmed().isEmpty()) {
@@ -425,37 +436,21 @@ void DifyService::parseStreamResponse(const QByteArray &data)
         }
     }
 
-    auto flushEvent = [this]() {
-        if (m_sseDataLines.isEmpty()) {
-            m_sseEvent.clear();
-            return;
-        }
-        const QString jsonStr = m_sseDataLines.join("\n");
-        m_sseDataLines.clear();
-
-        if (jsonStr.isEmpty() || jsonStr == "[DONE]") {
-            qDebug() << "[DifyService] Stream finished [DONE]";
-            m_sseEvent.clear();
-            return;
-        }
-
+    auto processEvent = [this](const QString &eventHint, const QString &jsonStr) {
         QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
         if (doc.isNull() || !doc.isObject()) {
             qDebug() << "[DifyService] Failed to parse JSON:" << jsonStr.left(100);
-            m_sseEvent.clear();
             return;
         }
 
         QJsonObject obj = doc.object();
         QString event = obj["event"].toString();
-        if (event.isEmpty() && !m_sseEvent.isEmpty()) {
-            event = m_sseEvent;
+        if (event.isEmpty()) {
+            event = eventHint;
         }
-        m_sseEvent.clear();
 
-        // 详细日志：打印完整事件数据（仅用于调试）
         if (event != "workflow_started" && event != "node_started" && event != "node_finished" && event != "workflow_finished") {
-            qDebug() << "[DifyService] Event:" << event << "Full JSON:" << jsonStr.left(300);
+            qDebug() << "[DifyService] Event:" << event;
         } else {
             qDebug() << "[DifyService] Event:" << event;
         }
@@ -479,20 +474,17 @@ void DifyService::parseStreamResponse(const QByteArray &data)
             emit errorOccurred(errorMsg);
 
         } else if (event == "agent_thought") {
-            // Agent 思考过程
-            qDebug() << "[DifyService] Processing agent thought event";
             QString thought = obj["thought"].toString();
             if (!thought.isEmpty()) {
                 emit thinkingChunkReceived(thought);
             }
-
+            return;
+            
         } else if (event == "agent_message") {
-            // Agent 消息 - 使用统一处理方法
             QString answer = obj["answer"].toString();
             handleStreamText(answer);
 
         } else if (event == "text_chunk") {
-            // 工作流文本块 - 使用统一处理方法
             QJsonObject dataObj = obj["data"].toObject();
             QString text = dataObj["text"].toString();
             if (text.isEmpty()) {
@@ -501,18 +493,32 @@ void DifyService::parseStreamResponse(const QByteArray &data)
             handleStreamText(text);
 
         } else if (event == "workflow_started" || event == "node_started" || event == "node_finished" || event == "workflow_finished") {
-            // 跳过工作流相关事件
-            qDebug() << "[DifyService] Skipping workflow event:" << event;
+            return;
         }
     };
 
-    for (QString line : lines) {
+    auto flushEvent = [&]() {
+        if (m_sseDataLines.isEmpty()) {
+            m_sseEvent.clear();
+            return;
+        }
+        const QString jsonStr = m_sseDataLines.join("\n");
+        m_sseDataLines.clear();
+        if (jsonStr.isEmpty() || jsonStr == "[DONE]") {
+            m_sseEvent.clear();
+            qDebug() << "[DifyService] Stream finished [DONE]";
+            return;
+        }
+        processEvent(m_sseEvent, jsonStr);
+        m_sseEvent.clear();
+    };
+
+    for (const QString &line : lines) {
         const QString trimmed = line.trimmed();
         if (trimmed.isEmpty()) {
             flushEvent();
             continue;
         }
-
         if (trimmed.startsWith("event:")) {
             const QString eventValue = trimmed.mid(6).trimmed();
             if (!eventValue.isEmpty()) {
@@ -520,13 +526,20 @@ void DifyService::parseStreamResponse(const QByteArray &data)
             }
             continue;
         }
-
         if (trimmed.startsWith("data:")) {
             QString dataValue = trimmed.mid(5);
             if (dataValue.startsWith(' ')) {
                 dataValue = dataValue.mid(1);
             }
             m_sseDataLines.append(dataValue);
+            continue;
+        }
+        if (trimmed.startsWith(':')) {
+            continue;
+        }
+        if (trimmed.startsWith('{')) {
+            processEvent(m_sseEvent, trimmed);
+            m_sseEvent.clear();
             continue;
         }
     }
