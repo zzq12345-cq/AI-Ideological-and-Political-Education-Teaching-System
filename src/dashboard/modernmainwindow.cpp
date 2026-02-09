@@ -769,7 +769,7 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
 
     // 初始化试题库数据仓库
     questionRepository = new QuestionRepository(this);
-    questionRepository->loadQuestions("data/questions.json");
+    questionRepository->loadQuestions("resources/data/questions.json");
 
     // 初始化 Dify AI 服务
     m_difyService = new DifyService(this);

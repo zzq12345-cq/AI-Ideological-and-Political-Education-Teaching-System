@@ -165,7 +165,7 @@ void SimpleLoginWindow::setupUI()
     tiananmenLabel->setContentsMargins(0, 0, 0, 0);
 
     // 加载天安门图片
-    QPixmap tiananmenPixmap("/Users/zhouzhiqi/QtProjects/AItechnology/images/摄图网_401630316_天安门(非营利使用).png");
+    QPixmap tiananmenPixmap(":/images/天安门.png");
     if (!tiananmenPixmap.isNull()) {
         tiananmenLabel->setPixmap(tiananmenPixmap);
         qDebug() << "天安门图片加载成功，原始尺寸:" << tiananmenPixmap.size();
@@ -287,7 +287,7 @@ void SimpleLoginWindow::setupUI()
         showIcon = m_eyeShowIcon;
         qDebug() << "使用资源路径加载显示图标";
     } else {
-        showIcon = QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_显示.png");
+        showIcon = QIcon(":/images/眼睛_显示.png");
         qDebug() << "使用绝对路径加载显示图标";
     }
 
@@ -295,7 +295,7 @@ void SimpleLoginWindow::setupUI()
         hideIcon = m_eyeHideIcon;
         qDebug() << "使用资源路径加载隐藏图标";
     } else {
-        hideIcon = QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_隐藏.png");
+        hideIcon = QIcon(":/images/眼睛_隐藏.png");
         qDebug() << "使用绝对路径加载隐藏图标";
     }
 
@@ -450,14 +450,14 @@ void SimpleLoginWindow::setupUI()
             // 使用相同的逻辑加载显示图标
             QIcon showIcon = !m_eyeShowIcon.isNull() ?
                            m_eyeShowIcon :
-                           QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_显示.png");
+                           QIcon(":/images/眼睛_显示.png");
             togglePasswordBtn->setIcon(showIcon);
         } else {
             passwordEdit->setEchoMode(QLineEdit::Password);
             // 使用相同的逻辑加载隐藏图标
             QIcon hideIcon = !m_eyeHideIcon.isNull() ?
                            m_eyeHideIcon :
-                           QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_隐藏.png");
+                           QIcon(":/images/眼睛_隐藏.png");
             togglePasswordBtn->setIcon(hideIcon);
         }
     });

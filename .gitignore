@@ -133,3 +133,9 @@ run_app.sh
 src/config/embedded_keys.h
 .claude/
 .workflow/
+
+# 归档目录（设计资产和遗留代码）
+archive/
+
+# 大文件资源（不提交到 Git）
+ppt-resource/
