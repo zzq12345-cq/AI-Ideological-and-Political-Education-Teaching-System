@@ -213,7 +213,7 @@ void SignUpWindow::buildHeroPanel()
     tiananmenLabel->setScaledContents(true);
     tiananmenLabel->setContentsMargins(0, 0, 0, 0);
 
-    QPixmap tiananmenPixmap("/Users/zhouzhiqi/QtProjects/AItechnology/images/摄图网_401630316_天安门(非营利使用).png");
+    QPixmap tiananmenPixmap(":/images/天安门.png");
     if (!tiananmenPixmap.isNull()) {
         tiananmenLabel->setPixmap(tiananmenPixmap);
         tiananmenLabel->setStyleSheet("margin: 0px; padding: 0px; border: none; background: transparent;");
@@ -287,12 +287,12 @@ void SignUpWindow::buildFormPanel()
     if (!m_eyeShowIcon.isNull()) {
         showIcon = m_eyeShowIcon;
     } else {
-        showIcon = QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_显示.png");
+        showIcon = QIcon(":/images/眼睛_显示.png");
     }
     if (!m_eyeHideIcon.isNull()) {
         hideIcon = m_eyeHideIcon;
     } else {
-        hideIcon = QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_隐藏.png");
+        hideIcon = QIcon(":/images/眼睛_隐藏.png");
     }
     // 初始状态是密码模式，显示“闭眼”或者“睁眼”？通常：
     // 密码模式(***) -> 显示"显示图标"(睁眼)
@@ -494,8 +494,8 @@ void SignUpWindow::onBackToLoginClicked()
 
 void SignUpWindow::onTogglePassword1Clicked()
 {
-    QIcon showIcon = !m_eyeShowIcon.isNull() ? m_eyeShowIcon : QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_显示.png");
-    QIcon hideIcon = !m_eyeHideIcon.isNull() ? m_eyeHideIcon : QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_隐藏.png");
+    QIcon showIcon = !m_eyeShowIcon.isNull() ? m_eyeShowIcon : QIcon(":/images/眼睛_显示.png");
+    QIcon hideIcon = !m_eyeHideIcon.isNull() ? m_eyeHideIcon : QIcon(":/images/眼睛_隐藏.png");
 
     if (passwordEdit1->echoMode() == QLineEdit::Password) {
         passwordEdit1->setEchoMode(QLineEdit::Normal);
@@ -508,8 +508,8 @@ void SignUpWindow::onTogglePassword1Clicked()
 
 void SignUpWindow::onTogglePassword2Clicked()
 {
-    QIcon showIcon = !m_eyeShowIcon.isNull() ? m_eyeShowIcon : QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_显示.png");
-    QIcon hideIcon = !m_eyeHideIcon.isNull() ? m_eyeHideIcon : QIcon("/Users/zhouzhiqi/QtProjects/AItechnology/images/眼睛_隐藏.png");
+    QIcon showIcon = !m_eyeShowIcon.isNull() ? m_eyeShowIcon : QIcon(":/images/眼睛_显示.png");
+    QIcon hideIcon = !m_eyeHideIcon.isNull() ? m_eyeHideIcon : QIcon(":/images/眼睛_隐藏.png");
 
     if (passwordEdit2->echoMode() == QLineEdit::Password) {
         passwordEdit2->setEchoMode(QLineEdit::Normal);

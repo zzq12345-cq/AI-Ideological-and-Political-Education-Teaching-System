@@ -199,4 +199,11 @@
     <qresource prefix="/data">
         <file>resources/data/curriculum_morality_law.json</file>
     </qresource>
+    <qresource prefix="/">
+        <file alias="images/天安门.png">resources/images/天安门.png</file>
+        <file alias="images/眼睛_显示.png">resources/images/眼睛_显示.png</file>
+        <file alias="images/眼睛_隐藏.png">resources/images/眼睛_隐藏.png</file>
+        <file alias="images/banner.png">resources/images/banner.png</file>
+        <file alias="images/通知.png">resources/images/通知.png</file>
+    </qresource>
 </RCC>
