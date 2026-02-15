@@ -33,7 +33,6 @@ QT_END_NAMESPACE
 // 前向声明
 class SimpleLoginWindow;
 class AIPreparationWidget;
-class QuestionRepository;
 class QuestionBankWindow;
 class DifyService;
 class AIChatDialog;
@@ -149,7 +148,6 @@ private:
 
     // 试题库相关组件
     QuestionBankWindow *questionBankWindow = nullptr;
-    QuestionRepository *questionRepository = nullptr;
 
     // 时政新闻相关组件
     HotspotTrackingWidget *m_hotspotWidget = nullptr;
