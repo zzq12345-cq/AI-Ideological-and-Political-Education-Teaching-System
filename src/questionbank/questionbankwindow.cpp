@@ -4,6 +4,7 @@
 #include "QuestionBasketWidget.h"
 #include "../ui/moderncheckbox.h"
 #include "../shared/StyleConfig.h"
+#include "../smartpaper/SmartPaperWidget.h"
 
 #include <QAbstractButton>
 #include <QButtonGroup>
@@ -29,6 +30,7 @@
 #include <QTextBrowser>
 #include <QVBoxLayout>
 #include <QPainter>
+#include <QStackedWidget>
 #include "../ui/NetworkImageTextBrowser.h"
 #include <algorithm>
 
@@ -132,7 +134,15 @@ void QuestionBankWindow::setupLayout()
     headerWrapperLayout->addWidget(buildHeader());
 
     pageLayout->addWidget(headerWrapper);
-    pageLayout->addWidget(buildBody(), 1);
+
+    // 内容区域使用 QStackedWidget 切换题库浏览/智能组卷
+    m_modeStack = new QStackedWidget();
+    m_modeStack->addWidget(buildBody());  // page 0: 题库浏览
+
+    m_smartPaperWidget = new SmartPaperWidget(this);
+    m_modeStack->addWidget(m_smartPaperWidget);  // page 1: 智能组卷
+
+    pageLayout->addWidget(m_modeStack, 1);
 
     rootLayout->addWidget(pageContainer);
 
@@ -269,6 +279,7 @@ QWidget *QuestionBankWindow::buildHeader()
         "font-size: 26px; font-weight: 800; color: white; background: transparent;"
         "letter-spacing: 2px;"
     );
+    m_headerTitle = title;
 
     auto *subtitle = new QLabel(QStringLiteral("◆ 智能筛选  ◆ 海量题库  ◆ 精准匹配"), titleWrapper);
     subtitle->setObjectName("pageSubtitle");
@@ -276,21 +287,59 @@ QWidget *QuestionBankWindow::buildHeader()
         "font-size: 13px; color: rgba(255,255,255,0.8); background: transparent;"
         "font-weight: 500; letter-spacing: 1px;"
     );
+    m_headerSubtitle = subtitle;
 
     titleLayout->addWidget(title);
     titleLayout->addWidget(subtitle);
 
-    // 右侧搜索框
+    // 右侧分段控制 + 搜索框
+    auto *rightControls = new QWidget(header);
+    rightControls->setStyleSheet("background: transparent;");
+    auto *rightLayout = new QVBoxLayout(rightControls);
+    rightLayout->setContentsMargins(0, 0, 0, 0);
+    rightLayout->setSpacing(8);
+
+    // 分段切换按钮
+    auto *tabRow = new QHBoxLayout();
+    tabRow->setSpacing(0);
+
+    const QString TAB_ACTIVE_STYLE =
+        "QPushButton { background: rgba(255,255,255,0.9); color: #2E7D32; "
+        "border: none; padding: 8px 20px; font-size: 13px; font-weight: 700; "
+        "border-radius: %1; }";
+    const QString TAB_NORMAL_STYLE =
+        "QPushButton { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.85); "
+        "border: none; padding: 8px 20px; font-size: 13px; font-weight: 500; "
+        "border-radius: %1; }"
+        "QPushButton:hover { background: rgba(255,255,255,0.25); }";
+
+    m_browseTabBtn = new QPushButton("题库浏览");
+    m_browseTabBtn->setCursor(Qt::PointingHandCursor);
+    m_browseTabBtn->setStyleSheet(TAB_ACTIVE_STYLE.arg("16px 0 0 16px"));
+
+    m_smartPaperTabBtn = new QPushButton("智能组卷");
+    m_smartPaperTabBtn->setCursor(Qt::PointingHandCursor);
+    m_smartPaperTabBtn->setStyleSheet(TAB_NORMAL_STYLE.arg("0 16px 16px 0"));
+
+    connect(m_browseTabBtn, &QPushButton::clicked, this, [this]() { switchMode(0); });
+    connect(m_smartPaperTabBtn, &QPushButton::clicked, this, [this]() { switchMode(1); });
+
+    tabRow->addStretch();
+    tabRow->addWidget(m_browseTabBtn);
+    tabRow->addWidget(m_smartPaperTabBtn);
+    rightLayout->addLayout(tabRow);
+
+    // 搜索框
     auto *searchInput = new QLineEdit(header);
     searchInput->setPlaceholderText("搜索试题...");
-    searchInput->setFixedSize(240, 40);
+    searchInput->setFixedSize(240, 36);
     searchInput->setStyleSheet(
         "QLineEdit {"
         "    background-color: rgba(255,255,255,0.12);"
         "    border: 1px solid rgba(255,255,255,0.2);"
-        "    border-radius: 20px;"
-        "    padding: 8px 16px;"
-        "    font-size: 14px;"
+        "    border-radius: 18px;"
+        "    padding: 6px 16px;"
+        "    font-size: 13px;"
         "    color: white;"
         "}"
         "QLineEdit::placeholder {"
@@ -301,11 +350,12 @@ QWidget *QuestionBankWindow::buildHeader()
         "    border: 2px solid rgba(255,255,255,0.5);"
         "}"
     );
+    rightLayout->addWidget(searchInput, 0, Qt::AlignRight);
 
     layout->addWidget(backButton, 0, Qt::AlignLeft | Qt::AlignVCenter);
     layout->addWidget(iconDecor, 0, Qt::AlignVCenter);
     layout->addWidget(titleWrapper, 1, Qt::AlignVCenter);
-    layout->addWidget(searchInput, 0, Qt::AlignRight | Qt::AlignVCenter);
+    layout->addWidget(rightControls, 0, Qt::AlignRight | Qt::AlignVCenter);
 
     return header;
 }
@@ -1651,4 +1701,36 @@ void QuestionBankWindow::updateAddToBasketButton(const QString &questionId, bool
     button->style()->unpolish(button);
     button->style()->polish(button);
     button->update();
+}
+
+void QuestionBankWindow::switchMode(int mode)
+{
+    if (!m_modeStack) return;
+    m_modeStack->setCurrentIndex(mode);
+
+    const QString TAB_ACTIVE =
+        "QPushButton { background: rgba(255,255,255,0.9); color: #2E7D32; "
+        "border: none; padding: 8px 20px; font-size: 13px; font-weight: 700; "
+        "border-radius: %1; }";
+    const QString TAB_NORMAL =
+        "QPushButton { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.85); "
+        "border: none; padding: 8px 20px; font-size: 13px; font-weight: 500; "
+        "border-radius: %1; }"
+        "QPushButton:hover { background: rgba(255,255,255,0.25); }";
+
+    if (mode == 0) {
+        // 题库浏览模式
+        if (m_browseTabBtn) m_browseTabBtn->setStyleSheet(TAB_ACTIVE.arg("16px 0 0 16px"));
+        if (m_smartPaperTabBtn) m_smartPaperTabBtn->setStyleSheet(TAB_NORMAL.arg("0 16px 16px 0"));
+        if (m_headerTitle) m_headerTitle->setText("AI 智能备课 · 试题库");
+        if (m_headerSubtitle) m_headerSubtitle->setText("◆ 智能筛选  ◆ 海量题库  ◆ 精准匹配");
+        if (m_basketWidget) m_basketWidget->setVisible(true);
+    } else {
+        // 智能组卷模式
+        if (m_browseTabBtn) m_browseTabBtn->setStyleSheet(TAB_NORMAL.arg("16px 0 0 16px"));
+        if (m_smartPaperTabBtn) m_smartPaperTabBtn->setStyleSheet(TAB_ACTIVE.arg("0 16px 16px 0"));
+        if (m_headerTitle) m_headerTitle->setText("AI 智能备课 · 智能组卷");
+        if (m_headerSubtitle) m_headerSubtitle->setText("◆ 智能选题  ◆ 约束优化  ◆ 一键成卷");
+        if (m_basketWidget) m_basketWidget->setVisible(false);
+    }
 }

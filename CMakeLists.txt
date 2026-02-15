@@ -129,6 +129,12 @@ set(PROJECT_SOURCES
     src/attendance/services/AttendanceService.h
     src/attendance/ui/AttendanceWidget.cpp
     src/attendance/ui/AttendanceWidget.h
+    # 智能组卷模块
+    src/smartpaper/SmartPaperConfig.h
+    src/smartpaper/SmartPaperService.cpp
+    src/smartpaper/SmartPaperService.h
+    src/smartpaper/SmartPaperWidget.cpp
+    src/smartpaper/SmartPaperWidget.h
     src/config/embedded_keys.h
     resources.qrc
     resources/QtTheme/QtTheme.qrc

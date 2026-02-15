@@ -15,8 +15,10 @@ class QProgressBar;
 class QPushButton;
 class QResizeEvent;
 class QScrollArea;
+class QStackedWidget;
 class QVBoxLayout;
 class QuestionBasketWidget;
+class SmartPaperWidget;
 
 // 材料论述题解析结果
 struct MaterialEssayParsed {
@@ -52,6 +54,7 @@ private slots:
     void onRemoveFromBasket(const QString &questionId);  // 从篮子移除试题
     void onComposePaper();  // 打开组卷对话框
     void updateAddToBasketButton(const QString &questionId, bool inBasket);  // 更新按钮状态
+    void switchMode(int mode);  // 切换题库浏览/智能组卷模式
 
 private:
     void setupLayout();
@@ -118,6 +121,14 @@ private:
     // 试题篮相关
     QuestionBasketWidget *m_basketWidget = nullptr;
     QMap<QString, QPushButton *> m_addToBasketButtons;  // questionId -> button
+
+    // 模式切换（题库浏览 / 智能组卷）
+    QStackedWidget *m_modeStack = nullptr;
+    SmartPaperWidget *m_smartPaperWidget = nullptr;
+    QPushButton *m_browseTabBtn = nullptr;
+    QPushButton *m_smartPaperTabBtn = nullptr;
+    QLabel *m_headerTitle = nullptr;
+    QLabel *m_headerSubtitle = nullptr;
 };
 
 #endif // QUESTIONBANKWINDOW_H

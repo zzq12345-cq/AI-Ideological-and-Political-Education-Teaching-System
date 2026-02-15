@@ -1,6 +1,7 @@
 #include <QApplication>
 #include <QStyleFactory>
 #include <QDebug>
+#include <QNetworkProxy>
 #include <iostream>
 #include "../auth/login/simpleloginwindow.h"
 
@@ -16,6 +17,16 @@ int main(int argc, char *argv[])
 
     // 设置应用程序样式
     app.setStyle(QStyleFactory::create("Fusion"));
+
+    // 配置网络代理（从环境变量读取）
+    QString proxyUrl = qEnvironmentVariable("https_proxy");
+    if (proxyUrl.isEmpty()) proxyUrl = qEnvironmentVariable("http_proxy");
+    if (!proxyUrl.isEmpty()) {
+        QUrl url(proxyUrl);
+        QNetworkProxy proxy(QNetworkProxy::HttpProxy, url.host(), static_cast<quint16>(url.port(7897)));
+        QNetworkProxy::setApplicationProxy(proxy);
+        qDebug() << "[Proxy] 已设置全局代理:" << url.host() << ":" << url.port();
+    }
 
     qDebug() << "\n=== 应用启动 ===\n";
     std::cout << "应用启动" << std::endl;
