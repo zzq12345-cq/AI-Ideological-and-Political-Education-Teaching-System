@@ -1030,7 +1030,7 @@ void SmartPaperWidget::buildResultPreview()
             auto *swapBtn = new QPushButton("换一题");
             swapBtn->setStyleSheet(SWAP_BTN_STYLE);
             swapBtn->setCursor(Qt::PointingHandCursor);
-            swapBtn->setFixedWidth(62);
+            swapBtn->setFixedWidth(80);
             bool hasCandidate = !m_currentResult.candidatePool.value(type).isEmpty();
             swapBtn->setEnabled(hasCandidate);
             if (!hasCandidate) {
