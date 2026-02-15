@@ -4,6 +4,23 @@
 #include <QDebug>
 #include <QtMath>
 
+namespace {
+    // 题型/难度中文映射 — 用于生成用户友好的警告消息
+    QString typeNameCN(const QString &type) {
+        static const QMap<QString, QString> m = {
+            {"single_choice", "选择题"}, {"multi_choice", "多选题"},
+            {"true_false", "判断题"}, {"short_answer", "简答题"},
+            {"essay", "论述题"}, {"material_analysis", "材料分析题"},
+        };
+        return m.value(type, type);
+    }
+    QString diffNameCN(const QString &d) {
+        if (d == "easy") return "简单";
+        if (d == "hard") return "困难";
+        return "中等";
+    }
+}
+
 SmartPaperService::SmartPaperService(PaperService *paperService, QObject *parent)
     : QObject(parent)
     , m_paperService(paperService)
@@ -105,8 +122,8 @@ void SmartPaperService::onSearchCompleted(const QList<PaperQuestion> &results)
     for (const auto &spec : m_config.typeSpecs) {
         if (spec.questionType == m_currentSearchType && filtered.size() < spec.count) {
             m_result.warnings.append(
-                QString("%1 题不足：需要 %2 题，仅找到 %3 题")
-                    .arg(m_currentSearchType)
+                QString("%1题不足：需要 %2 题，仅找到 %3 题")
+                    .arg(typeNameCN(m_currentSearchType))
                     .arg(spec.count)
                     .arg(filtered.size())
             );
@@ -200,8 +217,8 @@ void SmartPaperService::runGreedySelection()
                 int shortfall = need - taken;
                 // 记录 warning（已在搜索阶段记录过总量不足，这里记录难度不足）
                 m_result.warnings.append(
-                    QString("%1 的 %2 难度题不足：需要 %3 题，仅找到 %4 题，将从其他难度补充")
-                        .arg(spec.questionType, diff)
+                    QString("%1的%2难度题不足：需要 %3 题，仅找到 %4 题，将从其他难度补充")
+                        .arg(typeNameCN(spec.questionType), diffNameCN(diff))
                         .arg(need)
                         .arg(taken)
                 );

@@ -114,9 +114,10 @@ private:
     // 结果预览区
     QWidget *m_resultWidget = nullptr;
     QVBoxLayout *m_resultLayout = nullptr;
+    QScrollArea *m_scrollArea = nullptr;  // 外层滚动区域，用于自动滚到结果
 
     // 底部操作栏
-    QWidget *m_bottomActions = nullptr;
+    QFrame *m_bottomActions = nullptr;
 
     // 开始组卷按钮
     QPushButton *m_generateBtn = nullptr;
