@@ -47,7 +47,6 @@ class NotificationWidget;
 class NotificationBadge;
 class AttendanceWidget;  // 考勤管理组件
 class LessonPlanEditor;
-
 class ModernMainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -88,6 +87,7 @@ private:
     void setupStatusBar();
     void setupCentralWidget();
     void setupStyles();
+    void resetAllSidebarButtons();  // 重置所有侧边栏按钮为普通状态
     void createDashboard();
     void createSidebarProfile();
     void createHeaderWidget();
