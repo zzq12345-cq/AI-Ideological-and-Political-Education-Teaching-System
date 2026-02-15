@@ -25,7 +25,7 @@ ExportService::~ExportService()
 }
 
 // 导出为HTML格式
-bool ExportService::exportToHtml(const QString &filePath, const QString &paperTitle, const QList<Question> &questions)
+bool ExportService::exportToHtml(const QString &filePath, const QString &paperTitle, const QList<PaperQuestion> &questions)
 {
     if (questions.isEmpty()) {
         qWarning() << "没有题目可以导出";
@@ -65,7 +65,7 @@ bool ExportService::exportToHtml(const QString &filePath, const QString &paperTi
 }
 
 // 导出为PDF格式（TODO：待实现）
-bool ExportService::exportToPdf(const QString &filePath, const QString &paperTitle, const QList<Question> &questions)
+bool ExportService::exportToPdf(const QString &filePath, const QString &paperTitle, const QList<PaperQuestion> &questions)
 {
     // TODO: 实现PDF导出
     // 可以使用QPrinter、第三方库如QPrinter、poppler或其他PDF生成库
@@ -90,7 +90,7 @@ bool ExportService::exportToDocx(const QString &filePath, const QString &paperTi
 }
 
 // 生成HTML内容
-QString ExportService::generateHtmlContent(const QString &paperTitle, const QList<Question> &questions)
+QString ExportService::generateHtmlContent(const QString &paperTitle, const QList<PaperQuestion> &questions)
 {
     QString html = R"(<!DOCTYPE html>
 <html lang="zh-CN">
@@ -244,31 +244,34 @@ QString ExportService::generateHtmlContent(const QString &paperTitle, const QLis
 }
 
 // 生成单个题目的HTML
-QString ExportService::generateQuestionHtml(const Question &question, int index)
+QString ExportService::generateQuestionHtml(const PaperQuestion &question, int index)
 {
+    // 题型映射
     QString typeText;
-    switch(question.type) {
-        case QuestionType::SingleChoice: typeText = "单选题"; break;
-        case QuestionType::MultiChoice: typeText = "多选题"; break;
-        case QuestionType::TrueFalse: typeText = "判断题"; break;
-        case QuestionType::ShortAnswer: typeText = "简答题"; break;
-        default: typeText = "未知题型"; break;
-    }
+    const QString &t = question.questionType;
+    if (t == "single_choice") typeText = "单选题";
+    else if (t == "multi_choice") typeText = "多选题";
+    else if (t == "true_false") typeText = "判断题";
+    else if (t == "short_answer") typeText = "简答题";
+    else if (t == "essay") typeText = "论述题";
+    else typeText = "未知题型";
 
+    // 难度映射
     QString difficultyText;
-    switch(question.difficulty) {
-        case Difficulty::Easy: difficultyText = "简单"; break;
-        case Difficulty::Medium: difficultyText = "中等"; break;
-        case Difficulty::Hard: difficultyText = "困难"; break;
-        default: difficultyText = "未知难度"; break;
-    }
-
     QString difficultyClass;
-    switch(question.difficulty) {
-        case Difficulty::Easy: difficultyClass = "badge-difficulty-easy"; break;
-        case Difficulty::Medium: difficultyClass = "badge-difficulty-medium"; break;
-        case Difficulty::Hard: difficultyClass = "badge-difficulty-hard"; break;
-        default: difficultyClass = ""; break;
+    const QString &d = question.difficulty;
+    if (d == "easy") {
+        difficultyText = "简单";
+        difficultyClass = "badge-difficulty-easy";
+    } else if (d == "medium") {
+        difficultyText = "中等";
+        difficultyClass = "badge-difficulty-medium";
+    } else if (d == "hard") {
+        difficultyText = "困难";
+        difficultyClass = "badge-difficulty-hard";
+    } else {
+        difficultyText = "未知难度";
+        difficultyClass = "";
     }
 
     QString html = R"(
@@ -309,10 +312,10 @@ QString ExportService::generateQuestionHtml(const Question &question, int index)
                 <div class="answer-title">正确答案</div>
                 <div class="answer-content">)" + question.answer + R"(</div>)";
 
-        if (!question.explain.isEmpty()) {
+        if (!question.explanation.isEmpty()) {
             html += R"(
                 <div class="answer-title">解析</div>
-                <div class="explain">)" + question.explain + R"(</div>)";
+                <div class="explain">)" + question.explanation + R"(</div>)";
         }
 
         html += R"(

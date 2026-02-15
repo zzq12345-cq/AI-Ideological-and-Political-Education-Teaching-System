@@ -2,7 +2,7 @@
 #include "../shared/StyleConfig.h"
 #include "../auth/login/simpleloginwindow.h"
 #include "../ui/aipreparationwidget.h"
-#include "../questionbank/QuestionRepository.h"
+
 #include "../questionbank/questionbankwindow.h"
 #include "../services/DifyService.h"
 #include "../services/PPTXGenerator.h"
@@ -766,10 +766,6 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     setWindowTitle("思政智慧课堂 - 教师中心");
     setMinimumSize(1400, 900);
     resize(1600, 1000);
-
-    // 初始化试题库数据仓库
-    questionRepository = new QuestionRepository(this);
-    questionRepository->loadQuestions("resources/data/questions.json");
 
     // 初始化 Dify AI 服务
     m_difyService = new DifyService(this);

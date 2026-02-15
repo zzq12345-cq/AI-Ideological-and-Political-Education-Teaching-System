@@ -30,8 +30,6 @@ set(PROJECT_SOURCES
     src/dashboard/SidebarManager.h
     src/questionbank/questionbankwindow.cpp
     src/questionbank/questionbankwindow.h
-    src/questionbank/QuestionRepository.cpp
-    src/questionbank/QuestionRepository.h
     src/questionbank/QuestionBasket.cpp
     src/questionbank/QuestionBasket.h
     src/questionbank/QuestionBasketWidget.cpp
