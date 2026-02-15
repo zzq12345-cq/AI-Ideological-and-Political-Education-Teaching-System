@@ -4,11 +4,13 @@
 #include "../questionbank/PaperComposerDialog.h"
 
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QGroupBox>
 #include <QMessageBox>
 #include <QDebug>
 #include <QApplication>
 #include <QGraphicsDropShadowEffect>
+#include <QTimer>
 
 // 样式常量 — 精致教育风格
 namespace {
@@ -170,16 +172,30 @@ namespace {
         }
     )";
 
-    // 难度胶囊
-    const QString DIFFICULTY_CAPSULE_STYLE = R"(
+    // 难度标签 — 小巧的文字标签，不喧宾夺主
+    // %1=文字色
+    const QString DIFFICULTY_LABEL_STYLE = R"(
         QLabel {
-            background-color: %1;
-            color: white;
-            border-radius: 10px;
-            padding: 3px 12px;
+            color: %1;
             font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background-color: %2;
+        }
+    )";
+
+    // 题目行 — 干净白底，微弱底边线分隔
+    const QString QUESTION_ROW_STYLE = R"(
+        QFrame#questionRow {
+            background-color: #FFFFFF;
+            border: none;
+            border-bottom: 1px solid #F0F0F0;
+            border-radius: 0px;
+            padding: 0px;
+        }
+        QFrame#questionRow:hover {
+            background-color: #FAFAFA;
         }
     )";
 
@@ -247,10 +263,10 @@ SmartPaperWidget::~SmartPaperWidget() = default;
 void SmartPaperWidget::initUI()
 {
     // 外层滚动区域
-    auto *scrollArea = new QScrollArea(this);
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setFrameShape(QFrame::NoFrame);
-    scrollArea->setStyleSheet("QScrollArea { background-color: " + BG_PAGE + "; border: none; }");
+    m_scrollArea = new QScrollArea(this);
+    m_scrollArea->setWidgetResizable(true);
+    m_scrollArea->setFrameShape(QFrame::NoFrame);
+    m_scrollArea->setStyleSheet("QScrollArea { background-color: " + BG_PAGE + "; border: none; }");
 
     auto *scrollContent = new QWidget();
     auto *mainLayout = new QVBoxLayout(scrollContent);
@@ -263,11 +279,11 @@ void SmartPaperWidget::initUI()
     setupBottomActions(mainLayout);
 
     mainLayout->addStretch();
-    scrollArea->setWidget(scrollContent);
+    m_scrollArea->setWidget(scrollContent);
 
     auto *outerLayout = new QVBoxLayout(this);
     outerLayout->setContentsMargins(0, 0, 0, 0);
-    outerLayout->addWidget(scrollArea);
+    outerLayout->addWidget(m_scrollArea);
 
     // 初始状态
     setState(AssemblyState::Idle);
@@ -645,29 +661,74 @@ void SmartPaperWidget::setupResultPreview(QVBoxLayout *mainLayout)
 
 void SmartPaperWidget::setupBottomActions(QVBoxLayout *mainLayout)
 {
-    m_bottomActions = new QWidget();
+    m_bottomActions = new QFrame();
+    m_bottomActions->setStyleSheet(
+        "QFrame { background-color: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 14px; }");
+
+    auto *shadow = new QGraphicsDropShadowEffect(m_bottomActions);
+    shadow->setBlurRadius(16);
+    shadow->setOffset(0, -2);
+    shadow->setColor(QColor(0, 0, 0, 12));
+    m_bottomActions->setGraphicsEffect(shadow);
+
     auto *actionsLayout = new QHBoxLayout(m_bottomActions);
-    actionsLayout->setContentsMargins(0, 0, 0, 0);
+    actionsLayout->setContentsMargins(20, 14, 20, 14);
     actionsLayout->setSpacing(12);
 
-    auto *regenerateBtn = new QPushButton("重新组卷");
-    regenerateBtn->setStyleSheet(ACTION_BTN_STYLE.arg("#757575", "#616161"));
-    regenerateBtn->setCursor(Qt::PointingHandCursor);
+    // 底部按钮通用样式 — 轮廓风格 %1=颜色, %2=hover背景
+    auto outlineBtn = [](const QString &text, const QString &color,
+                         const QString &hoverBg) -> QPushButton* {
+        auto *btn = new QPushButton(text);
+        btn->setStyleSheet(QString(R"(
+            QPushButton {
+                background-color: transparent;
+                color: %1;
+                border: 1.5px solid %1;
+                border-radius: 10px;
+                padding: 10px 24px;
+                font-size: 13px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: %2;
+            }
+        )").arg(color, hoverBg));
+        btn->setCursor(Qt::PointingHandCursor);
+        return btn;
+    };
+
+    // 填充按钮 — 主操作
+    auto filledBtn = [](const QString &text, const QString &bg,
+                        const QString &hoverBg) -> QPushButton* {
+        auto *btn = new QPushButton(text);
+        btn->setStyleSheet(QString(R"(
+            QPushButton {
+                background-color: %1;
+                color: white;
+                border: none;
+                border-radius: 10px;
+                padding: 10px 24px;
+                font-size: 13px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: %2;
+            }
+        )").arg(bg, hoverBg));
+        btn->setCursor(Qt::PointingHandCursor);
+        return btn;
+    };
+
+    auto *regenerateBtn = outlineBtn("重新组卷", "#757575", "#F5F5F5");
     connect(regenerateBtn, &QPushButton::clicked, this, &SmartPaperWidget::onRegenerate);
 
-    auto *saveBtn = new QPushButton("保存到云端");
-    saveBtn->setStyleSheet(ACTION_BTN_STYLE.arg("#1976D2", "#1565C0"));
-    saveBtn->setCursor(Qt::PointingHandCursor);
+    auto *saveBtn = outlineBtn("保存到云端", "#1565C0", "#E3F2FD");
     connect(saveBtn, &QPushButton::clicked, this, &SmartPaperWidget::onSaveToCloud);
 
-    auto *importBtn = new QPushButton("导入试题篮");
-    importBtn->setStyleSheet(ACTION_BTN_STYLE.arg(SUCCESS_GREEN, "#1B5E20"));
-    importBtn->setCursor(Qt::PointingHandCursor);
+    auto *importBtn = filledBtn("导入试题篮", SUCCESS_GREEN, "#1B5E20");
     connect(importBtn, &QPushButton::clicked, this, &SmartPaperWidget::onImportToBasket);
 
-    auto *editBtn = new QPushButton("编辑导出");
-    editBtn->setStyleSheet(ACTION_BTN_STYLE.arg(ACCENT_RED, ACCENT_RED_HOVER));
-    editBtn->setCursor(Qt::PointingHandCursor);
+    auto *editBtn = filledBtn("编辑导出", ACCENT_RED, ACCENT_RED_HOVER);
     connect(editBtn, &QPushButton::clicked, this, &SmartPaperWidget::onEditExport);
 
     actionsLayout->addWidget(regenerateBtn);
@@ -755,6 +816,23 @@ void SmartPaperWidget::onGenerationCompleted(const SmartPaperResult &result)
     m_currentResult = result;
     setState(AssemblyState::Success);
     buildResultPreview();
+
+    // 自动滚动到结果区域 — 必须等布局完全计算好再滚
+    QTimer::singleShot(150, this, [this]() {
+        if (m_scrollArea) {
+            // 强制刷新布局，确保几何尺寸已计算
+            m_scrollArea->widget()->updateGeometry();
+            QApplication::processEvents();
+
+            // 直接滚到结果区域的位置
+            if (m_resultWidget && m_resultWidget->isVisible()) {
+                QPoint pos = m_resultWidget->mapTo(m_scrollArea->widget(), QPoint(0, 0));
+                // 稍微往上偏移一点，让用户看到结果标题
+                int targetY = qMax(0, pos.y() - 20);
+                m_scrollArea->verticalScrollBar()->setValue(targetY);
+            }
+        }
+    });
 }
 
 void SmartPaperWidget::onProgressUpdated(int percent, const QString &message)
@@ -785,128 +863,71 @@ void SmartPaperWidget::buildResultPreview()
 {
     clearResultPreview();
 
-    // ==================== 统计卡片行 ====================
-    auto *statsRow = new QFrame();
-    statsRow->setObjectName("resultStatsCard");
-    statsRow->setStyleSheet(REFINED_CARD);
+    // ==================== 统计摘要行 — 克制的单行信息 ====================
+    auto *summaryWidget = new QFrame();
+    summaryWidget->setStyleSheet(
+        "QFrame { background-color: #FFFFFF; border: 1px solid #EAEAEA; border-radius: 8px; }");
 
-    // 统计卡片投影
-    auto *statsShadow = new QGraphicsDropShadowEffect(statsRow);
-    statsShadow->setBlurRadius(20);
-    statsShadow->setOffset(0, 3);
-    statsShadow->setColor(QColor(0, 0, 0, 20));
-    statsRow->setGraphicsEffect(statsShadow);
+    auto *summaryLayout = new QHBoxLayout(summaryWidget);
+    summaryLayout->setContentsMargins(20, 14, 20, 14);
+    summaryLayout->setSpacing(0);
 
-    auto *statsLayout = new QHBoxLayout(statsRow);
-    statsLayout->setContentsMargins(20, 16, 20, 16);
-    statsLayout->setSpacing(24);
+    // 辅助：创建一个统计项 — 标签+数值，紧凑排列
+    auto addStatItem = [&](const QString &label, const QString &value,
+                          bool addSeparator = true) {
+        auto *lbl = new QLabel(label);
+        lbl->setStyleSheet("QLabel { font-size: 13px; color: #999; font-weight: 400; }");
+        summaryLayout->addWidget(lbl);
 
-    // 总题数
-    auto *countWidget = new QVBoxLayout();
-    auto *countValue = new QLabel(QString::number(m_currentResult.selectedQuestions.size()));
-    countValue->setStyleSheet("QLabel { font-size: 28px; font-weight: 700; color: " + PATRIOTIC_RED + "; }");
-    countValue->setAlignment(Qt::AlignCenter);
-    auto *countLabel = new QLabel("总题数");
-    countLabel->setStyleSheet("QLabel { font-size: 12px; color: " + TEXT_SECONDARY + "; }");
-    countLabel->setAlignment(Qt::AlignCenter);
-    countWidget->addWidget(countValue);
-    countWidget->addWidget(countLabel);
-    statsLayout->addLayout(countWidget);
+        auto *val = new QLabel(value);
+        val->setStyleSheet("QLabel { font-size: 13px; color: #333; font-weight: 600; margin-left: 4px; }");
+        summaryLayout->addWidget(val);
 
-    // 分隔线
-    auto *vSep1 = new QFrame();
-    vSep1->setFrameShape(QFrame::VLine);
-    vSep1->setStyleSheet("QFrame { color: " + BORDER_COLOR + "; }");
-    statsLayout->addWidget(vSep1);
+        if (addSeparator) {
+            auto *sep = new QLabel("   |   ");
+            sep->setStyleSheet("QLabel { font-size: 13px; color: #DDD; }");
+            summaryLayout->addWidget(sep);
+        }
+    };
 
-    // 总分
-    auto *scoreWidget = new QVBoxLayout();
-    auto *scoreValue = new QLabel(QString::number(m_currentResult.totalScore));
-    scoreValue->setStyleSheet("QLabel { font-size: 28px; font-weight: 700; color: " + PATRIOTIC_RED + "; }");
-    scoreValue->setAlignment(Qt::AlignCenter);
-    auto *scoreLabel = new QLabel("总分");
-    scoreLabel->setStyleSheet("QLabel { font-size: 12px; color: " + TEXT_SECONDARY + "; }");
-    scoreLabel->setAlignment(Qt::AlignCenter);
-    scoreWidget->addWidget(scoreValue);
-    scoreWidget->addWidget(scoreLabel);
-    statsLayout->addLayout(scoreWidget);
-
-    // 分隔线
-    auto *vSep2 = new QFrame();
-    vSep2->setFrameShape(QFrame::VLine);
-    vSep2->setStyleSheet("QFrame { color: " + BORDER_COLOR + "; }");
-    statsLayout->addWidget(vSep2);
+    addStatItem("共", QString("%1 题").arg(m_currentResult.selectedQuestions.size()));
+    addStatItem("满分", QString("%1 分").arg(m_currentResult.totalScore));
 
     // 难度分布
-    auto *diffWidget = new QVBoxLayout();
-    auto *diffLabel = new QLabel("难度分布");
-    diffLabel->setStyleSheet("QLabel { font-size: 12px; color: " + TEXT_SECONDARY + "; }");
-    diffLabel->setAlignment(Qt::AlignCenter);
-    diffWidget->addWidget(diffLabel);
-    auto *diffRow = new QHBoxLayout();
-    diffRow->setSpacing(8);
+    QStringList diffParts;
     for (const QString &diff : {"easy", "medium", "hard"}) {
         int count = m_currentResult.difficultyCount.value(diff, 0);
         if (count > 0) {
-            auto *capsule = new QLabel(QString("%1: %2").arg(difficultyDisplayName(diff)).arg(count));
-            capsule->setStyleSheet(DIFFICULTY_CAPSULE_STYLE.arg(difficultyColor(diff).name()));
-            diffRow->addWidget(capsule);
+            diffParts << QString("%1 %2").arg(difficultyDisplayName(diff)).arg(count);
         }
     }
-    diffWidget->addLayout(diffRow);
-    statsLayout->addLayout(diffWidget);
+    if (!diffParts.isEmpty()) {
+        addStatItem("难度", diffParts.join(" / "));
+    }
 
-    // 分隔线
-    auto *vSep3 = new QFrame();
-    vSep3->setFrameShape(QFrame::VLine);
-    vSep3->setStyleSheet("QFrame { color: " + BORDER_COLOR + "; }");
-    statsLayout->addWidget(vSep3);
+    addStatItem("章节", QString("%1 个").arg(m_currentResult.coveredChapters.size()), false);
 
-    // 章节覆盖
-    auto *chapterWidget = new QVBoxLayout();
-    auto *chapterValue = new QLabel(QString::number(m_currentResult.coveredChapters.size()));
-    chapterValue->setStyleSheet("QLabel { font-size: 28px; font-weight: 700; color: #1976D2; }");
-    chapterValue->setAlignment(Qt::AlignCenter);
-    auto *chapterLabel = new QLabel("覆盖章节");
-    chapterLabel->setStyleSheet("QLabel { font-size: 12px; color: " + TEXT_SECONDARY + "; }");
-    chapterLabel->setAlignment(Qt::AlignCenter);
-    chapterWidget->addWidget(chapterValue);
-    chapterWidget->addWidget(chapterLabel);
-    statsLayout->addLayout(chapterWidget);
+    summaryLayout->addStretch();
+    m_resultLayout->addWidget(summaryWidget);
 
-    statsLayout->addStretch();
-    m_resultLayout->addWidget(statsRow);
-
-    // ==================== 警告提示区 ====================
+    // ==================== 警告提示 — 简洁文字，不过度装饰 ====================
     if (!m_currentResult.warnings.isEmpty()) {
-        auto *warningCard = new QFrame();
-        warningCard->setStyleSheet(
-            "QFrame { background-color: #FFF8E1; border: 1px solid #FFE082; border-radius: 12px; }");
-        auto *warningLayout = new QVBoxLayout(warningCard);
-        warningLayout->setContentsMargins(16, 12, 16, 12);
-
-        auto *warningHeader = new QLabel("注意");
-        warningHeader->setStyleSheet("QLabel { font-size: 14px; font-weight: 600; color: #F57F17; }");
-        warningLayout->addWidget(warningHeader);
-
         for (const auto &w : m_currentResult.warnings) {
-            auto *wLabel = new QLabel("- " + w);
-            wLabel->setStyleSheet("QLabel { font-size: 13px; color: #795548; }");
+            auto *wLabel = new QLabel("* " + w);
+            wLabel->setStyleSheet(
+                "QLabel { font-size: 12px; color: #B8860B; padding: 2px 0; }");
             wLabel->setWordWrap(true);
-            warningLayout->addWidget(wLabel);
+            m_resultLayout->addWidget(wLabel);
         }
-        m_resultLayout->addWidget(warningCard);
     }
 
-    // ==================== 题目列表（按题型分组） ====================
-    // 按题型分组
+    // ==================== 题目列表 ====================
     QMap<QString, QList<QPair<int, PaperQuestion>>> groupedQuestions;
     for (int i = 0; i < m_currentResult.selectedQuestions.size(); ++i) {
         const auto &q = m_currentResult.selectedQuestions[i];
         groupedQuestions[q.questionType].append({i, q});
     }
 
-    // 题型中文序号
     QStringList chineseNumbers = {"一", "二", "三", "四", "五", "六", "七", "八", "九", "十"};
     int groupIndex = 0;
 
@@ -914,7 +935,6 @@ void SmartPaperWidget::buildResultPreview()
         const QString &type = it.key();
         const auto &questions = it.value();
 
-        // 查找对应的题型配置
         int scorePerQ = 0;
         for (const auto &spec : m_config.typeSpecs) {
             if (spec.questionType == type) {
@@ -923,72 +943,94 @@ void SmartPaperWidget::buildResultPreview()
             }
         }
 
-        // 组标题
-        QString groupNum = groupIndex < chineseNumbers.size() ? chineseNumbers[groupIndex] : QString::number(groupIndex + 1);
-        auto *groupTitle = new QLabel(
-            QString("%1、%2 (%3题 × %4分 = %5分)")
-                .arg(groupNum)
-                .arg(questionTypeDisplayName(type))
-                .arg(questions.size())
-                .arg(scorePerQ)
-                .arg(questions.size() * scorePerQ)
-        );
-        groupTitle->setStyleSheet(
-            "QLabel { font-size: 16px; font-weight: 600; color: " + TEXT_PRIMARY + "; "
-            "padding: 8px 0; }");
-        m_resultLayout->addWidget(groupTitle);
+        // ── 分组标题 — 简洁的文字 + 底部红线 ──
+        QString groupNum = groupIndex < chineseNumbers.size()
+            ? chineseNumbers[groupIndex] : QString::number(groupIndex + 1);
 
-        // 每道题
+        auto *groupHeader = new QWidget();
+        auto *ghLayout = new QHBoxLayout(groupHeader);
+        ghLayout->setContentsMargins(0, 16, 0, 8);
+        ghLayout->setSpacing(0);
+
+        auto *groupTitle = new QLabel(
+            QString("%1、%2").arg(groupNum, questionTypeDisplayName(type)));
+        groupTitle->setStyleSheet(
+            "QLabel { font-size: 14px; font-weight: 700; color: #2D2D2D; }");
+        ghLayout->addWidget(groupTitle);
+
+        auto *groupDetail = new QLabel(
+            QString("  %1题 × %2分 = %3分")
+                .arg(questions.size()).arg(scorePerQ).arg(questions.size() * scorePerQ));
+        groupDetail->setStyleSheet(
+            "QLabel { font-size: 13px; color: #AAA; font-weight: 400; }");
+        ghLayout->addWidget(groupDetail);
+        ghLayout->addStretch();
+
+        m_resultLayout->addWidget(groupHeader);
+
+        // ── 题目列表容器 — 白底圆角卡片包裹所有题目 ──
+        auto *listCard = new QFrame();
+        listCard->setStyleSheet(
+            "QFrame#listCard { background-color: #FFFFFF; "
+            "border: 1px solid #EAEAEA; border-radius: 8px; }");
+        listCard->setObjectName("listCard");
+
+        auto *listLayout = new QVBoxLayout(listCard);
+        listLayout->setContentsMargins(0, 0, 0, 0);
+        listLayout->setSpacing(0);
+
         int questionNum = 1;
         for (const auto &pair : questions) {
             const PaperQuestion &q = pair.second;
 
             auto *questionRow = new QFrame();
-            questionRow->setStyleSheet(
-                "QFrame { background-color: " + CARD_WHITE + "; border: 1px solid " + BORDER_COLOR + "; "
-                "border-radius: 10px; }"
-                "QFrame:hover { background-color: #F9FAFB; border-color: #D1D5DB; }");
-
-            // 轻微投影
-            auto *qShadow = new QGraphicsDropShadowEffect(questionRow);
-            qShadow->setBlurRadius(8);
-            qShadow->setOffset(0, 1);
-            qShadow->setColor(QColor(0, 0, 0, 10));
-            questionRow->setGraphicsEffect(qShadow);
+            questionRow->setObjectName("questionRow");
+            questionRow->setStyleSheet(QUESTION_ROW_STYLE);
 
             auto *qLayout = new QHBoxLayout(questionRow);
-            qLayout->setContentsMargins(16, 10, 16, 10);
-            qLayout->setSpacing(12);
+            qLayout->setContentsMargins(16, 11, 12, 11);
+            qLayout->setSpacing(10);
 
-            // 序号
-            auto *numLabel = new QLabel(QString::number(questionNum++));
-            numLabel->setFixedWidth(30);
-            numLabel->setAlignment(Qt::AlignCenter);
-            numLabel->setStyleSheet("QLabel { font-size: 14px; font-weight: 600; color: " + TEXT_SECONDARY + "; }");
+            // 序号 — 纯文字，不需要花哨圆圈
+            auto *numLabel = new QLabel(QString("%1.").arg(questionNum++));
+            numLabel->setFixedWidth(28);
+            numLabel->setStyleSheet(
+                "QLabel { font-size: 13px; font-weight: 600; color: #BBB; }");
+            numLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
             qLayout->addWidget(numLabel);
 
-            // 难度胶囊
-            auto *diffCapsule = new QLabel(difficultyDisplayName(q.difficulty));
-            diffCapsule->setStyleSheet(DIFFICULTY_CAPSULE_STYLE.arg(difficultyColor(q.difficulty).name()));
-            diffCapsule->setFixedWidth(50);
-            diffCapsule->setAlignment(Qt::AlignCenter);
-            qLayout->addWidget(diffCapsule);
+            // 难度 — 小巧的文字标签
+            QString diffColor, diffBg;
+            QString d = q.difficulty.toLower();
+            if (d == "easy") {
+                diffColor = "#3C8A3F"; diffBg = "#EDF7ED";
+            } else if (d == "hard") {
+                diffColor = "#C44"; diffBg = "#FDF0F0";
+            } else {
+                diffColor = "#C47F17"; diffBg = "#FFF8EB";
+            }
+            auto *diffLabel = new QLabel(difficultyDisplayName(q.difficulty));
+            diffLabel->setStyleSheet(DIFFICULTY_LABEL_STYLE.arg(diffColor, diffBg));
+            diffLabel->setFixedWidth(40);
+            diffLabel->setAlignment(Qt::AlignCenter);
+            qLayout->addWidget(diffLabel);
 
-            // 题干预览
+            // 题干
             QString stemPreview = q.stem;
-            if (stemPreview.length() > 80) {
-                stemPreview = stemPreview.left(80) + "...";
+            if (stemPreview.length() > 60) {
+                stemPreview = stemPreview.left(60) + "...";
             }
             auto *stemLabel = new QLabel(stemPreview);
-            stemLabel->setStyleSheet("QLabel { font-size: 13px; color: " + TEXT_PRIMARY + "; }");
+            stemLabel->setStyleSheet(
+                "QLabel { font-size: 13px; color: #444; }");
             stemLabel->setWordWrap(true);
             qLayout->addWidget(stemLabel, 1);
 
-            // 换一题按钮
+            // 换一题
             auto *swapBtn = new QPushButton("换一题");
             swapBtn->setStyleSheet(SWAP_BTN_STYLE);
             swapBtn->setCursor(Qt::PointingHandCursor);
-            // 检查候选池是否还有题
+            swapBtn->setFixedWidth(62);
             bool hasCandidate = !m_currentResult.candidatePool.value(type).isEmpty();
             swapBtn->setEnabled(hasCandidate);
             if (!hasCandidate) {
@@ -999,8 +1041,10 @@ void SmartPaperWidget::buildResultPreview()
             });
             qLayout->addWidget(swapBtn);
 
-            m_resultLayout->addWidget(questionRow);
+            listLayout->addWidget(questionRow);
         }
+
+        m_resultLayout->addWidget(listCard);
     }
 }
 
