@@ -2376,10 +2376,12 @@ void ModernMainWindow::createAIChatWidget()
             m_aiTabWidget->setCurrentIndex(0);
         }
 
-        // 3. 加载选中对话的消息历史
+        // 3. 切换 Dify 会话 ID，后续消息发到这个对话
         if (m_difyService) {
+            m_difyService->setCurrentConversationId(id);
             m_difyService->fetchMessages(id);
         }
+        m_isConversationStarted = true;
     });
     
     // 连接对话列表接收信号
