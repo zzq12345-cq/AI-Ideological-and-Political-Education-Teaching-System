@@ -46,6 +46,15 @@ void DifyService::setBaseUrl(const QString &baseUrl)
     m_baseUrl = baseUrl;
 }
 
+void DifyService::setUserId(const QString &userId)
+{
+    m_userId = userId;
+    // 持久化到 QSettings
+    QSettings settings(QCoreApplication::organizationName(), QCoreApplication::applicationName());
+    settings.setValue("dify/userId", m_userId);
+    qDebug() << "[DifyService] 用户 ID 已绑定:" << m_userId;
+}
+
 void DifyService::setModel(const QString &model)
 {
     m_model = model;
