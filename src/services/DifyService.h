@@ -43,6 +43,12 @@ public:
     void setBaseUrl(const QString &baseUrl);
 
     /**
+     * @brief 设置用户 ID（绑定 Supabase 登录用户）
+     * @param userId Supabase 用户 ID
+     */
+    void setUserId(const QString &userId);
+
+    /**
      * @brief 设置要使用的模型
      * @param model 模型名称（如 "glm-4", "gpt-4", "claude-3" 等）
      */

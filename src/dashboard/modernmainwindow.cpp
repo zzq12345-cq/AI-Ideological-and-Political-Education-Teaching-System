@@ -755,13 +755,14 @@ private:
 };
 }
 
-ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &username, QWidget *parent)
+ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &username, const QString &userId, QWidget *parent)
     : QMainWindow(parent)
     , currentUserRole(userRole)
     , currentUsername(username)
+    , currentUserId(userId)
 {
     qDebug() << "=== ModernMainWindow 构造函数开始 ===";
-    qDebug() << "用户角色:" << userRole << "用户名:" << username;
+    qDebug() << "用户角色:" << userRole << "用户名:" << username << "用户ID:" << userId;
 
     setWindowTitle("思政智慧课堂 - 教师中心");
     setMinimumSize(1400, 900);
@@ -769,6 +770,11 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
 
     // 初始化 Dify AI 服务
     m_difyService = new DifyService(this);
+
+    // 绑定真实用户 ID 到 Dify 服务
+    if (!userId.isEmpty()) {
+        m_difyService->setUserId(userId);
+    }
     
     // 初始化 PPTX 生成器
     m_pptxGenerator = new PPTXGenerator(this);
@@ -994,6 +1000,7 @@ void ModernMainWindow::setupCentralWidget()
     // 底部按钮
     settingsBtn = new QPushButton("系统设置");
     helpBtn = new QPushButton("帮助中心");
+    logoutBtn = new QPushButton("退出登录");
 
     // 确保所有按钮都可见
     teacherCenterBtn->setVisible(true);
@@ -1004,6 +1011,7 @@ void ModernMainWindow::setupCentralWidget()
     learningAnalysisBtn->setVisible(true);
     settingsBtn->setVisible(true);
     helpBtn->setVisible(true);
+    logoutBtn->setVisible(true);
 
     applySidebarIcons();
 
@@ -1016,6 +1024,7 @@ void ModernMainWindow::setupCentralWidget()
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    logoutBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
     // 连接信号
     connect(teacherCenterBtn, &QPushButton::clicked, this, [=]() { qDebug() << "教师中心按钮被点击"; onTeacherCenterClicked(); });
@@ -1026,6 +1035,17 @@ void ModernMainWindow::setupCentralWidget()
     connect(learningAnalysisBtn, &QPushButton::clicked, this, [=]() { qDebug() << "学情与教评按钮被点击"; onLearningAnalysisClicked(); });
     connect(settingsBtn, &QPushButton::clicked, this, [=]() { qDebug() << "系统设置按钮被点击"; onSettingsClicked(); });
     connect(helpBtn, &QPushButton::clicked, this, [=]() { qDebug() << "帮助中心按钮被点击"; onHelpClicked(); });
+    connect(logoutBtn, &QPushButton::clicked, this, [this]() {
+        QMessageBox::StandardButton reply = QMessageBox::question(this, "退出登录",
+            "确定要退出当前账户吗？",
+            QMessageBox::Yes | QMessageBox::No);
+        if (reply == QMessageBox::Yes) {
+            SimpleLoginWindow *loginWindow = new SimpleLoginWindow();
+            loginWindow->show();
+            this->close();
+            this->deleteLater();
+        }
+    });
 
     // 调试按钮状态
     qDebug() << "=== 按钮状态检查 ===";
@@ -1046,6 +1066,7 @@ void ModernMainWindow::setupCentralWidget()
     sidebarLayout->addStretch();
     sidebarLayout->addWidget(settingsBtn);
     sidebarLayout->addWidget(helpBtn);
+    sidebarLayout->addWidget(logoutBtn);
 
     // 创建侧边栏堆栈（用于在导航和历史记录之间切换）
     m_sidebarStack = new QStackedWidget();
@@ -1196,6 +1217,7 @@ void ModernMainWindow::applySidebarIcons()
     setIcon(learningAnalysisBtn, "view-list-details", QStyle::SP_FileDialogDetailedView);
     setIcon(settingsBtn, "settings-configure", QStyle::SP_FileDialogDetailedView);
     setIcon(helpBtn, "help-browser", QStyle::SP_MessageBoxQuestion);
+    setIcon(logoutBtn, "system-log-out", QStyle::SP_DialogCloseButton);
 }
 
 QIcon ModernMainWindow::loadSidebarIcon(const QString &themeName, QStyle::StandardPixmap fallback) const
@@ -1919,6 +1941,7 @@ void ModernMainWindow::resetAllSidebarButtons()
     if (learningAnalysisBtn) learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     if (settingsBtn) settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     if (helpBtn) helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    if (logoutBtn) logoutBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 }
 
 // 槽函数实现

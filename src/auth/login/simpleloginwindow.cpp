@@ -542,13 +542,13 @@ void SimpleLoginWindow::onSignupClicked()
     qDebug() << "已打开注册窗口";
 }
 
-void SimpleLoginWindow::openMainWindow(const QString &username, const QString &role)
+void SimpleLoginWindow::openMainWindow(const QString &username, const QString &role, const QString &userId)
 {
     qDebug() << "准备打开主窗口...";
-    qDebug() << "用户名:" << username << "角色:" << role;
+    qDebug() << "用户名:" << username << "角色:" << role << "用户ID:" << userId;
 
     qDebug() << "正在创建主窗口...";
-    ModernMainWindow *mainWindow = new ModernMainWindow(role, username);
+    ModernMainWindow *mainWindow = new ModernMainWindow(role, username, userId);
     qDebug() << "主窗口创建完成，准备显示...";
     mainWindow->show();
     qDebug() << "主窗口已显示!";
@@ -572,7 +572,7 @@ void SimpleLoginWindow::onLoginSuccess(const QString &userId, const QString &ema
     saveRememberedCredentials();
 
     // 打开主界面，默认角色为教师
-    openMainWindow(email, "教师");
+    openMainWindow(email, "教师", userId);
 
     // 最后关闭登录窗口
     this->close();

@@ -51,7 +51,7 @@ class ModernMainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    ModernMainWindow(const QString &userRole = "教师", const QString &username = "王老师", QWidget *parent = nullptr);
+    ModernMainWindow(const QString &userRole = "教师", const QString &username = "王老师", const QString &userId = "", QWidget *parent = nullptr);
     ~ModernMainWindow();
 
 private slots:
@@ -139,6 +139,7 @@ private:
     // 底部菜单
     QPushButton *settingsBtn = nullptr;           // 系统设置
     QPushButton *helpBtn = nullptr;               // 帮助中心
+    QPushButton *logoutBtn = nullptr;             // 退出登录
 
     // 主内容区域
     QStackedWidget *contentStack = nullptr;
@@ -224,6 +225,7 @@ private:
     // 数据
     QString currentUserRole;
     QString currentUsername;
+    QString currentUserId;
 
     // 菜单动作
     QAction *profileAction = nullptr;

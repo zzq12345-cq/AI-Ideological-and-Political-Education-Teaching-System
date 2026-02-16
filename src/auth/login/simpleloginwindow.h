@@ -40,7 +40,7 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
-    void openMainWindow(const QString &username, const QString &role);
+    void openMainWindow(const QString &username, const QString &role, const QString &userId = "");
     void setupStyle();
     void loadRememberedCredentials();
     void saveRememberedCredentials();
