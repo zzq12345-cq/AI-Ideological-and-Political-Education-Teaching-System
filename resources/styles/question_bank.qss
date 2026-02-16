@@ -5,7 +5,7 @@
 
 QuestionBankWindow#questionBankWindow {
     background: #FAFAFA;
-    font-family: "Lexend", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Source Han Sans SC", "Helvetica Neue", Arial, sans-serif;
     color: #424242;
     font-size: 14px;
 }
@@ -56,13 +56,13 @@ QScrollArea#filterSidebarScroll {
 }
 
 QScrollArea#filterSidebarScroll QScrollBar:vertical {
-    width: 4px;
+    width: 6px;
     background: transparent;
 }
 
 QScrollArea#filterSidebarScroll QScrollBar::handle:vertical {
     background: #C8E6C9;
-    border-radius: 2px;
+    border-radius: 3px;
     min-height: 30px;
 }
 
@@ -277,7 +277,7 @@ QProgressBar#progressBar::chunk {
     border-radius: 4px;
 }
 
-/* ==================== 内容区域滚动条 ==================== */
+/* ==================== 内容区域滚动条（绿色模块色） ==================== */
 QScrollArea#contentScrollArea QScrollBar:vertical {
     width: 6px;
     background: transparent;
@@ -286,7 +286,7 @@ QScrollArea#contentScrollArea QScrollBar:vertical {
 QScrollArea#contentScrollArea QScrollBar::handle:vertical {
     background: #C8E6C9;
     border-radius: 3px;
-    min-height: 40px;
+    min-height: 30px;
 }
 
 QScrollArea#contentScrollArea QScrollBar::handle:vertical:hover {

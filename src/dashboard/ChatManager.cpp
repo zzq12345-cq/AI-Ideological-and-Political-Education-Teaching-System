@@ -25,6 +25,7 @@ ChatManager::ChatManager(QWidget *parentWidget, QObject *parent)
     , m_streamUpdateTimer(nullptr)
     , m_streamUpdatePending(false)
     , m_isConversationStarted(false)
+    , m_waitingForFirstChunk(false)
     , m_pptSimulationTimer(nullptr)
     , m_pptSimulationStep(0)
     , m_pptQuestionStep(0)
@@ -177,6 +178,13 @@ void ChatManager::onAIResponseReceived(const QString &response)
 
 void ChatManager::onAIStreamChunk(const QString &chunk)
 {
+    // 首个 chunk 到达：隐藏思考动画，创建真正的 AI 消息气泡
+    if (m_waitingForFirstChunk) {
+        m_waitingForFirstChunk = false;
+        m_bubbleChatWidget->hideTypingIndicator();
+        m_bubbleChatWidget->addMessage("", false);
+    }
+
     m_currentAIResponse += chunk;
 
     // 节流更新 UI（连接已在 setupConnections 中完成）
@@ -190,6 +198,13 @@ void ChatManager::onAIStreamChunk(const QString &chunk)
 
 void ChatManager::onAIThinkingChunk(const QString &thought)
 {
+    // 思考 chunk 也可能是首个响应
+    if (m_waitingForFirstChunk) {
+        m_waitingForFirstChunk = false;
+        m_bubbleChatWidget->hideTypingIndicator();
+        m_bubbleChatWidget->addMessage("", false);
+    }
+
     m_bubbleChatWidget->updateLastAIThinking(thought);
     emit thinkingChunkReceived(thought);
 }
@@ -197,6 +212,13 @@ void ChatManager::onAIThinkingChunk(const QString &thought)
 void ChatManager::onAIError(const QString &error)
 {
     qDebug() << "[ChatManager] AI error:" << error;
+
+    // 出错时也要清理思考指示器
+    if (m_waitingForFirstChunk) {
+        m_waitingForFirstChunk = false;
+        m_bubbleChatWidget->hideTypingIndicator();
+    }
+
     m_bubbleChatWidget->addMessage("错误: " + error, false);
     emit errorOccurred(error);
 }
@@ -205,9 +227,10 @@ void ChatManager::onAIRequestStarted()
 {
     qDebug() << "[ChatManager] AI request started";
     m_currentAIResponse.clear();
+    m_waitingForFirstChunk = true;
 
-    // 添加空的 AI 消息作为占位符
-    m_bubbleChatWidget->addMessage("", false);
+    // 显示 "AI 正在思考" 脉冲动画
+    m_bubbleChatWidget->showTypingIndicator();
     m_bubbleChatWidget->setInputEnabled(false);
 
     emit requestStarted();
@@ -216,6 +239,12 @@ void ChatManager::onAIRequestStarted()
 void ChatManager::onAIRequestFinished()
 {
     qDebug() << "[ChatManager] AI request finished";
+
+    // 防御：如果从未收到过 chunk，先清理指示器
+    if (m_waitingForFirstChunk) {
+        m_waitingForFirstChunk = false;
+        m_bubbleChatWidget->hideTypingIndicator();
+    }
 
     // 最后一次更新确保完整内容显示
     if (!m_currentAIResponse.isEmpty()) {

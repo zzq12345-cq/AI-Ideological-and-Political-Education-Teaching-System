@@ -32,7 +32,7 @@
 QWidget {
     color: #424242;
     background-color: transparent;
-    font-family: "Lexend", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Source Han Sans SC", "Helvetica Neue", Arial, sans-serif;
 }
 
 .QWidget {
@@ -250,47 +250,55 @@ QRadioButton::indicator:checked {
     border: 2px solid #e53935;
 }
 
-/* ===== 滚动条样式 ===== */
+/* ===== 滚动条样式（全局统一） ===== */
 QScrollBar:vertical {
-    background-color: #fafafa;
-    width: 12px;
+    background-color: transparent;
+    width: 6px;
     border: none;
+    margin: 0;
 }
 
 QScrollBar::handle:vertical {
-    background-color: #c5cae9;
-    border-radius: 6px;
-    min-height: 20px;
+    background-color: #D1D5DB;
+    border-radius: 3px;
+    min-height: 30px;
 }
 
 QScrollBar::handle:vertical:hover {
-    background-color: #9fa8da;
+    background-color: #9CA3AF;
 }
 
 QScrollBar::add-line:vertical,
-QScrollBar::sub-line:vertical {
+QScrollBar::sub-line:vertical,
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
     height: 0px;
+    background: transparent;
 }
 
 QScrollBar:horizontal {
-    background-color: #fafafa;
-    height: 12px;
+    background-color: transparent;
+    height: 6px;
     border: none;
+    margin: 0;
 }
 
 QScrollBar::handle:horizontal {
-    background-color: #c5cae9;
-    border-radius: 6px;
-    min-width: 20px;
+    background-color: #D1D5DB;
+    border-radius: 3px;
+    min-width: 30px;
 }
 
 QScrollBar::handle:horizontal:hover {
-    background-color: #9fa8da;
+    background-color: #9CA3AF;
 }
 
 QScrollBar::add-line:horizontal,
-QScrollBar::sub-line:horizontal {
+QScrollBar::sub-line:horizontal,
+QScrollBar::add-page:horizontal,
+QScrollBar::sub-page:horizontal {
     width: 0px;
+    background: transparent;
 }
 
 /* ===== 进度条样式 ===== */

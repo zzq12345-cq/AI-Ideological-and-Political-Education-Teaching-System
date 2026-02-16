@@ -259,7 +259,13 @@ void AttendanceWidget::createStudentListCard()
     m_scrollArea = new QScrollArea();
     m_scrollArea->setWidgetResizable(true);
     m_scrollArea->setFrameShape(QFrame::NoFrame);
-    m_scrollArea->setStyleSheet("QScrollArea { background: transparent; } QScrollBar:vertical { width: 4px; background: transparent; } QScrollBar::handle:vertical { background: #D1D5DB; border-radius: 2px; }");
+    m_scrollArea->setStyleSheet(
+        "QScrollArea { background: transparent; }"
+        "QScrollBar:vertical { width: 6px; background: transparent; }"
+        "QScrollBar::handle:vertical { background: #D1D5DB; border-radius: 3px; min-height: 30px; }"
+        "QScrollBar::handle:vertical:hover { background: #9CA3AF; }"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
+    );
 
     m_listContainer = new QWidget();
     m_listLayout = new QVBoxLayout(m_listContainer);

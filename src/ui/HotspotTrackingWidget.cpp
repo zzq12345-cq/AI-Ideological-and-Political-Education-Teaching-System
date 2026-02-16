@@ -606,20 +606,17 @@ void HotspotTrackingWidget::createNewsGrid()
         "QScrollArea { background: transparent; border: none; }"
         "QScrollBar:vertical {"
         "    border: none;"
-        "    background: #F5F7FA;"
-        "    width: 8px;"
-        "    margin: 4px 2px;"
-        "    border-radius: 4px;"
+        "    background: transparent;"
+        "    width: 6px;"
+        "    margin: 0;"
         "}"
         "QScrollBar::handle:vertical {"
-        "    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
-        "        stop:0 #D1D5DB, stop:1 #E5E7EB);"
-        "    min-height: 50px;"
-        "    border-radius: 4px;"
+        "    background: #D1D5DB;"
+        "    min-height: 30px;"
+        "    border-radius: 3px;"
         "}"
         "QScrollBar::handle:vertical:hover {"
-        "    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
-        "        stop:0 #9CA3AF, stop:1 #D1D5DB);"
+        "    background: #9CA3AF;"
         "}"
         "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
         "    height: 0px;"
@@ -1281,14 +1278,15 @@ void HotspotTrackingWidget::showNewsDetail(const NewsItem &news)
     QString bodyText = news.content.isEmpty() ? news.summary : news.content;
     contentEdit->setHtml(QString(
         "<div style='line-height: 2; font-size: 16px; color: #374151; "
-        "font-family: -apple-system, BlinkMacSystemFont, sans-serif;'>%1</div>"
+        "font-family: PingFang SC, Noto Sans SC, Microsoft YaHei, Helvetica Neue, Arial, sans-serif;'>%1</div>"
     ).arg(bodyText.replace("\n", "<br>")));
     contentEdit->setReadOnly(true);
     contentEdit->setFrameShape(QFrame::NoFrame);
     contentEdit->setStyleSheet(
         "QTextEdit { background: transparent; padding: 8px 0; }"
         "QScrollBar:vertical { width: 6px; background: transparent; }"
-        "QScrollBar::handle:vertical { background: #E5E7EB; border-radius: 3px; }"
+        "QScrollBar::handle:vertical { background: #D1D5DB; border-radius: 3px; }"
+        "QScrollBar::handle:vertical:hover { background: #9CA3AF; }"
     );
     contentLayout->addWidget(contentEdit, 1);
 

@@ -90,6 +90,7 @@ private:
     QTimer *m_streamUpdateTimer;
     bool m_streamUpdatePending;
     bool m_isConversationStarted;
+    bool m_waitingForFirstChunk;
 
     // PPT 工作流状态
     QTimer *m_pptSimulationTimer;

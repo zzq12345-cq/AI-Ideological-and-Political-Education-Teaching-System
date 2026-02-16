@@ -1865,7 +1865,7 @@ void ModernMainWindow::setupStyles()
     this->setStyleSheet(R"(
         QMainWindow {
             background: )" + WINDOW_BACKGROUND_GRADIENT + R"(;
-            font-family: "PingFang SC", -apple-system, sans-serif;
+            font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Source Han Sans SC", "Helvetica Neue", Arial, sans-serif;
         }
         QMenuBar {
             background-color: )" + CARD_WHITE + R"(;
@@ -1891,30 +1891,38 @@ void ModernMainWindow::setupStyles()
             border: none;
         }
         QScrollBar:vertical {
-            background-color: #F0F0F0;
-            width: 8px;
-            border-radius: 4px;
+            background: transparent;
+            width: 6px;
+            margin: 0;
         }
         QScrollBar::handle:vertical {
-            background-color: )" + SECONDARY_TEXT + R"(;
-            border-radius: 4px;
-            min-height: 20px;
+            background-color: #D1D5DB;
+            border-radius: 3px;
+            min-height: 30px;
         }
         QScrollBar::handle:vertical:hover {
-            background-color: )" + PRIMARY_TEXT + R"(;
+            background-color: #9CA3AF;
+        }
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
+        QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+            height: 0; background: transparent;
         }
         QScrollBar:horizontal {
-            background-color: #F0F0F0;
-            height: 8px;
-            border-radius: 4px;
+            background: transparent;
+            height: 6px;
+            margin: 0;
         }
         QScrollBar::handle:horizontal {
-            background-color: )" + SECONDARY_TEXT + R"(;
-            border-radius: 4px;
-            min-width: 20px;
+            background-color: #D1D5DB;
+            border-radius: 3px;
+            min-width: 30px;
         }
         QScrollBar::handle:horizontal:hover {
-            background-color: )" + PRIMARY_TEXT + R"(;
+            background-color: #9CA3AF;
+        }
+        QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal,
+        QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+            width: 0; background: transparent;
         }
     )");
 }
