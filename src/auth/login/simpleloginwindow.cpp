@@ -75,7 +75,7 @@ void SimpleLoginWindow::setupUI()
         qDebug() << "错误：无法创建左侧面板";
         return;
     }
-    leftPanel->setFixedWidth(720); // 60% of 1200
+    leftPanel->setMinimumWidth(600);
     leftLayout = new QVBoxLayout(leftPanel);
     if (!leftLayout) {
         qDebug() << "错误：无法创建左侧布局";
@@ -205,6 +205,7 @@ void SimpleLoginWindow::setupUI()
         qDebug() << "错误：无法创建右侧面板";
         return;
     }
+    rightPanel->setMaximumWidth(520);
     rightLayout = new QVBoxLayout(rightPanel);
     if (!rightLayout) {
         qDebug() << "错误：无法创建右侧布局";
@@ -433,8 +434,8 @@ void SimpleLoginWindow::setupUI()
     // 添加到主布局
     if (mainLayout && leftPanel && rightPanel) {
         qDebug() << "正在添加面板到主布局...";
-        mainLayout->addWidget(leftPanel);
-        mainLayout->addWidget(rightPanel);
+        mainLayout->addWidget(leftPanel, 3);   // 左侧占 60%
+        mainLayout->addWidget(rightPanel, 2);  // 右侧占 40%
         qDebug() << "面板添加完成";
     } else {
         qDebug() << "错误：主布局或面板为空";
