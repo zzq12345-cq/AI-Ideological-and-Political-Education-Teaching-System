@@ -1010,7 +1010,6 @@ void ModernMainWindow::setupCentralWidget()
     attendanceBtn->setVisible(true);
     learningAnalysisBtn->setVisible(true);
     settingsBtn->setVisible(true);
-    helpBtn->setVisible(true);
     logoutBtn->setVisible(true);
 
     applySidebarIcons();
@@ -1065,7 +1064,6 @@ void ModernMainWindow::setupCentralWidget()
     sidebarLayout->addWidget(learningAnalysisBtn);
     sidebarLayout->addStretch();
     sidebarLayout->addWidget(settingsBtn);
-    sidebarLayout->addWidget(helpBtn);
     sidebarLayout->addWidget(logoutBtn);
 
     // 创建侧边栏堆栈（用于在导航和历史记录之间切换）
@@ -1215,9 +1213,9 @@ void ModernMainWindow::applySidebarIcons()
     setIcon(resourceManagementBtn, "folder", QStyle::SP_DirIcon);
     setIcon(attendanceBtn, "x-office-calendar", QStyle::SP_FileDialogListView);
     setIcon(learningAnalysisBtn, "view-list-details", QStyle::SP_FileDialogDetailedView);
-    setIcon(settingsBtn, "settings-configure", QStyle::SP_FileDialogDetailedView);
+    settingsBtn->setIcon(QIcon(":/resources/icons/settings.svg"));
     setIcon(helpBtn, "help-browser", QStyle::SP_MessageBoxQuestion);
-    setIcon(logoutBtn, "system-log-out", QStyle::SP_DialogCloseButton);
+    logoutBtn->setIcon(QIcon(":/resources/icons/logout.svg"));
 }
 
 QIcon ModernMainWindow::loadSidebarIcon(const QString &themeName, QStyle::StandardPixmap fallback) const
