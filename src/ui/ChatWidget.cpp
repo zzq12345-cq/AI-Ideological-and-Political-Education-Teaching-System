@@ -28,7 +28,10 @@ ChatWidget::ChatWidget(QWidget *parent)
     , m_lastAIThinkingLabel(nullptr)
     , m_lastAIThinkingToggle(nullptr)
     , m_markdownRenderer(nullptr)
-    , m_markdownEnabled(true)  // 默认启用Markdown
+    , m_markdownEnabled(true)
+    , m_typingIndicator(nullptr)
+    , m_typingAnimTimer(nullptr)
+    , m_typingAnimStep(0)
 {
     // 初始化Markdown渲染器
     m_markdownRenderer = std::make_unique<MarkdownRenderer>();
@@ -584,4 +587,114 @@ QString ChatWidget::renderMessage(const QString &text, bool isUser)
         qDebug() << "[ChatWidget] Unknown Markdown rendering error";
         return text; // 渲染失败时返回纯文本
     }
+}
+
+void ChatWidget::showTypingIndicator()
+{
+    hideTypingIndicator();
+
+    // 创建指示器行（与 AI 消息气泡布局一致）
+    m_typingIndicator = new QWidget();
+    m_typingIndicator->setAttribute(Qt::WA_TranslucentBackground);
+    m_typingIndicator->setStyleSheet("background: transparent;");
+
+    QHBoxLayout *rowLayout = new QHBoxLayout(m_typingIndicator);
+    rowLayout->setContentsMargins(0, 4, 0, 4);
+    rowLayout->setSpacing(14);
+
+    // AI 头像（与 createMessageBubble 中的 AI 头像一致）
+    QLabel *avatarLabel = new QLabel();
+    avatarLabel->setFixedSize(44, 44);
+    avatarLabel->setAlignment(Qt::AlignCenter);
+    avatarLabel->setStyleSheet(
+        "QLabel {"
+        "   background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #D4A017, stop:1 #B8860B);"
+        "   border-radius: 22px;"
+        "   color: #ffffff;"
+        "   font-size: 13px;"
+        "   font-weight: 700;"
+        "   border: 2px solid rgba(255, 255, 255, 0.3);"
+        "}"
+    );
+    avatarLabel->setText("AI");
+
+    // 气泡容器
+    QWidget *bubbleWidget = new QWidget();
+    bubbleWidget->setObjectName("typingBubble");
+    bubbleWidget->setStyleSheet(
+        "QWidget#typingBubble {"
+        "   background-color: #FFFFFF;"
+        "   border: 1px solid #e5e7eb;"
+        "   border-radius: 18px;"
+        "   border-top-left-radius: 6px;"
+        "}"
+    );
+
+    QHBoxLayout *bubbleLayout = new QHBoxLayout(bubbleWidget);
+    bubbleLayout->setContentsMargins(20, 16, 20, 16);
+    bubbleLayout->setSpacing(8);
+
+    // 三个脉冲圆点
+    m_typingDots.clear();
+    for (int i = 0; i < 3; ++i) {
+        QLabel *dot = new QLabel("●");
+        dot->setFixedSize(16, 16);
+        dot->setAlignment(Qt::AlignCenter);
+        dot->setStyleSheet("QLabel { color: #D1D5DB; font-size: 12px; background: transparent; }");
+        m_typingDots.append(dot);
+        bubbleLayout->addWidget(dot);
+    }
+
+    rowLayout->addWidget(avatarLabel);
+    rowLayout->addWidget(bubbleWidget);
+    rowLayout->addStretch();
+
+    // 添加到消息布局
+    if (m_messageLayout->count() > 0) {
+        QLayoutItem *stretch = m_messageLayout->takeAt(m_messageLayout->count() - 1);
+        if (stretch) delete stretch;
+    }
+    m_messageLayout->addWidget(m_typingIndicator);
+    m_messageLayout->addStretch();
+
+    // 启动脉冲动画
+    m_typingAnimStep = 0;
+    m_typingAnimTimer = new QTimer(this);
+    connect(m_typingAnimTimer, &QTimer::timeout, this, [this]() {
+        if (m_typingDots.isEmpty()) return;
+
+        // 所有点先恢复浅色
+        for (QLabel *dot : m_typingDots) {
+            dot->setStyleSheet("QLabel { color: #D1D5DB; font-size: 12px; background: transparent; }");
+        }
+        // 当前活跃点高亮为思政红
+        int activeIdx = m_typingAnimStep % 3;
+        m_typingDots[activeIdx]->setStyleSheet(
+            "QLabel { color: #E53935; font-size: 12px; background: transparent; }"
+        );
+        m_typingAnimStep++;
+    });
+    m_typingAnimTimer->start(350);
+
+    scrollToBottom();
+    qDebug() << "[ChatWidget] Typing indicator shown";
+}
+
+void ChatWidget::hideTypingIndicator()
+{
+    if (m_typingAnimTimer) {
+        m_typingAnimTimer->stop();
+        m_typingAnimTimer->deleteLater();
+        m_typingAnimTimer = nullptr;
+    }
+
+    if (m_typingIndicator) {
+        m_messageLayout->removeWidget(m_typingIndicator);
+        m_typingIndicator->deleteLater();
+        m_typingIndicator = nullptr;
+    }
+
+    m_typingDots.clear();
+    m_typingAnimStep = 0;
+    qDebug() << "[ChatWidget] Typing indicator hidden";
 }

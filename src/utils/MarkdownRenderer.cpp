@@ -50,7 +50,7 @@ QTextDocument* MarkdownRenderer::renderToDocument(const QString &markdown)
                              "<html>"
                              "<head>"
                              "<style>"
-                             "body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; "
+                             "body { font-family: 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif; "
                              "font-size: 14px; line-height: 1.6; color: #24292e; margin: 8px; }"
                              "pre { background-color: %1; padding: 12px; border-radius: 6px; overflow-x: auto; }"
                              "code { background-color: %1; color: %2; padding: 2px 4px; border-radius: 3px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; }"

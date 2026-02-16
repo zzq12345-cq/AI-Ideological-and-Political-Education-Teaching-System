@@ -51,7 +51,7 @@ QString getDialogStyleSheet()
 /* ========== 对话框整体 - 干净简洁背景 ========== */
 QDialog {
     background: #F5F5F5;
-    font-family: "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Source Han Sans SC", "Helvetica Neue", Arial, sans-serif;
 }
 
 /* ========== 输入框 - 现代扁平风格 ========== */
@@ -147,13 +147,13 @@ QScrollBar:vertical {
 }
 
 QScrollBar::handle:vertical {
-    background: rgba(0,0,0,0.12);
+    background: #D1D5DB;
     border-radius: 3px;
-    min-height: 40px;
+    min-height: 30px;
 }
 
 QScrollBar::handle:vertical:hover {
-    background: rgba(0,0,0,0.2);
+    background: #9CA3AF;
 }
 
 QScrollBar::add-line:vertical,
@@ -707,7 +707,7 @@ QString PaperComposerDialog::generatePaperHtml()
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
             font-size: 14px;
             line-height: 1.8;
             color: #212121;

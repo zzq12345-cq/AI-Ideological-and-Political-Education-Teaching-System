@@ -19,21 +19,21 @@ QWidget#messageContainer {
     background-color: #f5f5f5;
 }
 
-/* ========== 滚动条样式 ========== */
+/* ========== 滚动条样式（继承全局统一标准） ========== */
 QScrollBar:vertical {
     background: transparent;
-    width: 8px;
+    width: 6px;
     margin: 0;
 }
 
 QScrollBar::handle:vertical {
-    background: rgba(183, 28, 28, 0.3);
-    border-radius: 4px;
-    min-height: 40px;
+    background: #D1D5DB;
+    border-radius: 3px;
+    min-height: 30px;
 }
 
 QScrollBar::handle:vertical:hover {
-    background: rgba(183, 28, 28, 0.5);
+    background: #9CA3AF;
 }
 
 QScrollBar::add-line:vertical,
