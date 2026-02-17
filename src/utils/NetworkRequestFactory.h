@@ -22,6 +22,12 @@
 class NetworkRequestFactory
 {
 public:
+    // ===== 超时分级常量 =====
+    static constexpr int TIMEOUT_AUTH = 15000;         // 认证: 15s
+    static constexpr int TIMEOUT_DATA_CRUD = 30000;    // 数据操作: 30s
+    static constexpr int TIMEOUT_AI_CHAT = 120000;     // AI 对话: 120s
+    static constexpr int TIMEOUT_FILE_UPLOAD = 300000; // 文件上传: 300s
+
     // ===== 工厂方法 =====
 
     /**
@@ -32,7 +38,7 @@ public:
      */
     static QNetworkRequest createDifyRequest(const QUrl &url,
                                              const QString &apiKey,
-                                             int timeout = 120000);
+                                             int timeout = TIMEOUT_AI_CHAT);
 
     /**
      * @brief 创建 Dify 文件上传请求（不设 Content-Type，由 QHttpMultiPart 自动处理）
@@ -42,7 +48,7 @@ public:
      */
     static QNetworkRequest createDifyUploadRequest(const QUrl &url,
                                                    const QString &apiKey,
-                                                   int timeout = 120000);
+                                                   int timeout = TIMEOUT_FILE_UPLOAD);
 
     /**
      * @brief 创建 Supabase REST 请求（内部拼接 SupabaseConfig::SUPABASE_URL）
@@ -52,7 +58,16 @@ public:
      */
     static QNetworkRequest createSupabaseRequest(const QString &endpoint,
                                                  const QString &accessToken = QString(),
-                                                 bool preferRepresentation = true);
+                                                 bool preferRepresentation = true,
+                                                 int timeout = TIMEOUT_DATA_CRUD);
+
+    /**
+     * @brief 创建认证请求（短超时，适用于 login/signup）
+     * @param url 完整请求 URL
+     * @param timeout 超时毫秒数，默认 15s
+     */
+    static QNetworkRequest createAuthRequest(const QUrl &url,
+                                             int timeout = TIMEOUT_AUTH);
 
     /**
      * @brief 创建通用请求（HTTP/2 禁用 + 超时）
@@ -60,7 +75,7 @@ public:
      * @param timeout 超时毫秒数，默认 30s
      */
     static QNetworkRequest createGeneralRequest(const QUrl &url,
-                                                int timeout = 30000);
+                                                int timeout = TIMEOUT_DATA_CRUD);
 
     // ===== 公共辅助方法 =====
 

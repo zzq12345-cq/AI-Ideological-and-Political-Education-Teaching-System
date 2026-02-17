@@ -76,7 +76,8 @@ QNetworkRequest NetworkRequestFactory::createDifyUploadRequest(const QUrl &url,
 
 QNetworkRequest NetworkRequestFactory::createSupabaseRequest(const QString &endpoint,
                                                              const QString &accessToken,
-                                                             bool preferRepresentation)
+                                                             bool preferRepresentation,
+                                                             int timeout)
 {
     QUrl url(SupabaseConfig::SUPABASE_URL + endpoint);
     QNetworkRequest request(url);
@@ -101,12 +102,33 @@ QNetworkRequest NetworkRequestFactory::createSupabaseRequest(const QString &endp
     applyBaseConfig(request);
     applySslConfig(request);
 
+    // 超时
+    request.setTransferTimeout(timeout);
+
     return request;
 }
 
 QNetworkRequest NetworkRequestFactory::createGeneralRequest(const QUrl &url, int timeout)
 {
     QNetworkRequest request(url);
+
+    // 基础配置
+    applyBaseConfig(request);
+    applySslConfig(request);
+
+    // 超时
+    request.setTransferTimeout(timeout);
+
+    return request;
+}
+
+QNetworkRequest NetworkRequestFactory::createAuthRequest(const QUrl &url, int timeout)
+{
+    QNetworkRequest request(url);
+
+    // 请求头
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    request.setRawHeader("apikey", SupabaseConfig::SUPABASE_ANON_KEY.toUtf8());
 
     // 基础配置
     applyBaseConfig(request);

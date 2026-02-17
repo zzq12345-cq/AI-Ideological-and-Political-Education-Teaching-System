@@ -142,9 +142,32 @@ void NotificationWidget::setupUI()
     headerLayout->addWidget(m_countLabel);
     headerLayout->addStretch();
     headerLayout->addWidget(m_markAllReadButton);
+
+    // 选择模式按钮
+    m_selectModeBtn = new QPushButton("选择", headerFrame);
+    m_selectModeBtn->setObjectName("selectModeBtn");
+    m_selectModeBtn->setCursor(Qt::PointingHandCursor);
+    m_selectModeBtn->setStyleSheet(
+        "QPushButton#selectModeBtn {"
+        "  background: transparent;"
+        "  color: #6B7280;"
+        "  border: none;"
+        "  font-size: 13px;"
+        "  padding: 4px 8px;"
+        "}"
+        "QPushButton#selectModeBtn:hover {"
+        "  background: #F3F4F6;"
+        "  border-radius: 4px;"
+        "}"
+    );
+    headerLayout->addWidget(m_selectModeBtn);
     headerLayout->addWidget(m_closeButton);
 
     containerLayout->addWidget(headerFrame);
+
+    // ========== 筛选栏 ==========
+    m_filterBar = buildFilterBar();
+    containerLayout->addWidget(m_filterBar);
 
     // ========== 通知列表区域 ==========
     m_scrollArea = new QScrollArea(container);
@@ -202,6 +225,53 @@ void NotificationWidget::setupUI()
         "}"
     );
     m_emptyLabel->hide();
+
+    // ========== 批量操作栏（默认隐藏） ==========
+    m_batchActionBar = new QWidget(container);
+    m_batchActionBar->setStyleSheet(
+        "QWidget { background: #F0F4FF; border-bottom-left-radius: 16px; "
+        "border-bottom-right-radius: 16px; }"
+    );
+    auto *batchLayout = new QHBoxLayout(m_batchActionBar);
+    batchLayout->setContentsMargins(16, 10, 16, 10);
+    batchLayout->setSpacing(12);
+
+    auto *batchReadBtn = new QPushButton("标记已读", m_batchActionBar);
+    batchReadBtn->setObjectName("batchReadBtn");
+    batchReadBtn->setCursor(Qt::PointingHandCursor);
+    batchReadBtn->setStyleSheet(
+        "QPushButton#batchReadBtn {"
+        "  background: #2E7D32; color: white; border: none;"
+        "  border-radius: 8px; padding: 8px 20px; font-size: 13px; font-weight: 600;"
+        "}"
+        "QPushButton#batchReadBtn:hover { background: #1B5E20; }"
+    );
+    connect(batchReadBtn, &QPushButton::clicked, this, [this]() {
+        if (!m_selectedIds.isEmpty() && m_service) {
+            m_service->markBatchAsRead(m_selectedIds);
+        }
+        exitSelectMode();
+    });
+
+    auto *batchCancelBtn = new QPushButton("取消", m_batchActionBar);
+    batchCancelBtn->setCursor(Qt::PointingHandCursor);
+    batchCancelBtn->setStyleSheet(
+        "QPushButton {"
+        "  background: transparent; color: #6B7280; border: 1px solid #D1D5DB;"
+        "  border-radius: 8px; padding: 8px 20px; font-size: 13px;"
+        "}"
+        "QPushButton:hover { background: #F9FAFB; }"
+    );
+    connect(batchCancelBtn, &QPushButton::clicked, this, [this]() {
+        exitSelectMode();
+    });
+
+    batchLayout->addWidget(batchReadBtn);
+    batchLayout->addStretch();
+    batchLayout->addWidget(batchCancelBtn);
+
+    m_batchActionBar->setVisible(false);
+    containerLayout->addWidget(m_batchActionBar);
 }
 
 void NotificationWidget::setupConnections()
@@ -212,13 +282,28 @@ void NotificationWidget::setupConnections()
     // 全部已读
     connect(m_markAllReadButton, &QPushButton::clicked, this, &NotificationWidget::onMarkAllAsRead);
 
+    // 选择模式
+    connect(m_selectModeBtn, &QPushButton::clicked, this, [this]() {
+        if (m_selectMode) {
+            exitSelectMode();
+        } else {
+            enterSelectMode();
+        }
+    });
+
     // 监听服务层信号
     if (m_service) {
         connect(m_service, &NotificationService::notificationsReceived,
                 this, &NotificationWidget::onNotificationsReceived);
+        connect(m_service, &NotificationService::localNotificationCreated,
+                this, [this]() {
+            // 本地通知创建后刷新显示
+            if (isVisible()) {
+                applyFilter();
+            }
+        });
         connect(m_service, &NotificationService::loadingStateChanged,
                 this, [this](bool loading) {
-            // 可以在这里添加加载状态UI
             Q_UNUSED(loading)
         });
     }
@@ -340,8 +425,16 @@ void NotificationWidget::updateNotificationList(const QList<Notification> &notif
         delete item;
     }
 
+    // 根据筛选条件过滤
+    QList<Notification> filteredList;
+    for (const auto &n : notifications) {
+        if (m_currentFilter == -1 || static_cast<int>(n.type()) == m_currentFilter) {
+            filteredList.append(n);
+        }
+    }
+
     // 显示空状态或列表
-    if (notifications.isEmpty()) {
+    if (filteredList.isEmpty()) {
         m_emptyLabel->show();
         m_emptyLabel->raise();
         return;
@@ -350,7 +443,7 @@ void NotificationWidget::updateNotificationList(const QList<Notification> &notif
     m_emptyLabel->hide();
 
     // 添加通知项
-    for (const auto &notification : notifications) {
+    for (const auto &notification : filteredList) {
         QWidget *item = createNotificationItem(notification);
         m_listLayout->insertWidget(m_listLayout->count() - 1, item);
     }
@@ -363,8 +456,9 @@ QWidget *NotificationWidget::createNotificationItem(const Notification &notifica
     item->setMinimumHeight(kItemMinHeight);
     item->setCursor(Qt::PointingHandCursor);
 
-    QString bgColor = notification.isRead() ? "#FFFFFF" : "#FFF8F8";
-    QString borderColor = notification.isRead() ? "#E5E7EB" : QString(StyleConfig::PATRIOTIC_RED_LIGHT);
+    // 未读视觉增强：未读背景 #F0F4FF，已读 #FFFFFF
+    QString bgColor = notification.isRead() ? "#FFFFFF" : "#F0F4FF";
+    QString borderColor = notification.isRead() ? "#E5E7EB" : "#BBDEFB";
 
     item->setStyleSheet(
         "QFrame#notificationItem {"
@@ -381,6 +475,44 @@ QWidget *NotificationWidget::createNotificationItem(const Notification &notifica
     auto *layout = new QHBoxLayout(item);
     layout->setContentsMargins(12, 10, 8, 10);
     layout->setSpacing(10);
+
+    // 选择模式：显示复选框
+    if (m_selectMode) {
+        auto *checkBox = new QCheckBox(item);
+        checkBox->setStyleSheet(
+            "QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; "
+            "border: 2px solid #D1D5DB; background: white; }"
+            "QCheckBox::indicator:checked { background: #2E7D32; border-color: #2E7D32; }"
+        );
+        QString nId = notification.id();
+        checkBox->setChecked(m_selectedIds.contains(nId));
+        connect(checkBox, &QCheckBox::toggled, this, [this, nId](bool checked) {
+            if (checked && !m_selectedIds.contains(nId)) {
+                m_selectedIds.append(nId);
+            } else if (!checked) {
+                m_selectedIds.removeAll(nId);
+            }
+            // 更新批量操作栏按钮文字
+            auto *batchReadBtn = m_batchActionBar->findChild<QPushButton*>("batchReadBtn");
+            if (batchReadBtn) {
+                batchReadBtn->setText(QString("标记已读 (%1)").arg(m_selectedIds.size()));
+            }
+        });
+        layout->addWidget(checkBox);
+    }
+
+    // 未读蓝色圆点指示器
+    if (!notification.isRead()) {
+        auto *blueDot = new QLabel(item);
+        blueDot->setFixedSize(6, 6);
+        blueDot->setStyleSheet(
+            "QLabel {"
+            "  background: #1976D2;"
+            "  border-radius: 3px;"
+            "}"
+        );
+        layout->addWidget(blueDot, 0, Qt::AlignVCenter);
+    }
 
     // 左侧：类型图标
     auto *typeIcon = new QLabel(item);
@@ -416,11 +548,13 @@ QWidget *NotificationWidget::createNotificationItem(const Notification &notifica
     auto *titleRow = new QHBoxLayout();
     titleRow->setSpacing(8);
 
+    // 未读标题 font-weight: 600，已读 400
+    QString titleWeight = notification.isRead() ? "400" : "600";
     auto *titleLabel = new QLabel(notification.title(), contentFrame);
     titleLabel->setStyleSheet(
         "QLabel {"
         "  font-size: 14px;"
-        "  font-weight: 600;"
+        "  font-weight: " + titleWeight + ";"
         "  color: #1A1A1A;"
         "  background: transparent;"
         "}"
@@ -475,36 +609,37 @@ QWidget *NotificationWidget::createNotificationItem(const Notification &notifica
     layout->addWidget(typeIcon);
     layout->addWidget(contentFrame, 1);
 
-    // 右侧：删除按钮
-    auto *deleteBtn = new QPushButton("×", item);
-    deleteBtn->setObjectName("deleteNotificationBtn");
-    deleteBtn->setFixedSize(24, 24);
-    deleteBtn->setCursor(Qt::PointingHandCursor);
-    deleteBtn->setStyleSheet(
-        "QPushButton#deleteNotificationBtn {"
-        "  background: transparent;"
-        "  color: #D1D5DB;"
-        "  border: none;"
-        "  font-size: 16px;"
-        "  font-weight: bold;"
-        "}"
-        "QPushButton#deleteNotificationBtn:hover {"
-        "  color: " + QString(StyleConfig::PATRIOTIC_RED) + ";"
-        "}"
-    );
-    layout->addWidget(deleteBtn, 0, Qt::AlignTop);
+    // 右侧：删除按钮（选择模式下隐藏）
+    if (!m_selectMode) {
+        auto *deleteBtn = new QPushButton("x", item);
+        deleteBtn->setObjectName("deleteNotificationBtn");
+        deleteBtn->setFixedSize(24, 24);
+        deleteBtn->setCursor(Qt::PointingHandCursor);
+        deleteBtn->setStyleSheet(
+            "QPushButton#deleteNotificationBtn {"
+            "  background: transparent;"
+            "  color: #D1D5DB;"
+            "  border: none;"
+            "  font-size: 16px;"
+            "  font-weight: bold;"
+            "}"
+            "QPushButton#deleteNotificationBtn:hover {"
+            "  color: " + QString(StyleConfig::PATRIOTIC_RED) + ";"
+            "}"
+        );
+        layout->addWidget(deleteBtn, 0, Qt::AlignTop);
 
-    // 连接信号
-    QString notificationId = notification.id();
+        // 连接删除信号
+        QString notificationId = notification.id();
+        connect(deleteBtn, &QPushButton::clicked, this, [this, notificationId]() {
+            onDeleteNotification(notificationId);
+        });
+    }
 
     // 点击整个item
+    QString notificationId = notification.id();
     item->installEventFilter(this);
     item->setProperty("notificationId", notificationId);
-
-    // 使用QFrame的鼠标事件来处理点击
-    connect(deleteBtn, &QPushButton::clicked, this, [this, notificationId]() {
-        onDeleteNotification(notificationId);
-    });
 
     return item;
 }
@@ -552,4 +687,72 @@ QString NotificationWidget::formatTime(const QDateTime &dateTime) const
     } else {
         return dateTime.toString("MM-dd HH:mm");
     }
+}
+
+QWidget *NotificationWidget::buildFilterBar()
+{
+    auto *bar = new QWidget(this);
+    bar->setStyleSheet("QWidget { background: transparent; }");
+    auto *layout = new QHBoxLayout(bar);
+    layout->setContentsMargins(16, 8, 16, 8);
+    layout->setSpacing(6);
+
+    QStringList filters = {"全部", "作业", "请假", "成绩", "系统"};
+    // 对应 NotificationType: -1, 0, 1, 2, 3
+
+    for (int i = 0; i < filters.size(); ++i) {
+        auto *btn = new QPushButton(filters[i], bar);
+        btn->setCheckable(true);
+        btn->setCursor(Qt::PointingHandCursor);
+        btn->setStyleSheet(
+            "QPushButton { background: #F0F0F0; border: none; border-radius: 14px; "
+            "padding: 6px 16px; font-size: 12px; color: #666; }"
+            "QPushButton:checked { background: #2E7D32; color: white; }"
+        );
+        if (i == 0) btn->setChecked(true);  // 默认全部
+
+        int filterType = i - 1;  // -1=全部, 0=作业, 1=请假, ...
+        connect(btn, &QPushButton::clicked, this, [this, filterType, bar]() {
+            m_currentFilter = filterType;
+            // 取消其他按钮选中
+            for (auto *b : bar->findChildren<QPushButton*>()) {
+                b->setChecked(false);
+            }
+            qobject_cast<QPushButton*>(sender())->setChecked(true);
+            applyFilter();
+        });
+        layout->addWidget(btn);
+    }
+    layout->addStretch();
+    return bar;
+}
+
+void NotificationWidget::applyFilter()
+{
+    updateNotificationList(m_notifications);
+}
+
+void NotificationWidget::enterSelectMode()
+{
+    m_selectMode = true;
+    m_selectedIds.clear();
+    m_selectModeBtn->setText("取消");
+    m_batchActionBar->setVisible(true);
+    // 更新批量操作按钮文字
+    auto *batchReadBtn = m_batchActionBar->findChild<QPushButton*>("batchReadBtn");
+    if (batchReadBtn) {
+        batchReadBtn->setText("标记已读 (0)");
+    }
+    // 刷新列表以显示复选框
+    applyFilter();
+}
+
+void NotificationWidget::exitSelectMode()
+{
+    m_selectMode = false;
+    m_selectedIds.clear();
+    m_selectModeBtn->setText("选择");
+    m_batchActionBar->setVisible(false);
+    // 刷新列表以隐藏复选框
+    applyFilter();
 }

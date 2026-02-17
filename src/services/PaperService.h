@@ -9,6 +9,9 @@
 #include <QJsonArray>
 #include <QDateTime>
 
+class NetworkRetryHelper;
+class FailedTaskTracker;
+
 // 试卷数据结构
 struct Paper {
     QString id;
@@ -69,6 +72,10 @@ struct QuestionSearchCriteria {
     QString grade;
     QString chapter;
     QStringList knowledgePoints;
+
+    // 分页
+    int offset = 0;           // 分页偏移
+    int limit = 30;            // 每页数量
 };
 
 class PaperService : public QObject
@@ -120,6 +127,10 @@ signals:
 
     // 检索结果
     void searchCompleted(const QList<PaperQuestion> &results);
+    void searchCompletedWithTotal(const QList<PaperQuestion> &results, int total);
+
+    // 重试通知
+    void requestRetrying(int attempt, int maxRetries);
 
 private slots:
     void onReplyFinished(QNetworkReply *reply);
@@ -127,6 +138,8 @@ private slots:
 private:
     QNetworkAccessManager *m_networkManager;
     QString m_accessToken;
+    NetworkRetryHelper *m_retryHelper;
+    FailedTaskTracker *m_failedTaskTracker;
 
     // 请求类型标识
     enum class RequestType {

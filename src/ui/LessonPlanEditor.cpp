@@ -29,6 +29,8 @@
 #include <QPrinter>
 #include <QPrintDialog>
 #include <QTextDocument>
+#include <QDateTime>
+#include <QSettings>
 
 // 样式常量 - 思政红主题（专业版）
 namespace {
@@ -68,10 +70,20 @@ LessonPlanEditor::LessonPlanEditor(QWidget *parent)
     , m_markdownRenderer(nullptr)
     , m_isGenerating(false)
     , m_isModified(false)
+    , m_autoSaveTimer(nullptr)
 {
     initUI();
     connectSignals();
     loadCurriculum();
+
+    // 初始化自动保存定时器（30秒无操作后自动保存）
+    m_autoSaveTimer = new QTimer(this);
+    m_autoSaveTimer->setInterval(30000);  // 30秒
+    m_autoSaveTimer->setSingleShot(true);
+    connect(m_autoSaveTimer, &QTimer::timeout, this, &LessonPlanEditor::autoSave);
+
+    // 检查是否有未保存的草稿
+    QTimer::singleShot(500, this, &LessonPlanEditor::checkAndRestoreDraft);
 }
 
 LessonPlanEditor::~LessonPlanEditor()
@@ -394,6 +406,30 @@ void LessonPlanEditor::initToolbar()
     m_numberedListBtn->setCursor(Qt::PointingHandCursor);
     toolbarLayout->addWidget(m_numberedListBtn);
 
+    // 分隔符
+    QFrame *sep3 = new QFrame(this);
+    sep3->setFrameShape(QFrame::VLine);
+    sep3->setStyleSheet(QString("background-color: %1; margin: 4px 8px;").arg(BORDER_COLOR));
+    sep3->setFixedWidth(1);
+    sep3->setFixedHeight(24);
+    toolbarLayout->addWidget(sep3);
+
+    // 撤销按钮
+    m_undoBtn = new QPushButton(this);
+    m_undoBtn->setText("撤销");
+    m_undoBtn->setStyleSheet(textBtnStyle);
+    m_undoBtn->setToolTip("撤销 (Ctrl+Z)");
+    m_undoBtn->setCursor(Qt::PointingHandCursor);
+    toolbarLayout->addWidget(m_undoBtn);
+
+    // 重做按钮
+    m_redoBtn = new QPushButton(this);
+    m_redoBtn->setText("重做");
+    m_redoBtn->setStyleSheet(textBtnStyle);
+    m_redoBtn->setToolTip("重做 (Ctrl+Shift+Z)");
+    m_redoBtn->setCursor(Qt::PointingHandCursor);
+    toolbarLayout->addWidget(m_redoBtn);
+
     toolbarLayout->addStretch();
 
     // 添加到主布局
@@ -540,8 +576,19 @@ void LessonPlanEditor::connectSignals()
     connect(m_bulletListBtn, &QPushButton::clicked, this, &LessonPlanEditor::onBulletListClicked);
     connect(m_numberedListBtn, &QPushButton::clicked, this, &LessonPlanEditor::onNumberedListClicked);
 
+    // 撤销/重做按钮
+    connect(m_undoBtn, &QPushButton::clicked, m_editor, &QTextEdit::undo);
+    connect(m_redoBtn, &QPushButton::clicked, m_editor, &QTextEdit::redo);
+
     // 编辑器内容变化信号
     connect(m_editor, &QTextEdit::textChanged, this, &LessonPlanEditor::onTextChanged);
+
+    // 内容变化时重启自动保存倒计时
+    connect(m_editor, &QTextEdit::textChanged, this, [this]() {
+        if (m_autoSaveTimer && !m_isGenerating) {
+            m_autoSaveTimer->start();  // 重启30秒倒计时
+        }
+    });
 }
 
 void LessonPlanEditor::loadCurriculum()
@@ -897,6 +944,7 @@ void LessonPlanEditor::onSaveClicked()
     if (success) {
         m_isModified = false;
         m_statusLabel->setText("已保存：" + QFileInfo(filePath).fileName());
+        clearAutoSaveDraft();  // 保存成功后清除草稿
         emit saveRequested(lessonTitle, content);
 
         qDebug() << "[LessonPlanEditor] 教案已保存到：" << filePath;
@@ -1145,4 +1193,56 @@ void LessonPlanEditor::clear()
     m_isModified = false;
     m_statusLabel->setText("就绪");
     updateWordCount();
+}
+
+// ================== 自动保存 ==================
+
+void LessonPlanEditor::autoSave()
+{
+    if (!m_editor || m_editor->toPlainText().trimmed().isEmpty()) return;
+
+    QSettings settings;
+    QString lessonTitle = getCurrentLessonTitle();
+    QString key = QString("autoSave/lessonPlan/%1").arg(
+        lessonTitle.isEmpty() ? "untitled" : lessonTitle);
+    settings.setValue(key, m_editor->toHtml());
+    settings.setValue(key + "_time", QDateTime::currentDateTime());
+
+    m_statusLabel->setText("草稿已自动保存");
+    qDebug() << "[LessonPlanEditor] 自动保存草稿，课时:" << (lessonTitle.isEmpty() ? "untitled" : lessonTitle);
+}
+
+void LessonPlanEditor::checkAndRestoreDraft()
+{
+    QSettings settings;
+    // 检查未命名草稿
+    QString key = "autoSave/lessonPlan/untitled";
+    QString savedContent = settings.value(key).toString();
+    QDateTime savedTime = settings.value(key + "_time").toDateTime();
+
+    if (savedContent.isEmpty() || !savedTime.isValid()) return;
+
+    // 草稿存在，询问用户是否恢复
+    auto result = QMessageBox::question(this, "恢复草稿",
+        QString("发现 %1 的未保存草稿，是否恢复？")
+            .arg(savedTime.toString("yyyy-MM-dd HH:mm:ss")),
+        QMessageBox::Yes | QMessageBox::No);
+    if (result == QMessageBox::Yes) {
+        m_editor->setHtml(savedContent);
+        m_statusLabel->setText("已恢复草稿");
+        qDebug() << "[LessonPlanEditor] 已恢复自动保存草稿";
+    } else {
+        clearAutoSaveDraft();
+    }
+}
+
+void LessonPlanEditor::clearAutoSaveDraft()
+{
+    QSettings settings;
+    QString lessonTitle = getCurrentLessonTitle();
+    QString key = QString("autoSave/lessonPlan/%1").arg(
+        lessonTitle.isEmpty() ? "untitled" : lessonTitle);
+    settings.remove(key);
+    settings.remove(key + "_time");
+    qDebug() << "[LessonPlanEditor] 清除自动保存草稿";
 }

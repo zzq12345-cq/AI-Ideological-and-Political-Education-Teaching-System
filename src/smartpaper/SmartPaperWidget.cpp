@@ -2,6 +2,8 @@
 #include "../services/PaperService.h"
 #include "../questionbank/QuestionBasket.h"
 #include "../questionbank/PaperComposerDialog.h"
+#include "../notifications/NotificationService.h"
+#include "../notifications/models/Notification.h"
 
 #include <QScrollArea>
 #include <QScrollBar>
@@ -817,7 +819,22 @@ void SmartPaperWidget::onGenerationCompleted(const SmartPaperResult &result)
     setState(AssemblyState::Success);
     buildResultPreview();
 
-    // 自动滚动到结果区域 — 必须等布局完全计算好再滚
+    // 发送本地通知：智能组卷完成
+    for (auto *w : QApplication::topLevelWidgets()) {
+        auto *notifService = w->findChild<NotificationService*>();
+        if (notifService) {
+            notifService->createLocalNotification(
+                static_cast<int>(NotificationType::SystemAnnouncement),
+                "智能组卷完成",
+                QString("试卷「%1」已生成，共 %2 题，总分 %3 分")
+                    .arg(m_config.title)
+                    .arg(result.selectedQuestions.size())
+                    .arg(result.totalScore));
+            break;
+        }
+    }
+
+    // 自动滚动到结果区域 -- 必须等布局完全计算好再滚
     QTimer::singleShot(150, this, [this]() {
         if (m_scrollArea) {
             // 强制刷新布局，确保几何尺寸已计算

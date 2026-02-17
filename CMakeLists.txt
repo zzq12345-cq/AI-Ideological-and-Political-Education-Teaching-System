@@ -66,6 +66,10 @@ set(PROJECT_SOURCES
     src/utils/MarkdownRenderer.h
     src/utils/NetworkRequestFactory.cpp
     src/utils/NetworkRequestFactory.h
+    src/utils/NetworkRetryHelper.cpp
+    src/utils/NetworkRetryHelper.h
+    src/utils/FailedTaskTracker.cpp
+    src/utils/FailedTaskTracker.h
     src/ui/ChatHistoryWidget.cpp
     src/ui/ChatHistoryWidget.h
     src/ui/NetworkImageTextBrowser.cpp
@@ -213,6 +217,10 @@ set(SHARED_SERVICES
     src/auth/supabase/supabaseconfig.h
     src/utils/NetworkRequestFactory.cpp
     src/utils/NetworkRequestFactory.h
+    src/utils/NetworkRetryHelper.cpp
+    src/utils/NetworkRetryHelper.h
+    src/utils/FailedTaskTracker.cpp
+    src/utils/FailedTaskTracker.h
 )
 
 qt_add_executable(ImportTool

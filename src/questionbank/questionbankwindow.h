@@ -38,6 +38,7 @@ public:
 public slots:
     void loadQuestions(const QString &questionType = QString());  // 从 Supabase 加载题目，可选按题型筛选
     void onSearchClicked();  // 搜索按钮点击
+    void setSearchKeyword(const QString &keyword);  // 全局搜索入口
 
 signals:
     void backRequested();  // 请求返回主界面
@@ -49,6 +50,7 @@ protected:
 private slots:
     void onQuestionsReceived(const QList<PaperQuestion> &questions);
     void onQuestionsError(const QString &type, const QString &error);
+    void onSearchCompletedWithTotal(const QList<PaperQuestion> &results, int total);  // 带总数的搜索结果
     void onQuestionTypeChanged();  // 题型筛选变化
     void onAddToBasket(const PaperQuestion &question);  // 添加试题到篮子
     void onRemoveFromBasket(const QString &questionId);  // 从篮子移除试题
@@ -81,6 +83,7 @@ private:
     
     void clearQuestionCards();
     void displayQuestions(const QList<PaperQuestion> &questions);
+    void loadMoreQuestions();  // 无限滚动加载更多
     QString getSelectedQuestionType();  // 获取当前选中的题型
     MaterialEssayParsed parseMaterialEssay(const PaperQuestion &question);  // 智能解析材料论述题
 
@@ -117,6 +120,13 @@ private:
 
     int m_currentQuestion = 1;
     int m_totalQuestions = 0;
+
+    // 无限滚动分页
+    int m_currentPage = 0;
+    int m_pageSize = 30;
+    int m_totalServerCount = 0;
+    bool m_isLoadingMore = false;
+    QLabel *m_loadingMoreLabel = nullptr;
 
     // 试题篮相关
     QuestionBasketWidget *m_basketWidget = nullptr;

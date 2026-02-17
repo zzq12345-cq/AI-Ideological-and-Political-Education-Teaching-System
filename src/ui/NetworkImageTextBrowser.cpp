@@ -3,12 +3,21 @@
 #include <QImage>
 #include <QTextDocument>
 #include <QRegularExpression>
+#include <QStandardPaths>
 #include <QDebug>
 
 NetworkImageTextBrowser::NetworkImageTextBrowser(QWidget *parent)
     : QTextBrowser(parent)
     , m_networkManager(new QNetworkAccessManager(this))
 {
+    // 初始化 L2 磁盘缓存
+    m_diskCache = new QNetworkDiskCache(this);
+    QString cachePath = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+                        + "/image_cache";
+    m_diskCache->setCacheDirectory(cachePath);
+    m_diskCache->setMaximumCacheSize(50 * 1024 * 1024); // 50MB
+    m_networkManager->setCache(m_diskCache);
+
     connect(m_networkManager, &QNetworkAccessManager::finished,
             this, &NetworkImageTextBrowser::onImageDownloaded);
 }

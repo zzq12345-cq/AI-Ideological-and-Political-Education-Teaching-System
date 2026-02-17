@@ -29,6 +29,7 @@
 #include <QRegularExpression>
 #include <QResizeEvent>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QStyle>
 #include <QTextBrowser>
 #include <QVBoxLayout>
@@ -103,6 +104,8 @@ QuestionBankWindow::QuestionBankWindow(QWidget *parent)
             this, &QuestionBankWindow::onQuestionsReceived);
     connect(m_paperService, &PaperService::questionError,
             this, &QuestionBankWindow::onQuestionsError);
+    connect(m_paperService, &PaperService::searchCompletedWithTotal,
+            this, &QuestionBankWindow::onSearchCompletedWithTotal);
 
     setupLayout();
     loadStyleSheet();
@@ -516,6 +519,17 @@ QWidget *QuestionBankWindow::buildContentArea()
     m_questionListLayout->addStretch(1);
 
     m_questionScrollArea->setWidget(scrollWidget);
+
+    // 监听滚动事件实现无限加载
+    connect(m_questionScrollArea->verticalScrollBar(), &QScrollBar::valueChanged,
+            this, [this](int value) {
+                auto *bar = m_questionScrollArea->verticalScrollBar();
+                if (!m_isLoadingMore && bar->maximum() > 0 &&
+                    value > bar->maximum() * 0.8) {
+                    loadMoreQuestions();
+                }
+            });
+
     return m_questionScrollArea;
 }
 
@@ -850,6 +864,11 @@ void QuestionBankWindow::loadQuestions(const QString &questionType)
         return;
     }
 
+    // 重置分页状态
+    m_currentPage = 0;
+    m_totalServerCount = 0;
+    m_isLoadingMore = false;
+
     if (m_statusLabel) {
         m_statusLabel->setText("正在加载题目...");
         m_statusLabel->show();
@@ -883,6 +902,10 @@ void QuestionBankWindow::loadQuestions(const QString &questionType)
         qDebug() << "[QuestionBankWindow] Filtering by question type:" << typeToSearch << "->" << mappedType;
     }
 
+    // 设置分页参数
+    criteria.offset = 0;
+    criteria.limit = m_pageSize;
+
     qDebug() << "[QuestionBankWindow] Loading questions with criteria...";
     m_paperService->searchQuestions(criteria);
 }
@@ -894,23 +917,131 @@ void QuestionBankWindow::onSearchClicked()
 
 void QuestionBankWindow::onQuestionsReceived(const QList<PaperQuestion> &questions)
 {
-    qDebug() << "[QuestionBankWindow] Received" << questions.size() << "questions";
-    
-    m_questions = questions;
-    m_totalQuestions = questions.size();
-    m_currentQuestion = 1;
-    
-    displayQuestions(questions);
+    qDebug() << "[QuestionBankWindow] Received" << questions.size() << "questions, page:" << m_currentPage;
+
+    if (m_currentPage == 0) {
+        // 首次加载，替换
+        m_questions = questions;
+        m_totalQuestions = questions.size();
+        m_currentQuestion = 1;
+        displayQuestions(questions);
+    } else {
+        // 追加加载
+        m_questions.append(questions);
+        m_totalQuestions = m_questions.size();
+
+        // 追加新卡片到布局（在 stretch 之前插入）
+        int insertIdx = m_questionListLayout->count() - 1;  // stretch 之前
+        if (m_loadingMoreLabel) {
+            m_loadingMoreLabel->hide();
+            m_questionListLayout->removeWidget(m_loadingMoreLabel);
+        }
+
+        int startIndex = m_totalQuestions - questions.size() + 1;
+        for (int i = 0; i < questions.size(); ++i) {
+            QWidget *card = createQuestionCard(questions[i], startIndex + i);
+            m_questionListLayout->insertWidget(insertIdx + i, card);
+        }
+    }
 }
 
 void QuestionBankWindow::onQuestionsError(const QString &type, const QString &error)
 {
     qWarning() << "[QuestionBankWindow] Error loading questions:" << type << error;
-    
+
     if (m_statusLabel) {
         m_statusLabel->setText(QString("加载失败: %1").arg(error));
         m_statusLabel->show();
     }
+
+    // 重置加载状态
+    m_isLoadingMore = false;
+    if (m_loadingMoreLabel) {
+        m_loadingMoreLabel->hide();
+    }
+}
+
+void QuestionBankWindow::onSearchCompletedWithTotal(const QList<PaperQuestion> &results, int total)
+{
+    Q_UNUSED(results);
+    m_totalServerCount = total;
+    m_isLoadingMore = false;
+
+    // 隐藏加载指示器
+    if (m_loadingMoreLabel) {
+        m_loadingMoreLabel->hide();
+    }
+}
+
+void QuestionBankWindow::loadMoreQuestions()
+{
+    if (m_isLoadingMore) return;
+
+    int loadedCount = m_questions.size();
+    if (loadedCount >= m_totalServerCount && m_totalServerCount > 0) {
+        return;  // 已加载全部
+    }
+
+    m_isLoadingMore = true;
+    m_currentPage++;
+
+    // 显示加载指示
+    if (!m_loadingMoreLabel) {
+        m_loadingMoreLabel = new QLabel("加载更多...", this);
+        m_loadingMoreLabel->setAlignment(Qt::AlignCenter);
+        m_loadingMoreLabel->setStyleSheet("QLabel { color: #9E9E9E; padding: 20px; font-size: 13px; }");
+    }
+    // 插入到 stretch 之前
+    int stretchIdx = m_questionListLayout->count() - 1;
+    m_questionListLayout->insertWidget(stretchIdx, m_loadingMoreLabel);
+    m_loadingMoreLabel->show();
+
+    // 构建与上次相同的筛选条件
+    QuestionSearchCriteria criteria;
+    criteria.visibility = "public";
+
+    QString typeToSearch = getSelectedQuestionType();
+    if (!typeToSearch.isEmpty() && typeToSearch != "不限") {
+        static const QMap<QString, QString> typeMapping = {
+            {"选择题", "single_choice"},
+            {"填空题", "fill_blank"},
+            {"判断说理题", "true_false"},
+            {"判断题", "true_false"},
+            {"材料论述题", "material_essay"},
+            {"简答题", "short_answer"},
+            {"论述题", "short_answer"},
+            {"材料分析题", "material_essay"}
+        };
+        criteria.questionType = typeMapping.value(typeToSearch, typeToSearch);
+    }
+
+    criteria.offset = m_currentPage * m_pageSize;
+    criteria.limit = m_pageSize;
+
+    qDebug() << "[QuestionBankWindow] Loading more questions, page:" << m_currentPage
+             << "offset:" << criteria.offset;
+    m_paperService->searchQuestions(criteria);
+}
+
+void QuestionBankWindow::setSearchKeyword(const QString &keyword)
+{
+    // 重置分页并用关键词搜索
+    QuestionSearchCriteria criteria;
+    criteria.visibility = "public";
+    criteria.keyword = keyword;
+    criteria.offset = 0;
+    criteria.limit = m_pageSize;
+
+    m_currentPage = 0;
+    m_totalServerCount = 0;
+    m_isLoadingMore = false;
+
+    if (m_statusLabel) {
+        m_statusLabel->setText("正在搜索...");
+        m_statusLabel->show();
+    }
+
+    m_paperService->searchQuestions(criteria);
 }
 
 void QuestionBankWindow::clearQuestionCards()
@@ -1355,13 +1486,80 @@ QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, i
             optionsLayout->setContentsMargins(0, 8, 0, 0);
             optionsLayout->setSpacing(4);
 
+            // 检测组合选择题：每个选项包含重复的编号子项描述 + 组合行
+            // 例如 "①内容A\n②内容B\n③内容C\n④内容D\nA. ①②③"
+            // 需要：把编号描述提出来显示一次，选项只保留组合行
+            static QRegularExpression circledStart(
+                QStringLiteral("^[①②③④⑤⑥⑦⑧⑨⑩]"));
+            bool isCombinationQ = false;
+            QStringList descriptionLines;   // 编号子项描述（只取一份）
+            QStringList cleanedOptions;     // 清洗后的选项文本
+
+            // 检查第一个选项是否为多行且首行以圆圈数字开头
+            if (question.options.first().contains('\n')) {
+                QStringList firstLines = question.options.first().split('\n', Qt::SkipEmptyParts);
+                if (firstLines.size() > 1
+                    && circledStart.match(firstLines.first().trimmed()).hasMatch()) {
+                    isCombinationQ = true;
+                    // 从第一个选项提取编号描述行
+                    for (const QString &line : firstLines) {
+                        QString trimmed = line.trimmed();
+                        if (circledStart.match(trimmed).hasMatch()) {
+                            descriptionLines.append(trimmed);
+                        }
+                    }
+                }
+            }
+
+            if (isCombinationQ) {
+                // 提取每个选项的组合行（最后一个非编号行）
+                for (const QString &opt : question.options) {
+                    QStringList lines = opt.split('\n', Qt::SkipEmptyParts);
+                    QString combo = lines.last().trimmed(); // 默认取最后一行
+                    for (int j = lines.size() - 1; j >= 0; --j) {
+                        QString trimmed = lines[j].trimmed();
+                        if (!trimmed.isEmpty()
+                            && !circledStart.match(trimmed).hasMatch()) {
+                            combo = trimmed;
+                            break;
+                        }
+                    }
+                    cleanedOptions.append(combo);
+                }
+
+                // 在选项面板上方先显示编号描述（只显示一次）
+                if (!descriptionLines.isEmpty()) {
+                    auto *descLabel = new QLabel(
+                        descriptionLines.join("\n"), optionsPanel);
+                    descLabel->setObjectName("comboDescriptions");
+                    descLabel->setWordWrap(true);
+                    descLabel->setTextFormat(Qt::PlainText);
+                    descLabel->setStyleSheet(
+                        "QLabel#comboDescriptions {"
+                        "  color: #555;"
+                        "  font-size: 13px;"
+                        "  line-height: 1.6;"
+                        "  padding: 8px 12px;"
+                        "  background: #F5F5F5;"
+                        "  border-radius: 6px;"
+                        "  margin-bottom: 4px;"
+                        "}"
+                    );
+                    optionsLayout->addWidget(descLabel);
+                }
+            } else {
+                // 普通选择题：选项原样使用
+                for (const QString &opt : question.options) {
+                    cleanedOptions.append(opt);
+                }
+            }
+
             QStringList optionKeys = {"A", "B", "C", "D", "E", "F"};
-            for (int i = 0; i < question.options.size() && i < optionKeys.size(); ++i) {
-                QString optionText = question.options[i];
+            for (int i = 0; i < cleanedOptions.size() && i < optionKeys.size(); ++i) {
+                QString optionText = cleanedOptions[i];
                 // 检测选项是否已包含字母前缀（如 "A." "A、" "A:" "A " 等）
                 static QRegularExpression prefixPattern("^[A-Fa-f][.、:：\\s]");
                 if (!prefixPattern.match(optionText).hasMatch()) {
-                    // 没有前缀，添加一个
                     optionText = QString("%1. %2").arg(optionKeys[i]).arg(optionText);
                 }
                 auto *optionLabel = new QLabel(optionText, optionsPanel);
