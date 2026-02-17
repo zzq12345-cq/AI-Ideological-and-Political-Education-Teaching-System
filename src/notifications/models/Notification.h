@@ -40,6 +40,7 @@ public:
     QString receiverId() const { return m_receiverId; }
     QDateTime createdAt() const { return m_createdAt; }
     bool isRead() const { return m_isRead; }
+    bool isLocal() const { return m_isLocal; }
 
     // Setters
     void setId(const QString &id) { m_id = id; }
@@ -50,6 +51,7 @@ public:
     void setReceiverId(const QString &receiverId) { m_receiverId = receiverId; }
     void setCreatedAt(const QDateTime &createdAt) { m_createdAt = createdAt; }
     void setIsRead(bool isRead) { m_isRead = isRead; }
+    void setIsLocal(bool isLocal) { m_isLocal = isLocal; }
 
     // 辅助方法
     static QString typeToString(NotificationType type);
@@ -65,6 +67,7 @@ private:
     QString m_receiverId;
     QDateTime m_createdAt;
     bool m_isRead = false;
+    bool m_isLocal = false;  // 本地通知标记（不涉及后端，刷新消失）
 };
 
 #endif // NOTIFICATION_H

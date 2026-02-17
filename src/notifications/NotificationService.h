@@ -24,7 +24,11 @@ public:
     void fetchUnreadCount();
     void markAsRead(const QString &notificationId);
     void markAllAsRead();
+    void markBatchAsRead(const QStringList &notificationIds);
     void deleteNotification(const QString &notificationId);
+
+    // 本地通知（不涉及后端，刷新消失）
+    void createLocalNotification(int type, const QString &title, const QString &content);
 
     // 设置当前用户ID
     void setCurrentUserId(const QString &userId);
@@ -38,6 +42,8 @@ signals:
     void notificationsReceived(const QList<Notification> &notifications);
     void unreadCountChanged(int count);
     void notificationMarkedRead(const QString &id);
+    void batchMarkedAsRead(const QStringList &ids);
+    void localNotificationCreated();
     void errorOccurred(const QString &error);
     void loadingStateChanged(bool isLoading);
 

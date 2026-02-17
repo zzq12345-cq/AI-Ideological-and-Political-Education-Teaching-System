@@ -10,6 +10,8 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QString>
+#include <QTimer>
+#include <QSettings>
 
 class DifyService;
 class MarkdownRenderer;
@@ -115,6 +117,8 @@ private:
     QPushButton *m_heading3Btn;
     QPushButton *m_bulletListBtn;
     QPushButton *m_numberedListBtn;
+    QPushButton *m_undoBtn;
+    QPushButton *m_redoBtn;
 
     // UI组件 - 编辑区
     QTextEdit *m_editor;
@@ -132,6 +136,12 @@ private:
     bool m_isModified;
     QString m_accumulatedMarkdown;  // AI生成时累积的Markdown内容
     QString m_currentConversationId;
+
+    // 自动保存
+    QTimer *m_autoSaveTimer;
+    void autoSave();
+    void checkAndRestoreDraft();
+    void clearAutoSaveDraft();
 };
 
 #endif // LESSONPLANEDITOR_H

@@ -6,6 +6,7 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QScrollArea>
+#include <QCheckBox>
 #include "../models/Notification.h"
 
 class NotificationService;
@@ -47,6 +48,10 @@ private:
     void setupConnections();
     QWidget *createNotificationItem(const Notification &notification);
     void updateNotificationList(const QList<Notification> &notifications);
+    QWidget *buildFilterBar();
+    void applyFilter();
+    void enterSelectMode();
+    void exitSelectMode();
     QString getTypeIconPath(NotificationType type) const;
     QString getTypeColor(NotificationType type) const;
     QString formatTime(const QDateTime &dateTime) const;
@@ -65,6 +70,14 @@ private:
 
     // 缓存的通知列表
     QList<Notification> m_notifications;
+
+    // 筛选与批量选择
+    int m_currentFilter = -1;  // -1 表示全部
+    bool m_selectMode = false;
+    QList<QString> m_selectedIds;
+    QWidget *m_filterBar = nullptr;
+    QWidget *m_batchActionBar = nullptr;
+    QPushButton *m_selectModeBtn = nullptr;
 
 protected:
     void showEvent(QShowEvent *event) override;

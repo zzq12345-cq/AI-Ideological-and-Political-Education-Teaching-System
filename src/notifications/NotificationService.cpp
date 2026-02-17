@@ -3,6 +3,7 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QDebug>
+#include <QUuid>
 
 NotificationService::NotificationService(QObject *parent)
     : QObject(parent)
@@ -283,4 +284,34 @@ void NotificationService::onNetworkError(QNetworkReply::NetworkError error)
     }
     m_isLoading = false;
     emit loadingStateChanged(false);
+}
+
+void NotificationService::markBatchAsRead(const QStringList &notificationIds)
+{
+    for (const QString &id : notificationIds) {
+        markAsRead(id);
+    }
+    qDebug() << "[NotificationService] 批量标记已读，共" << notificationIds.size() << "条";
+    emit batchMarkedAsRead(notificationIds);
+}
+
+void NotificationService::createLocalNotification(int type, const QString &title, const QString &content)
+{
+    Notification notification;
+    notification.setId(QUuid::createUuid().toString(QUuid::WithoutBraces));
+    notification.setType(static_cast<NotificationType>(type));
+    notification.setTitle(title);
+    notification.setContent(content);
+    notification.setCreatedAt(QDateTime::currentDateTime());
+    notification.setIsRead(false);
+    notification.setIsLocal(true);
+
+    // 插入到列表头部
+    m_notifications.prepend(notification);
+    m_unreadCount++;
+
+    qDebug() << "[NotificationService] 创建本地通知:" << title;
+    emit localNotificationCreated();
+    emit notificationsReceived(m_notifications);
+    emit unreadCountChanged(m_unreadCount);
 }

@@ -3,6 +3,7 @@
 
 #include <QTextBrowser>
 #include <QNetworkAccessManager>
+#include <QNetworkDiskCache>
 #include <QNetworkReply>
 #include <QMap>
 #include <QUrl>
@@ -31,7 +32,8 @@ private:
     void downloadImage(const QUrl &url);
 
     QNetworkAccessManager *m_networkManager;
-    QMap<QUrl, QByteArray> m_imageCache;
+    QNetworkDiskCache *m_diskCache = nullptr;   // L2 磁盘缓存
+    QMap<QUrl, QByteArray> m_imageCache;         // L1 内存缓存
     QSet<QUrl> m_pendingDownloads;
 };
 

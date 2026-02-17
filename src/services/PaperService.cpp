@@ -1,6 +1,8 @@
 #include "PaperService.h"
 #include "../auth/supabase/supabaseconfig.h"
 #include "../utils/NetworkRequestFactory.h"
+#include "../utils/NetworkRetryHelper.h"
+#include "../utils/FailedTaskTracker.h"
 #include <QNetworkRequest>
 #include <QUrlQuery>
 #include <QDebug>
@@ -180,9 +182,15 @@ QJsonObject PaperQuestion::toJson() const
 PaperService::PaperService(QObject *parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
+    , m_retryHelper(new NetworkRetryHelper(m_networkManager, {}, this))
+    , m_failedTaskTracker(new FailedTaskTracker(this))
 {
     connect(m_networkManager, &QNetworkAccessManager::finished,
             this, &PaperService::onReplyFinished);
+
+    // 重试通知转发
+    connect(m_retryHelper, &NetworkRetryHelper::retrying,
+            this, &PaperService::requestRetrying);
 }
 
 PaperService::~PaperService()
@@ -325,7 +333,25 @@ void PaperService::searchQuestions(const QuestionSearchCriteria &criteria)
     }
 
     endpoint += filters.join("&");
-    sendRequest(endpoint, RequestType::SearchQuestions, QJsonDocument(), "GET");
+
+    // 添加排序
+    if (!endpoint.contains("order=")) {
+        endpoint += "&order=created_at.desc";
+    }
+
+    // 分页: 使用 Supabase Range 请求头
+    QNetworkRequest request = NetworkRequestFactory::createSupabaseRequest(endpoint, m_accessToken);
+    int rangeEnd = criteria.offset + criteria.limit - 1;
+    request.setRawHeader("Range", QString("%1-%2").arg(criteria.offset).arg(rangeEnd).toUtf8());
+    request.setRawHeader("Prefer", "count=exact");  // 请求总数
+
+    qDebug() << "PaperService 分页搜索:" << (SupabaseConfig::SUPABASE_URL + endpoint)
+             << "Range:" << criteria.offset << "-" << rangeEnd;
+
+    QNetworkReply *reply = m_networkManager->get(request);
+    if (reply) {
+        reply->setProperty("requestType", static_cast<int>(RequestType::SearchQuestions));
+    }
 }
 
 // ===== 私有方法 =====
@@ -336,17 +362,36 @@ void PaperService::sendRequest(const QString &endpoint, RequestType type,
 
     QNetworkRequest request = NetworkRequestFactory::createSupabaseRequest(endpoint, m_accessToken);
 
-    QNetworkReply *reply = nullptr;
-    if (method == "GET") {
-        reply = m_networkManager->get(request);
-    } else if (method == "POST") {
-        reply = m_networkManager->post(request, data.toJson());
-    } else if (method == "PATCH") {
-        reply = m_networkManager->sendCustomRequest(request, "PATCH", data.toJson());
-    } else if (method == "DELETE") {
-        reply = m_networkManager->sendCustomRequest(request, "DELETE");
+    // 写操作使用重试机制
+    bool isWriteOp = (method == "POST" || method == "PATCH" || method == "DELETE");
+    if (isWriteOp) {
+        // 通过 retryHelper 发送，最终 finished 信号回到此类处理
+        auto *retryHelper = new NetworkRetryHelper(m_networkManager, {}, this);
+        connect(retryHelper, &NetworkRetryHelper::retrying,
+                this, &PaperService::requestRetrying);
+        connect(retryHelper, &NetworkRetryHelper::finished, this, [this, type, retryHelper, endpoint, method, data](QNetworkReply *reply) {
+            reply->setProperty("requestType", static_cast<int>(type));
+
+            // 如果重试后仍失败，记录到 FailedTaskTracker
+            if (reply->error() != QNetworkReply::NoError) {
+                FailedTaskTracker::FailedTask failedTask;
+                failedTask.operation = QString::number(static_cast<int>(type));
+                failedTask.endpoint = endpoint;
+                failedTask.method = method;
+                failedTask.data = data.toJson();
+                failedTask.errorMessage = reply->errorString();
+                m_failedTaskTracker->trackFailure(failedTask);
+            }
+
+            onReplyFinished(reply);
+            retryHelper->deleteLater();
+        });
+        retryHelper->sendRequest(request, data.toJson(), method);
+        return;
     }
 
+    // GET 请求直接发送，不重试
+    QNetworkReply *reply = m_networkManager->get(request);
     if (reply) {
         reply->setProperty("requestType", static_cast<int>(type));
     }
@@ -466,7 +511,20 @@ void PaperService::handleResponse(QNetworkReply *reply, RequestType type)
         if (type == RequestType::GetQuestionsByPaper) {
             emit questionsLoaded(questions);
         } else {
+            // 解析 Content-Range 获取总数: "0-29/150"
+            int total = questions.size();
+            QString contentRange = reply->rawHeader("Content-Range");
+            if (!contentRange.isEmpty()) {
+                // 格式: "offset-end/total"
+                int slashIdx = contentRange.indexOf('/');
+                if (slashIdx >= 0) {
+                    bool ok = false;
+                    int parsedTotal = contentRange.mid(slashIdx + 1).toInt(&ok);
+                    if (ok) total = parsedTotal;
+                }
+            }
             emit searchCompleted(questions);
+            emit searchCompletedWithTotal(questions, total);
         }
         break;
     }

@@ -1494,6 +1494,65 @@ void ModernMainWindow::createHeaderWidget()
     // Ctrl+K 快捷键
     auto ctrlKShortcut = new QShortcut(QKeySequence("Ctrl+K"), this);
     connect(ctrlKShortcut, &QShortcut::activated, this, [this](){ this->searchInput->setFocus(); this->searchInput->selectAll(); });
+
+    // 全局搜索：按回车时根据当前页面执行搜索
+    connect(searchInput, &QLineEdit::returnPressed, this, [this]() {
+        QString keyword = searchInput->text().trimmed();
+        if (keyword.isEmpty()) return;
+
+        // 判断当前激活的页面
+        QWidget *currentPage = contentStack ? contentStack->currentWidget() : nullptr;
+        if (currentPage == questionBankWindow && questionBankWindow) {
+            // 试题库页面：调用关键词搜索
+            questionBankWindow->setSearchKeyword(keyword);
+            qDebug() << "[ModernMainWindow] 全局搜索 -> 试题库，关键词:" << keyword;
+        } else {
+            // 其他页面：暂时只打印日志
+            qDebug() << "[ModernMainWindow] 全局搜索 -> 当前页面暂不支持搜索，关键词:" << keyword;
+            this->statusBar()->showMessage(QString("搜索: %1（当前页面暂不支持搜索）").arg(keyword), 3000);
+        }
+    });
+
+    // Ctrl+1~6 切换侧边栏页面
+    // 按钮和对应点击槽函数的映射
+    struct PageMapping {
+        QString shortcutKey;
+        std::function<void()> action;
+    };
+    QVector<PageMapping> pageMappings = {
+        {"Ctrl+1", [this]() { onTeacherCenterClicked(); }},
+        {"Ctrl+2", [this]() { onNewsTrackingClicked(); }},
+        {"Ctrl+3", [this]() { onAIPreparationClicked(); }},
+        {"Ctrl+4", [this]() { onResourceManagementClicked(); }},
+        {"Ctrl+5", [this]() { onAttendanceClicked(); }},
+        {"Ctrl+6", [this]() { onLearningAnalysisClicked(); }},
+    };
+    for (const auto &mapping : pageMappings) {
+        auto *shortcut = new QShortcut(QKeySequence(mapping.shortcutKey), this);
+        auto action = mapping.action;
+        connect(shortcut, &QShortcut::activated, this, action);
+    }
+
+    // Ctrl+N 新建对话
+    auto *newChatShortcut = new QShortcut(QKeySequence("Ctrl+N"), this);
+    connect(newChatShortcut, &QShortcut::activated, this, [this]() {
+        // 复用 ChatHistoryWidget 的新建对话逻辑
+        if (m_chatHistoryWidget) {
+            emit m_chatHistoryWidget->newChatRequested();
+        }
+        // 确保切换到AI对话页面
+        onAIPreparationClicked();
+        qDebug() << "[ModernMainWindow] 快捷键 Ctrl+N - 新建对话";
+    });
+
+    // Escape 清空搜索框并取消焦点
+    auto *escShortcut = new QShortcut(QKeySequence("Escape"), this);
+    connect(escShortcut, &QShortcut::activated, this, [this]() {
+        if (searchInput->hasFocus()) {
+            searchInput->clear();
+            searchInput->clearFocus();
+        }
+    });
 }
 
 

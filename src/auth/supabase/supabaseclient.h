@@ -14,6 +14,8 @@
 #include <QSslError>
 #include <QSslSocket>
 
+class NetworkRetryHelper;
+
 class SupabaseClient : public QObject
 {
     Q_OBJECT
@@ -52,6 +54,7 @@ private slots:
 
 private:
     QNetworkAccessManager *m_networkManager;
+    NetworkRetryHelper *m_retryHelper;
 
     // 发送请求的通用方法
     void sendRequest(const QString &endpoint, const QJsonObject &data, bool isPost = true);

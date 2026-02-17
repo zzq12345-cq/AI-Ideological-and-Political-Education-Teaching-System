@@ -1,6 +1,9 @@
 #include "QualityCheckDialog.h"
 #include "../services/QuestionQualityService.h"
 #include "../services/PaperService.h"
+#include "../notifications/NotificationService.h"
+#include "../notifications/models/Notification.h"
+#include <QApplication>
 #include <QGraphicsDropShadowEffect>
 #include <QStackedWidget>
 #include <QScrollArea>
@@ -253,6 +256,25 @@ void QualityCheckDialog::onScanCompleted(const QList<QPair<QString,QString>> &du
     }
 
     m_resultListLayout->addStretch();
+
+    // 发送本地通知：质量检查完成
+    for (auto *w : QApplication::topLevelWidgets()) {
+        auto *notifService = w->findChild<NotificationService*>();
+        if (notifService) {
+            QString notifContent;
+            if (duplicatePairs.isEmpty()) {
+                notifContent = "题库质量检查完成，未发现疑似重复题目，质量良好";
+            } else {
+                notifContent = QString("题库质量检查完成，发现 %1 对疑似重复题目，请及时处理")
+                                   .arg(duplicatePairs.size());
+            }
+            notifService->createLocalNotification(
+                static_cast<int>(NotificationType::SystemAnnouncement),
+                "题库质量检查完成",
+                notifContent);
+            break;
+        }
+    }
 }
 
 void QualityCheckDialog::onScanError(const QString &error)

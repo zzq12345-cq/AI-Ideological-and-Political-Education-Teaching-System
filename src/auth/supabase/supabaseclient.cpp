@@ -1,6 +1,7 @@
 #include "supabaseclient.h"
 #include "supabaseconfig.h"
 #include "../../utils/NetworkRequestFactory.h"
+#include "../../utils/NetworkRetryHelper.h"
 #include <QDebug>
 #include <QUrl>
 #include <QUrlQuery>
@@ -8,6 +9,9 @@
 SupabaseClient::SupabaseClient(QObject *parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
+    , m_retryHelper(new NetworkRetryHelper(m_networkManager,
+                                            {2, 1000, 2.0, {500, 502, 503, 504, 408}},
+                                            this))
 {
     qDebug() << "Supabase客户端初始化...";
     qDebug() << "SSL支持:" << QSslSocket::supportsSsl();
@@ -66,40 +70,27 @@ void SupabaseClient::sendRequest(const QString &endpoint, const QJsonObject &dat
     const QUrl endpointUrl(endpoint);
     qDebug() << "发送请求到:" << endpointUrl.path();
 
-    QNetworkRequest request;
-    request.setUrl(QUrl(endpoint));
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    request.setRawHeader("apikey", SupabaseConfig::SUPABASE_ANON_KEY.toUtf8());
+    // 使用工厂创建认证请求
+    QNetworkRequest request = NetworkRequestFactory::createAuthRequest(QUrl(endpoint));
 
     QJsonDocument doc(data);
     QByteArray postData = doc.toJson();
 
-    QNetworkReply *reply = nullptr;
-    if (isPost) {
-        reply = m_networkManager->post(request, postData);
-    } else {
-        reply = m_networkManager->get(request);
-    }
+    // 通过重试器发送（认证请求最多重试2次）
+    auto *retryHelper = new NetworkRetryHelper(m_networkManager,
+                                                {2, 1000, 2.0, {500, 502, 503, 504, 408}},
+                                                this);
+    QString method = isPost ? "POST" : "GET";
+    connect(retryHelper, &NetworkRetryHelper::finished, this, [this, retryHelper](QNetworkReply *reply) {
+        onReplyFinished(reply);
+        retryHelper->deleteLater();
+    });
+    connect(retryHelper, &NetworkRetryHelper::retrying, this, [](int attempt, int max) {
+        qDebug() << QString("认证请求重试 %1/%2").arg(attempt).arg(max);
+    });
 
-    if (reply) {
-        connect(reply, &QNetworkReply::finished, this, [this, reply]() {
-            onReplyFinished(reply);
-        });
-        connect(reply, &QNetworkReply::errorOccurred, this, &SupabaseClient::onNetworkError);
-        connect(reply, &QNetworkReply::sslErrors, this, &SupabaseClient::onSslErrors);
-        qDebug() << "请求已发送，等待响应...";
-    } else {
-        qDebug() << "错误：无法创建网络请求";
-        if (endpoint.contains("/auth/v1/token")) {
-            emit loginFailed("无法创建网络请求");
-        } else if (endpoint.contains("/auth/v1/signup")) {
-            emit signupFailed("无法创建网络请求");
-        } else if (endpoint.contains("/rest/v1/" + SupabaseConfig::USERS_TABLE)) {
-            emit userCheckFailed("无法创建网络请求");
-        } else {
-            emit loginFailed("无法创建网络请求");
-        }
-    }
+    retryHelper->sendRequest(request, isPost ? postData : QByteArray(), method);
+    qDebug() << "请求已发送（带重试），等待响应...";
 }
 
 void SupabaseClient::sendGetRequest(const QString &endpoint)
