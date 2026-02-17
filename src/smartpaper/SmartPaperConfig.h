@@ -62,6 +62,17 @@ struct SmartPaperConfig {
 };
 
 /**
+ * @brief 单题选择理由 - 记录每道题被选中的原因
+ */
+struct QuestionSelectionReason {
+    QString questionId;
+    int coverageScore = 0;        // 知识点/章节覆盖得分
+    int difficultyMatchScore = 0; // 难度匹配得分
+    int diversityScore = 0;       // 多样性得分（随机扰动）
+    QString summary;              // 一句话理由
+};
+
+/**
  * @brief 智能组卷结果 - 算法输出
  */
 struct SmartPaperResult {
@@ -74,6 +85,11 @@ struct SmartPaperResult {
     QStringList coveredChapters;          // 已覆盖章节
     QStringList warnings;                 // 警告信息（题量不足等）
     bool success = false;
+
+    // 组卷解释
+    QList<QuestionSelectionReason> selectionReasons;  // 逐题选择理由
+    QStringList coveredKnowledgePoints;               // 已覆盖知识点列表
+    double knowledgePointCoverage = 0.0;              // 知识点覆盖率 (0.0~1.0)
 };
 
 #endif // SMARTPAPERCONFIG_H

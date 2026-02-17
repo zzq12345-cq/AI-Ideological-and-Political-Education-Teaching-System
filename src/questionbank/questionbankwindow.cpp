@@ -2,9 +2,12 @@
 #include "PaperComposerDialog.h"
 #include "QuestionBasket.h"
 #include "QuestionBasketWidget.h"
+#include "QualityCheckDialog.h"
 #include "../ui/moderncheckbox.h"
 #include "../shared/StyleConfig.h"
 #include "../smartpaper/SmartPaperWidget.h"
+#include "../services/QuestionQualityService.h"
+#include "../services/DifyService.h"
 
 #include <QAbstractButton>
 #include <QButtonGroup>
@@ -324,9 +327,31 @@ QWidget *QuestionBankWindow::buildHeader()
     connect(m_browseTabBtn, &QPushButton::clicked, this, [this]() { switchMode(0); });
     connect(m_smartPaperTabBtn, &QPushButton::clicked, this, [this]() { switchMode(1); });
 
+    // 质量检查按钮（独立风格，不在分段控制中）
+    auto *qualityCheckBtn = new QPushButton("质量检查");
+    qualityCheckBtn->setCursor(Qt::PointingHandCursor);
+    qualityCheckBtn->setStyleSheet(
+        "QPushButton { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.85); "
+        "border: 1px solid rgba(255,255,255,0.25); padding: 8px 16px; font-size: 12px; "
+        "font-weight: 500; border-radius: 16px; margin-left: 12px; }"
+        "QPushButton:hover { background: rgba(255,255,255,0.25); }"
+    );
+    connect(qualityCheckBtn, &QPushButton::clicked, this, [this]() {
+        // 创建独立的 DifyService 实例用于质量检查
+        auto *difyService = new DifyService(this);
+        difyService->setApiKey(qEnvironmentVariable("DIFY_API_KEY"));
+        auto *qualityService = new QuestionQualityService(m_paperService, difyService, this);
+        QualityCheckDialog dialog(qualityService, m_paperService, this);
+        dialog.exec();
+        // 对话框关闭后清理
+        qualityService->deleteLater();
+        difyService->deleteLater();
+    });
+
     tabRow->addStretch();
     tabRow->addWidget(m_browseTabBtn);
     tabRow->addWidget(m_smartPaperTabBtn);
+    tabRow->addWidget(qualityCheckBtn);
     rightLayout->addLayout(tabRow);
 
     // 搜索框

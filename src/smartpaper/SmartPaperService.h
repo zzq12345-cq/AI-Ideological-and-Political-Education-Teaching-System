@@ -55,10 +55,11 @@ private:
     // 贪心选题算法
     void runGreedySelection();
 
-    // 对候选题打分
+    // 对候选题打分（同时生成选题理由）
     int scoreCandidate(const PaperQuestion &question,
                        const QSet<QString> &coveredChapters,
-                       const QSet<QString> &coveredKnowledgePoints) const;
+                       const QSet<QString> &coveredKnowledgePoints,
+                       QuestionSelectionReason *outReason = nullptr) const;
 
     // 构建统计信息
     void buildStatistics();

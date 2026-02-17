@@ -36,6 +36,8 @@ set(PROJECT_SOURCES
     src/questionbank/QuestionBasketWidget.h
     src/questionbank/PaperComposerDialog.cpp
     src/questionbank/PaperComposerDialog.h
+    src/questionbank/QualityCheckDialog.cpp
+    src/questionbank/QualityCheckDialog.h
     src/ui/aipreparationwidget.cpp
     src/ui/aipreparationwidget.h
     src/ui/moderncheckbox.cpp
@@ -50,6 +52,8 @@ set(PROJECT_SOURCES
     src/services/PPTXGenerator.h
     src/services/PaperService.cpp
     src/services/PaperService.h
+    src/services/QuestionQualityService.cpp
+    src/services/QuestionQualityService.h
     src/services/CurriculumService.cpp
     src/services/CurriculumService.h
     src/ui/ChatWidget.cpp
@@ -193,6 +197,10 @@ install(TARGETS AILoginSystem
 set(SHARED_SERVICES
     src/services/PaperService.cpp
     src/services/PaperService.h
+    src/services/QuestionQualityService.cpp
+    src/services/QuestionQualityService.h
+    src/services/DifyService.cpp
+    src/services/DifyService.h
     src/services/BulkImportService.cpp
     src/services/BulkImportService.h
     src/services/QuestionParserService.cpp
