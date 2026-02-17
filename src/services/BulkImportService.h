@@ -9,6 +9,7 @@
 
 class DocumentReaderService;
 class QuestionParserService;
+class QuestionQualityService;
 
 /**
  * @brief 批量导入服务
@@ -23,6 +24,11 @@ public:
     explicit BulkImportService(PaperService *paperService, QObject *parent = nullptr);
     ~BulkImportService();
     
+    /**
+     * @brief 设置质量检查服务（可选，设置后导入时自动去重和标签规范化）
+     */
+    void setQualityService(QuestionQualityService *qualityService);
+
     /**
      * @brief 设置 Dify 试题解析工作流的 API Key
      */
@@ -82,6 +88,7 @@ private:
     PaperService *m_paperService;
     DocumentReaderService *m_documentReader;
     QuestionParserService *m_questionParser;
+    QuestionQualityService *m_qualityService = nullptr;
     
     // 导入状态
     bool m_isImporting;

@@ -3,6 +3,7 @@
 #include <QSet>
 #include <QDebug>
 #include <QtMath>
+#include <numeric>
 
 namespace {
     // 题型/难度中文映射 — 用于生成用户友好的警告消息
@@ -176,6 +177,7 @@ void SmartPaperService::runGreedySelection()
         needed["hard"] = hardCount;
 
         QList<PaperQuestion> selected;
+        QList<QuestionSelectionReason> selectedReasons;
         QList<PaperQuestion> remaining;
 
         // Step 3: 每桶内打分排序，取 top-N
@@ -183,26 +185,35 @@ void SmartPaperService::runGreedySelection()
             int need = needed[diff];
             QList<PaperQuestion> &bucket = buckets[diff];
 
-            // 对桶内候选题打分
+            // 对桶内候选题打分，同时生成理由
             QVector<QPair<int, int>> scores;  // (分数, 索引)
+            QVector<QuestionSelectionReason> reasons;
             for (int i = 0; i < bucket.size(); ++i) {
-                int score = scoreCandidate(bucket[i], globalCoveredChapters, globalCoveredKnowledgePoints);
+                QuestionSelectionReason reason;
+                int score = scoreCandidate(bucket[i], globalCoveredChapters,
+                                           globalCoveredKnowledgePoints, &reason);
+                reason.questionId = bucket[i].id;
                 scores.append({score, i});
+                reasons.append(reason);
             }
 
             // 按分数降序排序
-            std::sort(scores.begin(), scores.end(),
-                      [](const QPair<int, int> &a, const QPair<int, int> &b) {
-                          return a.first > b.first;
+            QVector<int> sortedIndices(scores.size());
+            std::iota(sortedIndices.begin(), sortedIndices.end(), 0);
+            std::sort(sortedIndices.begin(), sortedIndices.end(),
+                      [&scores](int a, int b) {
+                          return scores[a].first > scores[b].first;
                       });
 
             int taken = 0;
-            for (const auto &pair : scores) {
+            for (int idx : sortedIndices) {
+                int origIdx = scores[idx].second;
                 if (taken >= need) {
-                    remaining.append(bucket[pair.second]);
+                    remaining.append(bucket[origIdx]);
                 } else {
-                    const PaperQuestion &q = bucket[pair.second];
+                    const PaperQuestion &q = bucket[origIdx];
                     selected.append(q);
+                    selectedReasons.append(reasons[idx]);
                     // 更新全局覆盖集
                     if (!q.chapter.isEmpty()) globalCoveredChapters.insert(q.chapter);
                     for (const auto &kp : q.knowledgePoints) {
@@ -241,6 +252,7 @@ void SmartPaperService::runGreedySelection()
         }
 
         m_result.selectedQuestions.append(selected);
+        m_result.selectionReasons.append(selectedReasons);
 
         // Step 5: 构建候选替换池
         m_result.candidatePool[spec.questionType] = remaining;
@@ -265,34 +277,55 @@ void SmartPaperService::runGreedySelection()
 
 int SmartPaperService::scoreCandidate(const PaperQuestion &question,
                                        const QSet<QString> &coveredChapters,
-                                       const QSet<QString> &coveredKnowledgePoints) const
+                                       const QSet<QString> &coveredKnowledgePoints,
+                                       QuestionSelectionReason *outReason) const
 {
-    int score = 0;
+    int coverageScore = 0;
+    int difficultyMatchScore = 0;
+    int diversityScore = 0;
+    QStringList reasonParts;
 
     // 知识点新覆盖度: +40
     for (const auto &kp : question.knowledgePoints) {
         if (!coveredKnowledgePoints.contains(kp)) {
-            score += 40;
+            coverageScore += 40;
+            reasonParts.append(QString("覆盖新知识点「%1」").arg(kp));
             break;  // 有一个新知识点就够了
         }
     }
 
     // 章节新覆盖度: +30
     if (!question.chapter.isEmpty() && !coveredChapters.contains(question.chapter)) {
-        score += 30;
+        coverageScore += 30;
+        reasonParts.append(QString("覆盖新章节「%1」").arg(question.chapter));
     }
 
     // 章节匹配度: +20（在用户指定章节列表中）
     if (!m_config.chapters.isEmpty() && !question.chapter.isEmpty()) {
         if (m_config.chapters.contains(question.chapter)) {
-            score += 20;
+            difficultyMatchScore += 20;
+            reasonParts.append("匹配目标章节");
         }
     }
 
     // 随机扰动: +0~10（避免每次结果相同）
-    score += QRandomGenerator::global()->bounded(11);
+    diversityScore = QRandomGenerator::global()->bounded(11);
 
-    return score;
+    int totalScore = coverageScore + difficultyMatchScore + diversityScore;
+
+    // 输出理由
+    if (outReason) {
+        outReason->coverageScore = coverageScore;
+        outReason->difficultyMatchScore = difficultyMatchScore;
+        outReason->diversityScore = diversityScore;
+        if (reasonParts.isEmpty()) {
+            outReason->summary = "基础候选题";
+        } else {
+            outReason->summary = reasonParts.join("，");
+        }
+    }
+
+    return totalScore;
 }
 
 void SmartPaperService::buildStatistics()
@@ -301,8 +334,10 @@ void SmartPaperService::buildStatistics()
     m_result.typeCount.clear();
     m_result.difficultyCount.clear();
     m_result.coveredChapters.clear();
+    m_result.coveredKnowledgePoints.clear();
 
     QSet<QString> chapters;
+    QSet<QString> knowledgePoints;
 
     for (const auto &q : m_result.selectedQuestions) {
         m_result.totalScore += q.score;
@@ -311,9 +346,28 @@ void SmartPaperService::buildStatistics()
         if (!q.chapter.isEmpty()) {
             chapters.insert(q.chapter);
         }
+        for (const auto &kp : q.knowledgePoints) {
+            knowledgePoints.insert(kp);
+        }
     }
 
     m_result.coveredChapters = chapters.values();
+    m_result.coveredKnowledgePoints = knowledgePoints.values();
+
+    // 知识点覆盖率：已覆盖 / 目标知识点数（如有指定）
+    if (!m_config.knowledgePoints.isEmpty()) {
+        int covered = 0;
+        for (const auto &kp : m_config.knowledgePoints) {
+            if (knowledgePoints.contains(kp)) {
+                covered++;
+            }
+        }
+        m_result.knowledgePointCoverage =
+            static_cast<double>(covered) / m_config.knowledgePoints.size();
+    } else if (!knowledgePoints.isEmpty()) {
+        // 无目标知识点时，覆盖率 = 1.0（表示不适用）
+        m_result.knowledgePointCoverage = 1.0;
+    }
 
     // 检查未覆盖的章节
     if (!m_config.chapters.isEmpty()) {

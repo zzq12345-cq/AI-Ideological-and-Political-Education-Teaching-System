@@ -1,6 +1,7 @@
 #include "BulkImportService.h"
 #include "DocumentReaderService.h"
 #include "QuestionParserService.h"
+#include "QuestionQualityService.h"
 #include <QFile>
 #include <QDir>
 #include <QFileInfo>
@@ -41,6 +42,11 @@ BulkImportService::~BulkImportService()
 void BulkImportService::setParserApiKey(const QString &apiKey)
 {
     m_questionParser->setApiKey(apiKey);
+}
+
+void BulkImportService::setQualityService(QuestionQualityService *qualityService)
+{
+    m_qualityService = qualityService;
 }
 
 bool BulkImportService::isImporting() const
@@ -256,6 +262,24 @@ void BulkImportService::onParseCompleted(const QList<PaperQuestion> &questions)
             }
 
             qDebug() << "BulkImportService: 过滤后保留" << bigQuestions.size() << "道大题（跳过选择题/判断题/填空题）";
+
+            // === 质量检查：标签规范化 + 去重快筛 ===
+            if (m_qualityService && !bigQuestions.isEmpty()) {
+                for (int i = 0; i < bigQuestions.size(); ++i) {
+                    // 标签规范化
+                    bigQuestions[i].tags = m_qualityService->normalizeTags(bigQuestions[i].tags);
+
+                    // 本地去重快筛（与同批次其他题目比较）
+                    auto duplicates = m_qualityService->findSimilarQuestions(
+                        bigQuestions[i], bigQuestions, 0.7);
+                    if (!duplicates.isEmpty()) {
+                        qDebug() << "BulkImportService: 题目" << i + 1
+                                 << "与其他题目相似度过高（"
+                                 << duplicates.first().similarity << "），标记警告";
+                    }
+                }
+                qDebug() << "BulkImportService: 质量检查完成（标签规范化 + 去重快筛）";
+            }
 
             if (!bigQuestions.isEmpty()) {
                 // 需要通过 PaperService 添加到数据库

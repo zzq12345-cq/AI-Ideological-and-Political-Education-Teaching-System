@@ -863,54 +863,134 @@ void SmartPaperWidget::buildResultPreview()
 {
     clearResultPreview();
 
-    // ==================== 统计摘要行 — 克制的单行信息 ====================
-    auto *summaryWidget = new QFrame();
-    summaryWidget->setStyleSheet(
-        "QFrame { background-color: #FFFFFF; border: 1px solid #EAEAEA; border-radius: 8px; }");
+    // ==================== 统计报告卡片 ====================
+    auto *statsCard = new QFrame();
+    statsCard->setObjectName("resultStatsCard");
+    statsCard->setStyleSheet(REFINED_CARD);
 
-    auto *summaryLayout = new QHBoxLayout(summaryWidget);
-    summaryLayout->setContentsMargins(20, 14, 20, 14);
-    summaryLayout->setSpacing(0);
+    auto *statsCardShadow = new QGraphicsDropShadowEffect(statsCard);
+    statsCardShadow->setBlurRadius(20);
+    statsCardShadow->setOffset(0, 3);
+    statsCardShadow->setColor(QColor(0, 0, 0, 18));
+    statsCard->setGraphicsEffect(statsCardShadow);
 
-    // 辅助：创建一个统计项 — 标签+数值，紧凑排列
-    auto addStatItem = [&](const QString &label, const QString &value,
-                          bool addSeparator = true) {
-        auto *lbl = new QLabel(label);
-        lbl->setStyleSheet("QLabel { font-size: 13px; color: #999; font-weight: 400; }");
-        summaryLayout->addWidget(lbl);
+    auto *statsLayout = new QVBoxLayout(statsCard);
+    statsLayout->setContentsMargins(24, 20, 24, 20);
+    statsLayout->setSpacing(16);
 
-        auto *val = new QLabel(value);
-        val->setStyleSheet("QLabel { font-size: 13px; color: #333; font-weight: 600; margin-left: 4px; }");
-        summaryLayout->addWidget(val);
+    // 报告标题
+    auto *reportTitle = new QLabel("组卷统计报告");
+    reportTitle->setStyleSheet(SECTION_HEADER_STYLE);
+    statsLayout->addWidget(reportTitle);
 
-        if (addSeparator) {
-            auto *sep = new QLabel("   |   ");
-            sep->setStyleSheet("QLabel { font-size: 13px; color: #DDD; }");
-            summaryLayout->addWidget(sep);
-        }
+    // ── 指标行：题数、总分、知识点覆盖率 ──
+    auto *metricsRow = new QHBoxLayout();
+    metricsRow->setSpacing(24);
+
+    auto addMetricCard = [&](const QString &label, const QString &value,
+                              const QString &color) {
+        auto *group = new QVBoxLayout();
+        group->setSpacing(2);
+        auto *valLabel = new QLabel(value);
+        valLabel->setStyleSheet(QString("QLabel { font-size: 22px; font-weight: 700; color: %1; }").arg(color));
+        valLabel->setAlignment(Qt::AlignCenter);
+        group->addWidget(valLabel);
+        auto *nameLabel = new QLabel(label);
+        nameLabel->setStyleSheet("QLabel { font-size: 11px; color: #9CA3AF; font-weight: 500; }");
+        nameLabel->setAlignment(Qt::AlignCenter);
+        group->addWidget(nameLabel);
+        metricsRow->addLayout(group);
     };
 
-    addStatItem("共", QString("%1 题").arg(m_currentResult.selectedQuestions.size()));
-    addStatItem("满分", QString("%1 分").arg(m_currentResult.totalScore));
+    addMetricCard("总题数", QString::number(m_currentResult.selectedQuestions.size()) + " 题",
+                  ACCENT_RED);
+    addMetricCard("总分值", QString::number(m_currentResult.totalScore) + " 分",
+                  ACCENT_BLUE);
 
-    // 难度分布
-    QStringList diffParts;
-    for (const QString &diff : {"easy", "medium", "hard"}) {
-        int count = m_currentResult.difficultyCount.value(diff, 0);
-        if (count > 0) {
-            diffParts << QString("%1 %2").arg(difficultyDisplayName(diff)).arg(count);
+    // 知识点覆盖率
+    int coveragePct = qRound(m_currentResult.knowledgePointCoverage * 100);
+    QString coverageColor = (coveragePct >= 80) ? SUCCESS_GREEN : WARNING_AMBER;
+    addMetricCard("知识点覆盖", QString("%1%").arg(coveragePct), coverageColor);
+
+    addMetricCard("章节覆盖", QString::number(m_currentResult.coveredChapters.size()) + " 个",
+                  "#6B7280");
+
+    metricsRow->addStretch();
+    statsLayout->addLayout(metricsRow);
+
+    // ── 题型分布表 ──
+    auto *typeDistLabel = new QLabel("题型分布");
+    typeDistLabel->setStyleSheet("QLabel { font-size: 13px; font-weight: 600; color: #6B7280; margin-top: 4px; }");
+    statsLayout->addWidget(typeDistLabel);
+
+    auto *typeTable = new QFrame();
+    typeTable->setStyleSheet("QFrame { background-color: #F9FAFB; border-radius: 8px; }");
+    auto *typeTableLayout = new QHBoxLayout(typeTable);
+    typeTableLayout->setContentsMargins(16, 10, 16, 10);
+    typeTableLayout->setSpacing(0);
+
+    int totalQuestions = m_currentResult.selectedQuestions.size();
+    for (auto it = m_currentResult.typeCount.constBegin();
+         it != m_currentResult.typeCount.constEnd(); ++it) {
+        int count = it.value();
+        int pct = totalQuestions > 0 ? qRound(100.0 * count / totalQuestions) : 0;
+
+        auto *typeItem = new QVBoxLayout();
+        typeItem->setSpacing(2);
+        auto *typeName = new QLabel(questionTypeDisplayName(it.key()));
+        typeName->setStyleSheet("QLabel { font-size: 12px; color: #6B7280; }");
+        typeName->setAlignment(Qt::AlignCenter);
+        typeItem->addWidget(typeName);
+        auto *typeVal = new QLabel(QString("%1 题 (%2%)").arg(count).arg(pct));
+        typeVal->setStyleSheet("QLabel { font-size: 13px; font-weight: 600; color: #1A1A2E; }");
+        typeVal->setAlignment(Qt::AlignCenter);
+        typeItem->addWidget(typeVal);
+        typeTableLayout->addLayout(typeItem);
+
+        // 分隔线
+        if (it + 1 != m_currentResult.typeCount.constEnd()) {
+            auto *sep = new QFrame();
+            sep->setFrameShape(QFrame::VLine);
+            sep->setStyleSheet("QFrame { color: #E5E7EB; }");
+            sep->setFixedWidth(1);
+            typeTableLayout->addWidget(sep);
         }
     }
-    if (!diffParts.isEmpty()) {
-        addStatItem("难度", diffParts.join(" / "));
+    typeTableLayout->addStretch();
+    statsLayout->addWidget(typeTable);
+
+    // ── 难度分布 ──
+    auto *diffDistLabel = new QLabel("难度分布");
+    diffDistLabel->setStyleSheet("QLabel { font-size: 13px; font-weight: 600; color: #6B7280; }");
+    statsLayout->addWidget(diffDistLabel);
+
+    auto *diffRow = new QHBoxLayout();
+    diffRow->setSpacing(12);
+
+    for (const QString &diff : {"easy", "medium", "hard"}) {
+        int count = m_currentResult.difficultyCount.value(diff, 0);
+        if (count == 0) continue;
+
+        QString diffColor, diffBg;
+        if (diff == "easy") { diffColor = "#3C8A3F"; diffBg = "#EDF7ED"; }
+        else if (diff == "hard") { diffColor = "#C44"; diffBg = "#FDF0F0"; }
+        else { diffColor = "#C47F17"; diffBg = "#FFF8EB"; }
+
+        auto *chip = new QLabel(QString("%1 %2 题")
+                                    .arg(difficultyDisplayName(diff))
+                                    .arg(count));
+        chip->setStyleSheet(QString(
+            "QLabel { font-size: 12px; font-weight: 600; color: %1; "
+            "background-color: %2; padding: 4px 12px; border-radius: 6px; }"
+        ).arg(diffColor, diffBg));
+        diffRow->addWidget(chip);
     }
+    diffRow->addStretch();
+    statsLayout->addLayout(diffRow);
 
-    addStatItem("章节", QString("%1 个").arg(m_currentResult.coveredChapters.size()), false);
+    m_resultLayout->addWidget(statsCard);
 
-    summaryLayout->addStretch();
-    m_resultLayout->addWidget(summaryWidget);
-
-    // ==================== 警告提示 — 简洁文字，不过度装饰 ====================
+    // ==================== 警告提示 ====================
     if (!m_currentResult.warnings.isEmpty()) {
         for (const auto &w : m_currentResult.warnings) {
             auto *wLabel = new QLabel("* " + w);
@@ -921,7 +1001,13 @@ void SmartPaperWidget::buildResultPreview()
         }
     }
 
-    // ==================== 题目列表 ====================
+    // ==================== 题目列表（含逐题理由） ====================
+    // 构建 questionId -> reason 的映射
+    QMap<QString, QuestionSelectionReason> reasonMap;
+    for (const auto &reason : m_currentResult.selectionReasons) {
+        reasonMap[reason.questionId] = reason;
+    }
+
     QMap<QString, QList<QPair<int, PaperQuestion>>> groupedQuestions;
     for (int i = 0; i < m_currentResult.selectedQuestions.size(); ++i) {
         const auto &q = m_currentResult.selectedQuestions[i];
@@ -943,7 +1029,7 @@ void SmartPaperWidget::buildResultPreview()
             }
         }
 
-        // ── 分组标题 — 简洁的文字 + 底部红线 ──
+        // ── 分组标题 ──
         QString groupNum = groupIndex < chineseNumbers.size()
             ? chineseNumbers[groupIndex] : QString::number(groupIndex + 1);
 
@@ -958,17 +1044,28 @@ void SmartPaperWidget::buildResultPreview()
             "QLabel { font-size: 14px; font-weight: 700; color: #2D2D2D; }");
         ghLayout->addWidget(groupTitle);
 
+        // 题型占比
+        int typeCount = questions.size();
+        int typePct = totalQuestions > 0 ? qRound(100.0 * typeCount / totalQuestions) : 0;
         auto *groupDetail = new QLabel(
-            QString("  %1题 × %2分 = %3分")
-                .arg(questions.size()).arg(scorePerQ).arg(questions.size() * scorePerQ));
+            QString("  %1题 × %2分 = %3分 (%4%)")
+                .arg(typeCount).arg(scorePerQ).arg(typeCount * scorePerQ).arg(typePct));
         groupDetail->setStyleSheet(
             "QLabel { font-size: 13px; color: #AAA; font-weight: 400; }");
         ghLayout->addWidget(groupDetail);
-        ghLayout->addStretch();
 
+        // 占比过高警告
+        if (typePct > 60) {
+            auto *warnLabel = new QLabel("  ⚠ 占比偏高");
+            warnLabel->setStyleSheet(
+                "QLabel { font-size: 11px; color: #E65100; font-weight: 600; }");
+            ghLayout->addWidget(warnLabel);
+        }
+
+        ghLayout->addStretch();
         m_resultLayout->addWidget(groupHeader);
 
-        // ── 题目列表容器 — 白底圆角卡片包裹所有题目 ──
+        // ── 题目列表容器 ──
         auto *listCard = new QFrame();
         listCard->setStyleSheet(
             "QFrame#listCard { background-color: #FFFFFF; "
@@ -987,19 +1084,23 @@ void SmartPaperWidget::buildResultPreview()
             questionRow->setObjectName("questionRow");
             questionRow->setStyleSheet(QUESTION_ROW_STYLE);
 
-            auto *qLayout = new QHBoxLayout(questionRow);
+            auto *qLayout = new QVBoxLayout(questionRow);
             qLayout->setContentsMargins(16, 11, 12, 11);
-            qLayout->setSpacing(10);
+            qLayout->setSpacing(4);
 
-            // 序号 — 纯文字，不需要花哨圆圈
+            // 上半部分：序号 + 难度 + 题干 + 换一题
+            auto *topRow = new QHBoxLayout();
+            topRow->setSpacing(10);
+
+            // 序号
             auto *numLabel = new QLabel(QString("%1.").arg(questionNum++));
             numLabel->setFixedWidth(28);
             numLabel->setStyleSheet(
                 "QLabel { font-size: 13px; font-weight: 600; color: #BBB; }");
             numLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-            qLayout->addWidget(numLabel);
+            topRow->addWidget(numLabel);
 
-            // 难度 — 小巧的文字标签
+            // 难度
             QString diffColor, diffBg;
             QString d = q.difficulty.toLower();
             if (d == "easy") {
@@ -1013,7 +1114,7 @@ void SmartPaperWidget::buildResultPreview()
             diffLabel->setStyleSheet(DIFFICULTY_LABEL_STYLE.arg(diffColor, diffBg));
             diffLabel->setFixedWidth(40);
             diffLabel->setAlignment(Qt::AlignCenter);
-            qLayout->addWidget(diffLabel);
+            topRow->addWidget(diffLabel);
 
             // 题干
             QString stemPreview = q.stem;
@@ -1024,7 +1125,7 @@ void SmartPaperWidget::buildResultPreview()
             stemLabel->setStyleSheet(
                 "QLabel { font-size: 13px; color: #444; }");
             stemLabel->setWordWrap(true);
-            qLayout->addWidget(stemLabel, 1);
+            topRow->addWidget(stemLabel, 1);
 
             // 换一题
             auto *swapBtn = new QPushButton("换一题");
@@ -1039,7 +1140,22 @@ void SmartPaperWidget::buildResultPreview()
             connect(swapBtn, &QPushButton::clicked, this, [this, qId = q.id, qType = type]() {
                 onSwapQuestion(qId, qType);
             });
-            qLayout->addWidget(swapBtn);
+            topRow->addWidget(swapBtn);
+
+            qLayout->addLayout(topRow);
+
+            // 下半部分：选择理由（灰色小字）
+            if (reasonMap.contains(q.id)) {
+                const auto &reason = reasonMap[q.id];
+                if (!reason.summary.isEmpty()) {
+                    auto *reasonLabel = new QLabel(
+                        QString("选择理由: %1").arg(reason.summary));
+                    reasonLabel->setStyleSheet(
+                        "QLabel { font-size: 11px; color: #9CA3AF; padding-left: 38px; }");
+                    reasonLabel->setWordWrap(true);
+                    qLayout->addWidget(reasonLabel);
+                }
+            }
 
             listLayout->addWidget(questionRow);
         }
