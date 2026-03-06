@@ -1,6 +1,7 @@
 #include "NotificationWidget.h"
 #include "../NotificationService.h"
 #include "../../shared/StyleConfig.h"
+#include "../../utils/LayoutUtils.h"
 #include <QApplication>
 #include <QDebug>
 #include <QGraphicsDropShadowEffect>
@@ -416,14 +417,7 @@ void NotificationWidget::onDeleteNotification(const QString &notificationId)
 
 void NotificationWidget::updateNotificationList(const QList<Notification> &notifications)
 {
-    // 清空现有列表
-    while (m_listLayout->count() > 1) {  // 保留 stretch
-        QLayoutItem *item = m_listLayout->takeAt(0);
-        if (item->widget()) {
-            item->widget()->deleteLater();
-        }
-        delete item;
-    }
+    LayoutUtils::clearLayout(m_listLayout, true);
 
     // 根据筛选条件过滤
     QList<Notification> filteredList;

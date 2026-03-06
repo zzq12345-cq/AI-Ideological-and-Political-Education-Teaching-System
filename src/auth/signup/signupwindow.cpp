@@ -159,9 +159,6 @@ void SignUpWindow::buildHeroPanel()
 
     // 加载Logo
     QPixmap pixmap(":/images/download.png");
-    if (pixmap.isNull()) {
-        pixmap = QPixmap("/Users/zhouzhiqi/QtProjects/AItechnology/src/shared/resources/download.png");
-    }
     if (!pixmap.isNull()) {
         imageLabel->setPixmap(pixmap);
     } else {
@@ -590,6 +587,7 @@ void SignUpWindow::openLoginWindow()
 {
     this->close();
     SimpleLoginWindow *loginWindow = new SimpleLoginWindow();
+    loginWindow->setAttribute(Qt::WA_DeleteOnClose);
     loginWindow->show();
     loginWindow->raise();
     loginWindow->activateWindow();

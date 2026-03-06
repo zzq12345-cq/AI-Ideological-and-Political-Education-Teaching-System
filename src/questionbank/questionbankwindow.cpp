@@ -5,6 +5,7 @@
 #include "QualityCheckDialog.h"
 #include "../ui/moderncheckbox.h"
 #include "../shared/StyleConfig.h"
+#include "../utils/LayoutUtils.h"
 #include "../smartpaper/SmartPaperWidget.h"
 #include "../services/QuestionQualityService.h"
 #include "../services/DifyService.h"
@@ -1048,14 +1049,7 @@ void QuestionBankWindow::clearQuestionCards()
 {
     if (!m_questionListLayout) return;
     
-    // 移除所有子项（除了 stretch）
-    while (m_questionListLayout->count() > 0) {
-        QLayoutItem *item = m_questionListLayout->takeAt(0);
-        if (item->widget()) {
-            item->widget()->deleteLater();
-        }
-        delete item;
-    }
+    LayoutUtils::clearLayout(m_questionListLayout);
     
     // 重置 statusLabel 指针，因为它可能已被删除
     m_statusLabel = nullptr;

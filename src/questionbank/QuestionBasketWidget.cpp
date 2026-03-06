@@ -1,5 +1,6 @@
 #include "QuestionBasketWidget.h"
 #include "QuestionBasket.h"
+#include "../utils/LayoutUtils.h"
 
 #include <QDebug>
 #include <QGraphicsDropShadowEffect>
@@ -388,14 +389,7 @@ QWidget *QuestionBasketWidget::createQuestionItem(const PaperQuestion &question,
 
 void QuestionBasketWidget::updateQuestionList()
 {
-    // 清空现有列表
-    while (m_questionListLayout->count() > 1) {  // 保留 stretch
-        QLayoutItem *item = m_questionListLayout->takeAt(0);
-        if (item->widget()) {
-            item->widget()->deleteLater();
-        }
-        delete item;
-    }
+    LayoutUtils::clearLayout(m_questionListLayout, true);
 
     // 添加试题项
     const QList<PaperQuestion> &questions = QuestionBasket::instance()->questions();

@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QString>
 #include <QMap>
+#include <QtConcurrent/QtConcurrentRun>
+#include <QFutureWatcher>
 
 class SupabaseStorageService;
 
@@ -59,7 +61,18 @@ public:
      */
     void setUseCloudStorage(bool useCloud);
 
+    /**
+     * @brief 异步读取 DOCX，完成后通过 readFinished 信号返回结果
+     */
+    void readDocxAsync(const QString &filePath);
+
+    /**
+     * @brief 异步读取 DOCX（含图片），完成后通过 readFinished 信号返回结果
+     */
+    void readDocxWithImagesAsync(const QString &filePath);
+
 signals:
+    void readFinished(const QString &content);
     void errorOccurred(const QString &error);
     void imageUploadProgress(int current, int total);
 

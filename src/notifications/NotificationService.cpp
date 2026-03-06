@@ -63,7 +63,14 @@ void NotificationService::onFetchNotificationsFinished()
     }
 
     QByteArray data = reply->readAll();
-    QJsonDocument doc = QJsonDocument::fromJson(data);
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
+    if (parseError.error != QJsonParseError::NoError) {
+        qWarning() << "[NotificationService] JSON 解析失败:" << parseError.errorString();
+        loadSampleNotifications();
+        reply->deleteLater();
+        return;
+    }
     QJsonArray array = doc.array();
 
     m_notifications.clear();
