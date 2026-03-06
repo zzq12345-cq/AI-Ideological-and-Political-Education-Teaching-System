@@ -1,6 +1,7 @@
 #include "ChatWidget.h"
 #include "../shared/StyleConfig.h"
 #include "../utils/MarkdownRenderer.h"
+#include "../utils/LayoutUtils.h"
 #include <QScrollBar>
 #include <QTimer>
 #include <QGraphicsDropShadowEffect>
@@ -478,13 +479,7 @@ void ChatWidget::expandThinking()
 void ChatWidget::clearMessages()
 {
     // 清除所有消息组件
-    while (m_messageLayout->count() > 0) {
-        QLayoutItem *item = m_messageLayout->takeAt(0);
-        if (item->widget()) {
-            delete item->widget();
-        }
-        delete item;
-    }
+    LayoutUtils::clearLayout(m_messageLayout);
     
     // 重新添加弹簧
     m_messageLayout->addStretch();

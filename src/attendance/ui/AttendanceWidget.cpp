@@ -1,5 +1,6 @@
 #include "AttendanceWidget.h"
 #include "../services/AttendanceService.h"
+#include "../../utils/LayoutUtils.h"
 #include "../models/AttendanceSummary.h"
 #include "../../analytics/models/Student.h"
 #include <QGraphicsDropShadowEffect>
@@ -384,8 +385,7 @@ void AttendanceWidget::onStudentsLoaded()
     if(!m_service) return;
     m_records.clear();
     qDeleteAll(m_statusButtonGroups); m_statusButtonGroups.clear();
-    QLayoutItem *item;
-    while((item = m_listLayout->takeAt(0))) { if(item->widget()) item->widget()->deleteLater(); delete item; }
+    LayoutUtils::clearLayout(m_listLayout);
 
     const auto &students = m_service->students();
     for(const Student &s : students) {
@@ -404,8 +404,7 @@ void AttendanceWidget::onAttendanceLoaded()
 
 void AttendanceWidget::loadStudentList()
 {
-    QLayoutItem *item;
-    while((item = m_listLayout->takeAt(0))) { if(item->widget()) item->widget()->deleteLater(); delete item; }
+    LayoutUtils::clearLayout(m_listLayout);
     qDeleteAll(m_statusButtonGroups); m_statusButtonGroups.clear();
 
     const auto &students = m_service->students();

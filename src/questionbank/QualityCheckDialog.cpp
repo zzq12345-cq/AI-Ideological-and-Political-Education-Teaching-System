@@ -1,6 +1,7 @@
 #include "QualityCheckDialog.h"
 #include "../services/QuestionQualityService.h"
 #include "../services/PaperService.h"
+#include "../utils/LayoutUtils.h"
 #include "../notifications/NotificationService.h"
 #include "../notifications/models/Notification.h"
 #include <QApplication>
@@ -207,12 +208,7 @@ void QualityCheckDialog::onScanCompleted(const QList<QPair<QString,QString>> &du
     m_scanningView->setVisible(false);
     m_resultView->setVisible(true);
 
-    // 清空旧结果
-    QLayoutItem *item;
-    while ((item = m_resultListLayout->takeAt(0)) != nullptr) {
-        if (item->widget()) item->widget()->deleteLater();
-        delete item;
-    }
+    LayoutUtils::clearLayout(m_resultListLayout);
 
     if (duplicatePairs.isEmpty()) {
         m_resultSummary->setText("未发现疑似重复题目，题库质量良好");
@@ -285,12 +281,7 @@ void QualityCheckDialog::onScanError(const QString &error)
     m_scanningView->setVisible(false);
     m_resultView->setVisible(true);
 
-    // 清空旧结果
-    QLayoutItem *item;
-    while ((item = m_resultListLayout->takeAt(0)) != nullptr) {
-        if (item->widget()) item->widget()->deleteLater();
-        delete item;
-    }
+    LayoutUtils::clearLayout(m_resultListLayout);
 
     m_resultSummary->setText(QString("扫描失败: %1").arg(error));
     m_resultSummary->setStyleSheet(

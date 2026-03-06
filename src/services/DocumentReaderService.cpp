@@ -20,6 +20,40 @@ DocumentReaderService::DocumentReaderService(QObject *parent)
             this, &DocumentReaderService::imageUploadProgress);
 }
 
+void DocumentReaderService::readDocxAsync(const QString &filePath)
+{
+    auto *watcher = new QFutureWatcher<QString>(this);
+    connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher]() {
+        QString result = watcher->result();
+        if (result.isEmpty() && !m_lastError.isEmpty()) {
+            emit errorOccurred(m_lastError);
+        } else {
+            emit readFinished(result);
+        }
+        watcher->deleteLater();
+    });
+    watcher->setFuture(QtConcurrent::run([this, filePath]() {
+        return readDocx(filePath);
+    }));
+}
+
+void DocumentReaderService::readDocxWithImagesAsync(const QString &filePath)
+{
+    auto *watcher = new QFutureWatcher<QString>(this);
+    connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher]() {
+        QString result = watcher->result();
+        if (result.isEmpty() && !m_lastError.isEmpty()) {
+            emit errorOccurred(m_lastError);
+        } else {
+            emit readFinished(result);
+        }
+        watcher->deleteLater();
+    });
+    watcher->setFuture(QtConcurrent::run([this, filePath]() {
+        return readDocxWithImages(filePath);
+    }));
+}
+
 void DocumentReaderService::setUseCloudStorage(bool useCloud)
 {
     m_useCloudStorage = useCloud;

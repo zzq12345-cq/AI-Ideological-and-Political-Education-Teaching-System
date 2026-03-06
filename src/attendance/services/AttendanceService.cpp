@@ -256,7 +256,14 @@ void AttendanceService::onFetchStudentsFinished()
 
     if (reply->error() == QNetworkReply::NoError) {
         QByteArray data = reply->readAll();
-        QJsonDocument doc = QJsonDocument::fromJson(data);
+        QJsonParseError parseError;
+        QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
+        if (parseError.error != QJsonParseError::NoError) {
+            qWarning() << "[AttendanceService] 学生列表 JSON 解析失败:" << parseError.errorString();
+            emit errorOccurred("学生数据解析失败");
+            reply->deleteLater();
+            return;
+        }
         QJsonArray array = doc.array();
 
         m_students.clear();
@@ -281,7 +288,14 @@ void AttendanceService::onFetchAttendanceFinished()
 
     if (reply->error() == QNetworkReply::NoError) {
         QByteArray data = reply->readAll();
-        QJsonDocument doc = QJsonDocument::fromJson(data);
+        QJsonParseError parseError;
+        QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
+        if (parseError.error != QJsonParseError::NoError) {
+            qWarning() << "[AttendanceService] 考勤记录 JSON 解析失败:" << parseError.errorString();
+            emit errorOccurred("考勤数据解析失败");
+            reply->deleteLater();
+            return;
+        }
         QJsonArray array = doc.array();
 
         m_attendanceRecords.clear();

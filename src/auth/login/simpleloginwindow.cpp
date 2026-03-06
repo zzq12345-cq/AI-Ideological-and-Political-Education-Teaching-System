@@ -120,26 +120,17 @@ void SimpleLoginWindow::setupUI()
     QPixmap pixmap(":/images/download.png");
     if (!pixmap.isNull()) {
         imageLabel->setPixmap(pixmap);
-        qDebug() << "图片加载成功，尺寸:" << pixmap.size();
     } else {
-        // 如果图片加载失败，尝试绝对路径
-        pixmap = QPixmap("/Users/zhouzhiqi/QtProjects/AItechnology/src/shared/resources/download.png");
-        if (!pixmap.isNull()) {
-            imageLabel->setPixmap(pixmap);
-            qDebug() << "图片加载成功（绝对路径），尺寸:" << pixmap.size();
-        } else {
-            qDebug() << "图片加载失败，显示占位符";
-            imageLabel->setText("Logo");
-            imageLabel->setStyleSheet(
-                "QLabel {"
-                "  color: #C9A64E;"
-                "  font-size: 12px;"
-                "  background-color: transparent;"
-                "  border: none;"
-                "  padding: 5px;"
-                "}"
-            );
-        }
+        imageLabel->setText("Logo");
+        imageLabel->setStyleSheet(
+            "QLabel {"
+            "  color: #C9A64E;"
+            "  font-size: 12px;"
+            "  background-color: transparent;"
+            "  border: none;"
+            "  padding: 5px;"
+            "}"
+        );
     }
 
     // 左侧布局 - logo在左上方，文字在中间
@@ -552,6 +543,7 @@ void SimpleLoginWindow::onSignupClicked()
 
     // 创建并显示注册窗口
     SignUpWindow *signupWindow = new SignUpWindow();
+    signupWindow->setAttribute(Qt::WA_DeleteOnClose);
     signupWindow->show();
 
     qDebug() << "已打开注册窗口";

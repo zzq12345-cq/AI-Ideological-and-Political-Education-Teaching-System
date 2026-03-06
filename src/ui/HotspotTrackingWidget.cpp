@@ -2,6 +2,7 @@
 #include "../services/HotspotService.h"
 #include "../services/DifyService.h"
 #include "../shared/StyleConfig.h"
+#include "../utils/LayoutUtils.h"
 #include <QDebug>
 #include <QScrollBar>
 #include <QGraphicsDropShadowEffect>
@@ -1020,13 +1021,7 @@ void HotspotTrackingWidget::clearNewsGrid()
         reply->deleteLater();
     }
 
-    QLayoutItem *item;
-    while ((item = m_newsGridLayout->takeAt(0)) != nullptr) {
-        if (item->widget()) {
-            delete item->widget();
-        }
-        delete item;
-    }
+    LayoutUtils::clearLayout(m_newsGridLayout);
 }
 
 void HotspotTrackingWidget::onRefreshClicked()

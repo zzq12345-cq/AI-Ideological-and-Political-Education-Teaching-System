@@ -133,7 +133,12 @@ void XunfeiPPTService::onCreateReply()
     QByteArray responseData = reply->readAll();
     qDebug() << "[XunfeiPPTService] Create response:" << responseData;
     
-    QJsonDocument doc = QJsonDocument::fromJson(responseData);
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(responseData, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
+        emit errorOccurred(QString("创建响应解析失败: %1").arg(parseError.errorString()));
+        return;
+    }
     QJsonObject obj = doc.object();
     
     int code = obj["code"].toInt();
@@ -218,7 +223,17 @@ void XunfeiPPTService::onProgressReply()
     QByteArray responseData = reply->readAll();
     qDebug() << "[XunfeiPPTService] Progress response:" << responseData;
     
-    QJsonDocument doc = QJsonDocument::fromJson(responseData);
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(responseData, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
+        qWarning() << "[XunfeiPPTService] 进度响应解析失败:" << parseError.errorString();
+        m_progressErrorCount++;
+        if (m_progressErrorCount >= m_maxProgressRetries) {
+            m_progressTimer->stop();
+            emit errorOccurred("进度查询响应解析失败");
+        }
+        return;
+    }
     QJsonObject obj = doc.object();
     
     int code = obj["code"].toInt();
@@ -274,7 +289,12 @@ void XunfeiPPTService::fetchThemes()
             return;
         }
         
-        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+        QJsonParseError parseError;
+        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll(), &parseError);
+        if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
+            qWarning() << "[XunfeiPPTService] 主题响应解析失败:" << parseError.errorString();
+            return;
+        }
         QJsonObject obj = doc.object();
         
         if (obj["code"].toInt() == 0) {

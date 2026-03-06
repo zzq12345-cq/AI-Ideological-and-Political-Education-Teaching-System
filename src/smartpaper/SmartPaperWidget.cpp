@@ -1,5 +1,6 @@
 #include "SmartPaperWidget.h"
 #include "../services/PaperService.h"
+#include "../utils/LayoutUtils.h"
 #include "../questionbank/QuestionBasket.h"
 #include "../questionbank/PaperComposerDialog.h"
 #include "../notifications/NotificationService.h"
@@ -866,14 +867,7 @@ void SmartPaperWidget::onGenerationFailed(const QString &error)
 
 void SmartPaperWidget::clearResultPreview()
 {
-    // 清除结果预览区的所有子控件
-    QLayoutItem *item;
-    while ((item = m_resultLayout->takeAt(0)) != nullptr) {
-        if (item->widget()) {
-            item->widget()->deleteLater();
-        }
-        delete item;
-    }
+    LayoutUtils::clearLayout(m_resultLayout);
 }
 
 void SmartPaperWidget::buildResultPreview()
