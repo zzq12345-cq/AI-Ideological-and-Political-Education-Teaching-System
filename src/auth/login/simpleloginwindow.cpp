@@ -23,6 +23,8 @@ SimpleLoginWindow::SimpleLoginWindow(QWidget *parent)
     // 连接Supabase信号
     connect(m_supabaseClient, &SupabaseClient::loginSuccess, this, &SimpleLoginWindow::onLoginSuccess);
     connect(m_supabaseClient, &SupabaseClient::loginFailed, this, &SimpleLoginWindow::onLoginFailed);
+    connect(m_supabaseClient, &SupabaseClient::passwordResetSuccess, this, &SimpleLoginWindow::onPasswordResetSuccess);
+    connect(m_supabaseClient, &SupabaseClient::passwordResetFailed, this, &SimpleLoginWindow::onPasswordResetFailed);
 
     // 检查是否有记住的凭证
     if (hasRememberedCredentials()) {
@@ -444,6 +446,7 @@ void SimpleLoginWindow::setupUI()
     // 连接信号
     connect(loginButton, &QPushButton::clicked, this, &SimpleLoginWindow::onLoginClicked);
     connect(signupBtn, &QPushButton::clicked, this, &SimpleLoginWindow::onSignupClicked);
+    connect(forgotPasswordBtn, &QPushButton::clicked, this, &SimpleLoginWindow::onForgotPasswordClicked);
     connect(rememberMeCheck, &QCheckBox::toggled, this, &SimpleLoginWindow::onRememberMeToggled);
     connect(togglePasswordBtn, &QPushButton::clicked, [this]() {
         if (passwordEdit->echoMode() == QLineEdit::Password) {
@@ -489,6 +492,7 @@ void SimpleLoginWindow::setupStyle()
 
 void SimpleLoginWindow::onLoginClicked()
 {
+    qDebug() << "=== onLoginClicked 开始 ===";
     QString username = usernameEdit->text();
     QString password = passwordEdit->text();
 
@@ -496,6 +500,8 @@ void SimpleLoginWindow::onLoginClicked()
         QMessageBox::warning(this, "提示", "请输入用户名和密码！");
         return;
     }
+
+    qDebug() << "用户名:" << username;
 
     // 检查是否是测试账号
     if ((username == "teacher01" && password == "Teacher@2024") ||
@@ -505,14 +511,22 @@ void SimpleLoginWindow::onLoginClicked()
         QString role = (username == "teacher01") ? "教师" :
                        (username == "student01") ? "学生" : "管理员";
 
+        qDebug() << "测试账号登录，角色:" << role;
+
         // 保存记住的凭证
         saveRememberedCredentials();
 
+        qDebug() << "准备显示登录成功提示...";
         QMessageBox::information(this, "登录成功", "欢迎 " + username + "！\n\n正在进入" + role + "端...");
+        qDebug() << "登录成功提示已关闭";
+
+        qDebug() << "准备关闭登录窗口...";
         this->close(); // 关闭登录窗口
+        qDebug() << "登录窗口已关闭";
 
         // 打开主界面
         openMainWindow(username, role);
+        qDebug() << "openMainWindow 调用完成";
         return;
     }
 
@@ -589,6 +603,54 @@ void SimpleLoginWindow::onLoginFailed(const QString &errorMessage)
     loginButton->setText("登 录");
 }
 
+
+void SimpleLoginWindow::onForgotPasswordClicked()
+{
+    // 预填用户名框中的邮箱（如果有的话）
+    QString defaultEmail = usernameEdit->text().contains("@") ? usernameEdit->text() : "";
+
+    bool ok = false;
+    QString email = QInputDialog::getText(
+        this,
+        "忘记密码",
+        "请输入您的注册邮箱，我们将发送密码重置链接：",
+        QLineEdit::Normal,
+        defaultEmail,
+        &ok
+    );
+
+    if (!ok || email.trimmed().isEmpty()) {
+        return;
+    }
+
+    email = email.trimmed();
+
+    // 简单的邮箱格式校验
+    if (!email.contains("@") || !email.contains(".")) {
+        QMessageBox::warning(this, "提示", "请输入有效的邮箱地址。");
+        return;
+    }
+
+    forgotPasswordBtn->setEnabled(false);
+    forgotPasswordBtn->setText("发送中...");
+    m_supabaseClient->resetPassword(email);
+}
+
+void SimpleLoginWindow::onPasswordResetSuccess(const QString &message)
+{
+    forgotPasswordBtn->setEnabled(true);
+    forgotPasswordBtn->setText("忘记密码？");
+
+    QMessageBox::information(this, "密码重置", message + "\n\n请查收邮件并按指引重置密码。");
+}
+
+void SimpleLoginWindow::onPasswordResetFailed(const QString &errorMessage)
+{
+    forgotPasswordBtn->setEnabled(true);
+    forgotPasswordBtn->setText("忘记密码？");
+
+    QMessageBox::warning(this, "密码重置失败", "无法发送重置邮件：\n" + errorMessage);
+}
 
 void SimpleLoginWindow::onRememberMeToggled(bool checked)
 {

@@ -16,6 +16,7 @@
 #include <QCoreApplication>
 #include <QApplication>
 #include <QIcon>
+#include <QInputDialog>
 #include "../supabase/supabaseclient.h"
 #include "../supabase/supabaseconfig.h"
 #include "../signup/signupwindow.h"
@@ -34,6 +35,7 @@ protected:
 private slots:
     void onLoginClicked();
     void onSignupClicked();
+    void onForgotPasswordClicked();
     void onRememberMeToggled(bool checked);
 
 protected:
@@ -50,6 +52,8 @@ private:
     // Supabase回调
     void onLoginSuccess(const QString &userId, const QString &email);
     void onLoginFailed(const QString &errorMessage);
+    void onPasswordResetSuccess(const QString &message);
+    void onPasswordResetFailed(const QString &errorMessage);
 
 private:
     // 不再需要UI文件指针

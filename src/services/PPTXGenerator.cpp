@@ -8,26 +8,35 @@
 #include <QDebug>
 #include <QRegularExpression>
 #include <QCoreApplication>
+#include <QFileInfo>
 
 PPTXGenerator::PPTXGenerator(QObject *parent)
     : QObject(parent)
 {
-    // 默认使用资源目录中的模板
-    QString appDir = QCoreApplication::applicationDirPath();
-    // macOS 应用包结构: .app/Contents/MacOS/
-    QString templatePath = appDir + "/../../../resources/templates/party_red_template.pptx";
-    if (QFile::exists(templatePath)) {
-        m_templatePath = templatePath;
-        qDebug() << "[PPTXGenerator] Template found:" << m_templatePath;
-    } else {
-        // 尝试开发模式路径
-        templatePath = "/Users/zhouzhiqi/QtProjects/AItechnology/resources/templates/party_red_template.pptx";
-        if (QFile::exists(templatePath)) {
-            m_templatePath = templatePath;
-            qDebug() << "[PPTXGenerator] Template found (dev):" << m_templatePath;
-        } else {
-            qDebug() << "[PPTXGenerator] No template found, using basic mode";
+    const QString appDir = QCoreApplication::applicationDirPath();
+    const QString currentDir = QDir::currentPath();
+    const QString relativeTemplate = "resources/templates/party_red_template.pptx";
+    const QStringList candidatePaths = {
+        // macOS 应用包结构: .app/Contents/MacOS/ -> .app/Contents/Resources/
+        QDir::cleanPath(appDir + "/../Resources/templates/party_red_template.pptx"),
+        // 常见开发目录结构兜底
+        QDir::cleanPath(appDir + "/../" + relativeTemplate),
+        QDir::cleanPath(appDir + "/../../" + relativeTemplate),
+        QDir::cleanPath(currentDir + "/" + relativeTemplate),
+        QDir::cleanPath(currentDir + "/../" + relativeTemplate)
+    };
+
+    for (const QString &path : candidatePaths) {
+        if (QFile::exists(path)) {
+            m_templatePath = QFileInfo(path).absoluteFilePath();
+            qDebug() << "[PPTXGenerator] Template found:" << m_templatePath;
+            break;
         }
+    }
+
+    if (m_templatePath.isEmpty()) {
+        qDebug() << "[PPTXGenerator] No template found, using basic mode";
+        qDebug() << "[PPTXGenerator] Tried paths:" << candidatePaths;
     }
 }
 
@@ -616,58 +625,137 @@ bool PPTXGenerator::extractTemplate(const QString &templatePath, const QString &
 
 bool PPTXGenerator::replaceSlideContent(const QString &slideXmlPath, const QString &title, const QStringList &content)
 {
-    Q_UNUSED(content);  // 暂时不替换内容，只替换标题
-    
     QFile file(slideXmlPath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qDebug() << "[PPTXGenerator] Cannot open slide:" << slideXmlPath;
         return false;
     }
-    
-    QString xmlContent = QString::fromUtf8(file.readAll());
+
+    QString xml = QString::fromUtf8(file.readAll());
     file.close();
-    
-    // 查找所有文本内容及其位置
-    QRegularExpression textRegex("<a:t>([^<]+)</a:t>");
-    QRegularExpressionMatchIterator it = textRegex.globalMatch(xmlContent);
-    
-    // 找出最长的文本（通常是标题）
-    QString longestText;
-    while (it.hasNext()) {
-        QRegularExpressionMatch match = it.next();
-        QString text = match.captured(1).trimmed();
-        // 跳过单字符和数字
-        if (text.length() > longestText.length() && text.length() > 2 && !text.isEmpty()) {
-            // 跳过纯数字或常见装饰文字
-            bool isDecorative = (text == "01" || text == "02" || text == "03" || 
-                                 text == "目录" || text == "CONTENTS" || text == "谢谢");
-            if (!isDecorative) {
-                longestText = text;
-            }
+
+    QString escapedTitle = title.trimmed().toHtmlEscaped();
+
+    QStringList normalizedContent;
+    for (const QString &line : content) {
+        QString trimmed = line.trimmed();
+        if (!trimmed.isEmpty()) {
+            normalizedContent << trimmed;
         }
     }
-    
-    if (longestText.isEmpty() || title.isEmpty()) {
-        qDebug() << "[PPTXGenerator] No suitable text found or title empty";
-        return true;  // 不做任何修改
+
+    // 从 XML 片段中提取 <a:rPr.../> 或 <a:rPr...>...</a:rPr>，用于保留模板字体样式
+    auto extractRunProps = [](const QString &text) -> QString {
+        QRegularExpression re(R"(<a:rPr[^>]*/>|<a:rPr[^>]*>[\s\S]*?</a:rPr>)");
+        auto m = re.match(text);
+        return m.hasMatch() ? m.captured() : R"(<a:rPr lang="zh-CN" sz="1800" dirty="0"/>)";
+    };
+
+    // 提取 <a:bodyPr.../> 或 <a:bodyPr...>...</a:bodyPr>，保留文本框尺寸和排版参数
+    auto extractBodyPr = [](const QString &text) -> QString {
+        QRegularExpression re(R"(<a:bodyPr[^>]*/>|<a:bodyPr[^>]*>[\s\S]*?</a:bodyPr>)");
+        auto m = re.match(text);
+        return m.hasMatch() ? m.captured() : "<a:bodyPr/>";
+    };
+
+    // 提取 <a:lstStyle/> 或 <a:lstStyle>...</a:lstStyle>
+    auto extractLstStyle = [](const QString &text) -> QString {
+        QRegularExpression re(R"(<a:lstStyle/>|<a:lstStyle>[\s\S]*?</a:lstStyle>)");
+        auto m = re.match(text);
+        return m.hasMatch() ? m.captured() : "<a:lstStyle/>";
+    };
+
+    // 遍历每个 <p:sp> 形状，根据 placeholder 类型决定替换策略
+    int searchPos = 0;
+    while (true) {
+        int spStart = xml.indexOf("<p:sp>", searchPos);
+        if (spStart == -1) break;
+
+        int spEnd = xml.indexOf("</p:sp>", spStart);
+        if (spEnd == -1) break;
+        spEnd += 7; // 包含 </p:sp>
+
+        QString shape = xml.mid(spStart, spEnd - spStart);
+
+        // 判断 placeholder 类型
+        bool isTitle = shape.contains(R"(type="title")") || shape.contains(R"(type="ctrTitle")");
+        bool isSubTitle = shape.contains(R"(type="subTitle")");
+        bool isBody = false;
+        if (!isTitle && !isSubTitle) {
+            static QRegularExpression phIdx(R"(<p:ph[^>]*idx="[0-9]+"[^>]*/?>)");
+            isBody = phIdx.match(shape).hasMatch() || shape.contains(R"(type="body")");
+        }
+
+        // 定位 <p:txBody>
+        int txStart = shape.indexOf("<p:txBody>");
+        int txEnd = shape.indexOf("</p:txBody>");
+        if (txStart == -1 || txEnd == -1) {
+            searchPos = spEnd;
+            continue;
+        }
+
+        QString txBody = shape.mid(txStart, txEnd + 11 - txStart);
+        QString bodyPr = extractBodyPr(txBody);
+        QString lstStyle = extractLstStyle(txBody);
+        QString rPr = extractRunProps(txBody);
+
+        QString newTxBody;
+
+        if (isTitle && !escapedTitle.isEmpty()) {
+            // 标题：保留原始样式，只替换文字
+            newTxBody = QString("<p:txBody>%1%2"
+                "<a:p><a:r>%3<a:t>%4</a:t></a:r></a:p>"
+                "</p:txBody>")
+                .arg(bodyPr, lstStyle, rPr, escapedTitle);
+
+        } else if (isSubTitle && !normalizedContent.isEmpty()) {
+            // 副标题（封面页）
+            newTxBody = QString("<p:txBody>%1%2"
+                "<a:p><a:r>%3<a:t>%4</a:t></a:r></a:p>"
+                "</p:txBody>")
+                .arg(bodyPr, lstStyle, rPr, normalizedContent.first().toHtmlEscaped());
+
+        } else if (isBody && !normalizedContent.isEmpty()) {
+            // 正文：生成带项目符号和段间距的多段落内容
+            newTxBody = QString("<p:txBody>%1%2").arg(bodyPr, lstStyle);
+            for (const QString &line : normalizedContent) {
+                newTxBody += QString(
+                    "<a:p>"
+                    "<a:pPr marL=\"342900\" indent=\"-342900\">"
+                    "<a:spcAft><a:spcPts val=\"600\"/></a:spcAft>"
+                    "<a:buFont typeface=\"Arial\"/>"
+                    "<a:buChar char=\"&#x2022;\"/>"
+                    "</a:pPr>"
+                    "<a:r>%1<a:t>%2</a:t></a:r>"
+                    "</a:p>")
+                    .arg(rPr, line.toHtmlEscaped());
+            }
+            newTxBody += "</p:txBody>";
+        }
+
+        if (!newTxBody.isEmpty()) {
+            QString newShape = shape.left(txStart) + newTxBody + shape.mid(txEnd + 11);
+            xml.replace(spStart, spEnd - spStart, newShape);
+            searchPos = spStart + newShape.length();
+            qDebug() << "[PPTXGenerator] Replaced"
+                     << (isTitle ? "title" : isSubTitle ? "subtitle" : "body")
+                     << "in" << slideXmlPath;
+        } else {
+            searchPos = spEnd;
+        }
     }
-    
-    qDebug() << "[PPTXGenerator] Replacing:" << longestText << "->" << title;
-    
-    // 只替换这一个最长的文本（作为标题）
-    xmlContent = replaceTextInXml(xmlContent, longestText, title);
-    
+
     // 写回文件
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
         qDebug() << "[PPTXGenerator] Cannot write slide:" << slideXmlPath;
         return false;
     }
-    
+
     QTextStream out(&file);
     out.setEncoding(QStringConverter::Utf8);
-    out << xmlContent;
+    out << xml;
     file.close();
-    
+
     return true;
 }
 

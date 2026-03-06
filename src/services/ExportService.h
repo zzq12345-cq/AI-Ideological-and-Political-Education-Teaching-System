@@ -8,6 +8,7 @@
 #include "PaperService.h"
 
 class DocxGenerator;
+class QPrinter;
 
 // 导出服务类
 class ExportService : public QObject
@@ -24,7 +25,7 @@ public:
     // 导出为Word格式（真正的 .docx）
     Q_INVOKABLE bool exportToDocx(const QString &filePath, const QString &paperTitle, const QList<PaperQuestion> &questions);
 
-    // 导出为PDF格式（TODO：待实现）
+    // 导出为PDF格式
     Q_INVOKABLE bool exportToPdf(const QString &filePath, const QString &paperTitle, const QList<PaperQuestion> &questions);
 
 signals:

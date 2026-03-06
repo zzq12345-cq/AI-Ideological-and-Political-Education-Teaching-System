@@ -33,6 +33,9 @@ public:
     // 检查用户是否存在
     void checkUserExists(const QString &email);
 
+    // 密码重置
+    void resetPassword(const QString &email);
+
 signals:
     // 登录相关信号
     void loginSuccess(const QString &userId, const QString &email);
@@ -45,6 +48,10 @@ signals:
     // 用户检查相关信号
     void userExists(bool exists);
     void userCheckFailed(const QString &errorMessage);
+
+    // 密码重置相关信号
+    void passwordResetSuccess(const QString &message);
+    void passwordResetFailed(const QString &errorMessage);
 
 private slots:
     void onReplyFinished(QNetworkReply *reply);
@@ -63,6 +70,7 @@ private:
     // 处理不同类型的响应
     void handleLoginResponse(const QJsonObject &json);
     void handleSignupResponse(const QJsonObject &json);
+    void handlePasswordResetResponse(int httpStatus, const QByteArray &data);
 
     // 解析错误
     QString parseError(const QJsonObject &json);
