@@ -65,10 +65,24 @@ void SupabaseClient::checkUserExists(const QString &email)
     sendGetRequest(endpoint.toString(QUrl::FullyEncoded));
 }
 
+void SupabaseClient::resetPassword(const QString &email)
+{
+    qDebug() << "请求密码重置:" << email;
+
+    QJsonObject body;
+    body["email"] = email;
+
+    QString endpoint = SupabaseConfig::SUPABASE_URL + "/auth/v1/recover";
+    sendRequest(endpoint, body, true);
+}
+
 void SupabaseClient::sendRequest(const QString &endpoint, const QJsonObject &data, bool isPost)
 {
     const QUrl endpointUrl(endpoint);
-    qDebug() << "发送请求到:" << endpointUrl.path();
+    qDebug() << "=== 发送认证请求 ===";
+    qDebug() << "完整URL:" << endpoint;
+    qDebug() << "Supabase URL:" << SupabaseConfig::SUPABASE_URL;
+    qDebug() << "Anon Key 是否设置:" << (!SupabaseConfig::SUPABASE_ANON_KEY.isEmpty() ? "是" : "否");
 
     // 使用工厂创建认证请求
     QNetworkRequest request = NetworkRequestFactory::createAuthRequest(QUrl(endpoint));
@@ -102,18 +116,65 @@ void SupabaseClient::onReplyFinished(QNetworkReply *reply)
 {
     if (!reply) return;
 
+    // 先检查网络错误
+    QNetworkReply::NetworkError netError = reply->error();
+    QString url = reply->url().toString();
+
+    if (netError != QNetworkReply::NoError) {
+        qDebug() << "网络错误:" << netError << reply->errorString();
+
+        QString errorString;
+        switch (netError) {
+        case QNetworkReply::ConnectionRefusedError:
+            errorString = "连接被拒绝，请检查网络";
+            break;
+        case QNetworkReply::HostNotFoundError:
+            errorString = "服务器地址无效";
+            break;
+        case QNetworkReply::TimeoutError:
+            errorString = "连接超时，请检查网络";
+            break;
+        case QNetworkReply::SslHandshakeFailedError:
+            errorString = "SSL握手失败";
+            break;
+        case QNetworkReply::RemoteHostClosedError:
+            errorString = "服务器关闭了连接";
+            break;
+        default:
+            errorString = QString("网络错误: %1").arg(reply->errorString());
+        }
+
+        if (url.contains("/auth/v1/token")) {
+            emit loginFailed(errorString);
+        } else if (url.contains("/auth/v1/signup")) {
+            emit signupFailed(errorString);
+        } else if (url.contains("/auth/v1/recover")) {
+            emit passwordResetFailed(errorString);
+        } else {
+            emit loginFailed(errorString);
+        }
+        reply->deleteLater();
+        return;
+    }
+
     QByteArray data = reply->readAll();
     int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
 
     // 检查是否是认证相关的端点
-    QString url = reply->url().toString();
-    const bool isAuthEndpoint = url.contains("/auth/v1/token") || url.contains("/auth/v1/signup");
+    const bool isAuthEndpoint = url.contains("/auth/v1/token") || url.contains("/auth/v1/signup") || url.contains("/auth/v1/recover");
 
     qDebug() << "HTTP状态码:" << httpStatus << "URL:" << reply->url().path();
     if (isAuthEndpoint) {
         qDebug() << "认证接口响应长度:" << data.size();
     } else {
         qDebug() << "响应数据:" << data;
+    }
+
+    // 密码重置接口：成功时返回空 body 或简短 JSON
+    if (url.contains("/auth/v1/recover")) {
+        handlePasswordResetResponse(httpStatus, data);
+        reply->deleteLater();
+        return;
     }
 
     // 用户检查接口返回的是数组，需要特殊处理
@@ -148,6 +209,8 @@ void SupabaseClient::onReplyFinished(QNetworkReply *reply)
             emit loginFailed(error.errorString());
         } else if (url.contains("/auth/v1/signup")) {
             emit signupFailed(error.errorString());
+        } else if (url.contains("/auth/v1/recover")) {
+            emit passwordResetFailed(error.errorString());
         } else if (url.contains("/rest/v1/" + SupabaseConfig::USERS_TABLE)) {
             emit userCheckFailed(error.errorString());
         }
@@ -213,6 +276,26 @@ void SupabaseClient::handleSignupResponse(const QJsonObject &json)
     }
 }
 
+void SupabaseClient::handlePasswordResetResponse(int httpStatus, const QByteArray &data)
+{
+    qDebug() << "处理密码重置响应, HTTP状态:" << httpStatus;
+
+    if (httpStatus == 200) {
+        emit passwordResetSuccess("密码重置邮件已发送，请检查您的邮箱。");
+        return;
+    }
+
+    // 非 200 尝试解析错误信息
+    QJsonParseError parseErr;
+    QJsonDocument doc = QJsonDocument::fromJson(data, &parseErr);
+    if (parseErr.error == QJsonParseError::NoError && doc.isObject()) {
+        QString errMsg = parseError(doc.object());
+        emit passwordResetFailed(errMsg);
+    } else {
+        emit passwordResetFailed(QString("密码重置失败（HTTP %1）").arg(httpStatus));
+    }
+}
+
 QString SupabaseClient::parseError(const QJsonObject &json)
 {
     if (json.contains("error_description")) {
@@ -263,6 +346,8 @@ void SupabaseClient::onNetworkError(QNetworkReply::NetworkError error)
         emit loginFailed(errorString);
     } else if (url.contains("/auth/v1/signup")) {
         emit signupFailed(errorString);
+    } else if (url.contains("/auth/v1/recover")) {
+        emit passwordResetFailed(errorString);
     } else if (url.contains("/rest/v1/" + SupabaseConfig::USERS_TABLE)) {
         emit userCheckFailed(errorString);
     } else {
@@ -294,6 +379,8 @@ void SupabaseClient::onSslErrors(const QList<QSslError> &errors)
         emit loginFailed(errorMsg);
     } else if (url.contains("/auth/v1/signup")) {
         emit signupFailed(errorMsg);
+    } else if (url.contains("/auth/v1/recover")) {
+        emit passwordResetFailed(errorMsg);
     } else if (url.contains("/rest/v1/" + SupabaseConfig::USERS_TABLE)) {
         emit userCheckFailed(errorMsg);
     } else {

@@ -167,6 +167,9 @@ target_link_libraries(AILoginSystem PRIVATE
 )
 
 # 设置目标属性
+set(PPT_DEMO_RESOURCE "${CMAKE_SOURCE_DIR}/resources/ppt/爱国主义精神传承.pptx")
+set(PPT_TEMPLATE_RESOURCE "${CMAKE_SOURCE_DIR}/resources/templates/party_red_template.pptx")
+
 set_target_properties(AILoginSystem PROPERTIES
     MACOSX_BUNDLE_GUI_IDENTIFIER com.aiedu.loginsystem
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
@@ -174,16 +177,20 @@ set_target_properties(AILoginSystem PROPERTIES
     MACOSX_BUNDLE_ICON_FILE ${MACOSX_BUNDLE_ICON_FILE}
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
-    RESOURCE "${CMAKE_SOURCE_DIR}/resources/ppt/爱国主义精神传承.pptx"
+    RESOURCE "${PPT_DEMO_RESOURCE};${PPT_TEMPLATE_RESOURCE}"
 )
 
 # 复制 PPT 资源到 App Bundle (macOS)
 if(APPLE)
     add_custom_command(TARGET AILoginSystem POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_DIR:AILoginSystem>/Contents/Resources/ppt"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_DIR:AILoginSystem>/Contents/Resources/templates"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_SOURCE_DIR}/resources/ppt/爱国主义精神传承.pptx"
+            "${PPT_DEMO_RESOURCE}"
             "$<TARGET_BUNDLE_DIR:AILoginSystem>/Contents/Resources/ppt/"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${PPT_TEMPLATE_RESOURCE}"
+            "$<TARGET_BUNDLE_DIR:AILoginSystem>/Contents/Resources/templates/"
         COMMENT "Copying PPT resources to app bundle"
     )
 endif()

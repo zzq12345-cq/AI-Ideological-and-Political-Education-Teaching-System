@@ -204,17 +204,11 @@ private:
     QTimer *m_pptSimulationTimer = nullptr;     // PPT 模拟思考定时器
     int m_pptSimulationStep = 0;          // 当前模拟步骤
     QString m_pendingPPTPath;         // 待提供的 PPT 文件路径
-    int m_pptQuestionStep = 0;            // PPT 问答阶段（0=未开始，1-3=问问题，4=生成中）
-    QStringList m_pptUserAnswers;     // 用户的回答记录
-    QTimer *m_pptTypingTimer = nullptr;         // 打字效果定时器
-    QString m_pptTypingText;          // 待打字的完整文本
-    int m_pptTypingIndex = 0;             // 当前打字位置
+    QString m_pptTopic;               // 用户请求的 PPT 主题
     void startPPTSimulation(const QString &userMessage);  // 开始 PPT 模拟生成
     void onPPTSimulationStep();       // PPT 模拟步骤处理
     bool isPPTGenerationRequest(const QString &message);  // 检测是否是 PPT 生成请求
-    void handlePPTConversation(const QString &message);   // 处理 PPT 问答对话
-    void typeMessageWithEffect(const QString &text);      // 带打字效果的消息显示
-    void onPPTTypingStep();           // 打字效果定时器回调
+    QString extractPPTTopic(const QString &message) const; // 从用户消息中提取主题
 
     // 欢迎面板（首页显示，对话后隐藏）
     QWidget *m_welcomePanel = nullptr;

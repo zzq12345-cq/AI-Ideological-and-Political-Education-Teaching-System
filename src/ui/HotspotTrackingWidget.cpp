@@ -1071,6 +1071,11 @@ void HotspotTrackingWidget::onNewsListUpdated(const QList<NewsItem> &newsList)
     m_currentNews = newsList;
     clearNewsGrid();
 
+    // 重置旧的列拉伸，避免列数变化时残留
+    for (int c = 0; c < m_newsGridLayout->columnCount(); ++c) {
+        m_newsGridLayout->setColumnStretch(c, 0);
+    }
+
     m_loadingLabel->setVisible(false);
     m_emptyLabel->setVisible(newsList.isEmpty());
     m_scrollArea->setVisible(!newsList.isEmpty());
@@ -1093,20 +1098,20 @@ void HotspotTrackingWidget::onNewsListUpdated(const QList<NewsItem> &newsList)
         }
     }
 
-    for (int i = 0; i < newsList.size(); ++i) {
-        const NewsItem &news = newsList[i];
+    // 头条始终放在最顶部
+    if (columns > 1) {
+        QWidget *headline = createHeadlineCard(newsList[headlineIndex]);
+        m_newsGridLayout->addWidget(headline, row, 0, 1, columns);
+        row++;
+    }
 
-        if (columns > 1) {
-            // 头条独占一行，优先选择“思政国内”新闻
-            if (i == headlineIndex) {
-                QWidget *headline = createHeadlineCard(news);
-                m_newsGridLayout->addWidget(headline, row, 0, 1, columns);
-                row++;
-                continue;
-            }
+    // 普通卡片（跳过已作为头条的那条）
+    for (int i = 0; i < newsList.size(); ++i) {
+        if (columns > 1 && i == headlineIndex) {
+            continue;
         }
 
-        QWidget *card = createNewsCard(news);
+        QWidget *card = createNewsCard(newsList[i]);
         m_newsGridLayout->addWidget(card, row, col);
 
         col++;

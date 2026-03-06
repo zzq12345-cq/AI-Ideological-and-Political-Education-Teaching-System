@@ -4,6 +4,10 @@
 #include <QTextStream>
 #include <QDebug>
 #include <QDir>
+#include <QPrinter>
+#include <QTextDocument>
+#include <QPageLayout>
+#include <QMarginsF>
 
 ExportService::ExportService(QObject *parent)
     : QObject(parent)
@@ -64,15 +68,53 @@ bool ExportService::exportToHtml(const QString &filePath, const QString &paperTi
     return true;
 }
 
-// 导出为PDF格式（TODO：待实现）
+// 导出为PDF格式
 bool ExportService::exportToPdf(const QString &filePath, const QString &paperTitle, const QList<PaperQuestion> &questions)
 {
-    // TODO: 实现PDF导出
-    // 可以使用QPrinter、第三方库如QPrinter、poppler或其他PDF生成库
+    if (questions.isEmpty()) {
+        qWarning() << "没有题目可以导出";
+        emit exportFailed("没有题目可以导出");
+        return false;
+    }
 
-    qWarning() << "PDF导出功能尚未实现";
-    emit exportFailed("PDF导出功能尚未实现");
-    return false;
+    QDir dir(QFileInfo(filePath).absolutePath());
+    if (!dir.exists()) {
+        if (!dir.mkpath(dir.absolutePath())) {
+            qWarning() << "无法创建目录:" << dir.absolutePath();
+            emit exportFailed("无法创建目录");
+            return false;
+        }
+    }
+
+    // 使用 QPrinter 输出 PDF
+    QPrinter printer(QPrinter::HighResolution);
+    printer.setOutputFormat(QPrinter::PdfFormat);
+    printer.setOutputFileName(filePath);
+    printer.setPageSize(QPageSize(QPageSize::A4));
+    printer.setPageMargins(QMarginsF(15, 15, 15, 15), QPageLayout::Millimeter);
+
+    // 复用已有的 HTML 生成逻辑，增加适合打印的样式覆盖
+    QString htmlContent = generateHtmlContent(paperTitle, questions);
+
+    QString printCss = QStringLiteral(
+        "<style>"
+        "  body { padding: 0; }"
+        "  .question { break-inside: avoid; }"
+        "</style>"
+    );
+    htmlContent.replace("</head>", printCss + "</head>");
+
+    QTextDocument doc;
+    doc.setHtml(htmlContent);
+
+    // 设置文档宽度匹配打印区域，避免内容溢出
+    const double pageWidthPx = printer.pageRect(QPrinter::DevicePixel).width();
+    doc.setPageSize(QSizeF(pageWidthPx, printer.pageRect(QPrinter::DevicePixel).height()));
+    doc.print(&printer);
+
+    qInfo() << "成功导出试卷PDF到:" << filePath;
+    emit exportSuccess(filePath);
+    return true;
 }
 
 // 导出为Word格式（真正的 .docx）
