@@ -7,6 +7,7 @@
 #include <QNetworkReply>
 #include <QFile>
 #include "PaperService.h"
+#include "../utils/SseStreamParser.h"
 
 /**
  * @brief 试题解析服务
@@ -111,25 +112,23 @@ private:
     void callWorkflowWithFile(const QString &uploadFileId);
     
     /**
+     * @brief SSE 事件业务处理
+     */
+    void handleSseEvent(const QString &event, const QJsonObject &obj);
+
+    /**
      * @brief 解析 Dify 返回的 JSON 结果
      */
     QList<PaperQuestion> parseJsonResponse(const QString &jsonText);
-    
-    /**
-     * @brief 解析 SSE 流式响应
-     */
-    void parseStreamResponse(const QByteArray &data);
-    
+
     QNetworkAccessManager *m_networkManager;
     QNetworkReply *m_currentReply;
     QNetworkReply *m_uploadReply;
+    SseStreamParser m_sseParser;  // SSE 协议解析器
     QString m_apiKey;
     QString m_baseUrl;
     QString m_lastError;
     QString m_fullResponse;
-    QString m_streamBuffer;
-    QString m_currentEvent;
-    QStringList m_sseDataLines;
     bool m_hasStreamError = false;
 
     // 当前解析的元数据

@@ -12,7 +12,7 @@
 SupabaseStorageService::SupabaseStorageService(QObject *parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
-    , m_bucketName("question-images")  // 默认存储桶名称
+    , m_bucketName("question-images")
 {
 }
 
@@ -28,7 +28,6 @@ void SupabaseStorageService::setBucketName(const QString &bucketName)
 
 QString SupabaseStorageService::generateUniqueFileName(const QString &originalName)
 {
-    // 生成唯一文件名: timestamp_uuid_originalname
     QString uuid = QUuid::createUuid().toString(QUuid::WithoutBraces).left(8);
     QString timestamp = QString::number(QDateTime::currentMSecsSinceEpoch());
     QString ext = originalName.section('.', -1);
@@ -37,10 +36,140 @@ QString SupabaseStorageService::generateUniqueFileName(const QString &originalNa
 
 QString SupabaseStorageService::getPublicUrl(const QString &filePath)
 {
-    // Supabase Storage 公开 URL 格式
     return QString("%1/storage/v1/object/public/%2/%3")
             .arg(SupabaseConfig::SUPABASE_URL, m_bucketName, filePath);
 }
+
+// ===== 异步 API =====
+
+void SupabaseStorageService::uploadImageAsync(const QByteArray &imageData, const QString &fileName,
+                                               const QString &mimeType, const QString &requestId)
+{
+    m_lastError.clear();
+
+    if (imageData.isEmpty()) {
+        m_lastError = "图片数据为空";
+        emit imageUploadError(requestId, m_lastError);
+        return;
+    }
+
+    QString uniqueFileName = generateUniqueFileName(fileName);
+    QString uploadUrl = QString("%1/storage/v1/object/%2/%3")
+                            .arg(SupabaseConfig::SUPABASE_URL, m_bucketName, uniqueFileName);
+
+    qDebug() << "[SupabaseStorageService] 异步上传图片到:" << uploadUrl;
+
+    QNetworkRequest request = NetworkRequestFactory::createGeneralRequest(QUrl(uploadUrl), 30000);
+    request.setRawHeader("apikey", SupabaseConfig::SUPABASE_ANON_KEY.toUtf8());
+    request.setRawHeader("Authorization", QString("Bearer %1").arg(SupabaseConfig::SUPABASE_ANON_KEY).toUtf8());
+    request.setRawHeader("Content-Type", mimeType.toUtf8());
+    request.setRawHeader("x-upsert", "true");
+
+    QNetworkReply *reply = m_networkManager->post(request, imageData);
+    // 通过 property 传递上下文
+    reply->setProperty("requestId", requestId);
+    reply->setProperty("uniqueFileName", uniqueFileName);
+
+    connect(reply, &QNetworkReply::finished, this, &SupabaseStorageService::onAsyncUploadFinished);
+}
+
+void SupabaseStorageService::onAsyncUploadFinished()
+{
+    QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
+    if (!reply) return;
+
+    QString requestId = reply->property("requestId").toString();
+    QString uniqueFileName = reply->property("uniqueFileName").toString();
+
+    if (reply->error() != QNetworkReply::NoError) {
+        m_lastError = QString("上传失败: %1").arg(reply->errorString());
+        qDebug() << "[SupabaseStorageService]" << m_lastError;
+        emit imageUploadError(requestId, m_lastError);
+    } else {
+        int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (httpStatus != 200 && httpStatus != 201) {
+            m_lastError = QString("上传失败，HTTP 状态码: %1").arg(httpStatus);
+            qDebug() << "[SupabaseStorageService]" << m_lastError;
+            emit imageUploadError(requestId, m_lastError);
+        } else {
+            QString publicUrl = getPublicUrl(uniqueFileName);
+            qDebug() << "[SupabaseStorageService] 异步上传成功:" << publicUrl;
+            emit imageUploaded(requestId, publicUrl);
+        }
+    }
+
+    reply->deleteLater();
+
+    // 批量模式：更新进度并处理下一个
+    if (m_isBatchMode) {
+        m_batchCompleted++;
+
+        // 记录结果
+        if (reply->error() == QNetworkReply::NoError) {
+            int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            if (httpStatus == 200 || httpStatus == 201) {
+                m_batchResults[requestId] = getPublicUrl(uniqueFileName);
+            }
+        }
+
+        emit uploadProgress(m_batchCompleted, m_batchTotal);
+
+        if (m_uploadQueue.isEmpty()) {
+            // 批量上传全部完成
+            m_isBatchMode = false;
+            emit batchUploadFinished(m_batchResults);
+        } else {
+            processNextUpload();
+        }
+    }
+}
+
+void SupabaseStorageService::uploadImagesAsync(const QMap<QString, QPair<QByteArray, QString>> &images)
+{
+    m_uploadQueue.clear();
+    m_batchResults.clear();
+    m_batchTotal = images.size();
+    m_batchCompleted = 0;
+    m_isBatchMode = true;
+
+    for (auto it = images.begin(); it != images.end(); ++it) {
+        UploadTask task;
+        task.requestId = it.key();
+        task.imageData = it.value().first;
+        task.mimeType = it.value().second;
+
+        // 从 mimeType 推断扩展名
+        QString ext = "png";
+        if (task.mimeType.contains("jpeg") || task.mimeType.contains("jpg")) {
+            ext = "jpg";
+        } else if (task.mimeType.contains("gif")) {
+            ext = "gif";
+        } else if (task.mimeType.contains("bmp")) {
+            ext = "bmp";
+        }
+        task.fileName = QString("%1.%2").arg(task.requestId, ext);
+
+        m_uploadQueue.enqueue(task);
+    }
+
+    if (m_uploadQueue.isEmpty()) {
+        m_isBatchMode = false;
+        emit batchUploadFinished(m_batchResults);
+        return;
+    }
+
+    processNextUpload();
+}
+
+void SupabaseStorageService::processNextUpload()
+{
+    if (m_uploadQueue.isEmpty()) return;
+
+    UploadTask task = m_uploadQueue.dequeue();
+    uploadImageAsync(task.imageData, task.fileName, task.mimeType, task.requestId);
+}
+
+// ===== 同步 API（保持向后兼容）=====
 
 QString SupabaseStorageService::uploadImage(const QByteArray &imageData,
                                             const QString &fileName,
@@ -53,23 +182,19 @@ QString SupabaseStorageService::uploadImage(const QByteArray &imageData,
         return QString();
     }
 
-    // 生成唯一文件名
     QString uniqueFileName = generateUniqueFileName(fileName);
-
-    // 构建上传 URL
     QString uploadUrl = QString("%1/storage/v1/object/%2/%3")
                             .arg(SupabaseConfig::SUPABASE_URL, m_bucketName, uniqueFileName);
 
     qDebug() << "[SupabaseStorageService] 上传图片到:" << uploadUrl;
 
-    // 构建请求（使用通用请求工厂，手动添加 Storage 特有的头）
     QNetworkRequest request = NetworkRequestFactory::createGeneralRequest(QUrl(uploadUrl), 30000);
     request.setRawHeader("apikey", SupabaseConfig::SUPABASE_ANON_KEY.toUtf8());
     request.setRawHeader("Authorization", QString("Bearer %1").arg(SupabaseConfig::SUPABASE_ANON_KEY).toUtf8());
     request.setRawHeader("Content-Type", mimeType.toUtf8());
-    request.setRawHeader("x-upsert", "true");  // 允许覆盖
+    request.setRawHeader("x-upsert", "true");
 
-    // 同步上传（使用事件循环等待）
+    // 同步等待（使用事件循环，保持 UI 响应）
     QEventLoop loop;
     QTimer timeout;
     timeout.setSingleShot(true);
@@ -79,7 +204,7 @@ QString SupabaseStorageService::uploadImage(const QByteArray &imageData,
     connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
     connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
 
-    timeout.start(30000);  // 30秒超时
+    timeout.start(30000);
     loop.exec();
 
     if (timeout.isActive()) {
@@ -91,11 +216,9 @@ QString SupabaseStorageService::uploadImage(const QByteArray &imageData,
         return QString();
     }
 
-    // 检查响应
     if (reply->error() != QNetworkReply::NoError) {
         m_lastError = QString("上传失败: %1").arg(reply->errorString());
         qDebug() << "[SupabaseStorageService]" << m_lastError;
-        qDebug() << "[SupabaseStorageService] 响应:" << reply->readAll();
         reply->deleteLater();
         return QString();
     }
@@ -104,17 +227,14 @@ QString SupabaseStorageService::uploadImage(const QByteArray &imageData,
     if (httpStatus != 200 && httpStatus != 201) {
         m_lastError = QString("上传失败，HTTP 状态码: %1").arg(httpStatus);
         qDebug() << "[SupabaseStorageService]" << m_lastError;
-        qDebug() << "[SupabaseStorageService] 响应:" << reply->readAll();
         reply->deleteLater();
         return QString();
     }
 
     reply->deleteLater();
 
-    // 返回公开 URL
     QString publicUrl = getPublicUrl(uniqueFileName);
     qDebug() << "[SupabaseStorageService] 上传成功:" << publicUrl;
-
     return publicUrl;
 }
 
@@ -131,7 +251,6 @@ QMap<QString, QString> SupabaseStorageService::uploadImages(
         QByteArray imageData = it.value().first;
         QString mimeType = it.value().second;
 
-        // 从 mimeType 推断扩展名
         QString ext = "png";
         if (mimeType.contains("jpeg") || mimeType.contains("jpg")) {
             ext = "jpg";

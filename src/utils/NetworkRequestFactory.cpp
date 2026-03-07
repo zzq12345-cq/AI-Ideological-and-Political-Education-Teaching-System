@@ -10,6 +10,27 @@ bool NetworkRequestFactory::allowInsecureSslForDebug()
     return value == "1" || value == "true" || value == "yes";
 }
 
+bool NetworkRequestFactory::handleSslErrors(QNetworkReply *reply,
+                                             const QList<QSslError> &errors,
+                                             const QString &tag)
+{
+    const QString prefix = tag.isEmpty() ? "[NetworkRequestFactory]" : tag;
+    for (const QSslError &error : errors) {
+        qDebug() << prefix << "SSL Error:" << error.errorString();
+    }
+
+    if (reply && allowInsecureSslForDebug()) {
+        qWarning() << prefix << "ALLOW_INSECURE_SSL 已启用，忽略 SSL 错误（仅用于开发调试）";
+        reply->ignoreSslErrors(errors);
+        return true;
+    }
+
+    if (reply) {
+        reply->abort();
+    }
+    return false;
+}
+
 // ===== 内部辅助 =====
 
 void NetworkRequestFactory::applyBaseConfig(QNetworkRequest &request)

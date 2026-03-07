@@ -2,8 +2,10 @@
 #define NETWORKREQUESTFACTORY_H
 
 #include <QNetworkRequest>
+#include <QNetworkReply>
 #include <QSslConfiguration>
 #include <QSslSocket>
+#include <QSslError>
 #include <QString>
 #include <QUrl>
 
@@ -85,6 +87,22 @@ public:
      * 供各服务的 onSslErrors 回调使用，统一判断逻辑。
      * @return true 表示开发调试模式，允许忽略 SSL 错误
      */
+    /**
+     * @brief 统一处理 QNetworkReply 的 SSL 错误
+     *
+     * 供各服务在 sslErrors 信号回调中调用。
+     * 如果处于调试模式（ALLOW_INSECURE_SSL），忽略错误并返回 true；
+     * 否则中止请求并返回 false。
+     *
+     * @param reply 发生 SSL 错误的网络回复
+     * @param errors SSL 错误列表
+     * @param tag 日志标签（如 "[DifyService]"）
+     * @return true 表示已忽略错误，false 表示已中止请求
+     */
+    static bool handleSslErrors(QNetworkReply *reply,
+                                const QList<QSslError> &errors,
+                                const QString &tag = QString());
+
     static bool allowInsecureSslForDebug();
 
 private:
