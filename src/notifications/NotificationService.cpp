@@ -295,10 +295,39 @@ void NotificationService::onNetworkError(QNetworkReply::NetworkError error)
 
 void NotificationService::markBatchAsRead(const QStringList &notificationIds)
 {
-    for (const QString &id : notificationIds) {
-        markAsRead(id);
-    }
-    qDebug() << "[NotificationService] 批量标记已读，共" << notificationIds.size() << "条";
+    if (notificationIds.isEmpty()) return;
+
+    // 单次 PATCH 请求：使用 Supabase 的 in 过滤器
+    // PATCH /rest/v1/notifications?id=in.(id1,id2,id3)
+    QString idList = notificationIds.join(",");
+    QString endpoint = QString("/rest/v1/notifications?id=in.(%1)").arg(idList);
+    QNetworkRequest request = createRequest(endpoint);
+
+    QJsonObject body;
+    body["is_read"] = true;
+    QByteArray data = QJsonDocument(body).toJson();
+
+    QNetworkReply *reply = m_networkManager->sendCustomRequest(request, "PATCH", data);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, notificationIds]() {
+        if (reply->error() == QNetworkReply::NoError) {
+            // 更新本地缓存
+            for (int i = 0; i < m_notifications.size(); ++i) {
+                if (notificationIds.contains(m_notifications[i].id())) {
+                    if (!m_notifications[i].isRead()) {
+                        m_notifications[i].setIsRead(true);
+                        if (m_unreadCount > 0) m_unreadCount--;
+                    }
+                }
+            }
+            emit unreadCountChanged(m_unreadCount);
+            emit notificationsReceived(m_notifications);
+        } else {
+            qWarning() << "[NotificationService] 批量标记已读失败:" << reply->errorString();
+        }
+        reply->deleteLater();
+    });
+
+    qDebug() << "[NotificationService] 批量标记已读，共" << notificationIds.size() << "条（单次请求）";
     emit batchMarkedAsRead(notificationIds);
 }
 

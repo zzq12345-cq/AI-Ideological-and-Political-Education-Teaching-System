@@ -19,6 +19,10 @@ QuestionParserService::QuestionParserService(QObject *parent)
     , m_uploadFile(nullptr)
     , m_baseUrl("https://api.dify.ai/v1")
 {
+    // 初始化 SSE 解析器回调
+    m_sseParser.setEventHandler([this](const QString &event, const QJsonObject &obj) {
+        handleSseEvent(event, obj);
+    });
 }
 
 QuestionParserService::~QuestionParserService()
@@ -86,9 +90,7 @@ void QuestionParserService::parseDocument(const QString &documentText,
     m_currentSubject = subject;
     m_currentGrade = grade;
     m_fullResponse.clear();
-    m_streamBuffer.clear();
-    m_currentEvent.clear();
-    m_sseDataLines.clear();
+    m_sseParser.reset();
     m_hasStreamError = false;
 
     // 构建 Dify 工作流 API 请求
@@ -149,9 +151,7 @@ void QuestionParserService::parseFile(const QString &filePath,
     m_currentSubject = subject;
     m_currentGrade = grade;
     m_fullResponse.clear();
-    m_streamBuffer.clear();
-    m_currentEvent.clear();
-    m_sseDataLines.clear();
+    m_sseParser.reset();
     m_hasStreamError = false;
     m_uploadedFileId.clear();
 
@@ -286,9 +286,7 @@ void QuestionParserService::callWorkflowWithFile(const QString &uploadFileId)
     }
     
     m_fullResponse.clear();
-    m_streamBuffer.clear();
-    m_currentEvent.clear();
-    m_sseDataLines.clear();
+    m_sseParser.reset();
     m_hasStreamError = false;
 
     // 构建工作流请求
@@ -330,10 +328,10 @@ void QuestionParserService::callWorkflowWithFile(const QString &uploadFileId)
 void QuestionParserService::onReadyRead()
 {
     if (!m_currentReply) return;
-    
+
     QByteArray data = m_currentReply->readAll();
     if (!data.isEmpty()) {
-        parseStreamResponse(data);
+        m_sseParser.feed(data);
     }
 }
 
@@ -345,9 +343,9 @@ void QuestionParserService::onReplyFinished()
     
     if (error != QNetworkReply::NoError &&
         error != QNetworkReply::RemoteHostClosedError) {
-        if (!m_streamBuffer.isEmpty() || !m_currentEvent.isEmpty() || !m_sseDataLines.isEmpty()) {
+        if (m_sseParser.hasPendingData()) {
             qDebug() << "[QuestionParserService] Flush pending stream on error";
-            parseStreamResponse(QByteArray());
+            m_sseParser.flush();
         }
         QString errorMsg = m_currentReply->errorString();
         int httpStatus = m_currentReply->attribute(
@@ -378,9 +376,9 @@ void QuestionParserService::onReplyFinished()
         qDebug() << "[QuestionParserService] 请求完成，响应长度:"
                  << m_fullResponse.length();
 
-        if (!m_streamBuffer.isEmpty() || !m_currentEvent.isEmpty() || !m_sseDataLines.isEmpty()) {
+        if (m_sseParser.hasPendingData()) {
             qDebug() << "[QuestionParserService] Flush pending stream on finish";
-            parseStreamResponse(QByteArray());
+            m_sseParser.flush();
         }
 
         if (m_hasStreamError) {
@@ -406,167 +404,69 @@ void QuestionParserService::onReplyFinished()
     m_currentReply = nullptr;
 }
 
-void QuestionParserService::parseStreamResponse(const QByteArray &data)
+// SSE 事件业务处理（由 SseStreamParser 回调）
+void QuestionParserService::handleSseEvent(const QString &event, const QJsonObject &obj)
 {
-    QString buffer = m_streamBuffer + QString::fromUtf8(data);
-    QStringList lines = buffer.split('\n');
-    const bool endedWithNewline = buffer.endsWith('\n');
-    const bool forceFlush = data.isEmpty();
-    m_streamBuffer.clear();
-
-    // 保留不完整的最后一行
-    if (!endedWithNewline && !lines.isEmpty() && !forceFlush) {
-        QString lastLine = lines.takeLast();
-        if (!lastLine.trimmed().isEmpty()) {
-            m_streamBuffer = lastLine;
+    if (event == "text_chunk") {
+        QJsonObject dataObj = obj["data"].toObject();
+        QString text = dataObj["text"].toString();
+        if (text.isEmpty()) {
+            text = obj["text"].toString();
         }
-    }
+        m_fullResponse += text;
+        emit parseProgress(text);
 
-    auto flushEvent = [this]() {
-        if (m_sseDataLines.isEmpty()) {
-            m_currentEvent.clear();
-            return;
+    } else if (event == "workflow_finished") {
+        QJsonObject dataObj = obj["data"].toObject();
+        QJsonObject outputs = dataObj["outputs"].toObject();
+
+        qDebug() << "[QuestionParserService] workflow_finished";
+        qDebug() << "[QuestionParserService] outputs 所有键:" << outputs.keys();
+
+        // 工作流输出可能在 outputs.result 或其他字段
+        QString result = outputs["result"].toString();
+        if (result.isEmpty()) {
+            result = outputs["text"].toString();
         }
-
-        const QString jsonStr = m_sseDataLines.join("\n");
-        m_sseDataLines.clear();
-
-        if (jsonStr.isEmpty() || jsonStr == "[DONE]") {
-            m_currentEvent.clear();
-            return;
+        if (result.isEmpty()) {
+            result = outputs["output"].toString();
         }
-
-        QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
-        if (doc.isNull() || !doc.isObject()) {
-            qDebug() << "[QuestionParserService] 无法解析 data JSON:" << jsonStr.left(200);
-            m_currentEvent.clear();
-            return;
-        }
-
-        QJsonObject obj = doc.object();
-        // 事件类型可能在 data 中，也可能通过之前的 event: 行传递
-        QString event = obj["event"].toString();
-        if (event.isEmpty()) {
-            event = m_currentEvent;
-        }
-        m_currentEvent.clear();
-
-        if (event == "text_chunk") {
-            // 提取文本块
-            QJsonObject dataObj = obj["data"].toObject();
-            QString text = dataObj["text"].toString();
-            if (text.isEmpty()) {
-                text = obj["text"].toString();
-            }
-
-            m_fullResponse += text;
-            emit parseProgress(text);
-
-        } else if (event == "workflow_finished") {
-            // 工作流完成，提取最终输出
-            QJsonObject dataObj = obj["data"].toObject();
-            QJsonObject outputs = dataObj["outputs"].toObject();
-
-            // 打印详细调试信息
-            qDebug() << "[QuestionParserService] workflow_finished 数据:";
-            qDebug() << "[QuestionParserService] data 字段:" << QJsonDocument(dataObj).toJson(QJsonDocument::Compact);
-            qDebug() << "[QuestionParserService] outputs 字段:" << QJsonDocument(outputs).toJson(QJsonDocument::Compact);
-            qDebug() << "[QuestionParserService] outputs 所有键:" << outputs.keys();
-
-            // 工作流输出可能在 outputs.result 或其他字段
-            QString result = outputs["result"].toString();
-            if (result.isEmpty()) {
-                result = outputs["text"].toString();
-            }
-            if (result.isEmpty()) {
-                result = outputs["output"].toString();
-            }
-            if (result.isEmpty()) {
-                // 遍历 outputs 找到第一个字符串值
-                for (const QString &key : outputs.keys()) {
-                    QJsonValue val = outputs[key];
-                    qDebug() << "[QuestionParserService] 检查字段:" << key << "类型:" << val.type();
-                    if (val.isString() && !val.toString().isEmpty()) {
-                        result = val.toString();
-                        qDebug() << "[QuestionParserService] 使用字段:" << key;
-                        break;
-                    }
+        if (result.isEmpty()) {
+            for (const QString &key : outputs.keys()) {
+                QJsonValue val = outputs[key];
+                if (val.isString() && !val.toString().isEmpty()) {
+                    result = val.toString();
+                    qDebug() << "[QuestionParserService] 使用字段:" << key;
+                    break;
                 }
             }
-
-            if (!result.isEmpty()) {
-                m_fullResponse = result;
-                qDebug() << "[QuestionParserService] 获取到输出，长度:" << result.length();
-            } else {
-                qDebug() << "[QuestionParserService] 警告：outputs 中没有找到有效输出";
-            }
-
-            qDebug() << "[QuestionParserService] 工作流完成";
-
-        } else if (event == "workflow_started") {
-            qDebug() << "[QuestionParserService] 工作流已启动";
-
-        } else if (event == "node_started" || event == "node_finished") {
-            // 节点执行进度（可选记录）
-            QJsonObject dataObj = obj["data"].toObject();
-            QString nodeTitle = dataObj["title"].toString();
-            if (!nodeTitle.isEmpty()) {
-                qDebug() << "[QuestionParserService] 节点" << (event == "node_started" ? "开始" : "完成") << ":" << nodeTitle;
-            }
-
-        } else if (event == "error") {
-            // 工作流错误
-            QJsonObject dataObj = obj["data"].toObject();
-            QString errorMsg = dataObj["message"].toString();
-            if (errorMsg.isEmpty()) {
-                errorMsg = obj["message"].toString();
-            }
-            m_lastError = QString("工作流错误: %1").arg(errorMsg);
-            m_hasStreamError = true;
-            qWarning() << "[QuestionParserService]" << m_lastError;
-            emit errorOccurred(m_lastError);
-        }
-    };
-
-    for (const QString &line : lines) {
-        QString trimmed = line.trimmed();
-        if (trimmed.isEmpty()) {
-            flushEvent();
-            continue;
         }
 
-        // 处理 SSE event: 行
-        if (trimmed.startsWith("event:")) {
-            const QString eventValue = trimmed.mid(6).trimmed();
-            if (!eventValue.isEmpty()) {
-                m_currentEvent = eventValue;
-            }
-            if (m_currentEvent != "ping" && !m_currentEvent.isEmpty()) {
-                qDebug() << "[QuestionParserService] SSE 事件:" << m_currentEvent;
-            }
-            continue;
+        if (!result.isEmpty()) {
+            m_fullResponse = result;
+            qDebug() << "[QuestionParserService] 获取到输出，长度:" << result.length();
         }
 
-        // 处理 SSE data: 行
-        if (trimmed.startsWith("data:")) {
-            QString jsonStr = trimmed.mid(5);
-            if (jsonStr.startsWith(' ')) {
-                jsonStr = jsonStr.mid(1);
-            }
-            m_sseDataLines.append(jsonStr);
-            continue;
+    } else if (event == "workflow_started") {
+        qDebug() << "[QuestionParserService] 工作流已启动";
+
+    } else if (event == "node_started" || event == "node_finished") {
+        QJsonObject dataObj = obj["data"].toObject();
+        QString nodeTitle = dataObj["title"].toString();
+        if (!nodeTitle.isEmpty()) {
+            qDebug() << "[QuestionParserService] 节点" << (event == "node_started" ? "开始" : "完成") << ":" << nodeTitle;
         }
 
-        // 其他非 SSE 格式的数据（可能是纯文本响应或错误信息）
-        // 只有当不是 event: 开头时才记录
-        if (!trimmed.startsWith("event:")) {
-            qDebug() << "[QuestionParserService] 非 SSE 数据:" << trimmed;
-            // 不再盲目追加到 m_fullResponse，避免污染输出
+    } else if (event == "error") {
+        QJsonObject dataObj = obj["data"].toObject();
+        QString errorMsg = dataObj["message"].toString();
+        if (errorMsg.isEmpty()) {
+            errorMsg = obj["message"].toString();
         }
-    }
-
-    if (forceFlush || (endedWithNewline && buffer.endsWith("\n\n"))) {
-        flushEvent();
+        m_lastError = QString("工作流错误: %1").arg(errorMsg);
+        m_hasStreamError = true;
+        qWarning() << "[QuestionParserService]" << m_lastError;
+        emit errorOccurred(m_lastError);
     }
 }
 
@@ -578,13 +478,13 @@ QList<PaperQuestion> QuestionParserService::parseJsonResponse(const QString &jso
     QString cleanJson = jsonText.trimmed();
 
     // 移除 <think>...</think> 标签及其内容（AI 的思考过程）
-    QRegularExpression thinkRe("<think>.*?</think>", QRegularExpression::DotMatchesEverythingOption);
+    static const QRegularExpression thinkRe("<think>.*?</think>", QRegularExpression::DotMatchesEverythingOption);
     cleanJson.remove(thinkRe);
     cleanJson = cleanJson.trimmed();
 
     // 检查是否是工作流直接插入数据库的报告格式
     // 格式示例：数据插入报告\n- 总计: 15\n- 成功: 6\n- 失败: 9
-    QRegularExpression successRe("成功[：:]\\s*(\\d+)");
+    static const QRegularExpression successRe("成功[：:]\\s*(\\d+)");
     QRegularExpressionMatch successMatch = successRe.match(cleanJson);
     if (successMatch.hasMatch()) {
         int successCount = successMatch.captured(1).toInt();
@@ -600,7 +500,7 @@ QList<PaperQuestion> QuestionParserService::parseJsonResponse(const QString &jso
     }
 
     // 如果响应被 markdown 代码块包裹，提取其中的 JSON
-    QRegularExpression codeBlockRe("```(?:json)?\\s*([\\s\\S]*?)```");
+    static const QRegularExpression codeBlockRe("```(?:json)?\\s*([\\s\\S]*?)```");
     QRegularExpressionMatch match = codeBlockRe.match(cleanJson);
     if (match.hasMatch()) {
         cleanJson = match.captured(1).trimmed();

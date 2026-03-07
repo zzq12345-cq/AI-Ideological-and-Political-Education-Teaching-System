@@ -9,10 +9,11 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QStringList>
+#include "../utils/SseStreamParser.h"
 
 /**
  * @brief Dify Cloud API 服务类
- * 
+ *
  * 用于与 Dify Cloud 对话 API 进行通信
  */
 class DifyService : public QObject
@@ -154,7 +155,8 @@ private slots:
     void onSslErrors(const QList<QSslError> &errors);
 
 private:
-    void parseStreamResponse(const QByteArray &data);
+    // SSE 事件业务处理（由 SseStreamParser 回调）
+    void handleSseEvent(const QString &event, const QJsonObject &obj);
     QString filterThinkTagsStreaming(const QString &text);
     void resetStreamFilters();
 
@@ -166,15 +168,13 @@ private:
 
     QNetworkAccessManager *m_networkManager;
     QNetworkReply *m_currentReply;
+    SseStreamParser m_sseParser;  // SSE 协议解析器
     QString m_apiKey;
     QString m_baseUrl;
     QString m_model;
     QString m_conversationId;
     QString m_userId;
     QString m_fullResponse;  // 累积完整响应
-    QString m_streamBuffer;  // SSE 残留缓冲
-    QString m_sseEvent;      // SSE event 跨包缓存
-    QStringList m_sseDataLines; // SSE data 多行累积
     QString m_tagRemainder;  // 跨 chunk 的标签残留缓冲
     QString m_hiddenTagName; // 当前隐藏块标签名（如 think/analysis）
     bool m_ignoreFurtherContent = false;

@@ -276,7 +276,7 @@ void MarkdownRenderer::processInlineFormatting(QString &text, RenderData &data)
     text = escapeHtml(text);
 
     // 处理行内代码
-    QRegularExpression inlineCodeRegex("`([^`]+)`");
+    static const QRegularExpression inlineCodeRegex("`([^`]+)`");
     QRegularExpressionMatchIterator it = inlineCodeRegex.globalMatch(text);
     while (it.hasNext()) {
         QRegularExpressionMatch match = it.next();
@@ -285,7 +285,7 @@ void MarkdownRenderer::processInlineFormatting(QString &text, RenderData &data)
     }
 
     // 处理粗体
-    QRegularExpression boldRegex("\\*\\*([^\\*]+)\\*\\*");
+    static const QRegularExpression boldRegex("\\*\\*([^\\*]+)\\*\\*");
     it = boldRegex.globalMatch(text);
     while (it.hasNext()) {
         QRegularExpressionMatch match = it.next();
@@ -294,7 +294,7 @@ void MarkdownRenderer::processInlineFormatting(QString &text, RenderData &data)
     }
 
     // 处理斜体
-    QRegularExpression italicRegex("\\*([^\\*]+)\\*");
+    static const QRegularExpression italicRegex("\\*([^\\*]+)\\*");
     it = italicRegex.globalMatch(text);
     while (it.hasNext()) {
         QRegularExpressionMatch match = it.next();
@@ -303,7 +303,7 @@ void MarkdownRenderer::processInlineFormatting(QString &text, RenderData &data)
     }
 
     // 处理删除线
-    QRegularExpression strikethroughRegex("~~([^~]+)~~");
+    static const QRegularExpression strikethroughRegex("~~([^~]+)~~");
     it = strikethroughRegex.globalMatch(text);
     while (it.hasNext()) {
         QRegularExpressionMatch match = it.next();
@@ -317,7 +317,7 @@ void MarkdownRenderer::processInlineFormatting(QString &text, RenderData &data)
 
 void MarkdownRenderer::processLinks(QString &text, RenderData &/*data*/)
 {
-    QRegularExpression linkRegex("\\[([^\\]]+)\\]\\(([^\\)]+)\\)");
+    static const QRegularExpression linkRegex("\\[([^\\]]+)\\]\\(([^\\)]+)\\)");
     QRegularExpressionMatchIterator it = linkRegex.globalMatch(text);
     while (it.hasNext()) {
         QRegularExpressionMatch match = it.next();
@@ -436,7 +436,7 @@ bool MarkdownRenderer::isHeaderLine(const QString &line, int &level) const
 
 bool MarkdownRenderer::isOrderedListLine(const QString &line, QString &content) const
 {
-    QRegularExpression regex(R"(^\s*(\d+)\.\s+(.*))");
+    static const QRegularExpression regex(R"(^\s*(\d+)\.\s+(.*))");
     QRegularExpressionMatch match = regex.match(line);
     if (match.hasMatch()) {
         content = match.captured(2);
