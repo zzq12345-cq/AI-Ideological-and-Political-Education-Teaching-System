@@ -8,7 +8,6 @@
 #include <QFrame>
 #include <QGraphicsDropShadowEffect>
 #include <QScrollArea>
-#include <QCoreApplication>
 #include <QtSvgWidgets/QSvgWidget>
 #include <QFile>
 #include <QPalette>
@@ -34,14 +33,7 @@ UserSettingsDialog::~UserSettingsDialog()
 
 QString UserSettingsDialog::getIconPath(const QString &name) const
 {
-    // 获取图标路径
-    QString basePath = QCoreApplication::applicationDirPath();
-#ifdef Q_OS_MAC
-    basePath += "/../../../../resources/icons/";
-#else
-    basePath += "/../resources/icons/";
-#endif
-    return basePath + name + ".svg";
+    return QString(":/icons/resources/icons/%1.svg").arg(name);
 }
 
 QString UserSettingsDialog::getInputStyle() const
