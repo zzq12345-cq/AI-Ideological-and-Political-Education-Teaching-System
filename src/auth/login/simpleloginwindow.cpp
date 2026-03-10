@@ -236,11 +236,18 @@ void SimpleLoginWindow::setupUI()
         "  border-radius: 8px;"
         "  padding: 16px 16px;"  // 明确设置左右padding
         "  font-size: 16px;"
+        "  color: #0F172A;"
+        "  selection-color: #FFFFFF;"
+        "  selection-background-color: #C62828;"
         "  background-color: #F6F6F8;"
         "}"
         "QLineEdit:focus {"
         "  border: 2px solid #C62828;"
+        "  color: #0F172A;"
         "  outline: none;"
+        "}"
+        "QLineEdit::placeholder {"
+        "  color: #9CA3AF;"
         "}"
     );
 
@@ -261,11 +268,18 @@ void SimpleLoginWindow::setupUI()
         "  border-radius: 8px;"
         "  padding: 16px 50px 16px 16px;"  // 右侧留出50px给眼睛按钮
         "  font-size: 16px;"
+        "  color: #0F172A;"
+        "  selection-color: #FFFFFF;"
+        "  selection-background-color: #C62828;"
         "  background-color: #F6F6F8;"
         "}"
         "QLineEdit:focus {"
         "  border: 2px solid #C62828;"
+        "  color: #0F172A;"
         "  outline: none;"
+        "}"
+        "QLineEdit::placeholder {"
+        "  color: #9CA3AF;"
         "}"
     );
 

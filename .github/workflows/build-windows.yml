@@ -41,6 +41,8 @@ jobs:
         namespace EmbeddedKeys {
         inline const char* DIFY_API_KEY = "${{ secrets.DIFY_API_KEY }}";
         inline const char* TIANXING_API_KEY = "${{ secrets.TIANXING_API_KEY }}";
+        inline const char* SUPABASE_URL = "${{ secrets.SUPABASE_URL }}";
+        inline const char* SUPABASE_ANON_KEY = "${{ secrets.SUPABASE_ANON_KEY }}";
         }
 
         #endif
