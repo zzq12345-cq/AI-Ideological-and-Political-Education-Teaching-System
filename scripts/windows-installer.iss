@@ -12,7 +12,7 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
-OutputDir=build
+OutputDir=..\build
 OutputBaseFilename=AI思政智慧课堂-Setup-x64
 Compression=lzma
 SolidCompression=yes
@@ -20,7 +20,7 @@ WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
-SetupIconFile=resources\AppIcon_transparent.ico
+SetupIconFile=..\resources\AppIcon_transparent.ico
 
 [Languages]
 Name: "chinesesimp"; MessagesFile: "compiler:Default.isl"
