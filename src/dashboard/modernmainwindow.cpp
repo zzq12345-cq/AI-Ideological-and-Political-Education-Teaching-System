@@ -25,6 +25,7 @@
 #include <QApplication>
 #include <QMessageBox>
 #include <QFile>
+#include <QDir>
 #include <QRegularExpression>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -2838,13 +2839,26 @@ void ModernMainWindow::startPPTSimulation(const QString &userMessage)
     m_pptTopic = extractPPTTopic(userMessage);
     qDebug() << "[PPT] 模拟生成，提取主题:" << m_pptTopic;
 
-    // 设置预制 PPT 路径（从 App Bundle 的 Resources 目录读取）
+    // 设置预制 PPT 路径（兼容 macOS App Bundle / Windows 安装目录 / 开发目录）
     QString appPath = QCoreApplication::applicationDirPath();
-    m_pendingPPTPath = appPath + "/../Resources/ppt/爱国主义精神传承.pptx";
+    const QStringList pptCandidatePaths = {
+        QDir::cleanPath(appPath + "/../Resources/ppt/爱国主义精神传承.pptx"),
+        QDir::cleanPath(appPath + "/ppt/爱国主义精神传承.pptx"),
+        QDir::cleanPath(appPath + "/resources/ppt/爱国主义精神传承.pptx"),
+        QDir::cleanPath(appPath + "/../resources/ppt/爱国主义精神传承.pptx")
+    };
+
+    m_pendingPPTPath.clear();
+    for (const QString &candidatePath : pptCandidatePaths) {
+        if (QFile::exists(candidatePath)) {
+            m_pendingPPTPath = candidatePath;
+            break;
+        }
+    }
 
     // 检查文件是否存在
-    if (!QFile::exists(m_pendingPPTPath)) {
-        qDebug() << "[PPT] Resource not found at:" << m_pendingPPTPath;
+    if (m_pendingPPTPath.isEmpty()) {
+        qDebug() << "[PPT] Resource not found, tried paths:" << pptCandidatePaths;
         m_bubbleChatWidget->addMessage("抱歉，PPT 资源文件未找到，请稍后再试。", false);
         return;
     }
