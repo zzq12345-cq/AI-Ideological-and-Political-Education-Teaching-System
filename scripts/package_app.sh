@@ -1,30 +1,23 @@
 #!/bin/bash
-# 打包脚本 - 生成可分发的 DMG 文件
-# 用法: ./package_app.sh
+# 打包脚本 - 生成可分发的 macOS App 和 DMG 文件
+# 用法:
+#   ./scripts/package_app.sh
+#   ./scripts/package_app.sh --version 1.0.0 --arch-label arm64 --embed-release-keys
 
-set -e
+set -euo pipefail
 
-# ========== 配置 ==========
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 APP_NAME="AILoginSystem"
-VERSION="1.0.0"
-DMG_NAME="${APP_NAME}_${VERSION}"
+PRODUCT_NAME="AI思政智慧课堂"
 
-# API Key (内测分发用)
-DIFY_API_KEY="app-4oFxsxMqCp4EYv0t77scpGDA"
+VERSION="${VERSION:-}"
+QT_PATH="${QT_PATH:-${QT_ROOT_DIR:-}}"
+BUILD_DIR="${BUILD_DIR:-build_release}"
+OUTPUT_DIR="${OUTPUT_DIR:-dist}"
+ARCH_LABEL="${ARCH_LABEL:-}"
+EMBED_RELEASE_KEYS="${EMBED_RELEASE_KEYS:-0}"
 
-# Qt 路径 (根据你的安装位置修改)
-QT_PATH="/opt/homebrew/opt/qt@6"
-if [ ! -d "$QT_PATH" ]; then
-    QT_PATH="/usr/local/opt/qt@6"
-fi
-if [ ! -d "$QT_PATH" ]; then
-    # 尝试查找 Qt Creator 安装的 Qt
-    QT_PATH="$HOME/Qt/6.7.0/macos"
-fi
-
-MACDEPLOYQT="$QT_PATH/bin/macdeployqt"
-
-# ========== 颜色输出 ==========
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -34,84 +27,256 @@ echo_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 echo_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 echo_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-# ========== 检查依赖 ==========
-echo_info "检查依赖..."
+usage() {
+    cat <<'EOF'
+用法: ./scripts/package_app.sh [options]
 
-if [ ! -f "$MACDEPLOYQT" ]; then
-    echo_error "找不到 macdeployqt，请设置正确的 QT_PATH"
-    echo "当前路径: $QT_PATH"
-    echo "请修改脚本中的 QT_PATH 变量"
+Options:
+  --version <version>         指定版本号（支持 vX.Y.Z，默认读取 CMakeLists.txt）
+  --qt-path <path>            指定 Qt 安装根目录
+  --build-dir <path>          指定构建目录（默认: build_release）
+  --output-dir <path>         指定产物目录（默认: dist）
+  --arch-label <label>        指定产物架构标签（默认按当前机器推断）
+  --embed-release-keys        生成发布版 embedded_keys.h（从环境变量读取密钥）
+  --no-embed-release-keys     不生成发布版 embedded_keys.h
+  --help                      显示帮助
+EOF
+}
+
+resolve_path() {
+    local path_value="$1"
+    if [[ "$path_value" = /* ]]; then
+        printf '%s\n' "$path_value"
+    else
+        printf '%s\n' "$REPO_ROOT/$path_value"
+    fi
+}
+
+get_project_version() {
+    local version
+    version="$(sed -nE 's/.*project\(AILoginSystem VERSION ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' "$REPO_ROOT/CMakeLists.txt")"
+    if [[ -z "$version" ]]; then
+        echo_error "无法从 CMakeLists.txt 读取项目版本号"
+        exit 1
+    fi
+
+    printf '%s\n' "$version"
+}
+
+normalize_version() {
+    local raw_version="$1"
+    if [[ -z "$raw_version" ]]; then
+        raw_version="$(get_project_version)"
+    fi
+
+    raw_version="${raw_version#v}"
+    printf '%s\n' "$raw_version"
+}
+
+normalize_arch_label() {
+    local raw_arch="$1"
+    if [[ -z "$raw_arch" ]]; then
+        raw_arch="$(uname -m)"
+    fi
+
+    case "$raw_arch" in
+        arm64|aarch64)
+            printf 'arm64\n'
+            ;;
+        x86_64|amd64)
+            printf 'x64\n'
+            ;;
+        *)
+            printf '%s\n' "$raw_arch"
+            ;;
+    esac
+}
+
+find_macdeployqt() {
+    if [[ -n "$QT_PATH" && -x "$QT_PATH/bin/macdeployqt" ]]; then
+        printf '%s\n' "$QT_PATH/bin/macdeployqt"
+        return
+    fi
+
+    if command -v macdeployqt >/dev/null 2>&1; then
+        command -v macdeployqt
+        return
+    fi
+
+    local candidates=(
+        "/opt/homebrew/opt/qt@6"
+        "/usr/local/opt/qt@6"
+        "$HOME/Qt/6.7.0/macos"
+        "$HOME/Qt/6.6.2/macos"
+        "$HOME/Qt/6.8.0/macos"
+    )
+
+    local candidate
+    for candidate in "${candidates[@]}"; do
+        if [[ -x "$candidate/bin/macdeployqt" ]]; then
+            printf '%s\n' "$candidate/bin/macdeployqt"
+            return
+        fi
+    done
+
+    echo_error "找不到 macdeployqt，请设置正确的 QT_PATH 或将其加入 PATH"
     exit 1
+}
+
+escape_cpp_string() {
+    local value="$1"
+    value="${value//\\/\\\\}"
+    value="${value//\"/\\\"}"
+    value="${value//$'\r'/}"
+    value="${value//$'\n'/}"
+    printf '%s' "$value"
+}
+
+generate_embedded_keys() {
+    if [[ "$EMBED_RELEASE_KEYS" != "1" ]]; then
+        echo_info "跳过内嵌密钥生成，保留现有 embedded_keys.h"
+        return
+    fi
+
+    local embedded_keys_path="$REPO_ROOT/src/config/embedded_keys.h"
+    local dify_api_key="$(escape_cpp_string "${DIFY_API_KEY:-}")"
+    local tianxing_api_key="$(escape_cpp_string "${TIANXING_API_KEY:-}")"
+    local supabase_url="$(escape_cpp_string "${SUPABASE_URL:-}")"
+    local supabase_anon_key="$(escape_cpp_string "${SUPABASE_ANON_KEY:-}")"
+
+    cat > "$embedded_keys_path" <<EOF
+#ifndef EMBEDDED_KEYS_H
+#define EMBEDDED_KEYS_H
+
+namespace EmbeddedKeys {
+inline const char* DIFY_API_KEY = "$dify_api_key";
+inline const char* TIANXING_API_KEY = "$tianxing_api_key";
+inline const char* SUPABASE_URL = "$supabase_url";
+inline const char* SUPABASE_ANON_KEY = "$supabase_anon_key";
+}
+
+#endif
+EOF
+
+    echo_info "已生成发布版 embedded_keys.h"
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --version)
+            VERSION="$2"
+            shift 2
+            ;;
+        --qt-path)
+            QT_PATH="$2"
+            shift 2
+            ;;
+        --build-dir)
+            BUILD_DIR="$2"
+            shift 2
+            ;;
+        --output-dir)
+            OUTPUT_DIR="$2"
+            shift 2
+            ;;
+        --arch-label)
+            ARCH_LABEL="$2"
+            shift 2
+            ;;
+        --embed-release-keys)
+            EMBED_RELEASE_KEYS="1"
+            shift
+            ;;
+        --no-embed-release-keys)
+            EMBED_RELEASE_KEYS="0"
+            shift
+            ;;
+        --help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo_error "未知参数: $1"
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+VERSION="$(normalize_version "$VERSION")"
+ARCH_LABEL="$(normalize_arch_label "$ARCH_LABEL")"
+BUILD_DIR="$(resolve_path "$BUILD_DIR")"
+OUTPUT_DIR="$(resolve_path "$OUTPUT_DIR")"
+MACDEPLOYQT="$(find_macdeployqt)"
+APP_PATH="$BUILD_DIR/${APP_NAME}.app"
+DMG_NAME="${PRODUCT_NAME}-macOS-${ARCH_LABEL}-${VERSION}.dmg"
+DMG_PATH="$OUTPUT_DIR/$DMG_NAME"
+DMG_TEMP="$OUTPUT_DIR/dmg_temp"
+
+if [[ -d "$BUILD_DIR" ]]; then
+    rm -rf "$BUILD_DIR"
 fi
 
-# ========== 构建 ==========
-echo_info "构建 Release 版本..."
-
-BUILD_DIR="build_release"
-rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
-cd "$BUILD_DIR"
+mkdir -p "$OUTPUT_DIR"
 
-cmake -DCMAKE_BUILD_TYPE=Release ..
-make -j$(sysctl -n hw.ncpu)
+echo_info "版本号: $VERSION"
+echo_info "构建目录: $BUILD_DIR"
+echo_info "产物目录: $OUTPUT_DIR"
+echo_info "架构标签: $ARCH_LABEL"
+echo_info "macdeployqt: $MACDEPLOYQT"
 
-cd ..
+generate_embedded_keys
 
-APP_PATH="$BUILD_DIR/${APP_NAME}.app"
+echo_info "配置 CMake Release 构建..."
+CMAKE_ARGS=(-S "$REPO_ROOT" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release)
+if [[ -n "$QT_PATH" ]]; then
+    CMAKE_ARGS+=(-DCMAKE_PREFIX_PATH="$QT_PATH/lib/cmake")
+fi
+if command -v ninja >/dev/null 2>&1; then
+    CMAKE_ARGS+=(-G Ninja)
+fi
+cmake "${CMAKE_ARGS[@]}"
 
-if [ ! -d "$APP_PATH" ]; then
-    echo_error "构建失败，找不到 $APP_PATH"
+echo_info "编译应用..."
+cmake --build "$BUILD_DIR" --config Release
+
+if [[ ! -d "$APP_PATH" && -d "$BUILD_DIR/Release/${APP_NAME}.app" ]]; then
+    APP_PATH="$BUILD_DIR/Release/${APP_NAME}.app"
+fi
+
+if [[ ! -d "$APP_PATH" ]]; then
+    echo_error "构建失败，找不到 ${APP_NAME}.app"
     exit 1
 fi
 
 echo_info "构建成功: $APP_PATH"
 
-# ========== 嵌入 API Key ==========
-echo_info "嵌入 API Key 到 Info.plist..."
-
-PLIST_PATH="$APP_PATH/Contents/Info.plist"
-
-# 添加 LSEnvironment 键来设置环境变量
-/usr/libexec/PlistBuddy -c "Add :LSEnvironment dict" "$PLIST_PATH" 2>/dev/null || true
-/usr/libexec/PlistBuddy -c "Add :LSEnvironment:DIFY_API_KEY string $DIFY_API_KEY" "$PLIST_PATH" 2>/dev/null || \
-/usr/libexec/PlistBuddy -c "Set :LSEnvironment:DIFY_API_KEY $DIFY_API_KEY" "$PLIST_PATH"
-
-echo_info "API Key 已嵌入"
-
-# ========== 打包 Qt 依赖 ==========
 echo_info "打包 Qt 依赖 (macdeployqt)..."
-
 "$MACDEPLOYQT" "$APP_PATH" -always-overwrite
 
-# ========== 创建 DMG ==========
-echo_info "创建 DMG 文件..."
-
-DMG_DIR="dist"
-rm -rf "$DMG_DIR"
-mkdir -p "$DMG_DIR"
-
-# 创建临时目录用于 DMG 内容
-DMG_TEMP="$DMG_DIR/dmg_temp"
+if [[ -e "$DMG_PATH" ]]; then
+    rm -f "$DMG_PATH"
+fi
+rm -rf "$DMG_TEMP"
 mkdir -p "$DMG_TEMP"
 
-# 复制 app 到临时目录
+echo_info "准备 DMG 内容..."
 cp -R "$APP_PATH" "$DMG_TEMP/"
-
-# 创建 Applications 链接
 ln -s /Applications "$DMG_TEMP/Applications"
 
-# 创建 DMG
-hdiutil create -volname "$APP_NAME" \
+echo_info "创建 DMG 文件..."
+hdiutil create -volname "$PRODUCT_NAME" \
     -srcfolder "$DMG_TEMP" \
     -ov -format UDZO \
-    "$DMG_DIR/${DMG_NAME}.dmg"
+    "$DMG_PATH"
 
-# 清理临时目录
 rm -rf "$DMG_TEMP"
 
 echo ""
 echo_info "========== 打包完成 =========="
-echo_info "DMG 文件: $DMG_DIR/${DMG_NAME}.dmg"
+echo_info "App Bundle: $APP_PATH"
+echo_info "DMG 文件: $DMG_PATH"
 echo ""
 echo_warn "分发说明:"
 echo "  1. 将 DMG 文件发送给用户"

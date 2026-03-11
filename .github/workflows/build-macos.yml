@@ -1,0 +1,89 @@
+name: Build macOS Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (optional, supports vX.Y.Z)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          INPUT_VERSION="${{ github.event.inputs.version }}"
+          if [[ -n "$INPUT_VERSION" ]]; then
+            VERSION="$INPUT_VERSION"
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION="${{ github.ref_name }}"
+          else
+            VERSION="$(sed -nE 's/.*project\(AILoginSystem VERSION ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' CMakeLists.txt)"
+          fi
+
+          VERSION="${VERSION#v}"
+          if [[ -z "$VERSION" ]]; then
+            echo "Failed to resolve version" >&2
+            exit 1
+          fi
+
+          echo "display_version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.6.2'
+          host: 'mac'
+          target: 'desktop'
+          arch: 'clang_64'
+          archives: 'qtbase qtsvg qtdeclarative qtshadertools'
+          modules: 'qtcharts'
+          cache: true
+
+      - name: Package macOS release
+        shell: bash
+        env:
+          DIFY_API_KEY: ${{ secrets.DIFY_API_KEY }}
+          TIANXING_API_KEY: ${{ secrets.TIANXING_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          chmod +x ./scripts/package_app.sh
+          ./scripts/package_app.sh \
+            --version "${{ steps.version.outputs.display_version }}" \
+            --build-dir build_release \
+            --output-dir dist \
+            --arch-label arm64 \
+            --embed-release-keys
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI思政智慧课堂-macOS-${{ steps.version.outputs.display_version }}
+          path: |
+            dist/AI思政智慧课堂-macOS-arm64-${{ steps.version.outputs.display_version }}.dmg
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/AI思政智慧课堂-macOS-arm64-${{ steps.version.outputs.display_version }}.dmg
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

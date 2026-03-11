@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (optional, supports vX.Y.Z)'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -14,92 +19,77 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install Qt
-      uses: jurplel/install-qt-action@v4
-      with:
-        version: '6.6.2'
-        target: 'desktop'
-        arch: 'win64_msvc2019_64'
-        archives: 'qtbase qtsvg qtdeclarative qtshadertools'
-        modules: 'qtcharts'
-        cache: true
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $inputVersion = "${{ github.event.inputs.version }}"
+          if (-not [string]::IsNullOrWhiteSpace($inputVersion)) {
+            $version = $inputVersion
+          } elseif ("${{ github.ref_type }}" -eq "tag") {
+            $version = "${{ github.ref_name }}"
+          } else {
+            $match = Select-String -Path CMakeLists.txt -Pattern 'project\(AILoginSystem VERSION ([0-9]+\.[0-9]+\.[0-9]+)'
+            if (-not $match) {
+              throw 'Failed to resolve version from CMakeLists.txt'
+            }
+            $version = $match.Matches[0].Groups[1].Value
+          }
 
-    - name: Setup MSVC
-      uses: ilammy/msvc-dev-cmd@v1
-      with:
-        arch: x64
+          if ($version.StartsWith('v')) {
+            $version = $version.Substring(1)
+          }
 
-    - name: Create embedded keys file
-      run: |
-        @"
-        #ifndef EMBEDDED_KEYS_H
-        #define EMBEDDED_KEYS_H
+          "display_version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-        namespace EmbeddedKeys {
-        inline const char* DIFY_API_KEY = "${{ secrets.DIFY_API_KEY }}";
-        inline const char* TIANXING_API_KEY = "${{ secrets.TIANXING_API_KEY }}";
-        inline const char* SUPABASE_URL = "${{ secrets.SUPABASE_URL }}";
-        inline const char* SUPABASE_ANON_KEY = "${{ secrets.SUPABASE_ANON_KEY }}";
-        }
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.6.2'
+          target: 'desktop'
+          arch: 'win64_msvc2019_64'
+          archives: 'qtbase qtsvg qtdeclarative qtshadertools'
+          modules: 'qtcharts'
+          cache: true
 
-        #endif
-        "@ | Out-File -FilePath src/config/embedded_keys.h -Encoding utf8
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
 
-    - name: Configure CMake
-      run: |
-        mkdir build
-        cd build
-        cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
 
-    - name: Build
-      run: |
-        cd build
-        ninja
+      - name: Package Windows release
+        shell: pwsh
+        env:
+          DIFY_API_KEY: ${{ secrets.DIFY_API_KEY }}
+          TIANXING_API_KEY: ${{ secrets.TIANXING_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          $qtBinDir = Join-Path $env:QT_ROOT_DIR "bin"
+          ./scripts/package_windows.ps1 -Version "${{ steps.version.outputs.display_version }}" -BuildDir build -OutputDir build -QtBinDir $qtBinDir -EmbedReleaseKeys
 
-    - name: Deploy Qt dependencies
-      run: |
-        cd build
-        mkdir deploy
-        copy AILoginSystem.exe deploy\
-        windeployqt deploy\AILoginSystem.exe --release --no-translations --no-opengl-sw
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI思政智慧课堂-Windows-${{ steps.version.outputs.display_version }}
+          path: |
+            build/AI思政智慧课堂-Windows-x64-${{ steps.version.outputs.display_version }}.zip
+            build/AI思政智慧课堂-Setup-Windows-x64-${{ steps.version.outputs.display_version }}.exe
 
-    - name: Copy resources
-      run: |
-        xcopy resources\ppt build\deploy\ppt\ /E /I /Y
-        xcopy resources\templates build\deploy\templates\ /E /I /Y
-        xcopy resources\styles build\deploy\styles\ /E /I /Y
-
-    - name: Create ZIP archive
-      run: |
-        cd build
-        Compress-Archive -Path deploy\* -DestinationPath AI思政智慧课堂-Windows-x64.zip
-
-    - name: Install Inno Setup
-      run: choco install innosetup --no-progress -y
-
-    - name: Build installer
-      run: |
-        iscc /DMyAppVersion=${{ github.ref_name }} scripts\windows-installer.iss
-
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: AI思政智慧课堂-Windows-builds
-        path: |
-          build/AI思政智慧课堂-Windows-x64.zip
-          build/AI思政智慧课堂-Setup-x64.exe
-
-    - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          build/AI思政智慧课堂-Windows-x64.zip
-          build/AI思政智慧课堂-Setup-x64.exe
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            build/AI思政智慧课堂-Windows-x64-${{ steps.version.outputs.display_version }}.zip
+            build/AI思政智慧课堂-Setup-Windows-x64-${{ steps.version.outputs.display_version }}.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
