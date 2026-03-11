@@ -53,6 +53,10 @@ void AttendanceWidget::setAttendanceService(AttendanceService *service)
                 QTimer::singleShot(2000, this, [this]() { m_saveBtn->setText("保存考勤记录"); });
             }
         });
+
+        if (m_records.isEmpty()) {
+            onRefreshClicked();
+        }
     }
 }
 
