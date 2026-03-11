@@ -94,6 +94,38 @@ LessonPlanEditor::~LessonPlanEditor()
     }
 }
 
+void LessonPlanEditor::setDifyService(DifyService *service)
+{
+    if (m_difyService == service) {
+        return;
+    }
+
+    if (m_difyService) {
+        disconnect(m_difyService, nullptr, this, nullptr);
+    }
+
+    m_difyService = service;
+
+    if (m_difyService) {
+        connect(m_difyService, &DifyService::streamChunkReceived,
+                this, &LessonPlanEditor::onAIStreamChunk);
+        connect(m_difyService, &DifyService::requestFinished,
+                this, &LessonPlanEditor::onAIFinished);
+        connect(m_difyService, &DifyService::errorOccurred,
+                this, &LessonPlanEditor::onAIError);
+    }
+}
+
+void LessonPlanEditor::setConversationId(const QString &conversationId)
+{
+    m_currentConversationId = conversationId;
+}
+
+QString LessonPlanEditor::conversationId() const
+{
+    return m_currentConversationId;
+}
+
 void LessonPlanEditor::initUI()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
@@ -742,23 +774,14 @@ void LessonPlanEditor::onAIGenerateClicked()
     m_statusLabel->setText("AI正在生成教案...");
     emit aiGenerationStarted();
 
-    // 创建DifyService（如果还没有）
     if (!m_difyService) {
-        m_difyService = new DifyService(this);
-
-        // 从环境变量获取API Key
-        QString apiKey = qgetenv("DIFY_API_KEY");
-        if (!apiKey.isEmpty()) {
-            m_difyService->setApiKey(apiKey);
-        }
-
-        // 连接信号
-        connect(m_difyService, &DifyService::streamChunkReceived,
-                this, &LessonPlanEditor::onAIStreamChunk);
-        connect(m_difyService, &DifyService::requestFinished,
-                this, &LessonPlanEditor::onAIFinished);
-        connect(m_difyService, &DifyService::errorOccurred,
-                this, &LessonPlanEditor::onAIError);
+        QMessageBox::warning(this, "提示", "AI 服务未就绪，请稍后重试");
+        m_isGenerating = false;
+        m_aiGenerateBtn->setEnabled(true);
+        m_aiGenerateBtn->setIcon(QIcon(":/icons/resources/icons/ai-sparkle.svg"));
+        m_aiGenerateBtn->setText(" AI生成教案");
+        m_statusLabel->setText("AI服务未就绪");
+        return;
     }
 
     // 构建提示词并发送

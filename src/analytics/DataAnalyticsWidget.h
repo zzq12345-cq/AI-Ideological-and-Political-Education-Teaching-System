@@ -45,6 +45,12 @@ public:
 
     void setDifyService(DifyService *service);
     void refresh();
+    void showOverview();
+    void setReportContent(const QString &content);
+
+signals:
+    void reportGenerationStarted();
+    void reportGenerationFinished(const QString &content);
 
 private slots:
     void onRefreshClicked();
