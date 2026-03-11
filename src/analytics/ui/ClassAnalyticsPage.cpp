@@ -75,6 +75,33 @@ void ClassAnalyticsPage::refresh()
     updateWeakPointsChart();
 }
 
+void ClassAnalyticsPage::selectClass(int classId)
+{
+    if (!m_classCombo) {
+        return;
+    }
+
+    for (int i = 0; i < m_classCombo->count(); ++i) {
+        if (m_classCombo->itemData(i).toInt() == classId) {
+            m_classCombo->setCurrentIndex(i);
+            return;
+        }
+    }
+}
+
+void ClassAnalyticsPage::setAdviceContent(const QString &content)
+{
+    m_currentAdvice = content;
+    if (m_adviceContent) {
+        m_adviceContent->setText(content);
+    }
+    if (m_generateAdviceBtn) {
+        m_generateAdviceBtn->setEnabled(true);
+        m_generateAdviceBtn->setText(content.trimmed().isEmpty() ? "生成建议" : "重新诊断");
+    }
+    m_isGenerating = false;
+}
+
 #include <QScrollArea>
 #include <QVBoxLayout>
 #include <QHBoxLayout>

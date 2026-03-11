@@ -92,6 +92,31 @@ void DataAnalyticsWidget::refresh()
     }
 }
 
+void DataAnalyticsWidget::showOverview()
+{
+    if (m_navigationBar) {
+        m_navigationBar->setCurrentView(AnalyticsNavigationBar::Overview);
+    }
+    if (m_stackedWidget) {
+        m_stackedWidget->setCurrentIndex(0);
+    }
+}
+
+void DataAnalyticsWidget::setReportContent(const QString &content)
+{
+    m_currentAIResponse = content;
+    m_isGeneratingReport = false;
+    if (m_generateReportBtn) {
+        m_generateReportBtn->setEnabled(true);
+        m_generateReportBtn->setText(content.trimmed().isEmpty() ? "生成报告" : "重新生成");
+    }
+    if (m_aiReportContent) {
+        m_aiReportContent->setText(content.trimmed().isEmpty()
+            ? "点击「生成报告」按钮，AI 将根据当前教学数据自动生成分析报告，包括整体评估、薄弱环节识别、改进建议等内容。"
+            : content);
+    }
+}
+
 void DataAnalyticsWidget::onDataRefreshed()
 {
     updateMetricsDisplay();
@@ -975,6 +1000,7 @@ void DataAnalyticsWidget::onGenerateReportClicked()
     m_generateReportBtn->setEnabled(false);
     m_generateReportBtn->setText("生成中...");
     m_aiReportContent->setText("正在分析数据，生成报告中...");
+    emit reportGenerationStarted();
 
     QString dataSummary = m_dataService->getDataSummary();
     QString prompt = QString(
@@ -1003,6 +1029,7 @@ void DataAnalyticsWidget::onAIResponseReceived(const QString &response)
     cleaned = cleaned.trimmed();
     m_currentAIResponse = cleaned;
     m_aiReportContent->setText(cleaned);
+    emit reportGenerationFinished(cleaned);
 }
 
 void DataAnalyticsWidget::onAIStreamChunk(const QString &chunk)

@@ -15,6 +15,9 @@
 #include "../settings/UserSettingsDialog.h"
 #include "../settings/UserSettingsManager.h"
 #include "../analytics/DataAnalyticsWidget.h"
+#include "../analytics/ui/AnalyticsNavigationBar.h"
+#include "../analytics/ui/PersonalAnalyticsPage.h"
+#include "../analytics/ui/ClassAnalyticsPage.h"
 #include "../notifications/NotificationService.h"
 #include "../notifications/ui/NotificationWidget.h"
 #include "../notifications/ui/NotificationBadge.h"
@@ -27,6 +30,10 @@
 #include <QFile>
 #include <QDir>
 #include <QRegularExpression>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QSettings>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QGridLayout>
@@ -58,6 +65,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QEvent>
+#include <algorithm>
 #include <QMouseEvent>
 #include <QPropertyAnimation>
 #include <QEasingCurve>
@@ -841,6 +849,14 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
         qDebug() << "[Info] Create .env.local file with: DIFY_API_KEY=your-key";
     }
 
+    auto *analyticsDifyService = new DifyService(this);
+    if (hasApiKey) {
+        analyticsDifyService->setApiKey(apiKey);
+    }
+    if (!currentUserId.isEmpty()) {
+        analyticsDifyService->setUserId(currentUserId + "_analytics");
+    }
+
     // 不再使用独立的 AI 对话框，直接在主页面显示
     // m_chatDialog = new AIChatDialog(m_difyService, this);
 
@@ -862,7 +878,38 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     initUI();
     setupMenuBar();
     setupStatusBar();
+    loadHistoryEntries();
     setupCentralWidget();
+    if (m_dataAnalyticsWidget) {
+        m_dataAnalyticsWidget->setDifyService(analyticsDifyService);
+        connect(m_dataAnalyticsWidget, &DataAnalyticsWidget::reportGenerationStarted, this, [this, analyticsDifyService]() {
+            setActiveHistoryType(AIHistoryType::AnalyticsReport);
+            m_pendingHistoryType = AIHistoryType::AnalyticsReport;
+            m_pendingHistoryTitle = QStringLiteral("AI智能分析报告");
+            m_pendingAnalyticsContent.clear();
+            m_pendingCasePrompt.clear();
+            m_pendingLessonPlanContent.clear();
+            if (analyticsDifyService) {
+                analyticsDifyService->clearConversation();
+            }
+        });
+        connect(m_dataAnalyticsWidget, &DataAnalyticsWidget::reportGenerationFinished, this, [this, analyticsDifyService](const QString &content) {
+            if (!analyticsDifyService) {
+                return;
+            }
+            const QString conversationId = analyticsDifyService->currentConversationId();
+            if (!conversationId.isEmpty()) {
+                recordAnalyticsHistory(conversationId, QStringLiteral("AI智能分析报告"), content);
+            }
+        });
+    }
+
+    QTimer::singleShot(0, this, [this]() {
+        if (m_notificationService) {
+            m_notificationService->fetchNotifications();
+        }
+    });
+
     setupStyles();
     applyPatrioticRedTheme();
 
@@ -1113,7 +1160,6 @@ void ModernMainWindow::setupCentralWidget()
 
     // 创建数据分析报告页面
     m_dataAnalyticsWidget = new DataAnalyticsWidget(this);
-    m_dataAnalyticsWidget->setDifyService(m_difyService);
     contentStack->addWidget(m_dataAnalyticsWidget);
 
     // 创建考勤管理页面
@@ -1133,6 +1179,7 @@ void ModernMainWindow::setupCentralWidget()
         }
         if (m_mainStack && m_chatContainer) {
             m_mainStack->setCurrentWidget(m_chatContainer);
+            setActiveHistoryType(AIHistoryType::CaseAnalysis);
             swapToHistorySidebar();
         }
 
@@ -1165,6 +1212,12 @@ void ModernMainWindow::setupCentralWidget()
 
         // 5. 发送到Dify（直接发送，不需要问候语）
         if (m_difyService) {
+            m_pendingHistoryType = AIHistoryType::CaseAnalysis;
+            m_pendingHistoryTitle = QString("案例分析：%1").arg(news.title);
+            m_pendingCasePrompt = QString("请根据新闻《%1》生成思政教学案例").arg(news.title);
+            m_pendingAnalyticsContent.clear();
+            m_pendingLessonPlanContent.clear();
+            m_difyService->clearConversation();
             m_difyService->sendMessage(prompt);
         }
 
@@ -1277,31 +1330,6 @@ void ModernMainWindow::createSidebarProfile()
     avatarLayout->addLayout(userInfoLayout);
     avatarLayout->addStretch();
 
-    // 个人信息设置按钮
-    QPushButton *profileSettingsBtn = new QPushButton();
-    profileSettingsBtn->setIcon(QIcon(":/icons/resources/icons/settings.svg"));
-    profileSettingsBtn->setIconSize(QSize(18, 18));
-    profileSettingsBtn->setFixedSize(32, 32);
-    profileSettingsBtn->setCursor(Qt::PointingHandCursor);
-    profileSettingsBtn->setToolTip("个人信息设置");
-    profileSettingsBtn->setStyleSheet(QString(
-        "QPushButton {"
-        "  background-color: transparent;"
-        "  border: none;"
-        "  border-radius: 16px;"
-        "}"
-        "QPushButton:hover {"
-        "  background-color: %1;"
-        "}"
-        "QPushButton:pressed {"
-        "  background-color: %2;"
-        "}"
-    ).arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED_TINT));
-    connect(profileSettingsBtn, &QPushButton::clicked, this, [this]() {
-        UserSettingsDialog dialog(this);
-        dialog.exec();
-    });
-    avatarLayout->addWidget(profileSettingsBtn);
 
     // 监听用户设置变化，更新头像和名称
     connect(UserSettingsManager::instance(), &UserSettingsManager::settingsChanged, this, [this]() {
@@ -1877,6 +1905,7 @@ void ModernMainWindow::createDashboard()
         // 切换到聊天页面
         m_isConversationStarted = true;
         m_mainStack->setCurrentWidget(m_chatContainer);
+        setActiveHistoryType(AIHistoryType::Chat);
         swapToHistorySidebar();  // 切换到历史记录侧边栏
         m_welcomeInputWidget->hide();
         
@@ -2041,6 +2070,10 @@ void ModernMainWindow::onAIPreparationClicked()
     qDebug() << "切换到AI对话页面";
     if (m_mainStack && m_chatContainer) {
         m_mainStack->setCurrentWidget(m_chatContainer);
+        const AIHistoryType type = (m_aiTabWidget && m_aiTabWidget->currentIndex() == 1)
+            ? AIHistoryType::LessonPlan
+            : AIHistoryType::Chat;
+        setActiveHistoryType(type);
         swapToHistorySidebar();  // 切换到历史记录侧边栏
     }
     this->statusBar()->showMessage("AI智能备课");
@@ -2087,7 +2120,9 @@ void ModernMainWindow::onLearningAnalysisClicked()
     // 切换到数据分析报告页面
     if (m_dataAnalyticsWidget) {
         contentStack->setCurrentWidget(m_dataAnalyticsWidget);
+        setActiveHistoryType(AIHistoryType::AnalyticsReport);
         m_dataAnalyticsWidget->refresh();  // 刷新数据
+        refreshHistorySidebar();
         this->statusBar()->showMessage("数据分析报告");
     }
 }
@@ -2391,29 +2426,7 @@ void ModernMainWindow::createAIChatWidget()
     
     // 连接历史记录侧边栏信号（m_chatHistoryWidget 已在 setupCentralWidget 中创建）
     connect(m_chatHistoryWidget, &ChatHistoryWidget::newChatRequested, this, [this]() {
-        // 步骤 1: 如果当前有对话，先刷新历史列表（Dify 云端已自动保存）
-        if (m_isConversationStarted && m_difyService) {
-            // 请求刷新对话列表，让刚才的对话出现在历史记录中
-            m_difyService->fetchConversations();
-            qDebug() << "[ModernMainWindow] 新建对话 - 刷新历史记录列表";
-        }
-
-        // 步骤 2: 清空聊天并重置 Dify 会话
-        if (m_bubbleChatWidget) {
-            m_bubbleChatWidget->clearMessages();
-            m_bubbleChatWidget->addMessage("老师您好！我是智慧课堂助手，请问有什么可以帮你？", false);
-        }
-        if (m_difyService) {
-            m_difyService->clearConversation();
-        }
-
-        // 步骤 3: 清除选中状态
-        if (m_chatHistoryWidget) {
-            m_chatHistoryWidget->clearSelection();
-        }
-
-        // 步骤 4: 重置对话开始标志
-        m_isConversationStarted = false;
+        resetConversationForType(m_activeHistoryType);
     });
     
     connect(m_chatHistoryWidget, &ChatHistoryWidget::backRequested, this, [this]() {
@@ -2427,72 +2440,84 @@ void ModernMainWindow::createAIChatWidget()
     });
     
     connect(m_chatHistoryWidget, &ChatHistoryWidget::historyItemSelected, this, [this](const QString &id) {
-        // 1. 确保主界面切换到 AI 对话容器
-        if (m_mainStack && m_mainStack->currentWidget() != m_chatContainer) {
-            m_mainStack->setCurrentWidget(m_chatContainer);
-            m_isConversationStarted = true;
-        }
-
-        // 2. 强制切换到 "AI对话" 标签页 (索引 0)
-        if (m_aiTabWidget) {
-            m_aiTabWidget->setCurrentIndex(0);
-        }
-
-        // 3. 切换 Dify 会话 ID，后续消息发到这个对话
-        if (m_difyService) {
-            m_difyService->setCurrentConversationId(id);
-            m_difyService->fetchMessages(id);
-        }
-        m_isConversationStarted = true;
+        handleHistorySelection(id);
     });
     
     // 连接对话列表接收信号
     connect(m_difyService, &DifyService::conversationsReceived, this, [this](const QJsonArray &conversations) {
-        if (!m_chatHistoryWidget) return;
-        
-        m_chatHistoryWidget->clearHistory();
-        
         for (const QJsonValue &val : conversations) {
             QJsonObject conv = val.toObject();
             QString id = conv["id"].toString();
-            QString name = conv["name"].toString();
-            if (name.isEmpty()) {
-                // 如果没有名称，使用对话ID的前几个字符
-                name = QString("对话 %1").arg(id.left(8));
+            if (id.isEmpty()) {
+                continue;
             }
-            
-            // 获取更新时间并格式化
+
+            AIHistoryEntry entry = m_historyEntries.value(id);
+            entry.conversationId = id;
+            if (entry.title.isEmpty()) {
+                QString name = conv["name"].toString();
+                entry.title = name.isEmpty() ? QString("对话 %1").arg(id.left(8)) : name;
+            }
+            if (entry.type == AIHistoryType::Chat && entry.title.isEmpty()) {
+                entry.title = QString("对话 %1").arg(id.left(8));
+            }
+
             qint64 updatedAt = conv["updated_at"].toVariant().toLongLong();
-            QString timeStr;
             if (updatedAt > 0) {
-                QDateTime dt = QDateTime::fromSecsSinceEpoch(updatedAt);
-                timeStr = dt.toString("M月d日 HH:mm");
-            } else {
-                timeStr = "未知时间";
+                entry.updatedAt = QDateTime::fromSecsSinceEpoch(updatedAt);
+            } else if (!entry.updatedAt.isValid()) {
+                entry.updatedAt = QDateTime::currentDateTime();
             }
-            
-            m_chatHistoryWidget->addHistoryItem(id, name, timeStr);
+
+            if (entry.type != AIHistoryType::LessonPlan &&
+                entry.type != AIHistoryType::AnalyticsReport &&
+                entry.type != AIHistoryType::CaseAnalysis) {
+                entry.type = AIHistoryType::Chat;
+            }
+
+            m_historyEntries.insert(id, entry);
         }
-        
+
+        refreshHistorySidebar();
         qDebug() << "[ModernMainWindow] Loaded" << conversations.size() << "conversations";
     });
     
+    connect(m_difyService, &DifyService::conversationCreated, this, [this](const QString &conversationId) {
+        AIHistoryEntry entry = m_historyEntries.value(conversationId);
+        entry.conversationId = conversationId;
+        entry.type = m_pendingHistoryType;
+        entry.title = m_pendingHistoryTitle.isEmpty()
+            ? historyHeaderTitle(m_pendingHistoryType)
+            : m_pendingHistoryTitle;
+        entry.updatedAt = QDateTime::currentDateTime();
+        entry.lessonContent = m_pendingLessonPlanContent;
+        entry.previewText = !m_pendingAnalyticsContent.isEmpty() ? m_pendingAnalyticsContent : m_pendingCasePrompt;
+        upsertHistoryEntry(entry);
+
+        if (entry.type == AIHistoryType::LessonPlan && m_lessonPlanEditor) {
+            m_lessonPlanEditor->setConversationId(conversationId);
+        }
+    });
+
     // 连接消息历史接收信号
     connect(m_difyService, &DifyService::messagesReceived, this, [this](const QJsonArray &messages, const QString &conversationId) {
-        if (!m_bubbleChatWidget) return;
-        
+        const AIHistoryEntry entry = m_historyEntries.value(conversationId);
+        if ((entry.type != AIHistoryType::Chat && entry.type != AIHistoryType::CaseAnalysis) || !m_bubbleChatWidget) {
+            return;
+        }
+
         m_bubbleChatWidget->clearMessages();
-        
+
         // 消息是按时间倒序的，需要反转
         QList<QJsonObject> msgList;
         for (const QJsonValue &val : messages) {
             msgList.prepend(val.toObject());
         }
-        
+
         for (const QJsonObject &msg : msgList) {
             QString query = msg["query"].toString();
             QString answer = msg["answer"].toString();
-            
+
             if (!query.isEmpty()) {
                 m_bubbleChatWidget->addMessage(query, true);  // 用户消息
             }
@@ -2500,7 +2525,7 @@ void ModernMainWindow::createAIChatWidget()
                 m_bubbleChatWidget->addMessage(answer, false);  // AI 消息
             }
         }
-        
+
         qDebug() << "[ModernMainWindow] Loaded" << messages.size() << "messages for conversation:" << conversationId;
     });
     
@@ -2551,13 +2576,63 @@ void ModernMainWindow::createAIChatWidget()
 
     // 标签页2: 教案编辑器 - 使用SVG图标
     m_lessonPlanEditor = new LessonPlanEditor();
+    m_lessonPlanEditor->setDifyService(m_difyService);
     m_aiTabWidget->addTab(m_lessonPlanEditor, QIcon(":/icons/resources/icons/document-edit.svg"), "教案编辑");
+
+    connect(m_aiTabWidget, &QTabWidget::currentChanged, this, [this](int index) {
+        if (index == 1) {
+            setActiveHistoryType(AIHistoryType::LessonPlan);
+            return;
+        }
+
+        if (m_activeHistoryType != AIHistoryType::CaseAnalysis) {
+            setActiveHistoryType(AIHistoryType::Chat);
+        }
+    });
 
     // 连接教案编辑器的保存信号
     connect(m_lessonPlanEditor, &LessonPlanEditor::saveRequested,
             this, [this](const QString &title, const QString &content) {
         qDebug() << "[ModernMainWindow] 教案已保存：" << title;
         // 可在此处理保存到数据库等逻辑
+        const QString conversationId = m_lessonPlanEditor ? m_lessonPlanEditor->conversationId() : QString();
+        if (!conversationId.isEmpty()) {
+            recordLessonPlanHistory(conversationId, title, content);
+        }
+    });
+
+    connect(m_lessonPlanEditor, &LessonPlanEditor::aiGenerationStarted, this, [this]() {
+        if (!m_difyService || !m_lessonPlanEditor) {
+            return;
+        }
+
+        setActiveHistoryType(AIHistoryType::LessonPlan);
+        if (m_aiTabWidget) {
+            m_aiTabWidget->setCurrentWidget(m_lessonPlanEditor);
+        }
+
+        const QString title = m_lessonPlanEditor->getCurrentLessonTitle();
+        m_pendingHistoryType = AIHistoryType::LessonPlan;
+        m_pendingHistoryTitle = title.isEmpty() ? QStringLiteral("教案编辑") : QStringLiteral("教案：") + title;
+        m_pendingLessonPlanContent.clear();
+        m_pendingAnalyticsContent.clear();
+        m_pendingCasePrompt.clear();
+        m_difyService->clearConversation();
+        m_lessonPlanEditor->setConversationId(QString());
+    });
+
+    connect(m_lessonPlanEditor, &LessonPlanEditor::aiGenerationFinished, this, [this]() {
+        if (!m_lessonPlanEditor) {
+            return;
+        }
+
+        const QString conversationId = m_lessonPlanEditor->conversationId();
+        if (!conversationId.isEmpty()) {
+            recordLessonPlanHistory(
+                conversationId,
+                m_lessonPlanEditor->getCurrentLessonTitle(),
+                m_lessonPlanEditor->getContent());
+        }
     });
 
     // 添加标签页容器到主布局
@@ -2604,10 +2679,329 @@ void ModernMainWindow::createAIChatWidget()
 
             // 直接发送到 Dify，使用 Dify 中配置的提示词
             if (m_difyService) {
+                m_pendingHistoryType = AIHistoryType::Chat;
+                m_pendingHistoryTitle = message.left(24);
+                m_pendingLessonPlanContent.clear();
+                m_pendingAnalyticsContent.clear();
+                m_pendingCasePrompt.clear();
                 m_difyService->sendMessage(message);
             }
         });
     }
+}
+
+QString ModernMainWindow::historyHeaderTitle(AIHistoryType type) const
+{
+    switch (type) {
+    case AIHistoryType::Chat:
+        return QStringLiteral("对话历史");
+    case AIHistoryType::LessonPlan:
+        return QStringLiteral("教案历史");
+    case AIHistoryType::AnalyticsReport:
+        return QStringLiteral("分析报告历史");
+    case AIHistoryType::CaseAnalysis:
+        return QStringLiteral("案例分析历史");
+    }
+
+    return QStringLiteral("历史记录");
+}
+
+QString ModernMainWindow::historyNewButtonText(AIHistoryType type) const
+{
+    switch (type) {
+    case AIHistoryType::Chat:
+        return QStringLiteral("➕  新建对话");
+    case AIHistoryType::LessonPlan:
+        return QStringLiteral("➕  新建教案会话");
+    case AIHistoryType::AnalyticsReport:
+        return QStringLiteral("➕  新建分析报告");
+    case AIHistoryType::CaseAnalysis:
+        return QStringLiteral("➕  新建案例分析");
+    }
+
+    return QStringLiteral("➕  新建记录");
+}
+
+QString ModernMainWindow::formatHistoryTime(const QDateTime &time) const
+{
+    if (!time.isValid()) {
+        return QStringLiteral("未知时间");
+    }
+    return time.toString("M月d日 HH:mm");
+}
+
+void ModernMainWindow::refreshHistorySidebar()
+{
+    if (!m_chatHistoryWidget) {
+        return;
+    }
+
+    m_chatHistoryWidget->setHeaderTitle(historyHeaderTitle(m_activeHistoryType));
+    m_chatHistoryWidget->setNewButtonText(historyNewButtonText(m_activeHistoryType));
+    m_chatHistoryWidget->clearHistory();
+
+    QList<AIHistoryEntry> entries;
+    for (auto it = m_historyEntries.cbegin(); it != m_historyEntries.cend(); ++it) {
+        if (it.value().type == m_activeHistoryType) {
+            entries.append(it.value());
+        }
+    }
+
+    std::sort(entries.begin(), entries.end(), [](const AIHistoryEntry &a, const AIHistoryEntry &b) {
+        return a.updatedAt > b.updatedAt;
+    });
+
+    for (const AIHistoryEntry &entry : entries) {
+        const QString title = entry.title.isEmpty()
+            ? historyHeaderTitle(entry.type)
+            : entry.title;
+        m_chatHistoryWidget->addHistoryItem(entry.conversationId, title, formatHistoryTime(entry.updatedAt));
+    }
+}
+
+void ModernMainWindow::setActiveHistoryType(AIHistoryType type)
+{
+    m_activeHistoryType = type;
+    refreshHistorySidebar();
+}
+
+void ModernMainWindow::resetConversationForType(AIHistoryType type)
+{
+    setActiveHistoryType(type);
+
+    if (type == AIHistoryType::Chat || type == AIHistoryType::CaseAnalysis) {
+        if (m_bubbleChatWidget) {
+            m_bubbleChatWidget->clearMessages();
+            m_bubbleChatWidget->addMessage("老师您好！我是智慧课堂助手，请问有什么可以帮你？", false);
+        }
+        if (m_difyService) {
+            m_difyService->clearConversation();
+        }
+        m_isConversationStarted = false;
+    } else if (type == AIHistoryType::LessonPlan) {
+        if (m_lessonPlanEditor) {
+            m_lessonPlanEditor->clear();
+            m_lessonPlanEditor->setConversationId(QString());
+        }
+        if (m_aiTabWidget && m_lessonPlanEditor) {
+            m_aiTabWidget->setCurrentWidget(m_lessonPlanEditor);
+        }
+        if (contentStack && dashboardWidget) {
+            contentStack->setCurrentWidget(dashboardWidget);
+        }
+        if (m_mainStack && m_chatContainer) {
+            m_mainStack->setCurrentWidget(m_chatContainer);
+        }
+        if (m_difyService) {
+            m_difyService->clearConversation();
+        }
+    } else if (type == AIHistoryType::AnalyticsReport) {
+        if (m_dataAnalyticsWidget) {
+            contentStack->setCurrentWidget(m_dataAnalyticsWidget);
+            m_dataAnalyticsWidget->showOverview();
+            m_dataAnalyticsWidget->setReportContent(QString());
+        }
+    }
+
+    if (m_chatHistoryWidget) {
+        m_chatHistoryWidget->clearSelection();
+    }
+}
+
+void ModernMainWindow::handleHistorySelection(const QString &conversationId)
+{
+    const AIHistoryEntry entry = m_historyEntries.value(conversationId);
+    if (entry.conversationId.isEmpty()) {
+        return;
+    }
+
+    setActiveHistoryType(entry.type);
+
+    switch (entry.type) {
+    case AIHistoryType::Chat:
+    case AIHistoryType::CaseAnalysis:
+        if (contentStack && dashboardWidget) {
+            contentStack->setCurrentWidget(dashboardWidget);
+        }
+        if (m_mainStack && m_chatContainer) {
+            m_mainStack->setCurrentWidget(m_chatContainer);
+        }
+        if (m_aiTabWidget) {
+            m_aiTabWidget->setCurrentIndex(0);
+        }
+        if (m_difyService) {
+            m_difyService->setCurrentConversationId(conversationId);
+            m_difyService->fetchMessages(conversationId);
+        }
+        m_isConversationStarted = true;
+        break;
+    case AIHistoryType::LessonPlan:
+        if (contentStack && dashboardWidget) {
+            contentStack->setCurrentWidget(dashboardWidget);
+        }
+        if (m_mainStack && m_chatContainer) {
+            m_mainStack->setCurrentWidget(m_chatContainer);
+        }
+        if (m_aiTabWidget && m_lessonPlanEditor) {
+            m_aiTabWidget->setCurrentWidget(m_lessonPlanEditor);
+            m_lessonPlanEditor->setConversationId(conversationId);
+            m_lessonPlanEditor->setContent(entry.lessonContent);
+        }
+        break;
+    case AIHistoryType::AnalyticsReport:
+        if (m_dataAnalyticsWidget) {
+            contentStack->setCurrentWidget(m_dataAnalyticsWidget);
+            m_dataAnalyticsWidget->showOverview();
+            m_dataAnalyticsWidget->setReportContent(entry.previewText);
+        }
+        break;
+    }
+}
+
+void ModernMainWindow::upsertHistoryEntry(const AIHistoryEntry &entry)
+{
+    if (entry.conversationId.isEmpty()) {
+        return;
+    }
+
+    AIHistoryEntry merged = m_historyEntries.value(entry.conversationId);
+    merged.conversationId = entry.conversationId;
+    merged.type = entry.type;
+    if (!entry.title.isEmpty()) {
+        merged.title = entry.title;
+    }
+    if (entry.updatedAt.isValid()) {
+        merged.updatedAt = entry.updatedAt;
+    } else if (!merged.updatedAt.isValid()) {
+        merged.updatedAt = QDateTime::currentDateTime();
+    }
+    if (!entry.previewText.isEmpty()) {
+        merged.previewText = entry.previewText;
+    }
+    if (!entry.lessonContent.isEmpty()) {
+        merged.lessonContent = entry.lessonContent;
+    }
+
+    m_historyEntries.insert(merged.conversationId, merged);
+    saveHistoryEntries();
+    refreshHistorySidebar();
+}
+
+void ModernMainWindow::loadHistoryEntries()
+{
+    m_historyEntries.clear();
+
+    QSettings settings;
+    const QString raw = settings.value(QStringLiteral("aiHistory/entries")).toString();
+    if (raw.trimmed().isEmpty()) {
+        return;
+    }
+
+    const QJsonDocument doc = QJsonDocument::fromJson(raw.toUtf8());
+    if (!doc.isArray()) {
+        return;
+    }
+
+    const QJsonArray entries = doc.array();
+    for (const QJsonValue &value : entries) {
+        if (!value.isObject()) {
+            continue;
+        }
+
+        const QJsonObject obj = value.toObject();
+        AIHistoryEntry entry;
+        entry.conversationId = obj.value(QStringLiteral("conversationId")).toString();
+        if (entry.conversationId.isEmpty()) {
+            continue;
+        }
+
+        const QString type = obj.value(QStringLiteral("type")).toString();
+        if (type == QStringLiteral("lesson_plan")) {
+            entry.type = AIHistoryType::LessonPlan;
+        } else if (type == QStringLiteral("analytics_report")) {
+            entry.type = AIHistoryType::AnalyticsReport;
+        } else if (type == QStringLiteral("case_analysis")) {
+            entry.type = AIHistoryType::CaseAnalysis;
+        } else {
+            entry.type = AIHistoryType::Chat;
+        }
+
+        entry.title = obj.value(QStringLiteral("title")).toString();
+        entry.previewText = obj.value(QStringLiteral("previewText")).toString();
+        entry.lessonContent = obj.value(QStringLiteral("lessonContent")).toString();
+        entry.updatedAt = QDateTime::fromString(
+            obj.value(QStringLiteral("updatedAt")).toString(),
+            Qt::ISODate);
+
+        m_historyEntries.insert(entry.conversationId, entry);
+    }
+}
+
+void ModernMainWindow::saveHistoryEntries() const
+{
+    QJsonArray entries;
+    for (auto it = m_historyEntries.cbegin(); it != m_historyEntries.cend(); ++it) {
+        const AIHistoryEntry &entry = it.value();
+        QJsonObject obj;
+        obj.insert(QStringLiteral("conversationId"), entry.conversationId);
+
+        QString type = QStringLiteral("chat");
+        switch (entry.type) {
+        case AIHistoryType::LessonPlan:
+            type = QStringLiteral("lesson_plan");
+            break;
+        case AIHistoryType::AnalyticsReport:
+            type = QStringLiteral("analytics_report");
+            break;
+        case AIHistoryType::CaseAnalysis:
+            type = QStringLiteral("case_analysis");
+            break;
+        case AIHistoryType::Chat:
+            break;
+        }
+
+        obj.insert(QStringLiteral("type"), type);
+        obj.insert(QStringLiteral("title"), entry.title);
+        obj.insert(QStringLiteral("updatedAt"), entry.updatedAt.toString(Qt::ISODate));
+        obj.insert(QStringLiteral("previewText"), entry.previewText);
+        obj.insert(QStringLiteral("lessonContent"), entry.lessonContent);
+        entries.append(obj);
+    }
+
+    QSettings settings;
+    settings.setValue(QStringLiteral("aiHistory/entries"), QString::fromUtf8(QJsonDocument(entries).toJson(QJsonDocument::Compact)));
+}
+
+void ModernMainWindow::recordLessonPlanHistory(const QString &conversationId, const QString &title, const QString &content)
+{
+    AIHistoryEntry entry;
+    entry.conversationId = conversationId;
+    entry.type = AIHistoryType::LessonPlan;
+    entry.title = title.isEmpty() ? QStringLiteral("教案编辑") : QStringLiteral("教案：") + title;
+    entry.lessonContent = content;
+    entry.updatedAt = QDateTime::currentDateTime();
+    upsertHistoryEntry(entry);
+}
+
+void ModernMainWindow::recordAnalyticsHistory(const QString &conversationId, const QString &title, const QString &content)
+{
+    AIHistoryEntry entry;
+    entry.conversationId = conversationId;
+    entry.type = AIHistoryType::AnalyticsReport;
+    entry.title = title;
+    entry.previewText = content;
+    entry.updatedAt = QDateTime::currentDateTime();
+    upsertHistoryEntry(entry);
+}
+
+void ModernMainWindow::recordCaseAnalysisHistory(const QString &conversationId, const QString &title)
+{
+    AIHistoryEntry entry;
+    entry.conversationId = conversationId;
+    entry.type = AIHistoryType::CaseAnalysis;
+    entry.title = title;
+    entry.updatedAt = QDateTime::currentDateTime();
+    upsertHistoryEntry(entry);
 }
 
 void ModernMainWindow::swapToHistorySidebar()
@@ -2615,6 +3009,7 @@ void ModernMainWindow::swapToHistorySidebar()
     if (m_sidebarStack) {
         m_sidebarStack->setCurrentIndex(1);  // 历史记录侧边栏
     }
+    refreshHistorySidebar();
 }
 
 void ModernMainWindow::swapToNavSidebar()
@@ -2660,6 +3055,11 @@ void ModernMainWindow::onSendChatMessage()
 
     // 发送到 Dify
     if (m_difyService) {
+        m_pendingHistoryType = AIHistoryType::Chat;
+        m_pendingHistoryTitle = message.left(24);
+        m_pendingLessonPlanContent.clear();
+        m_pendingAnalyticsContent.clear();
+        m_pendingCasePrompt.clear();
         m_difyService->sendMessage(message);
     }
 }
@@ -2772,9 +3172,10 @@ void ModernMainWindow::onAIRequestFinished()
     m_currentAIResponse.clear();
 
     // 刷新对话列表以显示新创建的对话
-    if (m_difyService) {
+    if (m_difyService && (m_activeHistoryType == AIHistoryType::Chat || m_activeHistoryType == AIHistoryType::CaseAnalysis)) {
         m_difyService->fetchConversations();
     }
+    refreshHistorySidebar();
 }
 
 // ==================== PPT 模拟生成功能 ====================
@@ -2978,13 +3379,12 @@ void ModernMainWindow::onPPTSimulationStep()
 
                     m_bubbleChatWidget->updateLastAIMessage(finalMsg);
 
-                    // 添加到历史记录
-                    if (m_chatHistoryWidget) {
-                        QString timeStr = QDateTime::currentDateTime().toString("MM-dd HH:mm");
-                        m_chatHistoryWidget->insertHistoryItem(0,
-                            "ppt_" + QString::number(QDateTime::currentDateTime().toSecsSinceEpoch()),
-                            "PPT生成：" + m_pptTopic, timeStr);
-                    }
+                    AIHistoryEntry entry;
+                    entry.conversationId = "ppt_" + QString::number(QDateTime::currentDateTime().toSecsSinceEpoch());
+                    entry.type = AIHistoryType::Chat;
+                    entry.title = "PPT生成：" + m_pptTopic;
+                    entry.updatedAt = QDateTime::currentDateTime();
+                    upsertHistoryEntry(entry);
                 } else if (m_bubbleChatWidget) {
                     m_bubbleChatWidget->updateLastAIMessage(
                         "抱歉，文件保存失败，请检查桌面权限后重试。");

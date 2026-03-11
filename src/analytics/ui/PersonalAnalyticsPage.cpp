@@ -70,6 +70,33 @@ void PersonalAnalyticsPage::refresh()
     updateRadarChart();
 }
 
+void PersonalAnalyticsPage::selectStudent(int studentId)
+{
+    if (!m_studentCombo) {
+        return;
+    }
+
+    for (int i = 0; i < m_studentCombo->count(); ++i) {
+        if (m_studentCombo->itemData(i).toInt() == studentId) {
+            m_studentCombo->setCurrentIndex(i);
+            return;
+        }
+    }
+}
+
+void PersonalAnalyticsPage::setAdviceContent(const QString &content)
+{
+    m_currentAdvice = content;
+    if (m_adviceContent) {
+        m_adviceContent->setText(content);
+    }
+    if (m_generateAdviceBtn) {
+        m_generateAdviceBtn->setEnabled(true);
+        m_generateAdviceBtn->setText(content.trimmed().isEmpty() ? "生成建议" : "重新生成");
+    }
+    m_isGenerating = false;
+}
+
 void PersonalAnalyticsPage::setupUI()
 {
     // 学习班级分析页面的布局方式，用 ScrollArea 包装避免重叠

@@ -45,6 +45,10 @@ public:
     // 清空编辑器
     void clear();
 
+    void setDifyService(DifyService *service);
+    void setConversationId(const QString &conversationId);
+    QString conversationId() const;
+
 signals:
     // 内容变化信号
     void contentChanged();

@@ -25,6 +25,8 @@
 #include <QTextEdit>
 
 #include <QTabWidget>
+#include <QHash>
+#include <QDateTime>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class ModernMainWindow; }
@@ -81,6 +83,22 @@ private slots:
     void onAIRequestFinished();
 
 private:
+    enum class AIHistoryType {
+        Chat,
+        LessonPlan,
+        AnalyticsReport,
+        CaseAnalysis
+    };
+
+    struct AIHistoryEntry {
+        QString conversationId;
+        AIHistoryType type = AIHistoryType::Chat;
+        QString title;
+        QDateTime updatedAt;
+        QString previewText;
+        QString lessonContent;
+    };
+
     void initUI();
     void setupMenuBar();
     void setupStatusBar();
@@ -106,6 +124,19 @@ private:
     void appendChatMessage(const QString &sender, const QString &message, bool isUser);
     void swapToHistorySidebar();    // 切换到历史记录侧边栏
     void swapToNavSidebar();        // 切换回导航侧边栏
+    QString historyHeaderTitle(AIHistoryType type) const;
+    QString historyNewButtonText(AIHistoryType type) const;
+    QString formatHistoryTime(const QDateTime &time) const;
+    void refreshHistorySidebar();
+    void setActiveHistoryType(AIHistoryType type);
+    void resetConversationForType(AIHistoryType type);
+    void handleHistorySelection(const QString &conversationId);
+    void upsertHistoryEntry(const AIHistoryEntry &entry);
+    void loadHistoryEntries();
+    void saveHistoryEntries() const;
+    void recordLessonPlanHistory(const QString &conversationId, const QString &title, const QString &content);
+    void recordAnalyticsHistory(const QString &conversationId, const QString &title, const QString &content);
+    void recordCaseAnalysisHistory(const QString &conversationId, const QString &title);
 
     // 创建指标项组件 - 紧凑单行信息
     QWidget* createMetricItem(const QString& name,
@@ -215,6 +246,13 @@ private:
     QWidget *m_welcomeInputWidget = nullptr;  // 欢迎页面底部输入框
     QStackedWidget *m_mainStack = nullptr;    // 主内容切换栈
     bool m_isConversationStarted = false;   // 是否已开始对话
+    AIHistoryType m_activeHistoryType = AIHistoryType::Chat;
+    AIHistoryType m_pendingHistoryType = AIHistoryType::Chat;
+    QString m_pendingHistoryTitle;
+    QString m_pendingLessonPlanContent;
+    QString m_pendingAnalyticsContent;
+    QString m_pendingCasePrompt;
+    QHash<QString, AIHistoryEntry> m_historyEntries;
 
     // 数据
     QString currentUserRole;

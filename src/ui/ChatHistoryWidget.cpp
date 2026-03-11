@@ -94,23 +94,21 @@ void ChatHistoryWidget::setupUI()
     );
     connect(backBtn, &QPushButton::clicked, this, &ChatHistoryWidget::backRequested);
     
-    QLabel *titleLabel = new QLabel("对话历史");
-    titleLabel->setStyleSheet("color: #666666; font-size: 13px; font-weight: 600; border: none;");
-    
+    m_titleLabel = new QLabel("对话历史");
+    m_titleLabel->setStyleSheet("color: #666666; font-size: 13px; font-weight: 600; border: none;");
+
     headerLayout->addWidget(backBtn);
-    headerLayout->addWidget(titleLabel);
+    headerLayout->addWidget(m_titleLabel);
     headerLayout->addStretch();
     mainLayout->addLayout(headerLayout);
 
     // 1. 新建对话按钮 - 极简风格
-    QPushButton *newChatBtn = new QPushButton("    新建对话"); 
+    m_newChatBtn = new QPushButton("➕  新建对话");
     // 图标处理：这里为了方便演示，还是用 Emoji 但建议用 QIcon
     // 更好的做法是 qproperty-icon: url(:/icons/plus.svg);
-    // 暂时用文字排版模拟 "➕ 新建对话"
-    newChatBtn->setText("➕  新建对话");
-    newChatBtn->setFixedHeight(36); // 更矮一点，精致
-    newChatBtn->setCursor(Qt::PointingHandCursor);
-    newChatBtn->setStyleSheet(
+    m_newChatBtn->setFixedHeight(36); // 更矮一点，精致
+    m_newChatBtn->setCursor(Qt::PointingHandCursor);
+    m_newChatBtn->setStyleSheet(
         "QPushButton {"
         "   background-color: transparent;" // 默认透明或极浅
         "   border: 1px solid #E0E0E0;" // 极细边框
@@ -128,8 +126,8 @@ void ChatHistoryWidget::setupUI()
         "   background-color: #E0E0E0;"
         "}"
     );
-    connect(newChatBtn, &QPushButton::clicked, this, &ChatHistoryWidget::newChatRequested);
-    mainLayout->addWidget(newChatBtn);
+    connect(m_newChatBtn, &QPushButton::clicked, this, &ChatHistoryWidget::newChatRequested);
+    mainLayout->addWidget(m_newChatBtn);
 
     // 2. 历史记录列表 - 卡片样式
     m_listWidget = new QListWidget();
@@ -209,4 +207,18 @@ void ChatHistoryWidget::clearHistory()
 void ChatHistoryWidget::clearSelection()
 {
     m_listWidget->clearSelection();
+}
+
+void ChatHistoryWidget::setHeaderTitle(const QString &title)
+{
+    if (m_titleLabel) {
+        m_titleLabel->setText(title);
+    }
+}
+
+void ChatHistoryWidget::setNewButtonText(const QString &text)
+{
+    if (m_newChatBtn) {
+        m_newChatBtn->setText(text);
+    }
 }

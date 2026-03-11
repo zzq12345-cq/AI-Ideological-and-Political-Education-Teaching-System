@@ -33,6 +33,8 @@ public:
     void setDataSource(MockDataSource *dataSource);
     void setDifyService(DifyService *service);
     void refresh();
+    void selectClass(int classId);
+    void setAdviceContent(const QString &content);
 
 signals:
     void classChanged(int classId);
