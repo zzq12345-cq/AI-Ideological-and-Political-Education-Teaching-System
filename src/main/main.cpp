@@ -2,8 +2,67 @@
 #include <QStyleFactory>
 #include <QDebug>
 #include <QNetworkProxy>
+#include <QTcpSocket>
+#include <QUrl>
 #include <iostream>
 #include "../auth/login/simpleloginwindow.h"
+
+namespace {
+QNetworkProxy::ProxyType proxyTypeFromScheme(const QString &scheme)
+{
+    const QString normalizedScheme = scheme.trimmed().toLower();
+    if (normalizedScheme == "socks5") {
+        return QNetworkProxy::Socks5Proxy;
+    }
+    return QNetworkProxy::HttpProxy;
+}
+
+bool isLocalProxyHost(const QString &host)
+{
+    const QString normalizedHost = host.trimmed().toLower();
+    return normalizedHost == "127.0.0.1"
+        || normalizedHost == "localhost"
+        || normalizedHost == "::1";
+}
+
+bool canReachProxy(const QString &host, quint16 port, int timeoutMs = 500)
+{
+    QTcpSocket socket;
+    socket.connectToHost(host, port);
+    const bool connected = socket.waitForConnected(timeoutMs);
+    if (connected) {
+        socket.disconnectFromHost();
+    }
+    return connected;
+}
+
+void configureApplicationProxy()
+{
+    QString proxyUrl = qEnvironmentVariable("https_proxy").trimmed();
+    if (proxyUrl.isEmpty()) proxyUrl = qEnvironmentVariable("HTTPS_PROXY").trimmed();
+    if (proxyUrl.isEmpty()) proxyUrl = qEnvironmentVariable("http_proxy").trimmed();
+    if (proxyUrl.isEmpty()) proxyUrl = qEnvironmentVariable("HTTP_PROXY").trimmed();
+    if (proxyUrl.isEmpty()) {
+        return;
+    }
+
+    const QUrl url(proxyUrl);
+    if (!url.isValid() || url.host().isEmpty()) {
+        qWarning() << "[Proxy] 代理地址无效，已忽略:" << proxyUrl;
+        return;
+    }
+
+    const quint16 port = static_cast<quint16>(url.port(7897));
+    if (isLocalProxyHost(url.host()) && !canReachProxy(url.host(), port)) {
+        qWarning() << "[Proxy] 本地代理不可用，已跳过代理配置:" << url.host() << ":" << port;
+        return;
+    }
+
+    QNetworkProxy proxy(proxyTypeFromScheme(url.scheme()), url.host(), port, url.userName(), url.password());
+    QNetworkProxy::setApplicationProxy(proxy);
+    qDebug() << "[Proxy] 已设置全局代理:" << url.scheme() << url.host() << ":" << port;
+}
+}
 
 int main(int argc, char *argv[])
 {
@@ -19,14 +78,7 @@ int main(int argc, char *argv[])
     app.setStyle(QStyleFactory::create("Fusion"));
 
     // 配置网络代理（从环境变量读取）
-    QString proxyUrl = qEnvironmentVariable("https_proxy");
-    if (proxyUrl.isEmpty()) proxyUrl = qEnvironmentVariable("http_proxy");
-    if (!proxyUrl.isEmpty()) {
-        QUrl url(proxyUrl);
-        QNetworkProxy proxy(QNetworkProxy::HttpProxy, url.host(), static_cast<quint16>(url.port(7897)));
-        QNetworkProxy::setApplicationProxy(proxy);
-        qDebug() << "[Proxy] 已设置全局代理:" << url.host() << ":" << url.port();
-    }
+    configureApplicationProxy();
 
     qDebug() << "\n=== 应用启动 ===\n";
     std::cout << "应用启动" << std::endl;

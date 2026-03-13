@@ -6,6 +6,39 @@
 #include <QUrl>
 #include <QUrlQuery>
 
+namespace {
+QString mapAuthNetworkError(QNetworkReply::NetworkError error, const QString &detail)
+{
+    switch (error) {
+    case QNetworkReply::ConnectionRefusedError:
+        return "连接被拒绝，请检查网络";
+    case QNetworkReply::HostNotFoundError:
+        return "无法解析服务器地址，请检查网络或 DNS";
+    case QNetworkReply::TimeoutError:
+        return "连接超时，请检查网络";
+    case QNetworkReply::SslHandshakeFailedError:
+        return "SSL 握手失败，请检查系统时间或代理证书";
+    case QNetworkReply::RemoteHostClosedError:
+        return "服务器提前关闭了连接，请稍后重试";
+    case QNetworkReply::ProxyConnectionRefusedError:
+    case QNetworkReply::ProxyConnectionClosedError:
+    case QNetworkReply::ProxyNotFoundError:
+    case QNetworkReply::ProxyTimeoutError:
+    case QNetworkReply::ProxyAuthenticationRequiredError:
+    case QNetworkReply::UnknownProxyError:
+        return "代理连接失败，请检查代理设置或关闭代理后重试";
+    case QNetworkReply::TemporaryNetworkFailureError:
+    case QNetworkReply::NetworkSessionFailedError:
+    case QNetworkReply::UnknownNetworkError:
+        return "当前网络不可用，请检查网络环境后重试";
+    case QNetworkReply::ProtocolFailure:
+        return "网络协议错误，请稍后重试";
+    default:
+        return detail.isEmpty() ? "网络错误，请稍后重试" : QString("网络错误: %1").arg(detail);
+    }
+}
+}
+
 SupabaseClient::SupabaseClient(QObject *parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
@@ -19,6 +52,8 @@ SupabaseClient::SupabaseClient(QObject *parent)
 
     connect(m_networkManager, &QNetworkAccessManager::authenticationRequired,
             this, &SupabaseClient::onAuthRequired);
+    connect(m_networkManager, &QNetworkAccessManager::sslErrors,
+            this, &SupabaseClient::onSslErrors);
 }
 
 SupabaseClient::~SupabaseClient()
@@ -120,38 +155,24 @@ void SupabaseClient::onReplyFinished(QNetworkReply *reply)
     QNetworkReply::NetworkError netError = reply->error();
     QString url = reply->url().toString();
 
-    if (netError != QNetworkReply::NoError) {
-        qDebug() << "网络错误:" << netError << reply->errorString();
+    if (reply->property("sslErrorHandled").toBool()) {
+        reply->deleteLater();
+        return;
+    }
 
-        QString errorString;
-        switch (netError) {
-        case QNetworkReply::ConnectionRefusedError:
-            errorString = "连接被拒绝，请检查网络";
-            break;
-        case QNetworkReply::HostNotFoundError:
-            errorString = "服务器地址无效";
-            break;
-        case QNetworkReply::TimeoutError:
-            errorString = "连接超时，请检查网络";
-            break;
-        case QNetworkReply::SslHandshakeFailedError:
-            errorString = "SSL握手失败";
-            break;
-        case QNetworkReply::RemoteHostClosedError:
-            errorString = "服务器关闭了连接";
-            break;
-        default:
-            errorString = QString("网络错误: %1").arg(reply->errorString());
-        }
+    if (netError != QNetworkReply::NoError) {
+        const QString networkErrorMessage = mapAuthNetworkError(netError, reply->errorString());
+        qDebug() << "网络错误:" << netError << reply->errorString();
+        qDebug() << "网络错误映射:" << networkErrorMessage;
 
         if (url.contains("/auth/v1/token")) {
-            emit loginFailed(errorString);
+            emit loginFailed(networkErrorMessage);
         } else if (url.contains("/auth/v1/signup")) {
-            emit signupFailed(errorString);
+            emit signupFailed(networkErrorMessage);
         } else if (url.contains("/auth/v1/recover")) {
-            emit passwordResetFailed(errorString);
+            emit passwordResetFailed(networkErrorMessage);
         } else {
-            emit loginFailed(errorString);
+            emit loginFailed(networkErrorMessage);
         }
         reply->deleteLater();
         return;
@@ -313,34 +334,12 @@ void SupabaseClient::onNetworkError(QNetworkReply::NetworkError error)
 {
     qDebug() << "网络错误:" << error;
 
-    QString errorString;
-    switch (error) {
-    case QNetworkReply::ConnectionRefusedError:
-        errorString = "连接被拒绝，请检查网络连接";
-        break;
-    case QNetworkReply::HostNotFoundError:
-        errorString = "主机未找到，请检查服务器地址";
-        break;
-    case QNetworkReply::TimeoutError:
-        errorString = "连接超时，请检查网络连接";
-        break;
-    case QNetworkReply::SslHandshakeFailedError:
-        errorString = "SSL握手失败，可能存在证书问题";
-        break;
-    case QNetworkReply::ProtocolFailure:
-        errorString = "协议错误，服务器返回了无效响应";
-        break;
-    case QNetworkReply::UnknownServerError:
-        errorString = "未知服务器错误";
-        break;
-    default:
-        errorString = QString("网络错误：%1").arg(error);
-        break;
-    }
+    QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
+    const QString detail = reply ? reply->errorString() : QString();
+    const QString errorString = mapAuthNetworkError(error, detail);
 
     qDebug() << "网络错误详情:" << errorString;
 
-    QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
     const QString url = reply ? reply->url().toString() : QString();
     if (url.contains("/auth/v1/token")) {
         emit loginFailed(errorString);
@@ -355,22 +354,14 @@ void SupabaseClient::onNetworkError(QNetworkReply::NetworkError error)
     }
 }
 
-void SupabaseClient::onSslErrors(const QList<QSslError> &errors)
+void SupabaseClient::onSslErrors(QNetworkReply *reply, const QList<QSslError> &errors)
 {
-    qDebug() << "SSL错误数量:" << errors.size();
-    for (const QSslError &error : errors) {
-        qDebug() << "SSL错误:" << error.errorString();
-    }
-
-    QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
-    if (reply && NetworkRequestFactory::allowInsecureSslForDebug()) {
-        qWarning() << "ALLOW_INSECURE_SSL 已启用，忽略 SSL 错误（仅用于开发调试）";
-        reply->ignoreSslErrors(errors);
+    if (NetworkRequestFactory::handleSslErrors(reply, errors, "[SupabaseClient]")) {
         return;
     }
 
     if (reply) {
-        reply->abort();
+        reply->setProperty("sslErrorHandled", true);
     }
 
     const QString errorMsg = "SSL 证书校验失败，已拒绝建立不安全连接";
