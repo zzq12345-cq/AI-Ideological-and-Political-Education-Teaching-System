@@ -7,9 +7,9 @@ class SupabaseConfig
 {
 public:
     // Supabase项目配置
-    static const QString SUPABASE_URL;
-    static const QString SUPABASE_ANON_KEY;
-    static const QString SUPABASE_SERVICE_KEY;
+    static QString supabaseUrl();
+    static QString supabaseAnonKey();
+    static QString supabaseServiceKey();
 
     // 数据库配置
     static const QString USERS_TABLE;

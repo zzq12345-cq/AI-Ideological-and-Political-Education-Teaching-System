@@ -3,6 +3,7 @@
 #include "../../utils/NetworkRequestFactory.h"
 #include "../../utils/NetworkRetryHelper.h"
 #include <QDebug>
+#include <QNetworkProxy>
 #include <QUrl>
 #include <QUrlQuery>
 
@@ -37,6 +38,41 @@ QString mapAuthNetworkError(QNetworkReply::NetworkError error, const QString &de
         return detail.isEmpty() ? "网络错误，请稍后重试" : QString("网络错误: %1").arg(detail);
     }
 }
+
+bool isLoopbackProxyHost(const QString &host)
+{
+    const QString normalizedHost = host.trimmed().toLower();
+    return normalizedHost == "127.0.0.1"
+        || normalizedHost == "localhost"
+        || normalizedHost == "::1";
+}
+
+bool shouldRetryWithoutProxy(QNetworkReply *reply)
+{
+    if (!reply) {
+        return false;
+    }
+
+    switch (reply->error()) {
+    case QNetworkReply::RemoteHostClosedError:
+    case QNetworkReply::ProxyConnectionRefusedError:
+    case QNetworkReply::ProxyConnectionClosedError:
+    case QNetworkReply::ProxyNotFoundError:
+    case QNetworkReply::ProxyTimeoutError:
+    case QNetworkReply::ProxyAuthenticationRequiredError:
+    case QNetworkReply::UnknownProxyError:
+        break;
+    default:
+        return false;
+    }
+
+    const QNetworkProxy proxy = QNetworkProxy::applicationProxy();
+    if (proxy.type() == QNetworkProxy::NoProxy) {
+        return false;
+    }
+
+    return isLoopbackProxyHost(proxy.hostName());
+}
 }
 
 SupabaseClient::SupabaseClient(QObject *parent)
@@ -68,7 +104,7 @@ void SupabaseClient::login(const QString &email, const QString &password)
     authData["email"] = email;
     authData["password"] = password;
 
-    QString endpoint = SupabaseConfig::SUPABASE_URL + "/auth/v1/token?grant_type=password";
+    QString endpoint = SupabaseConfig::supabaseUrl() + "/auth/v1/token?grant_type=password";
     sendRequest(endpoint, authData, true);
 }
 
@@ -83,7 +119,7 @@ void SupabaseClient::signup(const QString &email, const QString &password, const
         {"username", username}
     });
 
-    QString endpoint = SupabaseConfig::SUPABASE_URL + "/auth/v1/signup";
+    QString endpoint = SupabaseConfig::supabaseUrl() + "/auth/v1/signup";
     sendRequest(endpoint, authData, true);
 }
 
@@ -91,7 +127,7 @@ void SupabaseClient::checkUserExists(const QString &email)
 {
     qDebug() << "检查用户是否存在:" << email;
 
-    QUrl endpoint(SupabaseConfig::SUPABASE_URL + "/rest/v1/" + SupabaseConfig::USERS_TABLE);
+    QUrl endpoint(SupabaseConfig::supabaseUrl() + "/rest/v1/" + SupabaseConfig::USERS_TABLE);
     QUrlQuery query;
     query.addQueryItem("select", "id");
     query.addQueryItem("email", "eq." + email);
@@ -107,17 +143,35 @@ void SupabaseClient::resetPassword(const QString &email)
     QJsonObject body;
     body["email"] = email;
 
-    QString endpoint = SupabaseConfig::SUPABASE_URL + "/auth/v1/recover";
+    QString endpoint = SupabaseConfig::supabaseUrl() + "/auth/v1/recover";
     sendRequest(endpoint, body, true);
 }
 
 void SupabaseClient::sendRequest(const QString &endpoint, const QJsonObject &data, bool isPost)
 {
     const QUrl endpointUrl(endpoint);
+    const QString supabaseUrl = SupabaseConfig::supabaseUrl();
+    const QString supabaseAnonKey = SupabaseConfig::supabaseAnonKey();
     qDebug() << "=== 发送认证请求 ===";
     qDebug() << "完整URL:" << endpoint;
-    qDebug() << "Supabase URL:" << SupabaseConfig::SUPABASE_URL;
-    qDebug() << "Anon Key 是否设置:" << (!SupabaseConfig::SUPABASE_ANON_KEY.isEmpty() ? "是" : "否");
+    qDebug() << "Supabase URL:" << supabaseUrl;
+    qDebug() << "Anon Key 是否设置:" << (!supabaseAnonKey.isEmpty() ? "是" : "否");
+
+    if (supabaseUrl.contains("your-project-id.supabase.co") || supabaseAnonKey.isEmpty()) {
+        const QString errorMessage = QStringLiteral("Supabase 配置缺失，请检查项目根目录下的 .env.local 是否包含 SUPABASE_URL 和 SUPABASE_ANON_KEY");
+        qWarning() << "[SupabaseClient]" << errorMessage;
+
+        if (endpoint.contains("/auth/v1/token")) {
+            emit loginFailed(errorMessage);
+        } else if (endpoint.contains("/auth/v1/signup")) {
+            emit signupFailed(errorMessage);
+        } else if (endpoint.contains("/auth/v1/recover")) {
+            emit passwordResetFailed(errorMessage);
+        } else {
+            emit userCheckFailed(errorMessage);
+        }
+        return;
+    }
 
     // 使用工厂创建认证请求
     QNetworkRequest request = NetworkRequestFactory::createAuthRequest(QUrl(endpoint));
@@ -125,21 +179,53 @@ void SupabaseClient::sendRequest(const QString &endpoint, const QJsonObject &dat
     QJsonDocument doc(data);
     QByteArray postData = doc.toJson();
 
-    // 通过重试器发送（认证请求最多重试2次）
-    auto *retryHelper = new NetworkRetryHelper(m_networkManager,
-                                                {2, 1000, 2.0, {500, 502, 503, 504, 408}},
-                                                this);
-    QString method = isPost ? "POST" : "GET";
-    connect(retryHelper, &NetworkRetryHelper::finished, this, [this, retryHelper](QNetworkReply *reply) {
+    const QString method = isPost ? "POST" : "GET";
+    sendRequestWithManager(m_networkManager,
+                           request,
+                           isPost ? postData : QByteArray(),
+                           method,
+                           true);
+    qDebug() << "请求已发送（带重试），等待响应...";
+}
+
+void SupabaseClient::sendRequestWithManager(QNetworkAccessManager *manager,
+                                            const QNetworkRequest &request,
+                                            const QByteArray &data,
+                                            const QString &method,
+                                            bool allowDirectFallback)
+{
+    auto *retryHelper = new NetworkRetryHelper(manager,
+                                               {2, 1000, 2.0, {500, 502, 503, 504, 408}},
+                                               this);
+
+    connect(retryHelper, &NetworkRetryHelper::finished, this,
+            [this, retryHelper, manager, request, data, method, allowDirectFallback](QNetworkReply *reply) {
+        if (allowDirectFallback && shouldRetryWithoutProxy(reply)) {
+            qWarning() << "[SupabaseClient] 经本地代理请求失败，尝试关闭代理后直连:" << reply->errorString();
+            reply->deleteLater();
+            retryHelper->deleteLater();
+
+            auto *directManager = new QNetworkAccessManager(this);
+            directManager->setProxy(QNetworkProxy::NoProxy);
+            connect(directManager, &QNetworkAccessManager::authenticationRequired,
+                    this, &SupabaseClient::onAuthRequired);
+            connect(directManager, &QNetworkAccessManager::sslErrors,
+                    this, &SupabaseClient::onSslErrors);
+            sendRequestWithManager(directManager, request, data, method, false);
+            return;
+        }
+
         onReplyFinished(reply);
         retryHelper->deleteLater();
+        if (manager != m_networkManager) {
+            manager->deleteLater();
+        }
     });
     connect(retryHelper, &NetworkRetryHelper::retrying, this, [](int attempt, int max) {
         qDebug() << QString("认证请求重试 %1/%2").arg(attempt).arg(max);
     });
 
-    retryHelper->sendRequest(request, isPost ? postData : QByteArray(), method);
-    qDebug() << "请求已发送（带重试），等待响应...";
+    retryHelper->sendRequest(request, data, method);
 }
 
 void SupabaseClient::sendGetRequest(const QString &endpoint)
@@ -253,7 +339,7 @@ void SupabaseClient::onReplyFinished(QNetworkReply *reply)
 void SupabaseClient::onAuthRequired(QNetworkReply *reply, QAuthenticator *authenticator)
 {
     qDebug() << "认证请求...";
-    authenticator->setUser(SupabaseConfig::SUPABASE_ANON_KEY);
+    authenticator->setUser(SupabaseConfig::supabaseAnonKey());
     authenticator->setPassword("");
 }
 

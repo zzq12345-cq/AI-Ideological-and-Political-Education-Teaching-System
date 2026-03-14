@@ -66,6 +66,11 @@ private:
     // 发送请求的通用方法
     void sendRequest(const QString &endpoint, const QJsonObject &data, bool isPost = true);
     void sendGetRequest(const QString &endpoint);
+    void sendRequestWithManager(QNetworkAccessManager *manager,
+                                const QNetworkRequest &request,
+                                const QByteArray &data,
+                                const QString &method,
+                                bool allowDirectFallback);
 
     // 处理不同类型的响应
     void handleLoginResponse(const QJsonObject &json);
