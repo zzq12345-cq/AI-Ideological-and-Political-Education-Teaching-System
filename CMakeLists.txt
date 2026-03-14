@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(AILoginSystem VERSION 2.1.7 LANGUAGES CXX)
+project(AILoginSystem VERSION 2.1.8 LANGUAGES CXX)
 
 if(APPLE)
     enable_language(OBJCXX)
@@ -219,6 +219,19 @@ if(APPLE)
             "${PPT_TEMPLATE_RESOURCE}"
             "$<TARGET_BUNDLE_DIR:AILoginSystem>/Contents/Resources/templates/"
         COMMENT "Copying PPT resources to app bundle"
+    )
+elseif(WIN32)
+    # 复制 PPT 资源到 exe 同级目录 (Windows)
+    add_custom_command(TARGET AILoginSystem POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:AILoginSystem>/resources/ppt"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:AILoginSystem>/resources/templates"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${PPT_DEMO_RESOURCE}"
+            "$<TARGET_FILE_DIR:AILoginSystem>/resources/ppt/"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${PPT_TEMPLATE_RESOURCE}"
+            "$<TARGET_FILE_DIR:AILoginSystem>/resources/templates/"
+        COMMENT "Copying PPT resources to exe directory"
     )
 endif()
 
