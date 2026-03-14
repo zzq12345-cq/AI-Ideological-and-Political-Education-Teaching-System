@@ -345,7 +345,7 @@ void PaperService::searchQuestions(const QuestionSearchCriteria &criteria)
     request.setRawHeader("Range", QString("%1-%2").arg(criteria.offset).arg(rangeEnd).toUtf8());
     request.setRawHeader("Prefer", "count=exact");  // 请求总数
 
-    qDebug() << "PaperService 分页搜索:" << (SupabaseConfig::SUPABASE_URL + endpoint)
+    qDebug() << "PaperService 分页搜索:" << (SupabaseConfig::supabaseUrl() + endpoint)
              << "Range:" << criteria.offset << "-" << rangeEnd;
 
     QNetworkReply *reply = m_networkManager->get(request);
@@ -358,7 +358,7 @@ void PaperService::searchQuestions(const QuestionSearchCriteria &criteria)
 void PaperService::sendRequest(const QString &endpoint, RequestType type,
                                const QJsonDocument &data, const QString &method)
 {
-    qDebug() << "PaperService 请求:" << method << (SupabaseConfig::SUPABASE_URL + endpoint);
+    qDebug() << "PaperService 请求:" << method << (SupabaseConfig::supabaseUrl() + endpoint);
 
     QNetworkRequest request = NetworkRequestFactory::createSupabaseRequest(endpoint, m_accessToken);
 

@@ -37,7 +37,7 @@ QString SupabaseStorageService::generateUniqueFileName(const QString &originalNa
 QString SupabaseStorageService::getPublicUrl(const QString &filePath)
 {
     return QString("%1/storage/v1/object/public/%2/%3")
-            .arg(SupabaseConfig::SUPABASE_URL, m_bucketName, filePath);
+            .arg(SupabaseConfig::supabaseUrl(), m_bucketName, filePath);
 }
 
 // ===== 异步 API =====
@@ -55,13 +55,13 @@ void SupabaseStorageService::uploadImageAsync(const QByteArray &imageData, const
 
     QString uniqueFileName = generateUniqueFileName(fileName);
     QString uploadUrl = QString("%1/storage/v1/object/%2/%3")
-                            .arg(SupabaseConfig::SUPABASE_URL, m_bucketName, uniqueFileName);
+                            .arg(SupabaseConfig::supabaseUrl(), m_bucketName, uniqueFileName);
 
     qDebug() << "[SupabaseStorageService] 异步上传图片到:" << uploadUrl;
 
     QNetworkRequest request = NetworkRequestFactory::createGeneralRequest(QUrl(uploadUrl), 30000);
-    request.setRawHeader("apikey", SupabaseConfig::SUPABASE_ANON_KEY.toUtf8());
-    request.setRawHeader("Authorization", QString("Bearer %1").arg(SupabaseConfig::SUPABASE_ANON_KEY).toUtf8());
+    request.setRawHeader("apikey", SupabaseConfig::supabaseAnonKey().toUtf8());
+    request.setRawHeader("Authorization", QString("Bearer %1").arg(SupabaseConfig::supabaseAnonKey()).toUtf8());
     request.setRawHeader("Content-Type", mimeType.toUtf8());
     request.setRawHeader("x-upsert", "true");
 
@@ -184,13 +184,13 @@ QString SupabaseStorageService::uploadImage(const QByteArray &imageData,
 
     QString uniqueFileName = generateUniqueFileName(fileName);
     QString uploadUrl = QString("%1/storage/v1/object/%2/%3")
-                            .arg(SupabaseConfig::SUPABASE_URL, m_bucketName, uniqueFileName);
+                            .arg(SupabaseConfig::supabaseUrl(), m_bucketName, uniqueFileName);
 
     qDebug() << "[SupabaseStorageService] 上传图片到:" << uploadUrl;
 
     QNetworkRequest request = NetworkRequestFactory::createGeneralRequest(QUrl(uploadUrl), 30000);
-    request.setRawHeader("apikey", SupabaseConfig::SUPABASE_ANON_KEY.toUtf8());
-    request.setRawHeader("Authorization", QString("Bearer %1").arg(SupabaseConfig::SUPABASE_ANON_KEY).toUtf8());
+    request.setRawHeader("apikey", SupabaseConfig::supabaseAnonKey().toUtf8());
+    request.setRawHeader("Authorization", QString("Bearer %1").arg(SupabaseConfig::supabaseAnonKey()).toUtf8());
     request.setRawHeader("Content-Type", mimeType.toUtf8());
     request.setRawHeader("x-upsert", "true");
 

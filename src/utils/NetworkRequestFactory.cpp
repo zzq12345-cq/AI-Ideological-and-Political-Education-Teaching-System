@@ -100,19 +100,19 @@ QNetworkRequest NetworkRequestFactory::createSupabaseRequest(const QString &endp
                                                              bool preferRepresentation,
                                                              int timeout)
 {
-    QUrl url(SupabaseConfig::SUPABASE_URL + endpoint);
+    QUrl url(SupabaseConfig::supabaseUrl() + endpoint);
     QNetworkRequest request(url);
 
     // 请求头
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    request.setRawHeader("apikey", SupabaseConfig::SUPABASE_ANON_KEY.toUtf8());
+    request.setRawHeader("apikey", SupabaseConfig::supabaseAnonKey().toUtf8());
 
     // 认证: 优先使用用户令牌，否则使用 anon key
     if (!accessToken.isEmpty()) {
         request.setRawHeader("Authorization", QString("Bearer %1").arg(accessToken).toUtf8());
     } else {
         request.setRawHeader("Authorization",
-                             QString("Bearer %1").arg(SupabaseConfig::SUPABASE_ANON_KEY).toUtf8());
+                             QString("Bearer %1").arg(SupabaseConfig::supabaseAnonKey()).toUtf8());
     }
 
     if (preferRepresentation) {
@@ -149,7 +149,7 @@ QNetworkRequest NetworkRequestFactory::createAuthRequest(const QUrl &url, int ti
 
     // 请求头
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    request.setRawHeader("apikey", SupabaseConfig::SUPABASE_ANON_KEY.toUtf8());
+    request.setRawHeader("apikey", SupabaseConfig::supabaseAnonKey().toUtf8());
 
     // 基础配置
     applyBaseConfig(request);
