@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(AILoginSystem VERSION 2.1.6 LANGUAGES CXX)
+project(AILoginSystem VERSION 2.1.7 LANGUAGES CXX)
 
 if(APPLE)
     enable_language(OBJCXX)
