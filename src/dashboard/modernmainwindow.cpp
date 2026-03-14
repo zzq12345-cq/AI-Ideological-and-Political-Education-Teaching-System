@@ -2,6 +2,7 @@
 #include "../shared/StyleConfig.h"
 #include "../auth/login/simpleloginwindow.h"
 #include "../ui/aipreparationwidget.h"
+#include "../ui/pptpreviewpage.h"
 
 #include "../questionbank/questionbankwindow.h"
 #include "../services/DifyService.h"
@@ -139,6 +140,25 @@ const int CARD_CORNER_RADIUS = StyleConfig::RADIUS_L;
 const int CARD_PADDING_PX = 24;
 const QString PATRIOTIC_RED_DEEP_TONE = StyleConfig::PATRIOTIC_RED_DARK;
 const QString CULTURE_GOLD = StyleConfig::GOLD_ACCENT;
+
+QString findBundledDemoPPTPath()
+{
+    const QString appPath = QCoreApplication::applicationDirPath();
+    const QStringList pptCandidatePaths = {
+        QDir::cleanPath(appPath + "/../Resources/ppt/爱国主义精神传承.pptx"),
+        QDir::cleanPath(appPath + "/ppt/爱国主义精神传承.pptx"),
+        QDir::cleanPath(appPath + "/resources/ppt/爱国主义精神传承.pptx"),
+        QDir::cleanPath(appPath + "/../resources/ppt/爱国主义精神传承.pptx")
+    };
+
+    for (const QString &candidatePath : pptCandidatePaths) {
+        if (QFile::exists(candidatePath)) {
+            return candidatePath;
+        }
+    }
+
+    return QString();
+}
 
 QString buildCardStyle(const QString &selector)
 {
@@ -878,6 +898,7 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     initUI();
     setupMenuBar();
     setupStatusBar();
+    loadDeletedHistoryIds();
     loadHistoryEntries();
     setupCentralWidget();
     if (m_dataAnalyticsWidget) {
@@ -1132,6 +1153,13 @@ void ModernMainWindow::setupCentralWidget()
     // 创建 AI 智能备课页面
     aiPreparationWidget = new AIPreparationWidget();
     contentStack->addWidget(aiPreparationWidget);
+
+    m_pptPreviewPage = new PPTPreviewPage(this);
+    contentStack->addWidget(m_pptPreviewPage);
+    connect(m_pptPreviewPage, &PPTPreviewPage::backRequested,
+            this, &ModernMainWindow::onPPTPreviewBackRequested);
+    connect(m_pptPreviewPage, &PPTPreviewPage::downloadRequested,
+            this, &ModernMainWindow::onPPTPreviewDownloadRequested);
 
     // 创建试题库页面
     questionBankWindow = new QuestionBankWindow(this);
@@ -2442,13 +2470,15 @@ void ModernMainWindow::createAIChatWidget()
     connect(m_chatHistoryWidget, &ChatHistoryWidget::historyItemSelected, this, [this](const QString &id) {
         handleHistorySelection(id);
     });
+    connect(m_chatHistoryWidget, &ChatHistoryWidget::historyDeleteRequested,
+            this, &ModernMainWindow::onHistoryDeleteRequested);
     
     // 连接对话列表接收信号
     connect(m_difyService, &DifyService::conversationsReceived, this, [this](const QJsonArray &conversations) {
         for (const QJsonValue &val : conversations) {
             QJsonObject conv = val.toObject();
             QString id = conv["id"].toString();
-            if (id.isEmpty()) {
+            if (id.isEmpty() || m_deletedHistoryIds.contains(id)) {
                 continue;
             }
 
@@ -2767,6 +2797,7 @@ void ModernMainWindow::setActiveHistoryType(AIHistoryType type)
 
 void ModernMainWindow::resetConversationForType(AIHistoryType type)
 {
+    m_selectedHistoryConversationId.clear();
     setActiveHistoryType(type);
 
     if (type == AIHistoryType::Chat || type == AIHistoryType::CaseAnalysis) {
@@ -2815,11 +2846,30 @@ void ModernMainWindow::handleHistorySelection(const QString &conversationId)
         return;
     }
 
+    m_selectedHistoryConversationId = conversationId;
+
     setActiveHistoryType(entry.type);
 
     switch (entry.type) {
     case AIHistoryType::Chat:
     case AIHistoryType::CaseAnalysis:
+    {
+        const bool isLocalPptHistory = entry.conversationId.startsWith(QStringLiteral("ppt_"));
+        QString localPptPath = entry.localFilePath;
+        if (localPptPath.isEmpty() && isLocalPptHistory) {
+            localPptPath = findBundledDemoPPTPath();
+        }
+
+        if (!localPptPath.isEmpty() || isLocalPptHistory) {
+            if (QFileInfo::exists(localPptPath)) {
+                showPPTPreviewPage(localPptPath, entry.title);
+            } else {
+                QMessageBox::warning(this,
+                                     QStringLiteral("预览不可用"),
+                                     QStringLiteral("该 PPT 文件已不存在，无法重新打开预览。"));
+            }
+            break;
+        }
         if (contentStack && dashboardWidget) {
             contentStack->setCurrentWidget(dashboardWidget);
         }
@@ -2835,6 +2885,7 @@ void ModernMainWindow::handleHistorySelection(const QString &conversationId)
         }
         m_isConversationStarted = true;
         break;
+    }
     case AIHistoryType::LessonPlan:
         if (contentStack && dashboardWidget) {
             contentStack->setCurrentWidget(dashboardWidget);
@@ -2858,9 +2909,56 @@ void ModernMainWindow::handleHistorySelection(const QString &conversationId)
     }
 }
 
+void ModernMainWindow::onHistoryDeleteRequested(const QString &conversationId)
+{
+    const AIHistoryEntry entry = m_historyEntries.value(conversationId);
+    if (entry.conversationId.isEmpty()) {
+        return;
+    }
+
+    const QString displayTitle = entry.title.isEmpty()
+        ? historyHeaderTitle(entry.type)
+        : entry.title;
+    const QMessageBox::StandardButton answer = QMessageBox::question(
+        this,
+        QStringLiteral("删除本地记录"),
+        QStringLiteral("确定删除“%1”吗？\n\n此操作只会删除本地侧边栏记录，不会删除云端会话。").arg(displayTitle),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No);
+
+    if (answer != QMessageBox::Yes) {
+        return;
+    }
+
+    const bool isCurrentSelection = (m_selectedHistoryConversationId == conversationId);
+
+    m_deletedHistoryIds.insert(conversationId);
+    m_historyEntries.remove(conversationId);
+    saveDeletedHistoryIds();
+    saveHistoryEntries();
+    refreshHistorySidebar();
+
+    if (m_chatHistoryWidget) {
+        m_chatHistoryWidget->clearSelection();
+    }
+
+    if (isCurrentSelection) {
+        if (contentStack && contentStack->currentWidget() == m_pptPreviewPage) {
+            onPPTPreviewBackRequested();
+        }
+        resetConversationForType(entry.type);
+    }
+
+    statusBar()->showMessage(QStringLiteral("已删除本地历史记录"), 3000);
+}
+
 void ModernMainWindow::upsertHistoryEntry(const AIHistoryEntry &entry)
 {
     if (entry.conversationId.isEmpty()) {
+        return;
+    }
+
+    if (m_deletedHistoryIds.contains(entry.conversationId)) {
         return;
     }
 
@@ -2880,6 +2978,9 @@ void ModernMainWindow::upsertHistoryEntry(const AIHistoryEntry &entry)
     }
     if (!entry.lessonContent.isEmpty()) {
         merged.lessonContent = entry.lessonContent;
+    }
+    if (!entry.localFilePath.isEmpty()) {
+        merged.localFilePath = entry.localFilePath;
     }
 
     m_historyEntries.insert(merged.conversationId, merged);
@@ -2911,7 +3012,7 @@ void ModernMainWindow::loadHistoryEntries()
         const QJsonObject obj = value.toObject();
         AIHistoryEntry entry;
         entry.conversationId = obj.value(QStringLiteral("conversationId")).toString();
-        if (entry.conversationId.isEmpty()) {
+        if (entry.conversationId.isEmpty() || m_deletedHistoryIds.contains(entry.conversationId)) {
             continue;
         }
 
@@ -2929,6 +3030,7 @@ void ModernMainWindow::loadHistoryEntries()
         entry.title = obj.value(QStringLiteral("title")).toString();
         entry.previewText = obj.value(QStringLiteral("previewText")).toString();
         entry.lessonContent = obj.value(QStringLiteral("lessonContent")).toString();
+        entry.localFilePath = obj.value(QStringLiteral("localFilePath")).toString();
         entry.updatedAt = QDateTime::fromString(
             obj.value(QStringLiteral("updatedAt")).toString(),
             Qt::ISODate);
@@ -2965,11 +3067,25 @@ void ModernMainWindow::saveHistoryEntries() const
         obj.insert(QStringLiteral("updatedAt"), entry.updatedAt.toString(Qt::ISODate));
         obj.insert(QStringLiteral("previewText"), entry.previewText);
         obj.insert(QStringLiteral("lessonContent"), entry.lessonContent);
+        obj.insert(QStringLiteral("localFilePath"), entry.localFilePath);
         entries.append(obj);
     }
 
     QSettings settings;
     settings.setValue(QStringLiteral("aiHistory/entries"), QString::fromUtf8(QJsonDocument(entries).toJson(QJsonDocument::Compact)));
+}
+
+void ModernMainWindow::loadDeletedHistoryIds()
+{
+    QSettings settings;
+    const QStringList ids = settings.value(QStringLiteral("aiHistory/deletedEntryIds")).toStringList();
+    m_deletedHistoryIds = QSet<QString>(ids.cbegin(), ids.cend());
+}
+
+void ModernMainWindow::saveDeletedHistoryIds() const
+{
+    QSettings settings;
+    settings.setValue(QStringLiteral("aiHistory/deletedEntryIds"), QStringList(m_deletedHistoryIds.cbegin(), m_deletedHistoryIds.cend()));
 }
 
 void ModernMainWindow::recordLessonPlanHistory(const QString &conversationId, const QString &title, const QString &content)
@@ -3178,6 +3294,97 @@ void ModernMainWindow::onAIRequestFinished()
     refreshHistorySidebar();
 }
 
+void ModernMainWindow::onPPTPreviewBackRequested()
+{
+    resetAllSidebarButtons();
+    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+
+    if (contentStack && dashboardWidget) {
+        contentStack->setCurrentWidget(dashboardWidget);
+    }
+    if (m_mainStack && m_chatContainer) {
+        m_mainStack->setCurrentWidget(m_chatContainer);
+    }
+    if (m_sidebarStack) {
+        swapToHistorySidebar();
+    }
+
+    statusBar()->showMessage(QStringLiteral("AI智能备课"));
+}
+
+void ModernMainWindow::onPPTPreviewDownloadRequested()
+{
+    if (savePPTToUserLocation(m_previewPPTPath, m_previewPPTTitle)) {
+        statusBar()->showMessage(QStringLiteral("PPT 已保存"), 3000);
+    }
+}
+
+void ModernMainWindow::showPPTPreviewPage(const QString &pptPath, const QString &title)
+{
+    m_previewPPTPath = pptPath;
+    m_previewPPTTitle = title;
+
+    if (m_pptPreviewPage) {
+        m_pptPreviewPage->setPresentation(title, pptPath);
+    }
+
+    resetAllSidebarButtons();
+    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+
+    if (contentStack && m_pptPreviewPage) {
+        contentStack->setCurrentWidget(m_pptPreviewPage);
+    }
+    if (m_sidebarStack) {
+        swapToHistorySidebar();
+    }
+
+    statusBar()->showMessage(QStringLiteral("PPT 预览"));
+}
+
+bool ModernMainWindow::savePPTToUserLocation(const QString &sourcePath, const QString &title)
+{
+    if (sourcePath.isEmpty() || !QFileInfo::exists(sourcePath)) {
+        QMessageBox::warning(this, QStringLiteral("保存失败"), QStringLiteral("当前没有可下载的 PPT 文件。"));
+        return false;
+    }
+
+    QString suggestedName = title;
+    suggestedName.remove(QRegularExpression("[/\\:*?\"<>|]"));
+    if (suggestedName.isEmpty()) {
+        suggestedName = QStringLiteral("思政课PPT");
+    }
+    if (!suggestedName.endsWith(QStringLiteral(".pptx"), Qt::CaseInsensitive)) {
+        suggestedName += QStringLiteral(".pptx");
+    }
+
+    QString targetPath = QFileDialog::getSaveFileName(
+        this,
+        QStringLiteral("保存PPT"),
+        QDir::homePath() + "/Desktop/" + suggestedName,
+        QStringLiteral("PowerPoint 演示文稿 (*.pptx)")
+    );
+
+    if (targetPath.isEmpty()) {
+        return false;
+    }
+
+    if (!targetPath.endsWith(QStringLiteral(".pptx"), Qt::CaseInsensitive)) {
+        targetPath += QStringLiteral(".pptx");
+    }
+
+    if (QFile::exists(targetPath) && !QFile::remove(targetPath)) {
+        QMessageBox::warning(this, QStringLiteral("保存失败"), QStringLiteral("目标文件已存在且无法覆盖，请检查权限。"));
+        return false;
+    }
+
+    if (!QFile::copy(sourcePath, targetPath)) {
+        QMessageBox::warning(this, QStringLiteral("保存失败"), QStringLiteral("PPT 文件复制失败，请稍后重试。"));
+        return false;
+    }
+
+    return true;
+}
+
 // ==================== PPT 模拟生成功能 ====================
 
 bool ModernMainWindow::isPPTGenerationRequest(const QString &message)
@@ -3335,33 +3542,11 @@ void ModernMainWindow::onPPTSimulationStep()
         if (step.nextInterval > 0) {
             m_pptSimulationTimer->setInterval(step.nextInterval);
         } else {
-            // 最后一步：停止定时器，延迟后执行文件复制
+            // 最后一步：停止定时器，延迟后打开预览页
             m_pptSimulationTimer->stop();
 
             QTimer::singleShot(800, this, [this]() {
-                // 构建目标文件名
-                QString fileName = m_pptTopic;
-                fileName.remove(QRegularExpression("[/\\\\:*?\"<>|]"));
-                if (fileName.isEmpty()) fileName = "思政课PPT";
-                fileName += ".pptx";
-
-                QString savePath = QDir::homePath() + "/Desktop/" + fileName;
-
-                // 文件已存在则加序号
-                if (QFile::exists(savePath)) {
-                    QString base = fileName.left(fileName.length() - 5);
-                    for (int n = 2; n < 100; ++n) {
-                        savePath = QDir::homePath() + "/Desktop/" + base + QString("_%1.pptx").arg(n);
-                        if (!QFile::exists(savePath)) break;
-                    }
-                }
-
-                // 复制预制文件到桌面
-                if (QFile::exists(savePath)) {
-                    QFile::remove(savePath);
-                }
-
-                bool ok = QFile::copy(m_pendingPPTPath, savePath);
+                const bool ok = !m_pendingPPTPath.isEmpty() && QFile::exists(m_pendingPPTPath);
 
                 if (ok && m_bubbleChatWidget) {
                     QString finalMsg =
@@ -3374,20 +3559,22 @@ void ModernMainWindow::onPPTSimulationStep()
                         "🖼️ 排版图文并导出文件...\n\n"
                         "✅ **PPT 生成完成！**\n\n"
                         "---\n\n"
-                        "📎 **" + QFileInfo(savePath).fileName() + "**\n\n"
-                        "课件已自动保存到桌面，您可以使用 PowerPoint 或 WPS 打开编辑。";
+                        "📎 **" + QFileInfo(m_pendingPPTPath).fileName() + "**\n\n"
+                        "已为您打开应用内预览页面，您可以先查看效果，再点击下载保存。";
 
                     m_bubbleChatWidget->updateLastAIMessage(finalMsg);
+                    showPPTPreviewPage(m_pendingPPTPath, m_pptTopic);
 
                     AIHistoryEntry entry;
                     entry.conversationId = "ppt_" + QString::number(QDateTime::currentDateTime().toSecsSinceEpoch());
                     entry.type = AIHistoryType::Chat;
                     entry.title = "PPT生成：" + m_pptTopic;
                     entry.updatedAt = QDateTime::currentDateTime();
+                    entry.localFilePath = m_pendingPPTPath;
                     upsertHistoryEntry(entry);
                 } else if (m_bubbleChatWidget) {
                     m_bubbleChatWidget->updateLastAIMessage(
-                        "抱歉，文件保存失败，请检查桌面权限后重试。");
+                        "抱歉，PPT 预览打开失败，请稍后重试。");
                 }
             });
         }

@@ -35,6 +35,9 @@ signals:
     
     // 选中历史记录
     void historyItemSelected(const QString &conversationId);
+
+    // 删除本地历史记录
+    void historyDeleteRequested(const QString &conversationId);
     
     // 返回请求
     void backRequested();
