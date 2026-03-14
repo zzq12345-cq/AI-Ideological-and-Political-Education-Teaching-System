@@ -4,6 +4,7 @@
 #include <QNetworkProxy>
 #include <QTcpSocket>
 #include <QUrl>
+#include <QPalette>
 #include <iostream>
 #include "../auth/login/simpleloginwindow.h"
 
@@ -76,6 +77,23 @@ int main(int argc, char *argv[])
 
     // 设置应用程序样式
     app.setStyle(QStyleFactory::create("Fusion"));
+
+    // 设置全局调色板，确保 Windows 上文字颜色正确（不依赖系统主题）
+    QPalette palette;
+    palette.setColor(QPalette::Window, QColor("#FAFAFA"));
+    palette.setColor(QPalette::WindowText, QColor("#212121"));
+    palette.setColor(QPalette::Base, QColor("#FFFFFF"));
+    palette.setColor(QPalette::AlternateBase, QColor("#F5F5F5"));
+    palette.setColor(QPalette::Text, QColor("#212121"));
+    palette.setColor(QPalette::Button, QColor("#F5F5F5"));
+    palette.setColor(QPalette::ButtonText, QColor("#212121"));
+    palette.setColor(QPalette::BrightText, QColor("#FFFFFF"));
+    palette.setColor(QPalette::Highlight, QColor("#E53935"));
+    palette.setColor(QPalette::HighlightedText, QColor("#FFFFFF"));
+    palette.setColor(QPalette::ToolTipBase, QColor("#212121"));
+    palette.setColor(QPalette::ToolTipText, QColor("#FFFFFF"));
+    palette.setColor(QPalette::PlaceholderText, QColor("#9E9E9E"));
+    app.setPalette(palette);
 
     // 配置网络代理（从环境变量读取）
     configureApplicationProxy();

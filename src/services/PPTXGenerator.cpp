@@ -19,6 +19,9 @@ PPTXGenerator::PPTXGenerator(QObject *parent)
     const QStringList candidatePaths = {
         // macOS 应用包结构: .app/Contents/MacOS/ -> .app/Contents/Resources/
         QDir::cleanPath(appDir + "/../Resources/templates/party_red_template.pptx"),
+        // Windows: 与 exe 同目录
+        QDir::cleanPath(appDir + "/resources/templates/party_red_template.pptx"),
+        QDir::cleanPath(appDir + "/templates/party_red_template.pptx"),
         // 常见开发目录结构兜底
         QDir::cleanPath(appDir + "/../" + relativeTemplate),
         QDir::cleanPath(appDir + "/../../" + relativeTemplate),
@@ -501,27 +504,47 @@ bool PPTXGenerator::createSlideLayout(const QString &tempDir)
 
 bool PPTXGenerator::packToZip(const QString &tempDir, const QString &outputPath)
 {
-    // 使用 zip 命令打包
+    // 确保输出目录存在
+    QFileInfo outputInfo(outputPath);
+    QDir().mkpath(outputInfo.absolutePath());
+
+    // 删除已存在的文件
+    if (QFile::exists(outputPath)) {
+        QFile::remove(outputPath);
+    }
+
     QProcess zipProcess;
     zipProcess.setWorkingDirectory(tempDir);
-    
-    // macOS/Linux 使用 zip 命令
+
+#ifdef Q_OS_WIN
+    // Windows: 使用 PowerShell Compress-Archive
+    QString absOutput = QFileInfo(outputPath).absoluteFilePath();
+    QString absTemp = QDir(tempDir).absolutePath();
+    QString psCmd = QString("Compress-Archive -Path '%1\\*' -DestinationPath '%2' -Force")
+                        .arg(absTemp.replace('/', '\\'))
+                        .arg(absOutput.replace('/', '\\'));
+    QStringList args;
+    args << "-NoProfile" << "-Command" << psCmd;
+    zipProcess.start("powershell.exe", args);
+#else
+    // macOS/Linux: 使用 zip 命令
     QStringList args;
     args << "-r" << outputPath << ".";
-    
     zipProcess.start("zip", args);
+#endif
+
     if (!zipProcess.waitForFinished(30000)) {
         m_lastError = "ZIP 打包超时";
         emit errorOccurred(m_lastError);
         return false;
     }
-    
+
     if (zipProcess.exitCode() != 0) {
         m_lastError = QString("ZIP 打包失败: %1").arg(QString::fromUtf8(zipProcess.readAllStandardError()));
         emit errorOccurred(m_lastError);
         return false;
     }
-    
+
     return true;
 }
 
@@ -602,23 +625,36 @@ bool PPTXGenerator::extractTemplate(const QString &templatePath, const QString &
 {
     QProcess unzipProcess;
     unzipProcess.setWorkingDirectory(extractDir);
-    
+
+#ifdef Q_OS_WIN
+    // Windows: 使用 PowerShell Expand-Archive
+    QString absTemplate = QFileInfo(templatePath).absoluteFilePath();
+    QString absExtract = QDir(extractDir).absolutePath();
+    QString psCmd = QString("Expand-Archive -Path '%1' -DestinationPath '%2' -Force")
+                        .arg(absTemplate.replace('/', '\\'))
+                        .arg(absExtract.replace('/', '\\'));
+    QStringList args;
+    args << "-NoProfile" << "-Command" << psCmd;
+    unzipProcess.start("powershell.exe", args);
+#else
+    // macOS/Linux: 使用 unzip 命令
     QStringList args;
     args << "-o" << templatePath << "-d" << extractDir;
-    
     unzipProcess.start("unzip", args);
+#endif
+
     if (!unzipProcess.waitForFinished(30000)) {
         m_lastError = "解压模板超时";
         emit errorOccurred(m_lastError);
         return false;
     }
-    
+
     if (unzipProcess.exitCode() != 0) {
         m_lastError = QString("解压模板失败: %1").arg(QString::fromUtf8(unzipProcess.readAllStandardError()));
         emit errorOccurred(m_lastError);
         return false;
     }
-    
+
     qDebug() << "[PPTXGenerator] Template extracted to:" << extractDir;
     return true;
 }

@@ -375,14 +375,26 @@ bool DocxGenerator::packToZip(const QString &tempDir, const QString &outputPath)
         QFile::remove(outputPath);
     }
 
-    // 使用 zip 命令打包
     QProcess zipProcess;
     zipProcess.setWorkingDirectory(tempDir);
 
+#ifdef Q_OS_WIN
+    // Windows: 使用 PowerShell Compress-Archive
+    QString absOutput = QFileInfo(outputPath).absoluteFilePath();
+    QString absTemp = QDir(tempDir).absolutePath();
+    QString psCmd = QString("Compress-Archive -Path '%1\\*' -DestinationPath '%2' -Force")
+                        .arg(absTemp.replace('/', '\\'))
+                        .arg(absOutput.replace('/', '\\'));
+    QStringList args;
+    args << "-NoProfile" << "-Command" << psCmd;
+    zipProcess.start("powershell.exe", args);
+#else
+    // macOS/Linux: 使用 zip 命令
     QStringList args;
     args << "-r" << outputPath << ".";
-
     zipProcess.start("zip", args);
+#endif
+
     if (!zipProcess.waitForFinished(30000)) {
         m_lastError = "ZIP 打包超时";
         emit errorOccurred(m_lastError);
