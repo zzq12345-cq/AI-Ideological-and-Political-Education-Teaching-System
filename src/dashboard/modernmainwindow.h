@@ -247,8 +247,15 @@ private:
     int m_pptSimulationStep = 0;          // 当前模拟步骤
     QString m_pendingPPTPath;         // 待提供的 PPT 文件路径
     QString m_pptTopic;               // 用户请求的 PPT 主题
+    bool m_isPptQuestionFlowActive = false;
+    int m_pptQuestionStep = 0;
+    QString m_pendingPptRequest;
     QString m_previewPPTPath;         // 当前预览的 PPT 文件路径
     QString m_previewPPTTitle;        // 当前预览的 PPT 标题
+    void startPPTQuestionFlow(const QString &userMessage); // PPT 伪提问流程
+    void askNextPPTQuestion();
+    void handlePPTQuestionAnswer(const QString &answer);
+    void resetPPTQuestionFlow();
     void startPPTSimulation(const QString &userMessage);  // 开始 PPT 模拟生成
     void onPPTSimulationStep();       // PPT 模拟步骤处理
     bool isPPTGenerationRequest(const QString &message);  // 检测是否是 PPT 生成请求

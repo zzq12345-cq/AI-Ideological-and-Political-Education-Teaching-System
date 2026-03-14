@@ -160,6 +160,54 @@ QString findBundledDemoPPTPath()
     return QString();
 }
 
+struct PPTQuestionConfig
+{
+    QString question;
+    QStringList options;
+};
+
+QList<PPTQuestionConfig> buildPPTQuestionFlow()
+{
+    return {
+        {
+            QStringLiteral("第1问：这次课件更偏向什么授课场景？"),
+            {
+                QStringLiteral("新授课导入"),
+                QStringLiteral("课堂讲授"),
+                QStringLiteral("公开课展示"),
+                QStringLiteral("复习总结")
+            }
+        },
+        {
+            QStringLiteral("第2问：你希望整体表达风格更接近哪一种？"),
+            {
+                QStringLiteral("严谨知识型"),
+                QStringLiteral("启发互动型"),
+                QStringLiteral("故事表达型"),
+                QStringLiteral("青年化表达")
+            }
+        },
+        {
+            QStringLiteral("第3问：这份 PPT 你更想突出哪一类内容？"),
+            {
+                QStringLiteral("知识梳理"),
+                QStringLiteral("案例分析"),
+                QStringLiteral("金句提炼"),
+                QStringLiteral("课堂讨论")
+            }
+        },
+        {
+            QStringLiteral("第4问：最后确认一下，你更偏好哪种呈现节奏？"),
+            {
+                QStringLiteral("简洁精炼"),
+                QStringLiteral("标准教学节奏"),
+                QStringLiteral("内容丰富一些"),
+                QStringLiteral("更适合展示")
+            }
+        }
+    };
+}
+
 QString buildCardStyle(const QString &selector)
 {
     return QString(
@@ -2698,9 +2746,14 @@ void ModernMainWindow::createAIChatWidget()
             // 显示用户消息
             m_bubbleChatWidget->addMessage(message, true);
 
-            // PPT 请求走模拟路径，不发给 Dify
+            if (m_isPptQuestionFlowActive) {
+                handlePPTQuestionAnswer(message);
+                return;
+            }
+
+            // PPT 请求先走伪提问流程，不发给 Dify
             if (isPPTGenerationRequest(message)) {
-                startPPTSimulation(message);
+                startPPTQuestionFlow(message);
                 return;
             }
 
@@ -2797,6 +2850,7 @@ void ModernMainWindow::setActiveHistoryType(AIHistoryType type)
 
 void ModernMainWindow::resetConversationForType(AIHistoryType type)
 {
+    resetPPTQuestionFlow();
     m_selectedHistoryConversationId.clear();
     setActiveHistoryType(type);
 
@@ -2846,6 +2900,7 @@ void ModernMainWindow::handleHistorySelection(const QString &conversationId)
         return;
     }
 
+    resetPPTQuestionFlow();
     m_selectedHistoryConversationId = conversationId;
 
     setActiveHistoryType(entry.type);
@@ -3160,9 +3215,14 @@ void ModernMainWindow::onSendChatMessage()
     // 清空输入框
     m_chatInput->clear();
 
-    // PPT 请求走模拟路径
+    if (m_isPptQuestionFlowActive) {
+        handlePPTQuestionAnswer(message);
+        return;
+    }
+
+    // PPT 请求先走伪提问流程
     if (isPPTGenerationRequest(message)) {
-        startPPTSimulation(message);
+        startPPTQuestionFlow(message);
         return;
     }
 
@@ -3437,6 +3497,88 @@ QString ModernMainWindow::extractPPTTopic(const QString &message) const
     }
     fallback = fallback.trimmed();
     return fallback.isEmpty() ? "思政教学" : fallback;
+}
+
+void ModernMainWindow::startPPTQuestionFlow(const QString &userMessage)
+{
+    if (!m_bubbleChatWidget) {
+        return;
+    }
+
+    resetPPTQuestionFlow();
+    m_isPptQuestionFlowActive = true;
+    m_pptQuestionStep = 0;
+    m_pendingPptRequest = userMessage;
+    m_pptTopic = extractPPTTopic(userMessage);
+
+    m_bubbleChatWidget->setPlaceholderText(QStringLiteral("可直接输入回答，或点击上方选项"));
+    m_bubbleChatWidget->addMessage(QStringLiteral("好的，我先快速了解一下这次课件偏好，这样更像真实备课流程。"), false);
+
+    QTimer::singleShot(260, this, [this]() {
+        if (m_isPptQuestionFlowActive) {
+            askNextPPTQuestion();
+        }
+    });
+}
+
+void ModernMainWindow::askNextPPTQuestion()
+{
+    if (!m_bubbleChatWidget || !m_isPptQuestionFlowActive) {
+        return;
+    }
+
+    const QList<PPTQuestionConfig> questions = buildPPTQuestionFlow();
+    if (m_pptQuestionStep < 0 || m_pptQuestionStep >= questions.size()) {
+        return;
+    }
+
+    const PPTQuestionConfig &question = questions.at(m_pptQuestionStep);
+    m_bubbleChatWidget->addMessage(question.question, false);
+    m_bubbleChatWidget->addQuickReplyOptions(question.options);
+}
+
+void ModernMainWindow::handlePPTQuestionAnswer(const QString &answer)
+{
+    Q_UNUSED(answer);
+
+    if (!m_isPptQuestionFlowActive) {
+        return;
+    }
+
+    ++m_pptQuestionStep;
+    const int totalQuestions = buildPPTQuestionFlow().size();
+    if (m_pptQuestionStep < totalQuestions) {
+        QTimer::singleShot(260, this, [this]() {
+            if (m_isPptQuestionFlowActive) {
+                askNextPPTQuestion();
+            }
+        });
+        return;
+    }
+
+    const QString pendingRequest = m_pendingPptRequest;
+    if (m_bubbleChatWidget) {
+        m_bubbleChatWidget->addMessage(QStringLiteral("好的，偏好我记下了，现在开始为你整理课件。"), false);
+    }
+
+    resetPPTQuestionFlow();
+
+    QTimer::singleShot(420, this, [this, pendingRequest]() {
+        if (!pendingRequest.isEmpty()) {
+            startPPTSimulation(pendingRequest);
+        }
+    });
+}
+
+void ModernMainWindow::resetPPTQuestionFlow()
+{
+    m_isPptQuestionFlowActive = false;
+    m_pptQuestionStep = 0;
+    m_pendingPptRequest.clear();
+
+    if (m_bubbleChatWidget) {
+        m_bubbleChatWidget->setPlaceholderText(QStringLiteral("向AI助手发送信息..."));
+    }
 }
 
 void ModernMainWindow::startPPTSimulation(const QString &userMessage)
