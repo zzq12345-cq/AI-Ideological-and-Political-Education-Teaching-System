@@ -11,6 +11,7 @@
 #include <QApplication>
 #include <QFile>
 #include <QDebug>
+#include <QGridLayout>
 
 const QString ChatWidget::USER_BUBBLE_COLOR = StyleConfig::PATRIOTIC_RED_DARK;
 const QString ChatWidget::AI_BUBBLE_COLOR = StyleConfig::BG_CARD;
@@ -488,6 +489,116 @@ void ChatWidget::clearMessages()
     m_lastAIThinkingWidget = nullptr;
     m_lastAIThinkingLabel = nullptr;
     m_lastAIThinkingToggle = nullptr;
+    m_activeQuickReplyWidget = nullptr;
+}
+
+void ChatWidget::deactivateActiveQuickReplies()
+{
+    if (!m_activeQuickReplyWidget) {
+        return;
+    }
+
+    const QList<QPushButton *> buttons = m_activeQuickReplyWidget->findChildren<QPushButton *>();
+    for (QPushButton *button : buttons) {
+        button->setEnabled(false);
+        button->setCursor(Qt::ArrowCursor);
+    }
+
+    m_activeQuickReplyWidget = nullptr;
+}
+
+void ChatWidget::addQuickReplyOptions(const QStringList &options)
+{
+    if (!m_messageLayout || options.isEmpty()) {
+        return;
+    }
+
+    deactivateActiveQuickReplies();
+
+    if (m_messageLayout->count() > 0) {
+        QLayoutItem *stretch = m_messageLayout->takeAt(m_messageLayout->count() - 1);
+        if (stretch) {
+            delete stretch;
+        }
+    }
+
+    QWidget *rowWidget = new QWidget();
+    rowWidget->setAttribute(Qt::WA_TranslucentBackground);
+    rowWidget->setStyleSheet("background: transparent;");
+
+    QHBoxLayout *rowLayout = new QHBoxLayout(rowWidget);
+    rowLayout->setContentsMargins(0, 0, 0, 2);
+    rowLayout->setSpacing(14);
+    rowLayout->addSpacing(58);
+
+    QWidget *optionsWidget = new QWidget(rowWidget);
+    optionsWidget->setObjectName("quickReplyContainer");
+
+    int maxBubbleWidth = qMin(static_cast<int>(width() * 0.68), 620);
+    if (maxBubbleWidth < 280) {
+        maxBubbleWidth = 460;
+    }
+    optionsWidget->setMaximumWidth(maxBubbleWidth);
+
+    QGridLayout *gridLayout = new QGridLayout(optionsWidget);
+    gridLayout->setContentsMargins(0, 0, 0, 0);
+    gridLayout->setHorizontalSpacing(10);
+    gridLayout->setVerticalSpacing(10);
+
+    const QString buttonStyle = QStringLiteral(
+        "QPushButton {"
+        "  background-color: #FFFFFF;"
+        "  border: 1px solid #E5E7EB;"
+        "  border-radius: 18px;"
+        "  padding: 10px 16px;"
+        "  color: #1F2937;"
+        "  font-size: 14px;"
+        "  text-align: left;"
+        "}"
+        "QPushButton:hover {"
+        "  background-color: #FFF7F7;"
+        "  border-color: #E53935;"
+        "  color: #C62828;"
+        "}"
+        "QPushButton:disabled {"
+        "  background-color: #F3F4F6;"
+        "  border-color: #E5E7EB;"
+        "  color: #9CA3AF;"
+        "}"
+    );
+
+    const int columnCount = options.size() > 1 ? 2 : 1;
+    for (int index = 0; index < options.size(); ++index) {
+        const QString option = options.at(index).trimmed();
+        if (option.isEmpty()) {
+            continue;
+        }
+
+        QPushButton *optionButton = new QPushButton(option);
+        optionButton->setCursor(Qt::PointingHandCursor);
+        optionButton->setMinimumHeight(40);
+        optionButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        optionButton->setStyleSheet(buttonStyle);
+
+        connect(optionButton, &QPushButton::clicked, this, [this, rowWidget, option]() {
+            m_activeQuickReplyWidget = rowWidget;
+            deactivateActiveQuickReplies();
+            emit messageSent(option);
+        });
+
+        const int row = index / columnCount;
+        const int column = index % columnCount;
+        gridLayout->addWidget(optionButton, row, column);
+    }
+
+    rowLayout->addWidget(optionsWidget);
+    rowLayout->addStretch();
+
+    m_messageLayout->addWidget(rowWidget);
+    m_messageLayout->addStretch();
+    m_activeQuickReplyWidget = rowWidget;
+
+    scrollToBottom();
 }
 
 void ChatWidget::setPlaceholderText(const QString &text)
@@ -534,6 +645,8 @@ void ChatWidget::onSendClicked()
         qDebug() << "[ChatWidget] Text is empty, not sending";
         return;
     }
+
+    deactivateActiveQuickReplies();
 
     qDebug() << "[ChatWidget] Emitting messageSent signal with text:" << text;
     emit messageSent(text);
