@@ -880,6 +880,11 @@ void LessonPlanEditor::onAIFinished()
 
 void LessonPlanEditor::onAIError(const QString &error)
 {
+    if (!m_isGenerating) {
+        qWarning() << "[LessonPlanEditor] 忽略非教案生成阶段的 Dify 错误：" << error;
+        return;
+    }
+
     m_isGenerating = false;
     m_aiGenerateBtn->setEnabled(true);
     m_aiGenerateBtn->setIcon(QIcon(":/icons/resources/icons/ai-sparkle.svg"));

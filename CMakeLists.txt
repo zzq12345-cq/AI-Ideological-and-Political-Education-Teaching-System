@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.16)
 
 project(AILoginSystem VERSION 2.1.6 LANGUAGES CXX)
 
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -40,6 +44,8 @@ set(PROJECT_SOURCES
     src/questionbank/QualityCheckDialog.h
     src/ui/aipreparationwidget.cpp
     src/ui/aipreparationwidget.h
+    src/ui/pptpreviewpage.cpp
+    src/ui/pptpreviewpage.h
     src/ui/moderncheckbox.cpp
     src/ui/moderncheckbox.h
     src/services/ExportService.cpp
@@ -147,6 +153,18 @@ set(PROJECT_SOURCES
     resources/QtTheme/QtTheme.qrc
 )
 
+if(APPLE)
+    list(APPEND PROJECT_SOURCES
+        src/ui/macosquicklookpreview.mm
+        src/ui/macosquicklookpreview.h
+    )
+else()
+    list(APPEND PROJECT_SOURCES
+        src/ui/macosquicklookpreview.cpp
+        src/ui/macosquicklookpreview.h
+    )
+endif()
+
 # macOS 应用图标
 set(MACOSX_BUNDLE_ICON_FILE AppIcon.icns)
 set(APP_ICON_MACOSX ${CMAKE_SOURCE_DIR}/resources/AppIcon.icns)
@@ -167,6 +185,13 @@ target_link_libraries(AILoginSystem PRIVATE
     Qt${QT_VERSION_MAJOR}::PrintSupport
     Qt${QT_VERSION_MAJOR}::Concurrent
 )
+
+if(APPLE)
+    target_link_libraries(AILoginSystem PRIVATE
+        "-framework QuickLookUI"
+        "-framework Quartz"
+    )
+endif()
 
 # 设置目标属性
 set(PPT_DEMO_RESOURCE "${CMAKE_SOURCE_DIR}/resources/ppt/爱国主义精神传承.pptx")

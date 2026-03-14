@@ -6,6 +6,7 @@
 #include <QDateTime>
 #include <QListWidgetItem>
 #include <QFontMetrics>
+#include <QMenu>
 
 // 自定义列表项组件
 class HistoryItemWidget : public QWidget {
@@ -165,6 +166,26 @@ void ChatHistoryWidget::setupUI()
     connect(m_listWidget, &QListWidget::itemClicked, [this](QListWidgetItem *item) {
         QString id = item->data(Qt::UserRole).toString();
         emit historyItemSelected(id);
+    });
+
+    m_listWidget->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_listWidget, &QWidget::customContextMenuRequested, this, [this](const QPoint &pos) {
+        QListWidgetItem *item = m_listWidget->itemAt(pos);
+        if (!item) {
+            return;
+        }
+
+        const QString id = item->data(Qt::UserRole).toString();
+        if (id.isEmpty()) {
+            return;
+        }
+
+        QMenu menu(this);
+        QAction *deleteAction = menu.addAction(QStringLiteral("删除本地记录"));
+        QAction *selectedAction = menu.exec(m_listWidget->viewport()->mapToGlobal(pos));
+        if (selectedAction == deleteAction) {
+            emit historyDeleteRequested(id);
+        }
     });
 
     mainLayout->addWidget(m_listWidget);

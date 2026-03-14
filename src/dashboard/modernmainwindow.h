@@ -27,6 +27,7 @@
 #include <QTabWidget>
 #include <QHash>
 #include <QDateTime>
+#include <QSet>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class ModernMainWindow; }
@@ -48,6 +49,7 @@ class NotificationWidget;
 class NotificationBadge;
 class AttendanceWidget;  // 考勤管理组件
 class LessonPlanEditor;
+class PPTPreviewPage;
 class ModernMainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -81,6 +83,9 @@ private slots:
     void onAIError(const QString &error);
     void onAIRequestStarted();
     void onAIRequestFinished();
+    void onHistoryDeleteRequested(const QString &conversationId);
+    void onPPTPreviewBackRequested();
+    void onPPTPreviewDownloadRequested();
 
 private:
     enum class AIHistoryType {
@@ -97,6 +102,7 @@ private:
         QDateTime updatedAt;
         QString previewText;
         QString lessonContent;
+        QString localFilePath;
     };
 
     void initUI();
@@ -134,9 +140,13 @@ private:
     void upsertHistoryEntry(const AIHistoryEntry &entry);
     void loadHistoryEntries();
     void saveHistoryEntries() const;
+    void loadDeletedHistoryIds();
+    void saveDeletedHistoryIds() const;
     void recordLessonPlanHistory(const QString &conversationId, const QString &title, const QString &content);
     void recordAnalyticsHistory(const QString &conversationId, const QString &title, const QString &content);
     void recordCaseAnalysisHistory(const QString &conversationId, const QString &title);
+    void showPPTPreviewPage(const QString &pptPath, const QString &title);
+    bool savePPTToUserLocation(const QString &sourcePath, const QString &title);
 
     // 创建指标项组件 - 紧凑单行信息
     QWidget* createMetricItem(const QString& name,
@@ -177,6 +187,7 @@ private:
     QWidget *dashboardWidget = nullptr;
     QScrollArea *dashboardScrollArea = nullptr;
     AIPreparationWidget *aiPreparationWidget = nullptr;
+    PPTPreviewPage *m_pptPreviewPage = nullptr;
 
     // 试题库相关组件
     QuestionBankWindow *questionBankWindow = nullptr;
@@ -236,6 +247,8 @@ private:
     int m_pptSimulationStep = 0;          // 当前模拟步骤
     QString m_pendingPPTPath;         // 待提供的 PPT 文件路径
     QString m_pptTopic;               // 用户请求的 PPT 主题
+    QString m_previewPPTPath;         // 当前预览的 PPT 文件路径
+    QString m_previewPPTTitle;        // 当前预览的 PPT 标题
     void startPPTSimulation(const QString &userMessage);  // 开始 PPT 模拟生成
     void onPPTSimulationStep();       // PPT 模拟步骤处理
     bool isPPTGenerationRequest(const QString &message);  // 检测是否是 PPT 生成请求
@@ -253,6 +266,8 @@ private:
     QString m_pendingAnalyticsContent;
     QString m_pendingCasePrompt;
     QHash<QString, AIHistoryEntry> m_historyEntries;
+    QSet<QString> m_deletedHistoryIds;
+    QString m_selectedHistoryConversationId;
 
     // 数据
     QString currentUserRole;
