@@ -165,25 +165,25 @@ scripts/
 #### macOS
 
 ```bash
-./scripts/package_app.sh --version 2.1.6 --build-dir build_release --output-dir dist --arch-label arm64
+./scripts/package_app.sh --version 2.1.7 --build-dir build_release --output-dir dist --arch-label arm64
 ```
 
 如果需要将发布密钥写入 `src/config/embedded_keys.h`：
 
 ```bash
-./scripts/package_app.sh --version 2.1.6 --build-dir build_release --output-dir dist --arch-label arm64 --embed-release-keys
+./scripts/package_app.sh --version 2.1.7 --build-dir build_release --output-dir dist --arch-label arm64 --embed-release-keys
 ```
 
 #### Windows
 
 ```powershell
-./scripts/package_windows.ps1 -Version 2.1.6 -BuildDir build -OutputDir build
+./scripts/package_windows.ps1 -Version 2.1.7 -BuildDir build -OutputDir build
 ```
 
 如果需要内嵌发布密钥：
 
 ```powershell
-./scripts/package_windows.ps1 -Version 2.1.6 -BuildDir build -OutputDir build -EmbedReleaseKeys
+./scripts/package_windows.ps1 -Version 2.1.7 -BuildDir build -OutputDir build -EmbedReleaseKeys
 ```
 
 ### GitHub Actions 自动发布
@@ -193,7 +193,7 @@ scripts/
 - `.github/workflows/build-macos.yml`
 - `.github/workflows/build-windows.yml`
 
-当推送 tag（如 `v2.1.6`）时，会自动：
+当推送 tag（如 `v2.1.7`）时，会自动：
 
 1. 解析版本号
 2. 构建对应平台产物
@@ -203,10 +203,10 @@ scripts/
 推荐发布流程：
 
 ```bash
-git commit -m "chore: release v2.1.6"
-git tag -a v2.1.6 -m "Release v2.1.6"
+git commit -m "chore: release v2.1.7"
+git tag -a v2.1.7 -m "Release v2.1.7"
 git push origin main
-git push origin v2.1.6
+git push origin v2.1.7
 ```
 
 ## 常见问题
@@ -255,7 +255,7 @@ git push origin v2.1.6
 
 ## 版本信息
 
-当前版本：`2.1.6`
+当前版本：`2.1.7`
 
 ## License
 
