@@ -7,50 +7,12 @@
 #include <QProcess>
 #include <QDebug>
 #include <QRegularExpression>
-#include <QCoreApplication>
 #include <QFileInfo>
 
 PPTXGenerator::PPTXGenerator(QObject *parent)
     : QObject(parent)
 {
-    const QString appDir = QCoreApplication::applicationDirPath();
-    const QString currentDir = QDir::currentPath();
-    const QString relativeTemplate = "resources/templates/party_red_template.pptx";
-    const QStringList candidatePaths = {
-        // macOS 应用包结构: .app/Contents/MacOS/ -> .app/Contents/Resources/
-        QDir::cleanPath(appDir + "/../Resources/templates/party_red_template.pptx"),
-        // Windows: 与 exe 同目录
-        QDir::cleanPath(appDir + "/resources/templates/party_red_template.pptx"),
-        QDir::cleanPath(appDir + "/templates/party_red_template.pptx"),
-        // 常见开发目录结构兜底
-        QDir::cleanPath(appDir + "/../" + relativeTemplate),
-        QDir::cleanPath(appDir + "/../../" + relativeTemplate),
-        QDir::cleanPath(currentDir + "/" + relativeTemplate),
-        QDir::cleanPath(currentDir + "/../" + relativeTemplate)
-    };
-
-    for (const QString &path : candidatePaths) {
-        if (QFile::exists(path)) {
-            m_templatePath = QFileInfo(path).absoluteFilePath();
-            qDebug() << "[PPTXGenerator] Template found:" << m_templatePath;
-            break;
-        }
-    }
-
-    if (m_templatePath.isEmpty()) {
-        qDebug() << "[PPTXGenerator] No template found, using basic mode";
-        qDebug() << "[PPTXGenerator] Tried paths:" << candidatePaths;
-    }
-}
-
-void PPTXGenerator::setTemplatePath(const QString &templatePath)
-{
-    if (QFile::exists(templatePath)) {
-        m_templatePath = templatePath;
-        qDebug() << "[PPTXGenerator] Template set to:" << m_templatePath;
-    } else {
-        qDebug() << "[PPTXGenerator] Template not found:" << templatePath;
-    }
+    qDebug() << "[PPTXGenerator] Template mode disabled, using basic mode only";
 }
 
 QJsonObject PPTXGenerator::parseJsonFromResponse(const QString &response)
@@ -112,14 +74,7 @@ bool PPTXGenerator::generateFromJson(const QJsonObject &outline, const QString &
     
     qDebug() << "[PPTXGenerator] Generating PPT:" << title << "with" << slides.size() << "slides";
     
-    // 如果有模板，使用模板模式
-    if (!m_templatePath.isEmpty() && QFile::exists(m_templatePath)) {
-        qDebug() << "[PPTXGenerator] Using template mode";
-        return generateFromTemplate(outline, outputPath);
-    }
-    
-    // 否则使用基础模式
-    qDebug() << "[PPTXGenerator] Using basic mode (no template)";
+    qDebug() << "[PPTXGenerator] Using basic mode";
     
     // 创建临时目录
     QTemporaryDir tempDir;
@@ -189,12 +144,88 @@ bool PPTXGenerator::generateFromJson(const QJsonObject &outline, const QString &
     return true;
 }
 
+bool PPTXGenerator::generateFromImages(const QString &title, const QVector<QImage> &images, const QString &outputPath)
+{
+    emit generationStarted();
+
+    if (title.trimmed().isEmpty() || images.isEmpty()) {
+        m_lastError = "PPT 图片内容为空，无法生成演示文稿";
+        emit errorOccurred(m_lastError);
+        emit generationFinished(false, "");
+        return false;
+    }
+
+    QTemporaryDir tempDir;
+    if (!tempDir.isValid()) {
+        m_lastError = "无法创建临时目录";
+        emit errorOccurred(m_lastError);
+        emit generationFinished(false, "");
+        return false;
+    }
+
+    const QString basePath = tempDir.path();
+    QDir().mkpath(basePath + "/_rels");
+    QDir().mkpath(basePath + "/ppt/_rels");
+    QDir().mkpath(basePath + "/ppt/slides/_rels");
+    QDir().mkpath(basePath + "/ppt/slideLayouts/_rels");
+    QDir().mkpath(basePath + "/ppt/slideMasters/_rels");
+    QDir().mkpath(basePath + "/ppt/theme");
+    QDir().mkpath(basePath + "/ppt/media");
+    QDir().mkpath(basePath + "/docProps");
+
+    const int slideCount = images.size();
+    if (!createContentTypes(basePath, slideCount) ||
+        !createRels(basePath) ||
+        !createPresentation(basePath, slideCount) ||
+        !createTheme(basePath) ||
+        !createSlideMaster(basePath) ||
+        !createSlideLayout(basePath)) {
+        emit generationFinished(false, "");
+        return false;
+    }
+
+    for (int i = 0; i < images.size(); ++i) {
+        const QImage &image = images[i];
+        if (image.isNull()) {
+            m_lastError = QString("第 %1 页渲染图为空").arg(i + 1);
+            emit errorOccurred(m_lastError);
+            emit generationFinished(false, "");
+            return false;
+        }
+
+        const QString imageFileName = QString("image%1.png").arg(i + 1);
+        const QString imagePath = basePath + "/ppt/media/" + imageFileName;
+        if (!image.save(imagePath, "PNG")) {
+            m_lastError = QString("无法写入第 %1 页图片资源").arg(i + 1);
+            emit errorOccurred(m_lastError);
+            emit generationFinished(false, "");
+            return false;
+        }
+
+        if (!createImageSlide(basePath, i + 1, imageFileName)) {
+            emit generationFinished(false, "");
+            return false;
+        }
+    }
+
+    if (!packToZip(basePath, outputPath)) {
+        emit generationFinished(false, "");
+        return false;
+    }
+
+    qDebug() << "[PPTXGenerator] Image-based PPTX generated successfully:" << outputPath
+             << "slides:" << slideCount;
+    emit generationFinished(true, outputPath);
+    return true;
+}
+
 bool PPTXGenerator::createContentTypes(const QString &tempDir, int slideCount)
 {
     QString content = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
 <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
 <Default Extension="xml" ContentType="application/xml"/>
+<Default Extension="png" ContentType="image/png"/>
 <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
 <Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
 <Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
@@ -255,7 +286,7 @@ bool PPTXGenerator::createPresentation(const QString &tempDir, int slideCount)
 <p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" saveSubsetFonts="1">
 <p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId%1"/></p:sldMasterIdLst>
 <p:sldIdLst>%2</p:sldIdLst>
-<p:sldSz cx="9144000" cy="6858000" type="screen4x3"/>
+<p:sldSz cx="12192000" cy="6858000" type="wideScreen"/>
 <p:notesSz cx="6858000" cy="9144000"/>
 </p:presentation>)").arg(slideCount + 1).arg(slideList);
 
@@ -375,6 +406,65 @@ bool PPTXGenerator::createSlide(const QString &tempDir, int index, const QString
     relsOut << slideRels;
     relsFile.close();
     
+    return true;
+}
+
+bool PPTXGenerator::createImageSlide(const QString &tempDir, int index, const QString &imageFileName)
+{
+    const QString slideXml = QString(R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+<p:cSld>
+<p:spTree>
+<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm></p:grpSpPr>
+<p:pic>
+<p:nvPicPr>
+<p:cNvPr id="2" name="%1"/>
+<p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>
+<p:nvPr/>
+</p:nvPicPr>
+<p:blipFill>
+<a:blip r:embed="rId2"/>
+<a:stretch><a:fillRect/></a:stretch>
+</p:blipFill>
+<p:spPr>
+<a:xfrm><a:off x="0" y="0"/><a:ext cx="12192000" cy="6858000"/></a:xfrm>
+<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+</p:spPr>
+</p:pic>
+</p:spTree>
+</p:cSld>
+<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>
+</p:sld>)").arg(imageFileName.toHtmlEscaped());
+
+    QFile slideFile(tempDir + QString("/ppt/slides/slide%1.xml").arg(index));
+    if (!slideFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        m_lastError = QString("无法创建 slide%1.xml").arg(index);
+        emit errorOccurred(m_lastError);
+        return false;
+    }
+    QTextStream slideOut(&slideFile);
+    slideOut.setEncoding(QStringConverter::Utf8);
+    slideOut << slideXml;
+    slideFile.close();
+
+    const QString rels = QString(R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/%1"/>
+</Relationships>)").arg(imageFileName.toHtmlEscaped());
+
+    QFile relsFile(tempDir + QString("/ppt/slides/_rels/slide%1.xml.rels").arg(index));
+    if (!relsFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        m_lastError = QString("无法创建 slide%1.xml.rels").arg(index);
+        emit errorOccurred(m_lastError);
+        return false;
+    }
+    QTextStream relsOut(&relsFile);
+    relsOut.setEncoding(QStringConverter::Utf8);
+    relsOut << rels;
+    relsFile.close();
+
     return true;
 }
 
@@ -546,280 +636,4 @@ bool PPTXGenerator::packToZip(const QString &tempDir, const QString &outputPath)
     }
 
     return true;
-}
-
-// ========== 模板模式核心方法 ==========
-
-bool PPTXGenerator::generateFromTemplate(const QJsonObject &outline, const QString &outputPath)
-{
-    QString title = outline["title"].toString();
-    QString subtitle = outline["subtitle"].toString();
-    if (subtitle.isEmpty()) {
-        subtitle = outline["author"].toString("思政课堂");
-    }
-    QJsonArray slides = outline["slides"].toArray();
-    
-    qDebug() << "[PPTXGenerator] Template mode: title =" << title << ", slides =" << slides.size();
-    
-    // 创建临时目录
-    QTemporaryDir tempDir;
-    if (!tempDir.isValid()) {
-        m_lastError = "无法创建临时目录";
-        emit errorOccurred(m_lastError);
-        emit generationFinished(false, "");
-        return false;
-    }
-    
-    QString extractPath = tempDir.path();
-    
-    // 解压模板
-    if (!extractTemplate(m_templatePath, extractPath)) {
-        emit generationFinished(false, "");
-        return false;
-    }
-    
-    // 获取模板中的幻灯片数量
-    QDir slidesDir(extractPath + "/ppt/slides");
-    QStringList slideFiles = slidesDir.entryList(QStringList() << "slide*.xml", QDir::Files);
-    int templateSlideCount = slideFiles.size();
-    qDebug() << "[PPTXGenerator] Template has" << templateSlideCount << "slides";
-    
-    // 替换第1页（封面）的标题
-    QString slide1Path = extractPath + "/ppt/slides/slide1.xml";
-    if (QFile::exists(slide1Path)) {
-        replaceSlideContent(slide1Path, title, QStringList() << subtitle);
-    }
-    
-    // 替换后续页面内容
-    int contentSlideIndex = 2;  // 从第2页开始是内容页
-    for (int i = 0; i < slides.size() && contentSlideIndex <= templateSlideCount; ++i) {
-        QJsonObject slide = slides[i].toObject();
-        QString slideTitle = slide["title"].toString();
-        QJsonArray contentArray = slide["content"].toArray();
-        QStringList content;
-        for (const QJsonValue &val : contentArray) {
-            content << val.toString();
-        }
-        
-        QString slidePath = extractPath + QString("/ppt/slides/slide%1.xml").arg(contentSlideIndex);
-        if (QFile::exists(slidePath)) {
-            replaceSlideContent(slidePath, slideTitle, content);
-            qDebug() << "[PPTXGenerator] Replaced slide" << contentSlideIndex << ":" << slideTitle;
-        }
-        
-        contentSlideIndex++;
-    }
-    
-    // 重新打包
-    if (!packToZip(extractPath, outputPath)) {
-        emit generationFinished(false, "");
-        return false;
-    }
-    
-    qDebug() << "[PPTXGenerator] Template PPT generated:" << outputPath;
-    emit generationFinished(true, outputPath);
-    return true;
-}
-
-bool PPTXGenerator::extractTemplate(const QString &templatePath, const QString &extractDir)
-{
-    QProcess unzipProcess;
-    unzipProcess.setWorkingDirectory(extractDir);
-
-#ifdef Q_OS_WIN
-    // Windows: 使用 PowerShell Expand-Archive
-    QString absTemplate = QFileInfo(templatePath).absoluteFilePath();
-    QString absExtract = QDir(extractDir).absolutePath();
-    QString psCmd = QString("Expand-Archive -Path '%1' -DestinationPath '%2' -Force")
-                        .arg(absTemplate.replace('/', '\\'))
-                        .arg(absExtract.replace('/', '\\'));
-    QStringList args;
-    args << "-NoProfile" << "-Command" << psCmd;
-    unzipProcess.start("powershell.exe", args);
-#else
-    // macOS/Linux: 使用 unzip 命令
-    QStringList args;
-    args << "-o" << templatePath << "-d" << extractDir;
-    unzipProcess.start("unzip", args);
-#endif
-
-    if (!unzipProcess.waitForFinished(30000)) {
-        m_lastError = "解压模板超时";
-        emit errorOccurred(m_lastError);
-        return false;
-    }
-
-    if (unzipProcess.exitCode() != 0) {
-        m_lastError = QString("解压模板失败: %1").arg(QString::fromUtf8(unzipProcess.readAllStandardError()));
-        emit errorOccurred(m_lastError);
-        return false;
-    }
-
-    qDebug() << "[PPTXGenerator] Template extracted to:" << extractDir;
-    return true;
-}
-
-bool PPTXGenerator::replaceSlideContent(const QString &slideXmlPath, const QString &title, const QStringList &content)
-{
-    QFile file(slideXmlPath);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qDebug() << "[PPTXGenerator] Cannot open slide:" << slideXmlPath;
-        return false;
-    }
-
-    QString xml = QString::fromUtf8(file.readAll());
-    file.close();
-
-    QString escapedTitle = title.trimmed().toHtmlEscaped();
-
-    QStringList normalizedContent;
-    for (const QString &line : content) {
-        QString trimmed = line.trimmed();
-        if (!trimmed.isEmpty()) {
-            normalizedContent << trimmed;
-        }
-    }
-
-    // 从 XML 片段中提取 <a:rPr.../> 或 <a:rPr...>...</a:rPr>，用于保留模板字体样式
-    auto extractRunProps = [](const QString &text) -> QString {
-        QRegularExpression re(R"(<a:rPr[^>]*/>|<a:rPr[^>]*>[\s\S]*?</a:rPr>)");
-        auto m = re.match(text);
-        return m.hasMatch() ? m.captured() : R"(<a:rPr lang="zh-CN" sz="1800" dirty="0"/>)";
-    };
-
-    // 提取 <a:bodyPr.../> 或 <a:bodyPr...>...</a:bodyPr>，保留文本框尺寸和排版参数
-    auto extractBodyPr = [](const QString &text) -> QString {
-        QRegularExpression re(R"(<a:bodyPr[^>]*/>|<a:bodyPr[^>]*>[\s\S]*?</a:bodyPr>)");
-        auto m = re.match(text);
-        return m.hasMatch() ? m.captured() : "<a:bodyPr/>";
-    };
-
-    // 提取 <a:lstStyle/> 或 <a:lstStyle>...</a:lstStyle>
-    auto extractLstStyle = [](const QString &text) -> QString {
-        QRegularExpression re(R"(<a:lstStyle/>|<a:lstStyle>[\s\S]*?</a:lstStyle>)");
-        auto m = re.match(text);
-        return m.hasMatch() ? m.captured() : "<a:lstStyle/>";
-    };
-
-    // 遍历每个 <p:sp> 形状，根据 placeholder 类型决定替换策略
-    int searchPos = 0;
-    while (true) {
-        int spStart = xml.indexOf("<p:sp>", searchPos);
-        if (spStart == -1) break;
-
-        int spEnd = xml.indexOf("</p:sp>", spStart);
-        if (spEnd == -1) break;
-        spEnd += 7; // 包含 </p:sp>
-
-        QString shape = xml.mid(spStart, spEnd - spStart);
-
-        // 判断 placeholder 类型
-        bool isTitle = shape.contains(R"(type="title")") || shape.contains(R"(type="ctrTitle")");
-        bool isSubTitle = shape.contains(R"(type="subTitle")");
-        bool isBody = false;
-        if (!isTitle && !isSubTitle) {
-            static QRegularExpression phIdx(R"(<p:ph[^>]*idx="[0-9]+"[^>]*/?>)");
-            isBody = phIdx.match(shape).hasMatch() || shape.contains(R"(type="body")");
-        }
-
-        // 定位 <p:txBody>
-        int txStart = shape.indexOf("<p:txBody>");
-        int txEnd = shape.indexOf("</p:txBody>");
-        if (txStart == -1 || txEnd == -1) {
-            searchPos = spEnd;
-            continue;
-        }
-
-        QString txBody = shape.mid(txStart, txEnd + 11 - txStart);
-        QString bodyPr = extractBodyPr(txBody);
-        QString lstStyle = extractLstStyle(txBody);
-        QString rPr = extractRunProps(txBody);
-
-        QString newTxBody;
-
-        if (isTitle && !escapedTitle.isEmpty()) {
-            // 标题：保留原始样式，只替换文字
-            newTxBody = QString("<p:txBody>%1%2"
-                "<a:p><a:r>%3<a:t>%4</a:t></a:r></a:p>"
-                "</p:txBody>")
-                .arg(bodyPr, lstStyle, rPr, escapedTitle);
-
-        } else if (isSubTitle && !normalizedContent.isEmpty()) {
-            // 副标题（封面页）
-            newTxBody = QString("<p:txBody>%1%2"
-                "<a:p><a:r>%3<a:t>%4</a:t></a:r></a:p>"
-                "</p:txBody>")
-                .arg(bodyPr, lstStyle, rPr, normalizedContent.first().toHtmlEscaped());
-
-        } else if (isBody && !normalizedContent.isEmpty()) {
-            // 正文：生成带项目符号和段间距的多段落内容
-            newTxBody = QString("<p:txBody>%1%2").arg(bodyPr, lstStyle);
-            for (const QString &line : normalizedContent) {
-                newTxBody += QString(
-                    "<a:p>"
-                    "<a:pPr marL=\"342900\" indent=\"-342900\">"
-                    "<a:spcAft><a:spcPts val=\"600\"/></a:spcAft>"
-                    "<a:buFont typeface=\"Arial\"/>"
-                    "<a:buChar char=\"&#x2022;\"/>"
-                    "</a:pPr>"
-                    "<a:r>%1<a:t>%2</a:t></a:r>"
-                    "</a:p>")
-                    .arg(rPr, line.toHtmlEscaped());
-            }
-            newTxBody += "</p:txBody>";
-        }
-
-        if (!newTxBody.isEmpty()) {
-            QString newShape = shape.left(txStart) + newTxBody + shape.mid(txEnd + 11);
-            xml.replace(spStart, spEnd - spStart, newShape);
-            searchPos = spStart + newShape.length();
-            qDebug() << "[PPTXGenerator] Replaced"
-                     << (isTitle ? "title" : isSubTitle ? "subtitle" : "body")
-                     << "in" << slideXmlPath;
-        } else {
-            searchPos = spEnd;
-        }
-    }
-
-    // 写回文件
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
-        qDebug() << "[PPTXGenerator] Cannot write slide:" << slideXmlPath;
-        return false;
-    }
-
-    QTextStream out(&file);
-    out.setEncoding(QStringConverter::Utf8);
-    out << xml;
-    file.close();
-
-    return true;
-}
-
-QString PPTXGenerator::findTextInXml(const QString &xml)
-{
-    QRegularExpression textRegex("<a:t>([^<]+)</a:t>");
-    QRegularExpressionMatch match = textRegex.match(xml);
-    if (match.hasMatch()) {
-        return match.captured(1);
-    }
-    return QString();
-}
-
-QString PPTXGenerator::replaceTextInXml(const QString &xml, const QString &oldText, const QString &newText)
-{
-    // 转义 HTML 特殊字符
-    QString escapedNew = newText.toHtmlEscaped();
-    QString escapedOld = oldText.toHtmlEscaped();
-    
-    // 替换文本
-    QString result = xml;
-    QString oldTag = QString("<a:t>%1</a:t>").arg(oldText);
-    QString newTag = QString("<a:t>%1</a:t>").arg(escapedNew);
-    result.replace(oldTag, newTag);
-    
-    // 也尝试替换已转义的版本
-    QString oldTagEscaped = QString("<a:t>%1</a:t>").arg(escapedOld);
-    result.replace(oldTagEscaped, newTag);
-    
-    return result;
 }

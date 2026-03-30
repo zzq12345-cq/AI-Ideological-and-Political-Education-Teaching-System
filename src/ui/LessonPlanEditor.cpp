@@ -1242,6 +1242,9 @@ void LessonPlanEditor::autoSave()
 
 void LessonPlanEditor::checkAndRestoreDraft()
 {
+    // 只在控件可见时才弹窗，避免隐藏页面时弹出对话框
+    if (!isVisible()) return;
+
     QSettings settings;
     // 检查未命名草稿
     QString key = "autoSave/lessonPlan/untitled";
@@ -1259,9 +1262,9 @@ void LessonPlanEditor::checkAndRestoreDraft()
         m_editor->setHtml(savedContent);
         m_statusLabel->setText("已恢复草稿");
         qDebug() << "[LessonPlanEditor] 已恢复自动保存草稿";
-    } else {
-        clearAutoSaveDraft();
     }
+    // 无论用户选择恢复还是丢弃，都清除草稿数据，防止下次重复弹窗
+    clearAutoSaveDraft();
 }
 
 void LessonPlanEditor::clearAutoSaveDraft()

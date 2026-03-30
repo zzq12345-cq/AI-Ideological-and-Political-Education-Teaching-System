@@ -7,6 +7,7 @@
 #include "../questionbank/questionbankwindow.h"
 #include "../services/DifyService.h"
 #include "../services/PPTXGenerator.h"
+#include "../services/ZhipuPPTAgentService.h"
 #include "../ui/AIChatDialog.h"
 #include "../ui/ChatWidget.h"
 #include "../ui/ChatHistoryWidget.h"
@@ -857,14 +858,10 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     // 初始化 PPTX 生成器
     m_pptxGenerator = new PPTXGenerator(this);
 
-    // 初始化 PPT 模拟生成定时器
-    m_pptSimulationTimer = new QTimer(this);
-    m_pptSimulationTimer->setSingleShot(false);
-    m_pptSimulationStep = 0;
-    m_pendingPPTPath = "";
-    connect(m_pptSimulationTimer, &QTimer::timeout, this, &ModernMainWindow::onPPTSimulationStep);
-
-    // 初始化流式更新节流定时器（每100ms最多更新一次UI）
+    // 初始化真实 PPT Agent 服务
+    m_pptAgentService = new ZhipuPPTAgentService(this);
+    
+    // API Key 获取优先级：环境变量 > 本地配置文件 > 内嵌Key
     m_streamUpdateTimer = new QTimer(this);
     m_streamUpdateTimer->setSingleShot(true);
     m_streamUpdatePending = false;
@@ -881,45 +878,83 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     });
 
     // API Key 获取优先级：环境变量 > 本地配置文件 > 内嵌Key
-    QString apiKey = qgetenv("DIFY_API_KEY");
-
-    if (apiKey.isEmpty()) {
-        // 尝试从本地配置文件读取（此文件不提交到 Git）
-        // macOS: .app/Contents/MacOS/ -> 需要往上 4 级到项目根目录
-        QString configPath = QCoreApplication::applicationDirPath() + "/../../../../.env.local";
+    const QString configPath = QCoreApplication::applicationDirPath() + "/../../../../.env.local";
+    auto loadKeyFromEnvFile = [&configPath](const QString &keyName) -> QString {
         QFile envFile(configPath);
-        if (envFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            while (!envFile.atEnd()) {
-                QString line = QString::fromUtf8(envFile.readLine()).trimmed();
-                if (line.startsWith("DIFY_API_KEY=")) {
-                    apiKey = line.mid(13);  // 跳过 "DIFY_API_KEY="
-                    qDebug() << "[Info] Dify API Key loaded from .env.local";
-                    break;
-                }
+        if (!envFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            return QString();
+        }
+
+        const QString prefix = keyName + "=";
+        while (!envFile.atEnd()) {
+            QString line = QString::fromUtf8(envFile.readLine()).trimmed();
+            if (line.startsWith(prefix)) {
+                return line.mid(prefix.length()).trimmed();
             }
-            envFile.close();
+        }
+        return QString();
+    };
+
+    QString difyApiKey = qEnvironmentVariable("DIFY_API_KEY").trimmed();
+    if (difyApiKey.isEmpty()) {
+        difyApiKey = loadKeyFromEnvFile("DIFY_API_KEY");
+        if (!difyApiKey.isEmpty()) {
+            qDebug() << "[Info] Dify API Key loaded from .env.local";
         }
     } else {
         qDebug() << "[Info] Dify API Key loaded from environment variable.";
     }
 
-    // 如果仍为空，使用内嵌的 API Key（发布版本用）
-    if (apiKey.isEmpty() && strlen(EmbeddedKeys::DIFY_API_KEY) > 0) {
-        apiKey = QString::fromUtf8(EmbeddedKeys::DIFY_API_KEY);
+    if (difyApiKey.isEmpty() && strlen(EmbeddedKeys::DIFY_API_KEY) > 0) {
+        difyApiKey = QString::fromUtf8(EmbeddedKeys::DIFY_API_KEY);
         qDebug() << "[Info] Dify API Key loaded from embedded keys.";
     }
 
-    const bool hasApiKey = !apiKey.isEmpty();
-    if (hasApiKey) {
-        m_difyService->setApiKey(apiKey);
+    QString zhipuApiKey = qEnvironmentVariable("ZHIPU_API_KEY").trimmed();
+    if (zhipuApiKey.isEmpty()) {
+        zhipuApiKey = loadKeyFromEnvFile("ZHIPU_API_KEY");
+        if (!zhipuApiKey.isEmpty()) {
+            qDebug() << "[Info] Zhipu API Key loaded from .env.local";
+        }
     } else {
-        qDebug() << "[Warning] No API Key found. AI features will be disabled.";
+        qDebug() << "[Info] Zhipu API Key loaded from environment variable.";
+    }
+
+    if (zhipuApiKey.isEmpty() && strlen(EmbeddedKeys::ZHIPU_API_KEY) > 0) {
+        zhipuApiKey = QString::fromUtf8(EmbeddedKeys::ZHIPU_API_KEY);
+        qDebug() << "[Info] Zhipu API Key loaded from embedded keys.";
+    }
+
+    QString zhipuBaseUrl = qEnvironmentVariable("ZHIPU_BASE_URL").trimmed();
+    if (zhipuBaseUrl.isEmpty()) {
+        zhipuBaseUrl = loadKeyFromEnvFile("ZHIPU_BASE_URL");
+    }
+    if (zhipuBaseUrl.isEmpty() && strlen(EmbeddedKeys::ZHIPU_BASE_URL) > 0) {
+        zhipuBaseUrl = QString::fromUtf8(EmbeddedKeys::ZHIPU_BASE_URL);
+    }
+
+    const bool hasDifyApiKey = !difyApiKey.isEmpty();
+    if (hasDifyApiKey) {
+        m_difyService->setApiKey(difyApiKey);
+    } else {
+        qDebug() << "[Warning] No Dify API Key found. Chat features will be disabled.";
         qDebug() << "[Info] Create .env.local file with: DIFY_API_KEY=your-key";
     }
 
+    const bool hasZhipuApiKey = !zhipuApiKey.isEmpty();
+    if (hasZhipuApiKey) {
+        m_pptAgentService->setApiKey(zhipuApiKey);
+        if (!zhipuBaseUrl.isEmpty()) {
+            m_pptAgentService->setBaseUrl(zhipuBaseUrl);
+        }
+    } else {
+        qDebug() << "[Warning] No Zhipu API Key found. PPT generation will be disabled.";
+        qDebug() << "[Info] Create .env.local file with: ZHIPU_API_KEY=your-key";
+    }
+
     auto *analyticsDifyService = new DifyService(this);
-    if (hasApiKey) {
-        analyticsDifyService->setApiKey(apiKey);
+    if (hasDifyApiKey) {
+        analyticsDifyService->setApiKey(difyApiKey);
     }
     if (!currentUserId.isEmpty()) {
         analyticsDifyService->setUserId(currentUserId + "_analytics");
@@ -935,6 +970,39 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     connect(m_difyService, &DifyService::errorOccurred, this, &ModernMainWindow::onAIError);
     connect(m_difyService, &DifyService::requestStarted, this, &ModernMainWindow::onAIRequestStarted);
     connect(m_difyService, &DifyService::requestFinished, this, &ModernMainWindow::onAIRequestFinished);
+
+    // ==================== PPT Agent 信号连接 ====================
+    connect(m_pptAgentService, &ZhipuPPTAgentService::progressUpdated,
+            this, [this](int percent, const QString &stage, const QString &detail) {
+        if (m_bubbleChatWidget) {
+            QString msg = QString("好的，我来帮您生成关于「%1」的课件...\n\n"
+                                  "阶段%2: %3 (%4%)\n\n"
+                                  "正在%5...")
+                              .arg(m_pptTopic)
+                              .arg(stage.contains("大纲") ? "1/3" : (stage.contains("策划") ? "2/3" : "3/3"))
+                              .arg(stage)
+                              .arg(percent)
+                              .arg(detail);
+            m_bubbleChatWidget->updateLastAIMessage(msg);
+        }
+    });
+
+    connect(m_pptAgentService, &ZhipuPPTAgentService::errorOccurred,
+            this, [this](const QString &error) {
+        // "Operation canceled" 类错误已经在 Agent 内部静默返回，此处不予提示
+        if (error.contains("canceled", Qt::CaseInsensitive) || error.contains("被中止")) {
+            return;
+        }
+        if (m_bubbleChatWidget) {
+            m_bubbleChatWidget->updateLastAIMessage(
+                QString("抱歉，PPT 生成失败：%1\n\n请稍后重试。").arg(error));
+        }
+    });
+
+    connect(m_pptAgentService, &ZhipuPPTAgentService::allSlidesGenerated,
+            this, [this](const QStringList &svgCodes, const QVector<QImage> &previews) {
+        handleChatPPTComplete(svgCodes, previews);
+    });
 
     // 初始化通知服务
     m_notificationService = new NotificationService(this);
@@ -986,7 +1054,7 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     createDashboard();
     contentStack->setCurrentWidget(dashboardWidget);
 
-    if (!hasApiKey) {
+    if (!hasDifyApiKey) {
         QTimer::singleShot(0, this, [this]() {
             if (statusBar()) {
                 statusBar()->showMessage("未设置 DIFY_API_KEY：AI 功能暂不可用（可正常使用其他页面）", 8000);
@@ -3469,6 +3537,15 @@ QString ModernMainWindow::extractPPTTopic(const QString &message) const
     // 从用户消息中提取 PPT 主题
     QString msg = message.trimmed();
 
+    auto cleanupTopic = [](QString topic) {
+        topic = topic.trimmed();
+        topic.remove(QRegularExpression(R"(^(?:[0-9一二两三四五六七八九十百]+)\s*(?:页|张|份|个|套))"));
+        topic.remove(QRegularExpression(R"(^(?:关于))"));
+        topic.remove(QRegularExpression("^[的了一个]+"));
+        topic.remove(QRegularExpression("[的了吧呢]+$"));
+        return topic.trimmed();
+    };
+
     // 常见句式：「帮我生成一个关于XX的PPT」「制作XX课件」等
     QStringList patterns = {
         "关于(.+?)的(?:ppt|PPT|课件|幻灯片|演示文稿)",
@@ -3480,10 +3557,7 @@ QString ModernMainWindow::extractPPTTopic(const QString &message) const
         QRegularExpression re(pat);
         QRegularExpressionMatch match = re.match(msg);
         if (match.hasMatch()) {
-            QString topic = match.captured(1).trimmed();
-            // 清理前后多余的助词
-            topic.remove(QRegularExpression("^[的了一个]+"));
-            topic.remove(QRegularExpression("[的了吧呢]+$"));
+            QString topic = cleanupTopic(match.captured(1));
             if (!topic.isEmpty() && topic.length() > 1) {
                 return topic;
             }
@@ -3495,7 +3569,7 @@ QString ModernMainWindow::extractPPTTopic(const QString &message) const
     for (const QString &kw : {"帮我", "请", "生成", "制作", "做一个", "创建", "一个", "ppt", "PPT", "课件", "幻灯片", "演示文稿"}) {
         fallback.remove(kw);
     }
-    fallback = fallback.trimmed();
+    fallback = cleanupTopic(fallback);
     return fallback.isEmpty() ? "思政教学" : fallback;
 }
 
@@ -3589,138 +3663,94 @@ void ModernMainWindow::startPPTSimulation(const QString &userMessage)
     m_pptTopic = extractPPTTopic(userMessage);
     qDebug() << "[PPT] 模拟生成，提取主题:" << m_pptTopic;
 
-    // 设置预制 PPT 路径（兼容 macOS App Bundle / Windows 安装目录 / 开发目录）
-    QString appPath = QCoreApplication::applicationDirPath();
-    const QStringList pptCandidatePaths = {
-        QDir::cleanPath(appPath + "/../Resources/ppt/爱国主义精神传承.pptx"),
-        QDir::cleanPath(appPath + "/ppt/爱国主义精神传承.pptx"),
-        QDir::cleanPath(appPath + "/resources/ppt/爱国主义精神传承.pptx"),
-        QDir::cleanPath(appPath + "/../resources/ppt/爱国主义精神传承.pptx")
-    };
+    // 如果之前有正在进行的 PPT 生成，先停止
+    if (m_pptAgentService->currentState() != ZhipuPPTAgentService::State::Idle &&
+        m_pptAgentService->currentState() != ZhipuPPTAgentService::State::Finished &&
+        m_pptAgentService->currentState() != ZhipuPPTAgentService::State::Failed) {
+        m_pptAgentService->cancel();
+    }
+    
+    // 在最后添加 AI 回复占位
+    if (m_bubbleChatWidget) {
+        m_bubbleChatWidget->addMessage("好的，我来帮您生成关于「" + m_pptTopic + "」的课件...\n\n⏳ 正在准备生成环境...", false);
+    }
 
-    m_pendingPPTPath.clear();
-    for (const QString &candidatePath : pptCandidatePaths) {
-        if (QFile::exists(candidatePath)) {
-            m_pendingPPTPath = candidatePath;
-            break;
+    // 构建生成参数
+    QMap<QString, QString> params;
+    params["topic"] = m_pptTopic;
+    params["userRequest"] = userMessage;
+    
+    // 启动 PPT Agent
+    m_pptAgentService->generate(params);
+}
+
+void ModernMainWindow::handleChatPPTComplete(const QStringList &svgCodes, const QVector<QImage> &previews)
+{
+    // 生成 PPTX 文件
+    QString pptxPath;
+    QString pptxError;
+    if (!m_pptxGenerator) {
+        pptxError = "PPTXGenerator 未初始化";
+        qWarning() << "[PPTAgent]" << pptxError;
+    } else if (previews.isEmpty() && svgCodes.isEmpty()) {
+        pptxError = "生成结果为空，无法导出 PPTX";
+        qWarning() << "[PPTAgent]" << pptxError;
+    } else {
+        QString safeName = m_pptTopic;
+        safeName.remove(QRegularExpression(R"([\\/:*?"<>|])"));
+        if (safeName.isEmpty()) safeName = "ppt_output";
+        pptxPath = QDir::tempPath() + "/" + safeName + ".pptx";
+        
+        qDebug() << "[PPTAgent] 聊天模式 PPTX 生成开始，目标路径:" << pptxPath
+                 << "preview数量:" << previews.size()
+                 << "svg数量:" << svgCodes.size();
+        
+        bool ok = !previews.isEmpty()
+            ? m_pptxGenerator->generateFromImages(m_pptTopic, previews, pptxPath)
+            : false;
+        qDebug() << "[PPTAgent] 聊天模式 PPTX 生成:" << (ok ? "成功" : "失败") << pptxPath;
+        if (!ok) {
+            pptxError = m_pptxGenerator->lastError();
+            qWarning() << "[PPTAgent] PPTXGenerator error:" << pptxError;
+            if (!QFile::exists(pptxPath)) {
+                pptxPath.clear();
+            }
         }
     }
 
-    // 检查文件是否存在
-    if (m_pendingPPTPath.isEmpty()) {
-        qDebug() << "[PPT] Resource not found, tried paths:" << pptCandidatePaths;
-        m_bubbleChatWidget->addMessage("抱歉，PPT 资源文件未找到，请稍后再试。", false);
-        return;
+    if (!pptxPath.isEmpty() && QFile::exists(pptxPath)) {
+        m_pendingPPTPath = pptxPath;
+
+        QString finalMsg =
+            "好的，我来帮您生成关于「" + m_pptTopic + "」的课件...\n\n"
+            "✅ **PPT 生成完成！**\n\n"
+            "---\n\n"
+            "📎 **" + QFileInfo(m_pendingPPTPath).fileName() + "**\n\n"
+            "已为您打开应用内预览页面，您可以先查看效果，再点击下载保存。";
+
+        m_bubbleChatWidget->updateLastAIMessage(finalMsg);
+        showPPTPreviewPage(m_pendingPPTPath, m_pptTopic);
+
+        AIHistoryEntry entry;
+        entry.conversationId = "ppt_" + QString::number(QDateTime::currentDateTime().toSecsSinceEpoch());
+        entry.type = AIHistoryType::Chat;
+        entry.title = "PPT生成：" + m_pptTopic;
+        entry.updatedAt = QDateTime::currentDateTime();
+        entry.localFilePath = m_pendingPPTPath;
+        upsertHistoryEntry(entry);
+    } else {
+        QString errMsg = "抱歉，PPT 生成完成但文件保存失败";
+        if (!pptxError.isEmpty()) {
+            errMsg += "：" + pptxError;
+        }
+        errMsg += "\n\n请稍后重试。";
+        m_bubbleChatWidget->updateLastAIMessage(errMsg);
     }
-
-    // 添加 AI 回复气泡（初始内容为"正在分析"）
-    m_bubbleChatWidget->addMessage("好的，我来帮您生成关于「" + m_pptTopic + "」的课件...\n\n⏳ 正在分析教学需求...", false);
-
-    // 重置步骤计数，开始模拟
-    m_pptSimulationStep = 0;
-    m_pptSimulationTimer->setInterval(1500);  // 第一步 1.5 秒后开始
-    m_pptSimulationTimer->start();
 }
 
 void ModernMainWindow::onPPTSimulationStep()
 {
-    if (!m_bubbleChatWidget) {
-        m_pptSimulationTimer->stop();
-        return;
-    }
-
-    // 模拟 AI 生成的各个阶段，节奏从慢到快再到慢，更像真实 AI
-    struct SimStep {
-        QString text;
-        int nextInterval;  // 下一步等待时间 ms，0 表示结束
-    };
-
-    QList<SimStep> steps = {
-        {"好的，我来帮您生成关于「" + m_pptTopic + "」的课件...\n\n"
-         "⏳ 正在分析教学需求...\n\n"
-         "📖 梳理知识框架与核心概念...", 2000},
-
-        {"好的，我来帮您生成关于「" + m_pptTopic + "」的课件...\n\n"
-         "⏳ 正在分析教学需求...\n\n"
-         "📖 梳理知识框架与核心概念...\n\n"
-         "🎯 确定教学目标与重难点...", 1800},
-
-        {"好的，我来帮您生成关于「" + m_pptTopic + "」的课件...\n\n"
-         "⏳ 正在分析教学需求...\n\n"
-         "📖 梳理知识框架与核心概念...\n\n"
-         "🎯 确定教学目标与重难点...\n\n"
-         "✍️ 编写幻灯片内容大纲...", 2500},
-
-        {"好的，我来帮您生成关于「" + m_pptTopic + "」的课件...\n\n"
-         "⏳ 正在分析教学需求...\n\n"
-         "📖 梳理知识框架与核心概念...\n\n"
-         "🎯 确定教学目标与重难点...\n\n"
-         "✍️ 编写幻灯片内容大纲...\n\n"
-         "🎨 设计版式与视觉风格...", 3000},
-
-        {"好的，我来帮您生成关于「" + m_pptTopic + "」的课件...\n\n"
-         "⏳ 正在分析教学需求...\n\n"
-         "📖 梳理知识框架与核心概念...\n\n"
-         "🎯 确定教学目标与重难点...\n\n"
-         "✍️ 编写幻灯片内容大纲...\n\n"
-         "🎨 设计版式与视觉风格...\n\n"
-         "🖼️ 排版图文并导出文件...", 2000},
-
-        {"好的，我来帮您生成关于「" + m_pptTopic + "」的课件...\n\n"
-         "⏳ 正在分析教学需求...\n\n"
-         "📖 梳理知识框架与核心概念...\n\n"
-         "🎯 确定教学目标与重难点...\n\n"
-         "✍️ 编写幻灯片内容大纲...\n\n"
-         "🎨 设计版式与视觉风格...\n\n"
-         "🖼️ 排版图文并导出文件...\n\n"
-         "✅ **PPT 生成完成！**", 0},
-    };
-
-    if (m_pptSimulationStep < steps.size()) {
-        const SimStep &step = steps[m_pptSimulationStep];
-        m_bubbleChatWidget->updateLastAIMessage(step.text);
-        m_pptSimulationStep++;
-
-        if (step.nextInterval > 0) {
-            m_pptSimulationTimer->setInterval(step.nextInterval);
-        } else {
-            // 最后一步：停止定时器，延迟后打开预览页
-            m_pptSimulationTimer->stop();
-
-            QTimer::singleShot(800, this, [this]() {
-                const bool ok = !m_pendingPPTPath.isEmpty() && QFile::exists(m_pendingPPTPath);
-
-                if (ok && m_bubbleChatWidget) {
-                    QString finalMsg =
-                        "好的，我来帮您生成关于「" + m_pptTopic + "」的课件...\n\n"
-                        "⏳ 正在分析教学需求...\n\n"
-                        "📖 梳理知识框架与核心概念...\n\n"
-                        "🎯 确定教学目标与重难点...\n\n"
-                        "✍️ 编写幻灯片内容大纲...\n\n"
-                        "🎨 设计版式与视觉风格...\n\n"
-                        "🖼️ 排版图文并导出文件...\n\n"
-                        "✅ **PPT 生成完成！**\n\n"
-                        "---\n\n"
-                        "📎 **" + QFileInfo(m_pendingPPTPath).fileName() + "**\n\n"
-                        "已为您打开应用内预览页面，您可以先查看效果，再点击下载保存。";
-
-                    m_bubbleChatWidget->updateLastAIMessage(finalMsg);
-                    showPPTPreviewPage(m_pendingPPTPath, m_pptTopic);
-
-                    AIHistoryEntry entry;
-                    entry.conversationId = "ppt_" + QString::number(QDateTime::currentDateTime().toSecsSinceEpoch());
-                    entry.type = AIHistoryType::Chat;
-                    entry.title = "PPT生成：" + m_pptTopic;
-                    entry.updatedAt = QDateTime::currentDateTime();
-                    entry.localFilePath = m_pendingPPTPath;
-                    upsertHistoryEntry(entry);
-                } else if (m_bubbleChatWidget) {
-                    m_bubbleChatWidget->updateLastAIMessage(
-                        "抱歉，PPT 预览打开失败，请稍后重试。");
-                }
-            });
-        }
-    }
+    // 该方法已废弃，由真实的 ZhipuPPTAgentService 替代
 }
 
 // ========== 通知系统相关槽函数 ==========

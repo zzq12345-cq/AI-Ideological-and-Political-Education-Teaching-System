@@ -41,6 +41,7 @@ class DifyService;
 class AIChatDialog;
 class ChatHistoryWidget;
 class PPTXGenerator;
+class ZhipuPPTAgentService;
 class HotspotTrackingWidget;
 class HotspotService;
 class DataAnalyticsWidget;
@@ -241,12 +242,14 @@ private:
     QTimer *m_streamUpdateTimer = nullptr;  // 流式更新节流定时器
     bool m_streamUpdatePending = false;   // 是否有待处理的更新
     PPTXGenerator *m_pptxGenerator = nullptr;  // PPTX 生成器
+    ZhipuPPTAgentService *m_pptAgentService = nullptr;  // 智谱 PPT Agent 服务
 
-    // PPT 模拟生成相关
-    QTimer *m_pptSimulationTimer = nullptr;     // PPT 模拟思考定时器
+    // PPT 生成相关
+    QTimer *m_pptSimulationTimer = nullptr;     // PPT 模拟思考定时器（已废弃，保留兼容）
     int m_pptSimulationStep = 0;          // 当前模拟步骤
     QString m_pendingPPTPath;         // 待提供的 PPT 文件路径
     QString m_pptTopic;               // 用户请求的 PPT 主题
+    bool m_isPptChatMode = false;     // true=聊天面板发起的PPT生成
     bool m_isPptQuestionFlowActive = false;
     int m_pptQuestionStep = 0;
     QString m_pendingPptRequest;
@@ -256,7 +259,8 @@ private:
     void askNextPPTQuestion();
     void handlePPTQuestionAnswer(const QString &answer);
     void resetPPTQuestionFlow();
-    void startPPTSimulation(const QString &userMessage);  // 开始 PPT 模拟生成
+    void startPPTSimulation(const QString &userMessage);  // 开始 PPT 生成（通过 Agent）
+    void handleChatPPTComplete(const QStringList &svgCodes, const QVector<QImage> &previews); // 聊天面板 PPT 生成完成
     void onPPTSimulationStep();       // PPT 模拟步骤处理
     bool isPPTGenerationRequest(const QString &message);  // 检测是否是 PPT 生成请求
     QString extractPPTTopic(const QString &message) const; // 从用户消息中提取主题
