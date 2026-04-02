@@ -27,6 +27,7 @@
 #include "../attendance/services/AttendanceService.h"
 #include "../ui/LessonPlanEditor.h"
 #include "../config/embedded_keys.h"
+#include "../config/AppConfig.h"
 #include <QApplication>
 #include <QMessageBox>
 #include <QFile>
@@ -877,61 +878,18 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
         }
     });
 
-    // API Key 获取优先级：环境变量 > 本地配置文件 > 内嵌Key
-    const QString configPath = QCoreApplication::applicationDirPath() + "/../../../../.env.local";
-    auto loadKeyFromEnvFile = [&configPath](const QString &keyName) -> QString {
-        QFile envFile(configPath);
-        if (!envFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            return QString();
-        }
-
-        const QString prefix = keyName + "=";
-        while (!envFile.atEnd()) {
-            QString line = QString::fromUtf8(envFile.readLine()).trimmed();
-            if (line.startsWith(prefix)) {
-                return line.mid(prefix.length()).trimmed();
-            }
-        }
-        return QString();
-    };
-
-    QString difyApiKey = qEnvironmentVariable("DIFY_API_KEY").trimmed();
-    if (difyApiKey.isEmpty()) {
-        difyApiKey = loadKeyFromEnvFile("DIFY_API_KEY");
-        if (!difyApiKey.isEmpty()) {
-            qDebug() << "[Info] Dify API Key loaded from .env.local";
-        }
-    } else {
-        qDebug() << "[Info] Dify API Key loaded from environment variable.";
+    // API Key 获取：环境变量 > 随包 config.env > .env.local
+    QString difyApiKey = AppConfig::get("DIFY_API_KEY");
+    if (!difyApiKey.isEmpty()) {
+        qDebug() << "[Info] Dify API Key loaded.";
     }
 
-    if (difyApiKey.isEmpty() && strlen(EmbeddedKeys::DIFY_API_KEY) > 0) {
-        difyApiKey = QString::fromUtf8(EmbeddedKeys::DIFY_API_KEY);
-        qDebug() << "[Info] Dify API Key loaded from embedded keys.";
+    QString zhipuApiKey = AppConfig::get("ZHIPU_API_KEY");
+    if (!zhipuApiKey.isEmpty()) {
+        qDebug() << "[Info] Zhipu API Key loaded.";
     }
 
-    QString zhipuApiKey = qEnvironmentVariable("ZHIPU_API_KEY").trimmed();
-    if (zhipuApiKey.isEmpty()) {
-        zhipuApiKey = loadKeyFromEnvFile("ZHIPU_API_KEY");
-        if (!zhipuApiKey.isEmpty()) {
-            qDebug() << "[Info] Zhipu API Key loaded from .env.local";
-        }
-    } else {
-        qDebug() << "[Info] Zhipu API Key loaded from environment variable.";
-    }
-
-    if (zhipuApiKey.isEmpty() && strlen(EmbeddedKeys::ZHIPU_API_KEY) > 0) {
-        zhipuApiKey = QString::fromUtf8(EmbeddedKeys::ZHIPU_API_KEY);
-        qDebug() << "[Info] Zhipu API Key loaded from embedded keys.";
-    }
-
-    QString zhipuBaseUrl = qEnvironmentVariable("ZHIPU_BASE_URL").trimmed();
-    if (zhipuBaseUrl.isEmpty()) {
-        zhipuBaseUrl = loadKeyFromEnvFile("ZHIPU_BASE_URL");
-    }
-    if (zhipuBaseUrl.isEmpty() && strlen(EmbeddedKeys::ZHIPU_BASE_URL) > 0) {
-        zhipuBaseUrl = QString::fromUtf8(EmbeddedKeys::ZHIPU_BASE_URL);
-    }
+    QString zhipuBaseUrl = AppConfig::get("ZHIPU_BASE_URL", "https://open.bigmodel.cn/api/coding/paas/v4");
 
     const bool hasDifyApiKey = !difyApiKey.isEmpty();
     if (hasDifyApiKey) {
@@ -1284,11 +1242,8 @@ void ModernMainWindow::setupCentralWidget()
     // 创建时政新闻页面
     m_hotspotService = new HotspotService(this);
     RealNewsProvider *newsProvider = new RealNewsProvider(this);
-    // API Key 优先级：环境变量 > 内嵌Key
-    QString tianxingKey = qEnvironmentVariable("TIANXING_API_KEY");
-    if (tianxingKey.isEmpty() && strlen(EmbeddedKeys::TIANXING_API_KEY) > 0) {
-        tianxingKey = QString::fromUtf8(EmbeddedKeys::TIANXING_API_KEY);
-    }
+    // API Key 优先级：环境变量 > 随包 config.env > .env.local
+    QString tianxingKey = AppConfig::get("TIANXING_API_KEY");
     if (!tianxingKey.isEmpty()) {
         newsProvider->setTianXingApiKey(tianxingKey);
         qDebug() << "[ModernMainWindow] 天行数据 API Key 已配置";

@@ -1,4 +1,5 @@
 #include "RealNewsProvider.h"
+#include "../config/AppConfig.h"
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -19,8 +20,8 @@ RealNewsProvider::RealNewsProvider(QObject *parent)
     , m_pendingTianXingCount(0)
     , m_currentLimit(20)
 {
-    // 天行 API Key（国内新闻主数据源）
-    m_tianxingKey = "aa65efc9316cdcc1a4baf14ba175fc39";
+    // 天行 API Key — 从配置读取
+    m_tianxingKey = AppConfig::get("TIANXING_API_KEY");
 
     // RSS 源作为备用
     addRSSSource("人民日报", "http://www.people.com.cn/rss/politics.xml");

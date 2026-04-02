@@ -150,6 +150,8 @@ set(PROJECT_SOURCES
     src/smartpaper/SmartPaperService.h
     src/smartpaper/SmartPaperWidget.cpp
     src/smartpaper/SmartPaperWidget.h
+    src/config/AppConfig.cpp
+    src/config/AppConfig.h
     src/config/embedded_keys.h
     resources.qrc
     resources/QtTheme/QtTheme.qrc
@@ -270,6 +272,8 @@ set(SHARED_SERVICES
     src/utils/NetworkRetryHelper.h
     src/utils/FailedTaskTracker.cpp
     src/utils/FailedTaskTracker.h
+    src/config/AppConfig.cpp
+    src/config/AppConfig.h
 )
 
 qt_add_executable(ImportTool

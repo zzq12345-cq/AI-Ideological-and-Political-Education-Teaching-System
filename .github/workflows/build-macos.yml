@@ -61,6 +61,8 @@ jobs:
           TIANXING_API_KEY: ${{ secrets.TIANXING_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          ZHIPU_BASE_URL: ${{ secrets.ZHIPU_BASE_URL }}
         run: |
           chmod +x ./scripts/package_app.sh
           ./scripts/package_app.sh \
