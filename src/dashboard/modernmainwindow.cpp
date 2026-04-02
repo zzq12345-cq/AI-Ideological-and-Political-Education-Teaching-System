@@ -3584,6 +3584,7 @@ void ModernMainWindow::startPPTQuestionFlow(const QString &userMessage)
     m_pptQuestionStep = 0;
     m_pendingPptRequest = userMessage;
     m_pptTopic = extractPPTTopic(userMessage);
+    m_pptUserPreferences.clear();  // 清空上次的偏好
 
     m_bubbleChatWidget->setPlaceholderText(QStringLiteral("可直接输入回答，或点击上方选项"));
     m_bubbleChatWidget->addMessage(QStringLiteral("好的，我先快速了解一下这次课件偏好，这样更像真实备课流程。"), false);
@@ -3613,11 +3614,19 @@ void ModernMainWindow::askNextPPTQuestion()
 
 void ModernMainWindow::handlePPTQuestionAnswer(const QString &answer)
 {
-    Q_UNUSED(answer);
-
     if (!m_isPptQuestionFlowActive) {
         return;
     }
+
+    // 收集用户偏好——根据当前步骤存入对应 key
+    switch (m_pptQuestionStep) {
+    case 0: m_pptUserPreferences["pref_scene"] = answer; break;  // 授课场景
+    case 1: m_pptUserPreferences["pref_style"] = answer; break;  // 表达风格
+    case 2: m_pptUserPreferences["pref_focus"] = answer; break;  // 内容重点
+    case 3: m_pptUserPreferences["pref_pace"]  = answer; break;  // 呈现节奏
+    default: break;
+    }
+    qDebug() << "[PPT] 用户偏好收集 step" << m_pptQuestionStep << ":" << answer;
 
     ++m_pptQuestionStep;
     const int totalQuestions = buildPPTQuestionFlow().size();
@@ -3679,6 +3688,14 @@ void ModernMainWindow::startPPTSimulation(const QString &userMessage)
     QMap<QString, QString> params;
     params["topic"] = m_pptTopic;
     params["userRequest"] = userMessage;
+
+    // 注入用户偏好（从提问流程收集而来）
+    for (auto it = m_pptUserPreferences.constBegin(); it != m_pptUserPreferences.constEnd(); ++it) {
+        params[it.key()] = it.value();
+    }
+    if (!m_pptUserPreferences.isEmpty()) {
+        qDebug() << "[PPT] 已注入用户偏好:" << m_pptUserPreferences;
+    }
     
     // 启动 PPT Agent
     m_pptAgentService->generate(params);

@@ -252,6 +252,19 @@ void ZhipuPPTAgentService::startOutlineGeneration(const QString &topic)
         "- 结合思政教育的特点，体现社会主义核心价值观"
     ).arg(topic);
 
+    // 注入用户偏好（如果有）
+    const QString scene = m_params.value("pref_scene");
+    const QString style = m_params.value("pref_style");
+    const QString focus = m_params.value("pref_focus");
+    const QString pace  = m_params.value("pref_pace");
+    if (!scene.isEmpty() || !style.isEmpty() || !focus.isEmpty() || !pace.isEmpty()) {
+        userMsg += QLatin1String("\n\n用户偏好：");
+        if (!scene.isEmpty()) userMsg += QString("\n- 授课场景：%1").arg(scene);
+        if (!style.isEmpty()) userMsg += QString("\n- 表达风格：%1").arg(style);
+        if (!focus.isEmpty()) userMsg += QString("\n- 内容重点：%1").arg(focus);
+        if (!pace.isEmpty())  userMsg += QString("\n- 呈现节奏：%1").arg(pace);
+    }
+
     m_currentReply = callZhipuApi(MODEL_TEXT, outlineSystemPrompt(), userMsg, 0.7, 4096);
     qDebug() << "[PPTAgent] 发起大纲生成请求，reply=" << m_currentReply;
     if (m_currentReply) {
@@ -433,6 +446,19 @@ void ZhipuPPTAgentService::startPlanGeneration()
         "3. 建议配色指引（整体采用党政红为主色调，#C00000）\n\n"
         "输出格式：每页用 \"===第N页===\" 分隔，紧跟策划内容。"
     ).arg(outlineText);
+
+    // 注入用户偏好（如果有）
+    const QString scene = m_params.value("pref_scene");
+    const QString style = m_params.value("pref_style");
+    const QString focus = m_params.value("pref_focus");
+    const QString pace  = m_params.value("pref_pace");
+    if (!scene.isEmpty() || !style.isEmpty() || !focus.isEmpty() || !pace.isEmpty()) {
+        userMsg += QLatin1String("\n\n用户偏好要求：");
+        if (!scene.isEmpty()) userMsg += QString("\n- 授课场景：%1").arg(scene);
+        if (!style.isEmpty()) userMsg += QString("\n- 表达风格：%1，策划版面时请体现这种风格").arg(style);
+        if (!focus.isEmpty()) userMsg += QString("\n- 内容侧重：%1，请在版面规划中突出这类内容").arg(focus);
+        if (!pace.isEmpty())  userMsg += QString("\n- 呈现节奏：%1").arg(pace);
+    }
 
     m_currentReply = callZhipuApi(MODEL_TEXT, planSystemPrompt(), userMsg, 0.6, 8192);
     if (m_currentReply) {
@@ -624,7 +650,7 @@ QString ZhipuPPTAgentService::extractSvgCode(const QString &response) const
 
     // 直接查找 <svg ... </svg>
     static const QRegularExpression svgRe(R"(<svg[\s\S]*?</svg>)",
-                                           QRegularExpression::CaseInsensitiveOption);
+                                          QRegularExpression::CaseInsensitiveOption);
     match = svgRe.match(response);
     if (match.hasMatch()) {
         return match.captured(0);

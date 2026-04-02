@@ -253,6 +253,7 @@ private:
     bool m_isPptQuestionFlowActive = false;
     int m_pptQuestionStep = 0;
     QString m_pendingPptRequest;
+    QMap<QString, QString> m_pptUserPreferences;  // 用户偏好（场景/风格/内容/节奏）
     QString m_previewPPTPath;         // 当前预览的 PPT 文件路径
     QString m_previewPPTTitle;        // 当前预览的 PPT 标题
     void startPPTQuestionFlow(const QString &userMessage); // PPT 伪提问流程
