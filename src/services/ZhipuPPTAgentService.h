@@ -19,7 +19,7 @@
  * 完整工作流（参考 Linux.do PPT Agent 思路）：
  *   阶段1: 大纲生成（glm-5.1） — 根据主题生成 JSON 大纲
  *   阶段2: 策划稿（glm-5.1）   — 为每页生成版面规划
- *   阶段3: SVG 设计（glm-4.6）  — 为每页生成 1280×720 SVG 代码
+ *   阶段3: SVG 设计（glm-5v-turbo）  — 为每页生成 1280×720 SVG 代码
  *
  * SVG 代码会通过 QSvgRenderer 渲染为 QImage 用于预览。
  */
@@ -142,7 +142,7 @@ private:
 
     // 模型名称
     static constexpr const char* MODEL_TEXT = "glm-5.1";   // 文本生成
-    static constexpr const char* MODEL_CODE = "glm-4.6";   // SVG 代码生成
+    static constexpr const char* MODEL_CODE = "glm-5v-turbo";   // SVG 代码生成
 
     // 生成过程中的数据
     QString m_topic;               // 用户主题

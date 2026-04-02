@@ -94,7 +94,7 @@ QString ZhipuPPTAgentService::buildTopicDescription(const QMap<QString, QString>
     const QString duration = params.value("duration", "45分钟标准课时");
     const QString focus = params.value("contentFocus", "");
 
-    topic = QString("%1 %2 思想政治课 %3").arg(textbook, grade, chapter);
+    topic = QString("%1 %2 中学《道德与法治》课 %3").arg(textbook, grade, chapter);
 
     if (!focus.isEmpty()) {
         topic += QString("\n\n内容侧重要求：%1").arg(focus);
@@ -244,11 +244,12 @@ QString ZhipuPPTAgentService::extractContent(const QByteArray &responseData) con
 void ZhipuPPTAgentService::startOutlineGeneration(const QString &topic)
 {
     QString userMsg = QString(
-        "请为以下思政课堂教学内容生成PPT大纲：\n\n%1\n\n"
+        "请为以下中学《道德与法治》课堂教学内容生成PPT大纲：\n\n%1\n\n"
         "要求：\n"
         "- 页数根据用户需求决定，如果用户指定了页数则严格遵守，否则默认 8-12 页\n"
         "- 必须包含封面页和结束页\n"
         "- 每个页面的 content 数组中放入该页要展示的核心要点（2-4 条）\n"
+        "- 内容必须贴合中学生理解水平和课堂表达\n"
         "- 结合思政教育的特点，体现社会主义核心价值观"
     ).arg(topic);
 
@@ -439,11 +440,12 @@ void ZhipuPPTAgentService::startPlanGeneration()
     QString outlineText = QString::fromUtf8(outlineDoc.toJson(QJsonDocument::Indented));
 
     QString userMsg = QString(
-        "以下是一份思政课堂PPT的大纲 JSON：\n\n%1\n\n"
+        "以下是一份中学《道德与法治》课堂PPT的大纲 JSON：\n\n%1\n\n"
         "请为每一页（包括封面、目录、内容页、结束页）生成一段简洁的策划描述，说明：\n"
         "1. 该页的核心呈现信息\n"
         "2. 建议的版面布局（如：大标题居中、两栏对比、三卡片并列、数据图表等）\n"
-        "3. 建议配色指引（整体采用党政红为主色调，#C00000）\n\n"
+        "3. 建议配色指引（整体采用淡色或思政课堂风格，以党政红 #C00000 为点缀）\n"
+        "4. 禁止策划出黑色、深灰、深蓝等大面积深色背景风格\n\n"
         "输出格式：每页用 \"===第N页===\" 分隔，紧跟策划内容。"
     ).arg(outlineText);
 
@@ -562,11 +564,14 @@ void ZhipuPPTAgentService::generateNextSvg()
     QString pageContent = buildPageContent(m_currentSvgIndex);
 
     QString userMsg = QString(
-        "请你根据以下思政课堂PPT页面策划，生成一张完整的 SVG 页面代码。\n\n"
+        "请你根据以下中学《道德与法治》课堂PPT页面策划，生成一张完整的 SVG 页面代码。\n\n"
         "页面策划内容：\n%1\n\n"
         "要求：\n"
         "- SVG viewBox 必须是 0 0 1280 720\n"
-        "- 主色调使用党政红 #C00000，背景色 #1A1A2E 或白色 #FFFFFF\n"
+        "- 面向中学《道德与法治》课堂，整体气质要端正、清爽、适合课堂教学与公开课展示\n"
+        "- 主色调使用党政红 #C00000，背景和大色块以白色、米白、浅红、浅金、浅灰等淡色为主\n"
+        "- 禁止黑色、深灰、深蓝等大面积深色背景，不要做暗黑、科技黑、商务黑金风格\n"
+        "- 正文和说明文字优先使用深灰色 #333333 / #555555，不要使用大面积白字压深色底\n"
         "- 采用便当网格(Bento Grid)卡片式布局\n"
         "- 文字使用中文，字体使用 Microsoft YaHei 或 SimHei\n"
         "- 只输出 <svg>...</svg> 代码，不要输出其他内容"
@@ -597,7 +602,7 @@ void ZhipuPPTAgentService::onSvgReplyFinished()
         // 生成一个错误占位 SVG
         QString fallbackSvg = QString(
             "<svg viewBox=\"0 0 1280 720\" xmlns=\"http://www.w3.org/2000/svg\">"
-            "<rect width=\"1280\" height=\"720\" fill=\"#1A1A2E\"/>"
+            "<rect width=\"1280\" height=\"720\" fill=\"#FFF9F2\"/>"
             "<text x=\"640\" y=\"360\" text-anchor=\"middle\" fill=\"#C00000\" "
             "font-size=\"36\" font-family=\"SimHei\">第 %1 页生成失败</text></svg>"
         ).arg(m_currentSvgIndex + 1);
@@ -665,9 +670,9 @@ QImage ZhipuPPTAgentService::renderSvgToImage(const QString &svgCode, int width,
     if (!renderer.isValid()) {
         qWarning() << "[PPTAgent] Invalid SVG, creating placeholder";
         QImage img(width, height, QImage::Format_ARGB32);
-        img.fill(Qt::darkGray);
+        img.fill(QColor("#FFF9F2"));
         QPainter p(&img);
-        p.setPen(Qt::white);
+        p.setPen(QColor("#C00000"));
         p.setFont(QFont("SimHei", 24));
         p.drawText(img.rect(), Qt::AlignCenter, "SVG 渲染失败");
         return img;
@@ -770,10 +775,10 @@ QString ZhipuPPTAgentService::outlineSystemPrompt()
         "3. 归类分组：同一层级的内容属于同一逻辑范畴\n"
         "4. 逻辑递进：内容按照某种逻辑顺序展开\n"
         "\n"
-        "## 思政课堂特别要求\n"
+        "## 中学《道德与法治》课堂特别要求\n"
         "- 紧密结合社会主义核心价值观\n"
-        "- 体现爱国主义教育、法治教育等思政要素\n"
-        "- 贴近学生实际生活，增强课堂感染力\n"
+        "- 体现爱国主义教育、法治教育、规则意识、公民责任等核心主题\n"
+        "- 贴近中学生实际生活，增强课堂感染力与可理解性\n"
         "\n"
         "## 输出规范\n"
         "请严格按照以下JSON格式输出，结果用[PPT_OUTLINE]和[/PPT_OUTLINE]包裹：\n"
@@ -815,7 +820,7 @@ QString ZhipuPPTAgentService::outlineSystemPrompt()
 QString ZhipuPPTAgentService::planSystemPrompt()
 {
     return QStringLiteral(
-        "# Role: PPT 策划师\n"
+        "# Role: 中学《道德与法治》PPT 策划师\n"
         "## 背景\n"
         "你是一位顶级PPT设计公司的策划师。你的工作是在大纲和设计之间架起桥梁：\n"
         "将结构化大纲转化为详细的版面规划，让设计师（AI）能一页页高效执行。\n"
@@ -824,7 +829,8 @@ QString ZhipuPPTAgentService::planSystemPrompt()
         "为每一页提供简洁的策划描述，包括：\n"
         "1. 核心呈现信息：该页需要展示的关键文字内容\n"
         "2. 版面布局建议：标题位置、内容分区、卡片数量和尺寸\n"
-        "3. 配色指引：主色 #C00000（党政红），辅色建议\n"
+        "3. 配色指引：主色 #C00000（党政红），整体以淡色或思政课堂风格为主\n"
+        "4. 禁止大面积黑色、深灰、深蓝背景，确保课堂观感明亮、温和\n"
         "\n"
         "## 格式\n"
         "每页用 \"===第N页===\" 分隔，N 从 1 开始。"
@@ -835,7 +841,7 @@ QString ZhipuPPTAgentService::svgSystemPrompt()
 {
     return QStringLiteral(
         "作为精通信息架构与 SVG 编码的专家，你的任务是将完整的文字内容转化为一张高质量、"
-        "结构化、具备高级感、简洁感和专业感的 SVG 演示文稿页面。\n\n"
+        "结构化、适用于中学《道德与法治》课堂的 SVG 演示文稿页面。\n\n"
         "要求如下：\n"
         "1. 画布: SVG viewBox 必须是 0 0 1280 720。\n"
         "2. 内容页的便当网格 (Bento Grid) 布局\n"
@@ -851,13 +857,17 @@ QString ZhipuPPTAgentService::svgSystemPrompt()
         "     - 三栏布局: 三张等宽的卡片，适合并列比较。\n"
         "     - 顶部英雄式: 顶部一张宽幅卡片，下方是2-4个较小卡片网格。\n"
         "     - 混合网格: 自由混合各种尺寸的卡片。\n\n"
-        "3. 颜色主题:\n"
-        "   - 主色: #C00000（党政红）\n"
-        "   - 背景色: #1A1A2E（深蓝黑）或 #FFFFFF（白色）\n"
-        "   - 卡片背景: rgba(255,255,255,0.08) 或 #F5F5F5\n"
-        "   - 文字颜色: #FFFFFF（深色背景）或 #333333（浅色背景）\n\n"
-        "4. 字体: font-family 使用 \"Microsoft YaHei\", \"SimHei\", sans-serif\n"
-        "5. 只输出 <svg>...</svg> 代码，不要包含 ```svg 标记或其他说明文字。\n"
-        "6. 所有文字必须使用中文。"
+        "3. 视觉风格:\n"
+        "   - 适合中学《道德与法治》课堂，整体端正、清爽、温和，兼顾思政课堂气质\n"
+        "   - 可采用淡色课堂风格或思政风格，但必须保持明亮，不得做暗黑风格\n"
+        "   - 禁止黑色、深灰、深蓝等大面积深色背景，禁止赛博风、科技暗黑风、商务黑金风\n\n"
+        "4. 颜色主题:\n"
+        "   - 主色: #C00000（党政红），用于标题、重点信息、分割线、少量装饰\n"
+        "   - 背景色: #FFFFFF、#FFF9F2、#F8F4EF、#F7F3EA 等淡色\n"
+        "   - 卡片背景: #FFFFFF、#FFF7F7、#F9F6F1、#F5F5F5\n"
+        "   - 文字颜色: #333333、#555555，避免大面积白字压深底\n\n"
+        "5. 字体: font-family 使用 \"Microsoft YaHei\", \"SimHei\", sans-serif\n"
+        "6. 只输出 <svg>...</svg> 代码，不要包含 ```svg 标记或其他说明文字。\n"
+        "7. 所有文字必须使用中文。"
     );
 }
