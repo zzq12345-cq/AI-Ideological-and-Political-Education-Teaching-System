@@ -50,7 +50,7 @@ public:
 
     /**
      * @brief 启动 PPT 生成
-     * @param params 包含 textbook/grade/chapter/template/duration/contentFocus 等
+     * @param params 包含 topic/userRequest/pref_scene/pref_style/pref_focus/pref_pace 等
      */
     void generate(const QMap<QString, QString> &params);
 
