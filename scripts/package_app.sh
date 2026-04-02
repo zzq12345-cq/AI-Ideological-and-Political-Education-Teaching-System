@@ -132,33 +132,28 @@ escape_cpp_string() {
     printf '%s' "$value"
 }
 
-generate_embedded_keys() {
+generate_config_env() {
     if [[ "$EMBED_RELEASE_KEYS" != "1" ]]; then
-        echo_info "跳过内嵌密钥生成，保留现有 embedded_keys.h"
+        echo_info "跳过密钥导出，不生成 config.env"
         return
     fi
 
-    local embedded_keys_path="$REPO_ROOT/src/config/embedded_keys.h"
-    local dify_api_key="$(escape_cpp_string "${DIFY_API_KEY:-}")"
-    local tianxing_api_key="$(escape_cpp_string "${TIANXING_API_KEY:-}")"
-    local supabase_url="$(escape_cpp_string "${SUPABASE_URL:-}")"
-    local supabase_anon_key="$(escape_cpp_string "${SUPABASE_ANON_KEY:-}")"
+    # config.env 放进 App Bundle 的 Resources 目录
+    local config_env_path="$APP_PATH/Contents/Resources/config.env"
 
-    cat > "$embedded_keys_path" <<EOF
-#ifndef EMBEDDED_KEYS_H
-#define EMBEDDED_KEYS_H
+    cat > "$config_env_path" <<EOF
+# AI 思政智慧课堂 - 运行时配置
+# 此文件包含 API 密钥，请勿公开分享
 
-namespace EmbeddedKeys {
-inline const char* DIFY_API_KEY = "$dify_api_key";
-inline const char* TIANXING_API_KEY = "$tianxing_api_key";
-inline const char* SUPABASE_URL = "$supabase_url";
-inline const char* SUPABASE_ANON_KEY = "$supabase_anon_key";
-}
-
-#endif
+DIFY_API_KEY=${DIFY_API_KEY:-}
+TIANXING_API_KEY=${TIANXING_API_KEY:-}
+SUPABASE_URL=${SUPABASE_URL:-}
+SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
+ZHIPU_API_KEY=${ZHIPU_API_KEY:-}
+ZHIPU_BASE_URL=${ZHIPU_BASE_URL:-}
 EOF
 
-    echo_info "已生成发布版 embedded_keys.h"
+    echo_info "已生成发布版 config.env"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -226,8 +221,6 @@ echo_info "产物目录: $OUTPUT_DIR"
 echo_info "架构标签: $ARCH_LABEL"
 echo_info "macdeployqt: $MACDEPLOYQT"
 
-generate_embedded_keys
-
 echo_info "配置 CMake Release 构建..."
 CMAKE_ARGS=(-S "$REPO_ROOT" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release)
 if [[ -n "$QT_PATH" ]]; then
@@ -254,6 +247,9 @@ echo_info "构建成功: $APP_PATH"
 
 echo_info "打包 Qt 依赖 (macdeployqt)..."
 "$MACDEPLOYQT" "$APP_PATH" -always-overwrite
+
+# 生成运行时配置文件（密钥随包分发）
+generate_config_env
 
 if [[ -e "$DMG_PATH" ]]; then
     rm -f "$DMG_PATH"

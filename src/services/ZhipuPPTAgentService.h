@@ -16,12 +16,12 @@
 /**
  * @brief 智谱 PPT Agent 服务 — 基于 GLM 大模型的三阶段 PPT 生成流水线
  *
- * 完整工作流（参考 Linux.do PPT Agent 思路）：
- *   阶段1: 大纲生成（glm-5.1） — 根据主题生成 JSON 大纲
- *   阶段2: 策划稿（glm-5.1）   — 为每页生成版面规划
- *   阶段3: SVG 设计（glm-5v-turbo）  — 为每页生成 1280×720 SVG 代码
+ * 完整工作流：
+ *   阶段1: 大纲生成（glm-5.1）   — 根据主题生成 JSON 大纲
+ *   阶段2: 布局指令（glm-5.1）   — 为每页生成结构化 JSON 布局+内容
+ *   阶段3: SVG 渲染（本地 C++）   — 根据布局指令在本地拼装 SVG
  *
- * SVG 代码会通过 QSvgRenderer 渲染为 QImage 用于预览。
+ * 阶段3 优先走本地布局拼装（零失败），解析失败时回退到 AI SVG 生成。
  */
 class ZhipuPPTAgentService : public QObject
 {
@@ -107,22 +107,42 @@ private:
 
     // 构建单页内容描述（供 SVG 生成使用）
     QString buildPageContent(int pageIndex) const;
+    QString buildOutlineOnlyPageContent(int pageIndex) const;
+    QString clampSvgPromptContent(const QString &text, int maxChars = 2200) const;
+    QStringList splitPlanPages(const QString &content, int expectedPages) const;
+    void requestCurrentSvgPage(bool useStandardEndpoint);
+
+    // 布局驱动的 SVG 生成
+    QJsonObject parseLayoutJson(const QString &response) const;
+    QString buildSvgFromLayout(const QJsonObject &pageLayout, int pageIndex) const;
+    QString buildCoverSvg(const QJsonObject &layout) const;
+    QString buildTocSvg(const QJsonObject &layout) const;
+    QString buildContentSvg(const QJsonObject &layout, int pageIndex) const;
+    QString buildEndSvg(const QJsonObject &layout) const;
+    QString escapeXml(const QString &text) const;
+    QString wrapText(const QString &text, int charsPerLine) const;
 
     // 统一的 API 调用方法
     QNetworkReply* callZhipuApi(const QString &model,
                                  const QString &systemPrompt,
                                  const QString &userMessage,
                                  double temperature = 0.7,
-                                 int maxTokens = 8192);
+                                 int maxTokens = 8192,
+                                 bool useStructuredUserContent = false,
+                                 bool disableThinking = false,
+                                 const QString &baseUrlOverride = QString());
 
     // 创建已配置的网络请求
-    QNetworkRequest createRequest() const;
+    QNetworkRequest createRequest(const QString &baseUrlOverride = QString()) const;
 
     // 解析大纲 JSON
     QJsonObject parseOutlineJson(const QString &response) const;
 
     // 从 API 响应中提取文本内容
     QString extractContent(const QByteArray &responseData) const;
+
+    // SVG 清理修复
+    QString sanitizeSvg(const QString &svgCode) const;
 
     // SVG 渲染为 QImage
     QImage renderSvgToImage(const QString &svgCode, int width = 1280, int height = 720) const;
@@ -143,17 +163,22 @@ private:
     // 模型名称
     static constexpr const char* MODEL_TEXT = "glm-5.1";   // 文本生成
     static constexpr const char* MODEL_CODE = "glm-5v-turbo";   // SVG 代码生成
+    static constexpr const char* STANDARD_PAASE_URL = "https://open.bigmodel.cn/api/paas/v4";
 
     // 生成过程中的数据
     QString m_topic;               // 用户主题
     QMap<QString, QString> m_params; // 原始参数
     QJsonObject m_outline;         // 阶段1 大纲
-    QStringList m_pagePlans;       // 阶段2 策划稿（每页一段描述）
+    QStringList m_pagePlans;       // 阶段2 策划稿（每页一段描述，旧流程回退用）
+    QJsonArray m_pageLayouts;      // 阶段2 结构化布局指令（优先）
+    bool m_useLayoutDriven = false; // 是否使用布局驱动模式
     QStringList m_svgCodes;        // 阶段3 SVG 代码
     QVector<QImage> m_previewImages; // 预览图
     int m_currentSvgIndex = 0;     // 当前正在生成的 SVG 页索引
     int m_totalPages = 0;          // 总页数
     QPointer<QNetworkReply> m_currentReply;
+    QString m_currentSvgPrompt;    // 当前页 SVG 请求全文
+    bool m_svgRetriedWithStandardEndpoint = false; // 当前页是否已切标准端点重试
 
     // Prompts
     static QString outlineSystemPrompt();

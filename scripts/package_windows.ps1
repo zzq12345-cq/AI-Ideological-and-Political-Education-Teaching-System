@@ -8,7 +8,9 @@ param(
     [string]$DifyApiKey = "",
     [string]$TianxingApiKey = "",
     [string]$SupabaseUrl = "",
-    [string]$SupabaseAnonKey = ""
+    [string]$SupabaseAnonKey = "",
+    [string]$ZhipuApiKey = "",
+    [string]$ZhipuBaseUrl = ""
 )
 
 $ErrorActionPreference = 'Stop'
@@ -92,36 +94,36 @@ function Get-ResolvedSecretValue {
     return $envValue
 }
 
-function Ensure-EmbeddedKeys {
+function Ensure-ConfigEnv {
     param([bool]$ShouldEmbed)
 
-    $embeddedKeysPath = Join-Path $repoRoot 'src/config/embedded_keys.h'
     if (-not $ShouldEmbed) {
-        Write-Info '跳过内嵌密钥生成，保留现有 embedded_keys.h'
+        Write-Info '跳过密钥导出，不生成 config.env'
         return
     }
 
-    $escapedDifyApiKey = Escape-CppString (Get-ResolvedSecretValue -ExplicitValue $DifyApiKey -EnvironmentKey 'DIFY_API_KEY')
-    $escapedTianxingApiKey = Escape-CppString (Get-ResolvedSecretValue -ExplicitValue $TianxingApiKey -EnvironmentKey 'TIANXING_API_KEY')
-    $escapedSupabaseUrl = Escape-CppString (Get-ResolvedSecretValue -ExplicitValue $SupabaseUrl -EnvironmentKey 'SUPABASE_URL')
-    $escapedSupabaseAnonKey = Escape-CppString (Get-ResolvedSecretValue -ExplicitValue $SupabaseAnonKey -EnvironmentKey 'SUPABASE_ANON_KEY')
+    $configEnvPath = Join-Path $deployDir 'config.env'
+    $difyApiKey = Get-ResolvedSecretValue -ExplicitValue $DifyApiKey -EnvironmentKey 'DIFY_API_KEY'
+    $tianxingApiKey = Get-ResolvedSecretValue -ExplicitValue $TianxingApiKey -EnvironmentKey 'TIANXING_API_KEY'
+    $supabaseUrl = Get-ResolvedSecretValue -ExplicitValue $SupabaseUrl -EnvironmentKey 'SUPABASE_URL'
+    $supabaseAnonKey = Get-ResolvedSecretValue -ExplicitValue $SupabaseAnonKey -EnvironmentKey 'SUPABASE_ANON_KEY'
+    $zhipuApiKey = Get-ResolvedSecretValue -ExplicitValue $ZhipuApiKey -EnvironmentKey 'ZHIPU_API_KEY'
+    $zhipuBaseUrl = Get-ResolvedSecretValue -ExplicitValue $ZhipuBaseUrl -EnvironmentKey 'ZHIPU_BASE_URL'
 
     $content = @"
-#ifndef EMBEDDED_KEYS_H
-#define EMBEDDED_KEYS_H
+# AI 思政智慧课堂 - 运行时配置
+# 此文件包含 API 密钥，请勿公开分享
 
-namespace EmbeddedKeys {
-inline const char* DIFY_API_KEY = "$escapedDifyApiKey";
-inline const char* TIANXING_API_KEY = "$escapedTianxingApiKey";
-inline const char* SUPABASE_URL = "$escapedSupabaseUrl";
-inline const char* SUPABASE_ANON_KEY = "$escapedSupabaseAnonKey";
-}
-
-#endif
+DIFY_API_KEY=$difyApiKey
+TIANXING_API_KEY=$tianxingApiKey
+SUPABASE_URL=$supabaseUrl
+SUPABASE_ANON_KEY=$supabaseAnonKey
+ZHIPU_API_KEY=$zhipuApiKey
+ZHIPU_BASE_URL=$zhipuBaseUrl
 "@
 
-    Set-Content -Path $embeddedKeysPath -Value $content -Encoding UTF8
-    Write-Info '已生成发布版 embedded_keys.h'
+    Set-Content -Path $configEnvPath -Value $content -Encoding UTF8
+    Write-Info '已生成发布版 config.env'
 }
 
 $resolvedVersion = Resolve-Version $Version
@@ -150,8 +152,6 @@ if ($resolvedQtBinDir) {
 if (-not $SkipInstaller) {
     Ensure-Command 'iscc'
 }
-
-Ensure-EmbeddedKeys -ShouldEmbed:$EmbedReleaseKeys.IsPresent
 
 if (Test-Path $resolvedBuildDir) {
     Remove-Item -Path $resolvedBuildDir -Recurse -Force
@@ -200,6 +200,9 @@ Write-Info '复制运行时资源'
 Copy-Item -Path (Join-Path $repoRoot 'resources/ppt') -Destination (Join-Path $deployDir 'ppt') -Recurse -Force
 Copy-Item -Path (Join-Path $repoRoot 'resources/templates') -Destination (Join-Path $deployDir 'templates') -Recurse -Force
 Copy-Item -Path (Join-Path $repoRoot 'resources/styles') -Destination (Join-Path $deployDir 'styles') -Recurse -Force
+
+# 生成运行时配置文件（密钥随包分发）
+Ensure-ConfigEnv -ShouldEmbed:$EmbedReleaseKeys.IsPresent
 
 if (Test-Path $zipPath) {
     Remove-Item -Path $zipPath -Force

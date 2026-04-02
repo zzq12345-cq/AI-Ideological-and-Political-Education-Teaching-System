@@ -70,6 +70,8 @@ jobs:
           TIANXING_API_KEY: ${{ secrets.TIANXING_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          ZHIPU_BASE_URL: ${{ secrets.ZHIPU_BASE_URL }}
         run: |
           $qtBinDir = Join-Path $env:QT_ROOT_DIR "bin"
           ./scripts/package_windows.ps1 -Version "${{ steps.version.outputs.display_version }}" -BuildDir build -OutputDir build -QtBinDir $qtBinDir -EmbedReleaseKeys
