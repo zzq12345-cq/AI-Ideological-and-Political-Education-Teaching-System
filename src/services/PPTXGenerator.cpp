@@ -1,10 +1,10 @@
 #include "PPTXGenerator.h"
+#include "../utils/SimpleZipWriter.h"
 #include <QJsonDocument>
 #include <QDir>
 #include <QFile>
 #include <QTextStream>
 #include <QTemporaryDir>
-#include <QProcess>
 #include <QDebug>
 #include <QRegularExpression>
 #include <QFileInfo>
@@ -603,37 +603,12 @@ bool PPTXGenerator::packToZip(const QString &tempDir, const QString &outputPath)
         QFile::remove(outputPath);
     }
 
-    QProcess zipProcess;
-    zipProcess.setWorkingDirectory(tempDir);
-
-#ifdef Q_OS_WIN
-    // Windows: 使用 PowerShell Compress-Archive
-    QString absOutput = QFileInfo(outputPath).absoluteFilePath();
-    QString absTemp = QDir(tempDir).absolutePath();
-    QString psCmd = QString("Compress-Archive -Path '%1\\*' -DestinationPath '%2' -Force")
-                        .arg(absTemp.replace('/', '\\'))
-                        .arg(absOutput.replace('/', '\\'));
-    QStringList args;
-    args << "-NoProfile" << "-Command" << psCmd;
-    zipProcess.start("powershell.exe", args);
-#else
-    // macOS/Linux: 使用 zip 命令
-    QStringList args;
-    args << "-r" << outputPath << ".";
-    zipProcess.start("zip", args);
-#endif
-
-    if (!zipProcess.waitForFinished(30000)) {
-        m_lastError = "ZIP 打包超时";
-        emit errorOccurred(m_lastError);
-        return false;
-    }
-
-    if (zipProcess.exitCode() != 0) {
-        m_lastError = QString("ZIP 打包失败: %1").arg(QString::fromUtf8(zipProcess.readAllStandardError()));
+    if (!SimpleZipWriter::packDirectory(tempDir, outputPath)) {
+        m_lastError = QString("ZIP 打包失败: %1").arg(SimpleZipWriter::lastError());
         emit errorOccurred(m_lastError);
         return false;
     }
 
     return true;
 }
+

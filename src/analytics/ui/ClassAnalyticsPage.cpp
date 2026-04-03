@@ -12,6 +12,11 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QIcon>
+#include <QDir>
+#include <QDateTime>
+#include <QPrinter>
+#include <QPainter>
+#include <QTextDocument>
 #include <QtCharts/QChart>
 #include <QtCharts/QBarCategoryAxis>
 #include <QtCharts/QValueAxis>
@@ -709,5 +714,196 @@ void ClassAnalyticsPage::onAIRequestFinished()
 
 void ClassAnalyticsPage::onExportClicked()
 {
-    QMessageBox::information(this, "提示", "班级报告导出功能开发中...");
+    if (!m_dataSource || m_currentClassId < 0) {
+        QMessageBox::warning(this, "提示", "暂无班级数据可导出");
+        return;
+    }
+
+    auto cls = m_dataSource->getClass(m_currentClassId);
+    QString defaultName = QString("%1-学情分析报告.pdf").arg(cls.name());
+
+    QString fileName = QFileDialog::getSaveFileName(
+        this,
+        "导出班级分析报告",
+        QDir::homePath() + "/" + defaultName,
+        "PDF 文件 (*.pdf)"
+    );
+
+    if (fileName.isEmpty()) {
+        return;
+    }
+
+    QPrinter printer(QPrinter::ScreenResolution);
+    printer.setOutputFormat(QPrinter::PdfFormat);
+    printer.setOutputFileName(fileName);
+    printer.setPageSize(QPageSize(QPageSize::A4));
+    printer.setPageMargins(QMarginsF(15, 15, 15, 15), QPageLayout::Millimeter);
+
+    QPainter painter(&printer);
+    if (!painter.isActive()) {
+        QMessageBox::warning(this, "导出失败", "无法创建 PDF 文件");
+        return;
+    }
+
+    QRect pageRect = printer.pageRect(QPrinter::DevicePixel).toRect();
+    int pageWidth = pageRect.width();
+    int pageHeight = pageRect.height();
+    int margin = 40;
+    int contentWidth = pageWidth - 2 * margin;
+    int lineHeight = 28;
+    int sectionGap = 36;
+
+    // 字体
+    QFont titleFont("Microsoft YaHei", 22, QFont::Bold);
+    QFont subtitleFont("Microsoft YaHei", 14, QFont::Bold);
+    QFont contentFont("Microsoft YaHei", 11);
+    QFont smallFont("Microsoft YaHei", 9);
+
+    int yPos = margin;
+
+    // ========== 标题 ==========
+    painter.setFont(titleFont);
+    painter.setPen(QColor("#C00000"));
+    painter.drawText(QRect(margin, yPos, contentWidth, 44), Qt::AlignCenter,
+                     cls.name() + " 学情综合分析报告");
+    yPos += 52;
+
+    painter.setPen(QPen(QColor("#E2E8F0"), 2));
+    painter.drawLine(margin, yPos, pageWidth - margin, yPos);
+    yPos += 16;
+
+    painter.setFont(smallFont);
+    painter.setPen(QColor("#94A3B8"));
+    painter.drawText(QRect(margin, yPos, contentWidth, 20), Qt::AlignCenter,
+                     "生成时间: " + QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss"));
+    yPos += sectionGap;
+
+    // ========== 一、基本信息 ==========
+    auto stats = m_dataSource->getClassStatistics(m_currentClassId);
+
+    painter.setFont(subtitleFont);
+    painter.setPen(QColor("#1E293B"));
+    painter.drawText(margin, yPos, contentWidth, lineHeight, Qt::AlignLeft, "一、班级基本信息");
+    yPos += lineHeight + 8;
+
+    painter.setFont(contentFont);
+    painter.setPen(QColor("#475569"));
+
+    painter.drawText(margin + 20, yPos, contentWidth, lineHeight, Qt::AlignLeft,
+                     QString("• 班级名称: %1").arg(cls.name()));
+    yPos += lineHeight;
+    painter.drawText(margin + 20, yPos, contentWidth, lineHeight, Qt::AlignLeft,
+                     QString("• 学生人数: %1 人").arg(stats.totalStudents()));
+    yPos += lineHeight;
+    painter.drawText(margin + 20, yPos, contentWidth, lineHeight, Qt::AlignLeft,
+                     QString("• 班级平均分: %1").arg(QString::number(stats.averageScore(), 'f', 1)));
+    yPos += lineHeight;
+    painter.drawText(margin + 20, yPos, contentWidth, lineHeight, Qt::AlignLeft,
+                     QString("• 及格率: %1%").arg(QString::number(stats.passRate(), 'f', 1)));
+    yPos += sectionGap;
+
+    // ========== 二、成绩分布 ==========
+    painter.setFont(subtitleFont);
+    painter.setPen(QColor("#1E293B"));
+    painter.drawText(margin, yPos, contentWidth, lineHeight, Qt::AlignLeft, "二、成绩分布");
+    yPos += lineHeight + 8;
+
+    painter.setFont(contentFont);
+    painter.setPen(QColor("#475569"));
+
+    painter.drawText(margin + 20, yPos, contentWidth, lineHeight, Qt::AlignLeft,
+                     QString("• 优秀 (90-100分): %1 人").arg(stats.excellentCount()));
+    yPos += lineHeight;
+    painter.drawText(margin + 20, yPos, contentWidth, lineHeight, Qt::AlignLeft,
+                     QString("• 良好 (80-89分): %1 人").arg(stats.goodCount()));
+    yPos += lineHeight;
+    painter.drawText(margin + 20, yPos, contentWidth, lineHeight, Qt::AlignLeft,
+                     QString("• 及格 (60-79分): %1 人").arg(stats.passCount()));
+    yPos += lineHeight;
+    painter.drawText(margin + 20, yPos, contentWidth, lineHeight, Qt::AlignLeft,
+                     QString("• 不及格 (<60分): %1 人").arg(stats.failCount()));
+    yPos += sectionGap;
+
+    // ========== 三、优秀学生排名 ==========
+    painter.setFont(subtitleFont);
+    painter.setPen(QColor("#1E293B"));
+    painter.drawText(margin, yPos, contentWidth, lineHeight, Qt::AlignLeft, "三、优秀学生排名 (TOP 10)");
+    yPos += lineHeight + 8;
+
+    auto ranking = m_dataSource->getClassRanking(m_currentClassId);
+    int showCount = qMin(ranking.size(), 10);
+
+    painter.setFont(contentFont);
+    painter.setPen(QColor("#475569"));
+
+    for (int i = 0; i < showCount; ++i) {
+        if (yPos + lineHeight > pageHeight - margin) {
+            printer.newPage();
+            yPos = margin;
+        }
+        const auto &pair = ranking[i];
+        QString line = QString("  %1. %2 (学号: %3)   综合分: %4")
+            .arg(i + 1, 2)
+            .arg(pair.first.name())
+            .arg(pair.first.studentNo())
+            .arg(QString::number(pair.second, 'f', 1));
+        painter.drawText(margin + 20, yPos, contentWidth, lineHeight, Qt::AlignLeft, line);
+        yPos += lineHeight;
+    }
+    yPos += sectionGap / 2;
+
+    // ========== 四、薄弱知识点 ==========
+    if (yPos + lineHeight * 6 > pageHeight - margin) {
+        printer.newPage();
+        yPos = margin;
+    }
+
+    auto kps = m_dataSource->getClassKnowledgePoints(m_currentClassId);
+
+    painter.setFont(subtitleFont);
+    painter.setPen(QColor("#1E293B"));
+    painter.drawText(margin, yPos, contentWidth, lineHeight, Qt::AlignLeft, "四、重点关注薄弱知识点");
+    yPos += lineHeight + 8;
+
+    painter.setFont(contentFont);
+    painter.setPen(QColor("#475569"));
+
+    int kpCount = qMin(kps.size(), 5);
+    for (int i = 0; i < kpCount; ++i) {
+        QString line = QString("• %1 — 掌握率: %2%")
+            .arg(kps[i].name())
+            .arg(QString::number(kps[i].masteryRate(), 'f', 1));
+        painter.drawText(margin + 20, yPos, contentWidth, lineHeight, Qt::AlignLeft, line);
+        yPos += lineHeight;
+    }
+    yPos += sectionGap / 2;
+
+    // ========== 五、AI 智能建议 ==========
+    if (!m_currentAdvice.trimmed().isEmpty()) {
+        if (yPos + lineHeight * 3 > pageHeight - margin) {
+            printer.newPage();
+            yPos = margin;
+        }
+
+        painter.setFont(subtitleFont);
+        painter.setPen(QColor("#1E293B"));
+        painter.drawText(margin, yPos, contentWidth, lineHeight, Qt::AlignLeft, "五、AI 智能教学建议");
+        yPos += lineHeight + 10;
+
+        QTextDocument doc;
+        doc.setDefaultFont(contentFont);
+        doc.setTextWidth(contentWidth - 20);
+        doc.setPlainText(m_currentAdvice);
+
+        painter.save();
+        painter.translate(margin + 20, yPos);
+        painter.setPen(QColor("#475569"));
+        doc.drawContents(&painter);
+        painter.restore();
+    }
+
+    painter.end();
+
+    QMessageBox::information(this, "导出成功",
+                             QString("班级分析报告已导出到:\n%1").arg(fileName));
 }

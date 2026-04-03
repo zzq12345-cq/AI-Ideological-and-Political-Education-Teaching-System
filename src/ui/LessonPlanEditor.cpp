@@ -850,6 +850,11 @@ QString LessonPlanEditor::buildAIPrompt() const
 
 void LessonPlanEditor::onAIStreamChunk(const QString &chunk)
 {
+    // 只在教案生成阶段处理流式回调，避免接收到聊天对话的内容
+    if (!m_isGenerating) {
+        return;
+    }
+
     // 累积Markdown内容
     m_accumulatedMarkdown += chunk;
 
@@ -867,6 +872,10 @@ void LessonPlanEditor::onAIStreamChunk(const QString &chunk)
 
 void LessonPlanEditor::onAIFinished()
 {
+    if (!m_isGenerating) {
+        return;
+    }
+
     m_isGenerating = false;
     m_aiGenerateBtn->setEnabled(true);
     m_aiGenerateBtn->setIcon(QIcon(":/icons/resources/icons/ai-sparkle.svg"));
