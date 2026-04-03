@@ -15,6 +15,7 @@ set(CMAKE_AUTORCC ON)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network QuickWidgets Svg SvgWidgets PrintSupport Concurrent)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Charts QuickWidgets Svg SvgWidgets PrintSupport Concurrent)
+find_package(ZLIB REQUIRED)
 
 set(PROJECT_SOURCES
     src/main/main.cpp
@@ -79,6 +80,8 @@ set(PROJECT_SOURCES
     src/utils/FailedTaskTracker.cpp
     src/utils/FailedTaskTracker.h
     src/utils/LayoutUtils.h
+    src/utils/SimpleZipWriter.cpp
+    src/utils/SimpleZipWriter.h
     src/ui/ChatHistoryWidget.cpp
     src/ui/ChatHistoryWidget.h
     src/ui/NetworkImageTextBrowser.cpp
@@ -188,6 +191,7 @@ target_link_libraries(AILoginSystem PRIVATE
     Qt${QT_VERSION_MAJOR}::SvgWidgets
     Qt${QT_VERSION_MAJOR}::PrintSupport
     Qt${QT_VERSION_MAJOR}::Concurrent
+    ZLIB::ZLIB
 )
 
 if(APPLE)

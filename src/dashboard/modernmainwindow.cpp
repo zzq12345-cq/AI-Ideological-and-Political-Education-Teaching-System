@@ -884,12 +884,15 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
         qDebug() << "[Info] Dify API Key loaded.";
     }
 
-    QString zhipuApiKey = AppConfig::get("ZHIPU_API_KEY");
+    QString zhipuApiKey = AppConfig::get("ZHIPU_API_KEY", EmbeddedKeys::ZHIPU_API_KEY);
     if (!zhipuApiKey.isEmpty()) {
         qDebug() << "[Info] Zhipu API Key loaded.";
     }
 
-    QString zhipuBaseUrl = AppConfig::get("ZHIPU_BASE_URL", "https://open.bigmodel.cn/api/coding/paas/v4");
+    QString zhipuBaseUrl = AppConfig::get("ZHIPU_BASE_URL", EmbeddedKeys::ZHIPU_BASE_URL);
+    if (zhipuBaseUrl.isEmpty()) {
+        zhipuBaseUrl = QStringLiteral("https://open.bigmodel.cn/api/coding/paas/v4");
+    }
 
     const bool hasDifyApiKey = !difyApiKey.isEmpty();
     if (hasDifyApiKey) {

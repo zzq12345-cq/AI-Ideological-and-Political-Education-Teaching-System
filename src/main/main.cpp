@@ -90,10 +90,26 @@ int main(int argc, char *argv[])
     palette.setColor(QPalette::BrightText, QColor("#FFFFFF"));
     palette.setColor(QPalette::Highlight, QColor("#E53935"));
     palette.setColor(QPalette::HighlightedText, QColor("#FFFFFF"));
-    palette.setColor(QPalette::ToolTipBase, QColor("#212121"));
-    palette.setColor(QPalette::ToolTipText, QColor("#FFFFFF"));
+    palette.setColor(QPalette::ToolTipBase, QColor("#FFFDE7"));
+    palette.setColor(QPalette::ToolTipText, QColor("#212121"));
     palette.setColor(QPalette::PlaceholderText, QColor("#9E9E9E"));
     app.setPalette(palette);
+
+    // 全局修正 QMessageBox / QDialog 在 Windows 暗色模式下的样式
+    app.setStyleSheet(app.styleSheet() + QStringLiteral(
+        "QMessageBox { background-color: #FFFFFF; }"
+        "QMessageBox QLabel { color: #212121; background: transparent; }"
+        "QMessageBox QPushButton {"
+        "    background-color: #F5F5F5;"
+        "    color: #212121;"
+        "    border: 1px solid #E0E0E0;"
+        "    border-radius: 6px;"
+        "    padding: 6px 20px;"
+        "    min-width: 70px;"
+        "}"
+        "QMessageBox QPushButton:hover { background-color: #EEEEEE; }"
+        "QMessageBox QPushButton:pressed { background-color: #E0E0E0; }"
+    ));
 
     // 配置网络代理（从环境变量读取）
     configureApplicationProxy();
