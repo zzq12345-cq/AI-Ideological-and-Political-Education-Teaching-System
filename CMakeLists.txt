@@ -15,7 +15,25 @@ set(CMAKE_AUTORCC ON)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network QuickWidgets Svg SvgWidgets PrintSupport Concurrent)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Charts QuickWidgets Svg SvgWidgets PrintSupport Concurrent)
-find_package(ZLIB REQUIRED)
+# zlib: 系统有就用系统的，Windows 上使用 Qt 内置 bundled zlib
+find_package(ZLIB QUIET)
+if(NOT ZLIB_FOUND AND WIN32)
+    # Qt 6 在 Windows 上自带 zlib 头文件(QtZlib)和静态库
+    set(QT_ZLIB_INCLUDE "${Qt${QT_VERSION_MAJOR}_DIR}/../../include/QtZlib")
+    if(EXISTS "${QT_ZLIB_INCLUDE}/zlib.h")
+        message(STATUS "Using Qt bundled zlib from: ${QT_ZLIB_INCLUDE}")
+        add_library(qt_bundled_zlib INTERFACE)
+        target_include_directories(qt_bundled_zlib INTERFACE "${QT_ZLIB_INCLUDE}")
+        # Qt 6 MSVC 构建中，zlib 静态库在 Qt lib 目录
+        find_library(QT_ZLIB_LIB NAMES zlib z PATHS "${Qt${QT_VERSION_MAJOR}_DIR}/../../lib" NO_DEFAULT_PATH)
+        if(QT_ZLIB_LIB)
+            target_link_libraries(qt_bundled_zlib INTERFACE "${QT_ZLIB_LIB}")
+        endif()
+    else()
+        message(STATUS "System ZLIB not found, using Qt Core bundled zlib")
+        add_library(qt_bundled_zlib INTERFACE)
+    endif()
+endif()
 
 set(PROJECT_SOURCES
     src/main/main.cpp
@@ -191,7 +209,8 @@ target_link_libraries(AILoginSystem PRIVATE
     Qt${QT_VERSION_MAJOR}::SvgWidgets
     Qt${QT_VERSION_MAJOR}::PrintSupport
     Qt${QT_VERSION_MAJOR}::Concurrent
-    ZLIB::ZLIB
+    $<$<TARGET_EXISTS:ZLIB::ZLIB>:ZLIB::ZLIB>
+    $<$<TARGET_EXISTS:qt_bundled_zlib>:qt_bundled_zlib>
 )
 
 if(APPLE)
