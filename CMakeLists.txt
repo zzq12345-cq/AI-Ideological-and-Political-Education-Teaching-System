@@ -18,19 +18,36 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Charts Qu
 # zlib: 系统有就用系统的，Windows 上使用 Qt 内置 bundled zlib
 find_package(ZLIB QUIET)
 if(NOT ZLIB_FOUND AND WIN32)
-    # Qt 6 在 Windows 上自带 zlib 头文件(QtZlib)和静态库
-    set(QT_ZLIB_INCLUDE "${Qt${QT_VERSION_MAJOR}_DIR}/../../include/QtZlib")
-    if(EXISTS "${QT_ZLIB_INCLUDE}/zlib.h")
-        message(STATUS "Using Qt bundled zlib from: ${QT_ZLIB_INCLUDE}")
+    # Qt 6 在 Windows 上自带 zlib 头文件和静态库
+    # 获取 Qt 安装根目录
+    get_target_property(_qt_include_dir Qt${QT_VERSION_MAJOR}::Core INTERFACE_INCLUDE_DIRECTORIES)
+    # 从 Qt include 路径推断根目录（取第一个路径的父目录）
+    list(GET _qt_include_dir 0 _qt_first_include)
+    get_filename_component(_qt_root "${_qt_first_include}" DIRECTORY)
+
+    # 尝试多种可能的 zlib.h 路径
+    foreach(_zlib_candidate
+        "${_qt_root}/include/QtZlib"
+        "${_qt_root}/QtZlib"
+        "${_qt_first_include}/QtZlib"
+    )
+        if(EXISTS "${_zlib_candidate}/zlib.h")
+            set(_qt_zlib_include "${_zlib_candidate}")
+            break()
+        endif()
+    endforeach()
+
+    if(_qt_zlib_include)
+        message(STATUS "Using Qt bundled zlib from: ${_qt_zlib_include}")
         add_library(qt_bundled_zlib INTERFACE)
-        target_include_directories(qt_bundled_zlib INTERFACE "${QT_ZLIB_INCLUDE}")
-        # Qt 6 MSVC 构建中，zlib 静态库在 Qt lib 目录
-        find_library(QT_ZLIB_LIB NAMES zlib z PATHS "${Qt${QT_VERSION_MAJOR}_DIR}/../../lib" NO_DEFAULT_PATH)
+        target_include_directories(qt_bundled_zlib INTERFACE "${_qt_zlib_include}")
+        # 查找 zlib 静态库
+        find_library(QT_ZLIB_LIB NAMES zlib z PATHS "${_qt_root}/lib" NO_DEFAULT_PATH)
         if(QT_ZLIB_LIB)
             target_link_libraries(qt_bundled_zlib INTERFACE "${QT_ZLIB_LIB}")
         endif()
     else()
-        message(STATUS "System ZLIB not found, using Qt Core bundled zlib")
+        message(WARNING "Cannot find Qt bundled zlib.h, SimpleZipWriter may fail to compile")
         add_library(qt_bundled_zlib INTERFACE)
     endif()
 endif()
