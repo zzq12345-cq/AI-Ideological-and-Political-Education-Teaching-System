@@ -306,6 +306,10 @@ public:
         button->setCursor(Qt::PointingHandCursor);
         button->setProperty("cardState", "base");
 
+        // 在构造时记录原始位置，避免动画期间 Enter 事件覆盖导致漂移
+        basePos = button->pos();
+        basePosInitialized = true;
+
         shadowEffect = qobject_cast<QGraphicsDropShadowEffect *>(button->graphicsEffect());
         if (!shadowEffect) {
             shadowEffect = new QGraphicsDropShadowEffect(button);
@@ -356,7 +360,11 @@ protected:
         switch (event->type()) {
         case QEvent::Enter:
             hovered = true;
-            basePos = button->pos();
+            // 不在 Enter 时覆盖 basePos，避免动画中间态被当作基准
+            if (!basePosInitialized) {
+                basePos = button->pos();
+                basePosInitialized = true;
+            }
             animateToState();
             updateVisualState();
             break;
@@ -367,7 +375,8 @@ protected:
             updateVisualState();
             break;
         case QEvent::Move:
-            if (!hovered) {
+            // 仅在非 hovered 且动画未运行时更新基准位置
+            if (!hovered && liftAnimation->state() != QAbstractAnimation::Running) {
                 basePos = button->pos();
             }
             break;
@@ -454,6 +463,7 @@ private:
     QVariantAnimation *yOffsetAnimation = nullptr;
     QVariantAnimation *shadowColorAnimation = nullptr;
     QPoint basePos;
+    bool basePosInitialized = false;
     qreal baseBlur = 18.0;
     qreal baseYOffset = 6.0;
     QColor baseShadowColor = QColor(15, 23, 42, 35);
@@ -705,6 +715,10 @@ public:
         card->installEventFilter(this);
         card->setProperty("cardState", "base");
 
+        // 在构造时记录原始位置，避免动画期间 Enter 事件覆盖导致漂移
+        basePos = card->pos();
+        frameBasePosInitialized = true;
+
         shadowEffect = qobject_cast<QGraphicsDropShadowEffect *>(card->graphicsEffect());
         if (!shadowEffect) {
             shadowEffect = new QGraphicsDropShadowEffect(card);
@@ -755,7 +769,11 @@ protected:
         switch (event->type()) {
         case QEvent::Enter:
             hovered = true;
-            basePos = card->pos();
+            // 不在 Enter 时覆盖 basePos，避免动画中间态被当作基准
+            if (!frameBasePosInitialized) {
+                basePos = card->pos();
+                frameBasePosInitialized = true;
+            }
             animateState();
             updateVisualState();
             break;
@@ -765,7 +783,8 @@ protected:
             updateVisualState();
             break;
         case QEvent::Move:
-            if (!hovered) {
+            // 仅在非 hovered 且动画未运行时更新基准位置
+            if (!hovered && liftAnimation->state() != QAbstractAnimation::Running) {
                 basePos = card->pos();
             }
             break;
@@ -827,6 +846,7 @@ private:
     QVariantAnimation *yOffsetAnimation = nullptr;
     QVariantAnimation *shadowColorAnimation = nullptr;
     QPoint basePos;
+    bool frameBasePosInitialized = false;
     qreal baseBlur = 20.0;
     qreal baseYOffset = 8.0;
     QColor baseShadowColor = QColor(15, 23, 42, 30);

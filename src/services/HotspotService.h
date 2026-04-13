@@ -44,6 +44,12 @@ public:
      * @param category 分类筛选（空字符串表示全部）
      */
     void refreshHotNews(const QString &category = QString());
+
+    /**
+     * @brief 切换当前分类
+     * @param category 分类筛选（空字符串表示全部）
+     */
+    void setActiveCategory(const QString &category = QString());
     
     /**
      * @brief 搜索新闻
@@ -108,6 +114,11 @@ private slots:
 private:
     INewsProvider *m_newsProvider;
     QList<NewsItem> m_cachedNews;
+    QList<NewsItem> m_fullNewsCache;
+    QString m_activeCategory;
+    QString m_loadedCategory;
+    QString m_lastRequestedCategory;
+    bool m_hasLoadedCategoryData;
     bool m_ownsProvider;  // 是否拥有 provider 的所有权
 };
 

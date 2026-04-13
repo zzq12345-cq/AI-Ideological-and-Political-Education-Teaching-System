@@ -4,6 +4,7 @@
 #include "INewsProvider.h"
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QtGlobal>
 
 /**
  * @brief 真实新闻提供者
@@ -83,6 +84,9 @@ private:
     int m_pendingRSSCount;
     int m_pendingTianXingCount;  // 天行 API 请求计数
     QList<NewsItem> m_aggregatedNews;
+    quint64 m_activeRequestId;
+    bool m_shouldFallbackToRSS;
+    bool m_rssFallbackInProgress;
 
     // 缓存
     QList<NewsItem> m_cachedNews;

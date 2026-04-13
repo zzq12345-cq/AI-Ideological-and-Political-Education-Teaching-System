@@ -129,6 +129,8 @@ set(PROJECT_SOURCES
     src/hotspot/NewsItem.h
     src/hotspot/MockNewsProvider.cpp
     src/hotspot/MockNewsProvider.h
+    src/hotspot/NewsCategoryUtils.cpp
+    src/hotspot/NewsCategoryUtils.h
     src/hotspot/RealNewsProvider.cpp
     src/hotspot/RealNewsProvider.h
     src/settings/UserSettingsDialog.cpp

@@ -504,75 +504,86 @@ void HotspotTrackingWidget::createCategoryFilter()
 
     QHBoxLayout *categoryLayout = new QHBoxLayout(m_categoryFrame);
     categoryLayout->setContentsMargins(4, 8, 0, 8);
-    categoryLayout->setSpacing(16);
+    categoryLayout->setSpacing(12);
 
     // 分类标签装饰
     QLabel *filterIcon = new QLabel();
     filterIcon->setPixmap(QIcon(":/icons/resources/icons/menu.svg").pixmap(18, 18));
     filterIcon->setStyleSheet("background: transparent;");
 
-    QLabel *filterLabel = new QLabel("筛选分类");
+    QLabel *filterLabel = new QLabel("筛选");
     filterLabel->setStyleSheet(QString(
         "color: %1; font-size: 14px; font-weight: 600; background: transparent;"
     ).arg(StyleConfig::TEXT_SECONDARY));
 
     categoryLayout->addWidget(filterIcon);
     categoryLayout->addWidget(filterLabel);
-    categoryLayout->addSpacing(8);
+    categoryLayout->addSpacing(4);
 
     // 分隔线
     QFrame *separator = new QFrame();
     separator->setFixedSize(1, 24);
     separator->setStyleSheet(QString("background-color: %1;").arg(StyleConfig::BORDER_LIGHT));
     categoryLayout->addWidget(separator);
-    categoryLayout->addSpacing(8);
+    categoryLayout->addSpacing(4);
 
     m_categoryGroup = new QButtonGroup(this);
     m_categoryGroup->setExclusive(true);
 
-    // 使用图标+文字的组合
-    QStringList categories = {"全部", "国内", "国际"};
-    QStringList categoryIcons = {":/icons/resources/icons/dashboard.svg",
-                                  ":/icons/resources/icons/pin.svg",
-                                  ":/icons/resources/icons/analytics.svg"};
+    // 思政教育维度分类 — 扩充至 9 个
+    struct CategoryDef {
+        QString name;
+        QString icon;
+    };
+    QList<CategoryDef> categories = {
+        {"全部",   ":/icons/resources/icons/dashboard.svg"},
+        {"国内",   ":/icons/resources/icons/pin.svg"},
+        {"国际",   ":/icons/resources/icons/analytics.svg"},
+        {"党建",   ":/icons/resources/icons/award.svg"},
+        {"经济",   ":/icons/resources/icons/chart-bar.svg"},
+        {"外交",   ":/icons/resources/icons/users.svg"},
+        {"教育",   ":/icons/resources/icons/graduation.svg"},
+        {"科技",   ":/icons/resources/icons/lightbulb.svg"},
+        {"军事",   ":/icons/resources/icons/building.svg"}
+    };
+
+    // 胶囊按钮公共样式
+    QString btnStyle = QString(
+        "QPushButton {"
+        "    background-color: %1;"
+        "    color: %2;"
+        "    border: 1.5px solid %3;"
+        "    border-radius: 19px;"
+        "    padding: 0 18px;"
+        "    font-size: 13px;"
+        "    font-weight: 600;"
+        "}"
+        "QPushButton:checked {"
+        "    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,"
+        "        stop:0 %4, stop:1 #C62828);"
+        "    color: white;"
+        "    border: none;"
+        "}"
+        "QPushButton:hover:!checked {"
+        "    background-color: %5;"
+        "    color: %4;"
+        "    border-color: %6;"
+        "}"
+        "QPushButton:pressed {"
+        "    background-color: %6;"
+        "}"
+    ).arg(StyleConfig::BG_CARD, StyleConfig::TEXT_SECONDARY, StyleConfig::BORDER_LIGHT,
+         StyleConfig::PATRIOTIC_RED, StyleConfig::PATRIOTIC_RED_TINT, StyleConfig::PATRIOTIC_RED_LIGHT);
 
     for (int i = 0; i < categories.size(); ++i) {
-        QPushButton *btn = new QPushButton(categories[i]);
-        btn->setIcon(QIcon(categoryIcons[i]));
-        btn->setIconSize(QSize(16, 16));
+        QPushButton *btn = new QPushButton(categories[i].name);
+        btn->setIcon(QIcon(categories[i].icon));
+        btn->setIconSize(QSize(15, 15));
         btn->setCheckable(true);
         btn->setCursor(Qt::PointingHandCursor);
-        btn->setFixedHeight(42);
+        btn->setFixedHeight(38);
+        btn->setStyleSheet(btnStyle);
 
-        // 更精致的胶囊按钮 - 选中态有渐变背景
-        btn->setStyleSheet(QString(
-            "QPushButton {"
-            "    background-color: %1;"
-            "    color: %2;"
-            "    border: 1.5px solid %3;"
-            "    border-radius: 21px;"
-            "    padding: 0 22px;"
-            "    font-size: 14px;"
-            "    font-weight: 600;"
-            "}"
-            "QPushButton:checked {"
-            "    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,"
-            "        stop:0 %4, stop:1 #C62828);"
-            "    color: white;"
-            "    border: none;"
-            "}"
-            "QPushButton:hover:!checked {"
-            "    background-color: %5;"
-            "    color: %4;"
-            "    border-color: %6;"
-            "}"
-            "QPushButton:pressed {"
-            "    background-color: %6;"
-            "}"
-        ).arg(StyleConfig::BG_CARD, StyleConfig::TEXT_SECONDARY, StyleConfig::BORDER_LIGHT,
-             StyleConfig::PATRIOTIC_RED, StyleConfig::PATRIOTIC_RED_TINT, StyleConfig::PATRIOTIC_RED_LIGHT));
-
-        // 选中态添加阴影 - 移除可能导致崩溃的阴影效果
         if (i == 0) {
             btn->setChecked(true);
         }
@@ -585,9 +596,9 @@ void HotspotTrackingWidget::createCategoryFilter()
     categoryLayout->addStretch();
 
     // 右侧数据来源标识
-    QLabel *sourceLabel = new QLabel("数据来源：人民日报 · 新华社 · BBC中文");
+    QLabel *sourceLabel = new QLabel("数据来源：人民日报 · 新华社 · BBC中文 · 天行数据");
     sourceLabel->setStyleSheet(QString(
-        "color: %1; font-size: 12px; background: transparent;"
+        "color: %1; font-size: 11px; background: transparent;"
     ).arg(StyleConfig::TEXT_LIGHT));
     categoryLayout->addWidget(sourceLabel);
 
@@ -1034,7 +1045,7 @@ void HotspotTrackingWidget::onSearchTextChanged(const QString &text)
 {
     if (m_hotspotService) {
         if (text.trimmed().isEmpty()) {
-            m_hotspotService->refreshHotNews(m_currentCategory);
+            m_hotspotService->setActiveCategory(m_currentCategory);
         } else {
             m_hotspotService->searchNews(text);
         }
@@ -1048,14 +1059,15 @@ void HotspotTrackingWidget::performSearchDebounced()
 
 void HotspotTrackingWidget::onCategoryChanged(int categoryIndex)
 {
-    QStringList categories = {"", "国内", "国际"};
+    // 分类顺序必须与 createCategoryFilter 中的定义一致
+    QStringList categories = {"", "国内", "国际", "党建", "经济", "外交", "教育", "科技", "军事"};
     m_currentCategory = (categoryIndex > 0 && categoryIndex < categories.size())
                         ? categories[categoryIndex] : "";
 
     qDebug() << "[HotspotTrackingWidget] Category changed to:" << m_currentCategory;
 
     if (m_hotspotService) {
-        m_hotspotService->refreshHotNews(m_currentCategory);
+        m_hotspotService->setActiveCategory(m_currentCategory);
     }
 }
 

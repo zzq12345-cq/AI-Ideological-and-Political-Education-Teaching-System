@@ -1,13 +1,30 @@
 #include "HotspotService.h"
 #include "../hotspot/INewsProvider.h"
 #include "../hotspot/MockNewsProvider.h"
+#include "../hotspot/NewsCategoryUtils.h"
 #include "DifyService.h"
 #include <QDebug>
 #include <memory>
 
+namespace {
+
+constexpr int kCategoryDisplayLimit = 26;
+constexpr int kFullFeedCacheLimit = 50;
+
+QList<NewsItem> limitForDisplay(const QList<NewsItem> &items, const QString &category)
+{
+    if (NewsCategoryUtils::isRemoteCategory(category) && items.size() > kCategoryDisplayLimit) {
+        return items.mid(0, kCategoryDisplayLimit);
+    }
+    return items;
+}
+
+} // namespace
+
 HotspotService::HotspotService(QObject *parent)
     : QObject(parent)
     , m_newsProvider(nullptr)
+    , m_hasLoadedCategoryData(false)
     , m_ownsProvider(false)
 {
     // 默认使用模拟数据提供者
@@ -32,6 +49,12 @@ void HotspotService::setNewsProvider(INewsProvider *provider)
     
     m_newsProvider = provider;
     m_ownsProvider = false;
+    m_cachedNews.clear();
+    m_fullNewsCache.clear();
+    m_activeCategory.clear();
+    m_loadedCategory.clear();
+    m_lastRequestedCategory.clear();
+    m_hasLoadedCategoryData = false;
     
     if (m_newsProvider) {
         connect(m_newsProvider, &INewsProvider::newsListReceived,
@@ -55,26 +78,62 @@ void HotspotService::refreshHotNews(const QString &category)
         emit errorOccurred("新闻提供者未设置");
         return;
     }
-    
-    qDebug() << "[HotspotService] Refreshing hot news, category:" << category;
-    // 国内13条 + 国际13条 = 26条
-    m_newsProvider->fetchHotNews(26, category);
+
+    m_activeCategory = NewsCategoryUtils::normalizeCategory(category);
+    qDebug() << "[HotspotService] Refreshing hot news, category:" << m_activeCategory;
+
+    const bool needsFullFeedCache = m_activeCategory.isEmpty() || !NewsCategoryUtils::isRemoteCategory(m_activeCategory);
+    const int requestLimit = needsFullFeedCache ? kFullFeedCacheLimit : kCategoryDisplayLimit;
+    const QString requestCategory = needsFullFeedCache ? QString() : m_activeCategory;
+
+    m_lastRequestedCategory = requestCategory;
+    m_newsProvider->fetchHotNews(requestLimit, requestCategory);
 }
 
-void HotspotService::searchNews(const QString &keyword)
+void HotspotService::setActiveCategory(const QString &category)
 {
     if (!m_newsProvider) {
         emit errorOccurred("新闻提供者未设置");
         return;
     }
-    
-    if (keyword.trimmed().isEmpty()) {
-        refreshHotNews();
+
+    m_activeCategory = NewsCategoryUtils::normalizeCategory(category);
+    qDebug() << "[HotspotService] Switching active category to:" << m_activeCategory;
+
+    if (m_hasLoadedCategoryData && m_loadedCategory == m_activeCategory) {
+        emit hotNewsUpdated(m_cachedNews);
         return;
     }
-    
+
+    if (NewsCategoryUtils::isRemoteCategory(m_activeCategory)) {
+        const int requestLimit = m_activeCategory.isEmpty() ? kFullFeedCacheLimit : kCategoryDisplayLimit;
+        m_lastRequestedCategory = m_activeCategory;
+        m_newsProvider->fetchHotNews(requestLimit, m_activeCategory);
+        return;
+    }
+
+    if (m_fullNewsCache.isEmpty()) {
+        qDebug() << "[HotspotService] 本地分类缓存为空，先拉取全部新闻";
+        m_lastRequestedCategory.clear();
+        m_newsProvider->fetchHotNews(kFullFeedCacheLimit, QString());
+        return;
+    }
+
+    m_cachedNews = NewsCategoryUtils::filterNewsByCategory(m_fullNewsCache, m_activeCategory);
+    m_loadedCategory = m_activeCategory;
+    m_hasLoadedCategoryData = true;
+    emit hotNewsUpdated(m_cachedNews);
+}
+
+void HotspotService::searchNews(const QString &keyword)
+{
+    if (keyword.trimmed().isEmpty()) {
+        setActiveCategory(m_activeCategory);
+        return;
+    }
+
     qDebug() << "[HotspotService] Searching news:" << keyword;
-    m_newsProvider->searchNews(keyword);
+    emit hotNewsUpdated(NewsCategoryUtils::searchNews(m_cachedNews, keyword));
 }
 
 void HotspotService::fetchNewsDetail(const QString &newsId)
@@ -131,14 +190,29 @@ void HotspotService::generateTeachingContent(const NewsItem &news, DifyService *
 
 QStringList HotspotService::availableCategories() const
 {
-    return QStringList() << "全部" << "国内" << "国际";
+    return NewsCategoryUtils::allCategories();
 }
 
 void HotspotService::onNewsListReceived(const QList<NewsItem> &newsList)
 {
-    m_cachedNews = newsList;
-    qDebug() << "[HotspotService] Received" << newsList.size() << "news items";
-    emit hotNewsUpdated(newsList);
+    if (m_lastRequestedCategory.isEmpty()) {
+        m_fullNewsCache = newsList;
+    }
+
+    QList<NewsItem> displayNews;
+    if (NewsCategoryUtils::isRemoteCategory(m_activeCategory)) {
+        displayNews = limitForDisplay(newsList, m_activeCategory);
+    } else {
+        const QList<NewsItem> &sourceNews = m_fullNewsCache.isEmpty() ? newsList : m_fullNewsCache;
+        displayNews = NewsCategoryUtils::filterNewsByCategory(sourceNews, m_activeCategory);
+    }
+
+    m_cachedNews = displayNews;
+    m_loadedCategory = m_activeCategory;
+    m_hasLoadedCategoryData = true;
+
+    qDebug() << "[HotspotService] Received" << newsList.size() << "news items, display" << displayNews.size();
+    emit hotNewsUpdated(displayNews);
 }
 
 void HotspotService::onNewsDetailReceived(const NewsItem &news)
