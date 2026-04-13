@@ -18,6 +18,7 @@ Makefile
 # Build directories
 build/
 build-*/
+build_release/
 debug/
 release/
 Debug/
