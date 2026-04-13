@@ -62,9 +62,11 @@ private:
     void fetchFromTouTiaoHotBoard();  // 今日头条热榜（备用）
     void fetchFromHanXiaoHan();
     void fetchFromTianXing(int limit, const QString &category);
+    void fetchFromNeteaseChannel(const QString &channel, const QString &categoryLabel, int count);  // 网易新闻各频道
     void fetchFromRSS();
     void finalizeNewsAggregation();  // 聚合完成后统一处理
     QList<NewsItem> filterPoliticalNews(const QList<NewsItem> &items);  // 筛选思政新闻
+    QList<NewsItem> filterByKeywords(const QList<NewsItem> &items, const QStringList &keywords);
     QList<NewsItem> parseTouTiaoResponse(const QByteArray &data);  // 解析网易新闻
     QList<NewsItem> parseTouTiaoHotBoardResponse(const QByteArray &data);  // 解析今日头条热榜
     QList<NewsItem> parseHanXiaoHanResponse(const QByteArray &data);

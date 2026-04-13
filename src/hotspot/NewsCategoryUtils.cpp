@@ -123,8 +123,21 @@ QList<NewsItem> filterNewsByCategory(const QList<NewsItem> &items, const QString
         return items;
     }
 
+    // 专用频道来源映射 — 来自这些来源的新闻直接放行，无需关键词过滤
+    // 因为 RSS 源本身就是该分类的专属频道
+    static const QMap<QString, QStringList> dedicatedSources = {
+        {"军事", {"人民网-军事", "中国军网"}},
+        {"教育", {"人民网-教育", "中国教育报"}},
+        {"经济", {"人民网-财经"}},
+        {"外交", {"人民网-国际"}},
+        {"科技", {}},
+    };
+
     QList<NewsItem> filtered;
     filtered.reserve(items.size());
+
+    // 获取当前分类的专用来源列表
+    const QStringList dedicated = dedicatedSources.value(normalizedCategory);
 
     for (const NewsItem &item : items) {
         if (normalizedCategory == "国内") {
@@ -141,7 +154,16 @@ QList<NewsItem> filterNewsByCategory(const QList<NewsItem> &items, const QString
             continue;
         }
 
-        if (matchesKeywordCategory(item, normalizedCategory)) {
+        // 检查是否来自专用频道 — 直接放行
+        bool fromDedicatedSource = false;
+        for (const QString &src : dedicated) {
+            if (item.source.contains(src, Qt::CaseInsensitive)) {
+                fromDedicatedSource = true;
+                break;
+            }
+        }
+
+        if (fromDedicatedSource || matchesKeywordCategory(item, normalizedCategory)) {
             filtered.append(item);
         }
     }

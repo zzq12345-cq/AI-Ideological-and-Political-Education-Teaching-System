@@ -10,6 +10,7 @@ namespace {
 
 constexpr int kCategoryDisplayLimit = 26;
 constexpr int kFullFeedCacheLimit = 50;
+constexpr int kThematicLocalThreshold = 8;
 
 QList<NewsItem> limitForDisplay(const QList<NewsItem> &items, const QString &category)
 {
@@ -82,8 +83,12 @@ void HotspotService::refreshHotNews(const QString &category)
     m_activeCategory = NewsCategoryUtils::normalizeCategory(category);
     qDebug() << "[HotspotService] Refreshing hot news, category:" << m_activeCategory;
 
-    const bool needsFullFeedCache = m_activeCategory.isEmpty() || !NewsCategoryUtils::isRemoteCategory(m_activeCategory);
-    const int requestLimit = needsFullFeedCache ? kFullFeedCacheLimit : kCategoryDisplayLimit;
+    const bool requestDedicatedCategory =
+        !m_activeCategory.isEmpty() && !NewsCategoryUtils::isRemoteCategory(m_activeCategory);
+    const bool needsFullFeedCache = m_activeCategory.isEmpty();
+    const int requestLimit = (needsFullFeedCache || requestDedicatedCategory)
+        ? kFullFeedCacheLimit
+        : kCategoryDisplayLimit;
     const QString requestCategory = needsFullFeedCache ? QString() : m_activeCategory;
 
     m_lastRequestedCategory = requestCategory;
@@ -100,7 +105,9 @@ void HotspotService::setActiveCategory(const QString &category)
     m_activeCategory = NewsCategoryUtils::normalizeCategory(category);
     qDebug() << "[HotspotService] Switching active category to:" << m_activeCategory;
 
-    if (m_hasLoadedCategoryData && m_loadedCategory == m_activeCategory) {
+    if (m_hasLoadedCategoryData &&
+        m_loadedCategory == m_activeCategory &&
+        (NewsCategoryUtils::isRemoteCategory(m_activeCategory) || m_lastRequestedCategory == m_activeCategory)) {
         emit hotNewsUpdated(m_cachedNews);
         return;
     }
@@ -112,17 +119,21 @@ void HotspotService::setActiveCategory(const QString &category)
         return;
     }
 
-    if (m_fullNewsCache.isEmpty()) {
-        qDebug() << "[HotspotService] 本地分类缓存为空，先拉取全部新闻";
-        m_lastRequestedCategory.clear();
-        m_newsProvider->fetchHotNews(kFullFeedCacheLimit, QString());
-        return;
+    QList<NewsItem> localFiltered;
+    if (!m_fullNewsCache.isEmpty()) {
+        localFiltered = NewsCategoryUtils::filterNewsByCategory(m_fullNewsCache, m_activeCategory);
+        m_cachedNews = localFiltered;
+        m_loadedCategory = m_activeCategory;
+        m_hasLoadedCategoryData = true;
+        emit hotNewsUpdated(m_cachedNews);
     }
 
-    m_cachedNews = NewsCategoryUtils::filterNewsByCategory(m_fullNewsCache, m_activeCategory);
-    m_loadedCategory = m_activeCategory;
-    m_hasLoadedCategoryData = true;
-    emit hotNewsUpdated(m_cachedNews);
+    const bool needsDedicatedFetch = m_fullNewsCache.isEmpty() || localFiltered.size() < kThematicLocalThreshold;
+    if (needsDedicatedFetch) {
+        qDebug() << "[HotspotService] 本地分类结果较少，拉取专属数据源:" << m_activeCategory;
+        m_lastRequestedCategory = m_activeCategory;
+        m_newsProvider->fetchHotNews(kFullFeedCacheLimit, m_activeCategory);
+    }
 }
 
 void HotspotService::searchNews(const QString &keyword)
@@ -195,12 +206,22 @@ QStringList HotspotService::availableCategories() const
 
 void HotspotService::onNewsListReceived(const QList<NewsItem> &newsList)
 {
+    const bool requestedSpecificThematic =
+        !m_lastRequestedCategory.isEmpty() && !NewsCategoryUtils::isRemoteCategory(m_lastRequestedCategory);
+
     if (m_lastRequestedCategory.isEmpty()) {
         m_fullNewsCache = newsList;
     }
 
     QList<NewsItem> displayNews;
-    if (NewsCategoryUtils::isRemoteCategory(m_activeCategory)) {
+    if (requestedSpecificThematic) {
+        if (newsList.isEmpty() && !m_cachedNews.isEmpty() && m_loadedCategory == m_activeCategory) {
+            qDebug() << "[HotspotService] 专属源返回空结果，保留当前分类缓存:" << m_activeCategory;
+            emit hotNewsUpdated(m_cachedNews);
+            return;
+        }
+        displayNews = newsList;
+    } else if (NewsCategoryUtils::isRemoteCategory(m_activeCategory)) {
         displayNews = limitForDisplay(newsList, m_activeCategory);
     } else {
         const QList<NewsItem> &sourceNews = m_fullNewsCache.isEmpty() ? newsList : m_fullNewsCache;

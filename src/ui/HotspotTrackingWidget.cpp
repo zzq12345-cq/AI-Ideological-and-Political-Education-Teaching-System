@@ -283,7 +283,7 @@ void HotspotTrackingWidget::setupUI()
     ).arg(StyleConfig::TEXT_SECONDARY));
     loadingText->setAlignment(Qt::AlignCenter);
 
-    QLabel *loadingSubtext = new QLabel("数据来源：人民日报 · 新华社 · BBC中文网");
+    QLabel *loadingSubtext = new QLabel("数据来源：人民网 · 新华社 · BBC中文 · 网易新闻");
     loadingSubtext->setStyleSheet(QString(
         "color: %1; font-size: 13px; font-weight: 500;"
     ).arg(StyleConfig::TEXT_LIGHT));
@@ -596,7 +596,7 @@ void HotspotTrackingWidget::createCategoryFilter()
     categoryLayout->addStretch();
 
     // 右侧数据来源标识
-    QLabel *sourceLabel = new QLabel("数据来源：人民日报 · 新华社 · BBC中文 · 天行数据");
+    QLabel *sourceLabel = new QLabel("数据来源：人民网 · BBC中文 · 网易新闻 · 天行数据");
     sourceLabel->setStyleSheet(QString(
         "color: %1; font-size: 11px; background: transparent;"
     ).arg(StyleConfig::TEXT_LIGHT));
@@ -823,43 +823,40 @@ QWidget* HotspotTrackingWidget::createHeadlineCard(const NewsItem &news)
     return card;
 }
 
-// 创建普通新闻卡片 - 精致的左右布局，悬停动效
+// 创建新闻卡片 - 列表式横排：左缩略图 + 右标题/摘要/来源
 QWidget* HotspotTrackingWidget::createNewsCard(const NewsItem &news)
 {
     QFrame *card = new QFrame();
     card->setObjectName("newsCard");
-    card->setMinimumHeight(160);
-    card->setMaximumHeight(190);
+    card->setFixedHeight(155);
     card->setCursor(Qt::PointingHandCursor);
 
-    // 精致的卡片样式
     card->setStyleSheet(QString(
         "QFrame#newsCard {"
         "    background-color: %1;"
-        "    border-radius: %2px;"
-        "    border: 1px solid %3;"
+        "    border-radius: 10px;"
+        "    border: 1px solid %2;"
         "}"
         "QFrame#newsCard:hover {"
-        "    border-color: %4;"
-        "    background-color: %5;"
+        "    border-color: %3;"
+        "    background-color: #FFFBFB;"
         "}"
-    ).arg(StyleConfig::BG_CARD).arg(StyleConfig::RADIUS_L).arg(StyleConfig::BORDER_LIGHT,
-         StyleConfig::PATRIOTIC_RED_LIGHT, "#FFFBFB"));
+    ).arg(StyleConfig::BG_CARD, StyleConfig::BORDER_LIGHT, StyleConfig::PATRIOTIC_RED_LIGHT));
 
     QHBoxLayout *cardLayout = new QHBoxLayout(card);
     cardLayout->setContentsMargins(0, 0, 0, 0);
     cardLayout->setSpacing(0);
 
-    // 左侧：图片区域（只有有图才显示）
+    // 左侧：缩略图（仅在有图片时显示）
     if (!news.imageUrl.isEmpty()) {
         QLabel *imageLabel = new QLabel();
-        imageLabel->setFixedSize(160, 160);
-        imageLabel->setStyleSheet(
-            "background-color: #F5F7FA;"
-            "border-top-left-radius: 16px;"
-            "border-bottom-left-radius: 16px;"
-        );
+        imageLabel->setFixedSize(200, 155);
         imageLabel->setAlignment(Qt::AlignCenter);
+        imageLabel->setStyleSheet(
+            "background-color: #F0F2F5;"
+            "border-top-left-radius: 10px;"
+            "border-bottom-left-radius: 10px;"
+        );
         loadImage(news.imageUrl, imageLabel);
         cardLayout->addWidget(imageLabel);
     }
@@ -868,98 +865,50 @@ QWidget* HotspotTrackingWidget::createNewsCard(const NewsItem &news)
     QWidget *textArea = new QWidget();
     textArea->setStyleSheet("background: transparent;");
     QVBoxLayout *textLayout = new QVBoxLayout(textArea);
-    textLayout->setContentsMargins(20, 18, 20, 18);
-    textLayout->setSpacing(10);
+    textLayout->setContentsMargins(20, 16, 16, 16);
+    textLayout->setSpacing(8);
 
-    // 顶部：分类 + 热度
-    QWidget *topWidget = new QWidget();
-    topWidget->setStyleSheet("background: transparent;");
-    QHBoxLayout *topRow = new QHBoxLayout(topWidget);
-    topRow->setContentsMargins(0, 0, 0, 0);
-    topRow->setSpacing(10);
-
-    // 分类标签 - 更精致的样式
-    QLabel *categoryLabel = new QLabel(news.category);
-    bool isInternational = news.category == "国际";
-    QString catColor = isInternational ? "#2563EB" : StyleConfig::PATRIOTIC_RED;
-    QString catBg = isInternational ? "#EFF6FF" : "#FEF2F2";
-    QString catBorder = isInternational ? "#BFDBFE" : "#FECACA";
-    categoryLabel->setStyleSheet(QString(
-        "background-color: %1; color: %2; font-size: 11px; "
-        "padding: 3px 12px; border-radius: 11px; font-weight: 700; "
-        "border: 1px solid %3;"
-    ).arg(catBg, catColor, catBorder));
-
-    // 热度指示器 - 火焰图标 + 分数
-    QString hotColor, hotBg;
-    if (news.hotScore >= 80) {
-        hotColor = "#DC2626"; hotBg = "#FEF2F2";
-    } else if (news.hotScore >= 50) {
-        hotColor = "#D97706"; hotBg = "#FFFBEB";
-    } else {
-        hotColor = "#6B7280"; hotBg = "#F3F4F6";
-    }
-
-    QWidget *hotContainer = new QWidget();
-    hotContainer->setStyleSheet("background: transparent;");
-    QHBoxLayout *hotLayout = new QHBoxLayout(hotContainer);
-    hotLayout->setContentsMargins(0, 0, 0, 0);
-    hotLayout->setSpacing(4);
-
-    if (news.hotScore > 0) {
-        QLabel *fireIcon = new QLabel();
-        QPixmap firePix(":/icons/resources/icons/fire.svg");
-        fireIcon->setPixmap(firePix.scaled(14, 14, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-        fireIcon->setStyleSheet("background: transparent;");
-
-        QLabel *hotLabel = new QLabel(QString::number(news.hotScore));
-        hotLabel->setStyleSheet(QString(
-            "background-color: %1; color: %2; font-size: 12px; "
-            "font-weight: 700; padding: 2px 10px; border-radius: 10px;"
-        ).arg(hotBg, hotColor));
-
-        hotLayout->addWidget(fireIcon);
-        hotLayout->addWidget(hotLabel);
-    }
-
-    topRow->addWidget(categoryLabel);
-    topRow->addStretch();
-    topRow->addWidget(hotContainer);
-    textLayout->addWidget(topWidget);
-
-    // 标题 - 更好的排版
+    // 标题（最多两行）
     QLabel *titleLabel = new QLabel(news.title);
     titleLabel->setWordWrap(true);
-    titleLabel->setMinimumHeight(42);
-    titleLabel->setMaximumHeight(72);
+    titleLabel->setMaximumHeight(56);
     titleLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     titleLabel->setStyleSheet(QString(
         "font-size: 16px; font-weight: 700; color: %1; "
-        "line-height: 1.55; background: transparent; border: none;"
+        "line-height: 1.5; background: transparent;"
     ).arg(StyleConfig::TEXT_PRIMARY));
     textLayout->addWidget(titleLabel);
 
+    // 摘要（最多两行，灰色小字）
+    QString summaryText = news.summary.left(120);
+    if (news.summary.length() > 120) summaryText += "...";
+    QLabel *summaryLabel = new QLabel(summaryText);
+    summaryLabel->setWordWrap(true);
+    summaryLabel->setMaximumHeight(42);
+    summaryLabel->setStyleSheet(QString(
+        "font-size: 13px; color: %1; line-height: 1.5; background: transparent;"
+    ).arg(StyleConfig::TEXT_SECONDARY));
+    textLayout->addWidget(summaryLabel);
+
     textLayout->addStretch();
 
-    // 底部：来源、时间、按钮
+    // 底部：来源 · 时间 + 操作图标
     QWidget *bottomWidget = new QWidget();
     bottomWidget->setStyleSheet("background: transparent;");
     QHBoxLayout *bottomRow = new QHBoxLayout(bottomWidget);
     bottomRow->setContentsMargins(0, 0, 0, 0);
     bottomRow->setSpacing(6);
 
-    // 来源和时间组合
     QLabel *sourceLabel = new QLabel(news.source);
     sourceLabel->setStyleSheet(QString("color: %1; font-size: 12px; background: transparent;").arg(StyleConfig::TEXT_LIGHT));
 
     QLabel *dotLabel = new QLabel("·");
     dotLabel->setStyleSheet(QString("color: %1; font-size: 12px; background: transparent;").arg(StyleConfig::TEXT_LIGHT));
 
-    QString timeText = formatTimeAgo(news.publishTime);
-    QLabel *timeLabel = new QLabel(timeText);
+    QLabel *timeLabel = new QLabel(formatTimeAgo(news.publishTime));
     timeLabel->setStyleSheet(QString("color: %1; font-size: 12px; background: transparent;").arg(StyleConfig::TEXT_LIGHT));
 
-    // 生成案例按钮 - 更精致的悬停效果
+    // 生成案例按钮
     QPushButton *generateBtn = new QPushButton("生成案例");
     generateBtn->setIcon(QIcon(":/icons/resources/icons/sparkle.svg"));
     generateBtn->setIconSize(QSize(12, 12));
@@ -978,9 +927,6 @@ QWidget* HotspotTrackingWidget::createNewsCard(const NewsItem &news)
         "    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
         "        stop:0 %3, stop:1 #FF5722);"
         "    border: none;"
-        "}"
-        "QPushButton:pressed {"
-        "    background-color: #C62828;"
         "}"
     ).arg(StyleConfig::TEXT_SECONDARY, StyleConfig::BORDER_LIGHT, StyleConfig::PATRIOTIC_RED));
     generateBtn->setCursor(Qt::PointingHandCursor);
@@ -1091,65 +1037,30 @@ void HotspotTrackingWidget::onNewsListUpdated(const QList<NewsItem> &newsList)
         return;
     }
 
-    int row = 0;
-    int col = 0;
-    const int columns = computeGridColumns();
+    // 单列列表布局 — 所有新闻统一横排卡片
+    m_newsGridLayout->setSpacing(12);
 
-    int headlineIndex = 0;
-    if (columns > 1) {
-        for (int i = 0; i < newsList.size(); ++i) {
-            if (isDomesticPoliticalHeadline(newsList[i])) {
-                headlineIndex = i;
-                break;
-            }
-        }
-    }
-
-    // 头条始终放在最顶部
-    if (columns > 1) {
-        QWidget *headline = createHeadlineCard(newsList[headlineIndex]);
-        m_newsGridLayout->addWidget(headline, row, 0, 1, columns);
-        row++;
-    }
-
-    // 普通卡片（跳过已作为头条的那条）
     for (int i = 0; i < newsList.size(); ++i) {
-        if (columns > 1 && i == headlineIndex) {
-            continue;
-        }
-
         QWidget *card = createNewsCard(newsList[i]);
-        m_newsGridLayout->addWidget(card, row, col);
-
-        col++;
-        if (col >= columns) {
-            col = 0;
-            row++;
-        }
+        m_newsGridLayout->addWidget(card, i, 0);
     }
 
-    // 设置列拉伸
-    for (int c = 0; c < columns; ++c) {
-        m_newsGridLayout->setColumnStretch(c, 1);
+    m_newsGridLayout->setColumnStretch(0, 1);
+    m_lastColumnCount = 1;
+
+    if (m_scrollArea->verticalScrollBar()) {
+        m_scrollArea->verticalScrollBar()->setValue(0);
     }
 }
 
 int HotspotTrackingWidget::computeGridColumns() const
 {
-    int width = m_scrollArea->width();
-    if (width < 650) return 1;
-    if (width < 1150) return 2;
-    return 3;
+    return 1;  // 固定单列列表
 }
 
 void HotspotTrackingWidget::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
-    int cols = computeGridColumns();
-    if (cols != m_lastColumnCount) {
-        m_lastColumnCount = cols;
-        onNewsListUpdated(m_currentNews);
-    }
 }
 
 void HotspotTrackingWidget::onNewsCardClicked(const NewsItem &news)
