@@ -1321,7 +1321,6 @@ LessonPlanEditor::LessonPlanSections LessonPlanEditor::parseLessonPlanSections(c
     LessonPlanSections sections;
 
     // 将 Markdown 按标题层级拆分
-    // 匹配 ## 和 ### 级别标题
     QRegularExpression headingRe(R"(^(#{1,4})\s+(.+)$)", QRegularExpression::MultilineOption);
 
     struct Section {
@@ -1340,7 +1339,6 @@ LessonPlanEditor::LessonPlanSections LessonPlanEditor::parseLessonPlanSections(c
         auto match = matches.next();
         int start = match.capturedStart();
 
-        // 保存上一段内容
         if (!lastTitle.isEmpty()) {
             Section sec;
             sec.level = lastLevel;
@@ -1351,10 +1349,9 @@ LessonPlanEditor::LessonPlanSections LessonPlanEditor::parseLessonPlanSections(c
 
         lastLevel = match.captured(1).length();
         lastTitle = match.captured(2).trimmed();
-        lastEnd = match.capturedEnd() + 1; // skip newline
+        lastEnd = match.capturedEnd() + 1;
     }
 
-    // 保存最后一段
     if (!lastTitle.isEmpty()) {
         Section sec;
         sec.level = lastLevel;
@@ -1363,88 +1360,146 @@ LessonPlanEditor::LessonPlanSections LessonPlanEditor::parseLessonPlanSections(c
         parsedSections.append(sec);
     }
 
-    // 关键词映射到结构体字段
-    // 按标题关键字匹配内容到各字段
-    QString currentParent; // 当前父级标题（## 级别）
+    // 辅助函数：清理标题中的序号和标点，方便关键词匹配
+    // 例如 "1. 知识与技能" → "知识与技能"
+    //      "（一）导入新课（5分钟）" → "导入新课5分钟"
+    auto cleanTitle = [](const QString &t) -> QString {
+        QString cleaned = t;
+        // 去除开头的数字序号: "1.", "1)", "1、", "一、", "（一）" 等
+        cleaned.replace(QRegularExpression(R"(^[\d]+[\.、\)）]\s*)"), "");
+        cleaned.replace(QRegularExpression(R"(^[（\(][一二三四五六七八九十]+[）\)]\s*)"), "");
+        cleaned.replace(QRegularExpression(R"(^[一二三四五六七八九十]+[、\.]\s*)"), "");
+        // 去除加粗标记
+        cleaned.replace("**", "");
+        return cleaned;
+    };
+
+    // 当前父级标题上下文
+    QString currentParent;
 
     for (const Section &sec : parsedSections) {
-        const QString &t = sec.title;
+        const QString t = cleanTitle(sec.title);
         const QString &c = sec.content;
 
-        // ## 级别标题 - 大章节
+        // 跟踪父级上下文
         if (sec.level <= 2) {
             currentParent = t;
+        }
 
-            if (t.contains("教学目标")) {
-                // 可能子章节在 ### 级别，也可能内容直接在这里
-                if (!c.isEmpty() && sections.knowledgeSkills.isEmpty()) {
-                    // 如果教学目标下没有明确的子标题，整体归入
-                    sections.knowledgeSkills = c;
-                }
-            } else if (t.contains("重难点") || t.contains("重点和难点")) {
-                if (!c.isEmpty()) {
-                    // 尝试拆分重点/难点
-                    int diffIdx = c.indexOf("难点");
-                    if (diffIdx > 0) {
-                        // 找到分割点前的换行
-                        int splitAt = c.lastIndexOf('\n', diffIdx);
-                        if (splitAt > 0) {
-                            sections.keyPoints = c.left(splitAt).trimmed();
-                            sections.difficulties = c.mid(splitAt).trimmed();
-                        } else {
-                            sections.keyPoints = c;
-                        }
+        // ============ 教学目标子章节 ============
+        if (t.contains("知识") && (t.contains("技能") || t.contains("能力"))) {
+            sections.knowledgeSkills = c;
+            continue;
+        }
+        if (t.contains("过程") && t.contains("方法")) {
+            sections.processMethod = c;
+            continue;
+        }
+        if (t.contains("情感") || (t.contains("价值") && t.contains("观"))) {
+            sections.emotionValues = c;
+            continue;
+        }
+
+        // ============ 教学目标（整体，没有细分子标题时） ============
+        if (t.contains("教学目标") || t.contains("学习目标")) {
+            if (!c.isEmpty() && sections.knowledgeSkills.isEmpty()) {
+                // 整体归入知识与技能，作为 fallback
+                sections.knowledgeSkills = c;
+            }
+            currentParent = "教学目标";
+            continue;
+        }
+
+        // ============ 教学重难点 ============
+        if (t.contains("重点") && t.contains("难点")) {
+            // 合并写法，尝试拆分
+            if (!c.isEmpty()) {
+                int diffIdx = c.indexOf("难点");
+                if (diffIdx > 0) {
+                    int splitAt = c.lastIndexOf('\n', diffIdx);
+                    if (splitAt > 0) {
+                        sections.keyPoints = c.left(splitAt).trimmed();
+                        sections.difficulties = c.mid(splitAt).trimmed();
                     } else {
                         sections.keyPoints = c;
                     }
+                } else {
+                    sections.keyPoints = c;
                 }
-            } else if (t.contains("教学过程")) {
-                // 子章节会通过 ### 级别填充
-                if (!c.isEmpty() && sections.introduction.isEmpty()) {
-                    sections.introduction = c;
-                }
-            } else if (t.contains("板书")) {
-                sections.boardDesign = c;
-            } else if (t.contains("作业")) {
-                sections.homework = c;
-            } else if (t.contains("反思")) {
-                sections.reflection = c;
             }
+            currentParent = "重难点";
+            continue;
+        }
+        if (t.contains("重点") && !t.contains("难点")) {
+            sections.keyPoints = c;
+            continue;
+        }
+        if (t.contains("难点")) {
+            sections.difficulties = c;
+            continue;
         }
 
-        // ### 级别标题 - 子章节
-        if (sec.level == 3) {
-            // 教学目标下的子章节
-            if (t.contains("知识") && t.contains("技能")) {
-                sections.knowledgeSkills = c;
-            } else if (t.contains("过程") && t.contains("方法")) {
-                sections.processMethod = c;
-            } else if (t.contains("情感") || t.contains("价值观")) {
-                sections.emotionValues = c;
-            }
-            // 教学重难点
-            else if (t.contains("重点") && !t.contains("难点")) {
-                sections.keyPoints = c;
-            } else if (t.contains("难点")) {
-                sections.difficulties = c;
-            }
-            // 教学过程
-            else if (t.contains("导入")) {
+        // ============ 教学过程（父级标题） ============
+        if (t.contains("教学过程") || t.contains("教学步骤") || t.contains("教学流程")) {
+            if (!c.isEmpty() && sections.introduction.isEmpty()) {
                 sections.introduction = c;
-            } else if (t.contains("新课") || t.contains("讲授")) {
-                sections.mainTeaching = c;
-            } else if (t.contains("练习") || t.contains("活动")) {
-                sections.classExercise = c;
-            } else if (t.contains("小结") || t.contains("总结")) {
-                sections.classSummary = c;
             }
-            // 其他章节
-            else if (t.contains("板书")) {
-                sections.boardDesign = c;
-            } else if (t.contains("作业")) {
-                sections.homework = c;
-            } else if (t.contains("反思")) {
-                sections.reflection = c;
+            currentParent = "教学过程";
+            continue;
+        }
+
+        // ============ 教学过程子环节 ============
+        if (t.contains("导入") || t.contains("引入") || t.contains("情境创设")) {
+            sections.introduction = c;
+            continue;
+        }
+        if (t.contains("新课") || t.contains("讲授") || t.contains("探究") ||
+            t.contains("新知") || t.contains("合作学习")) {
+            sections.mainTeaching = c;
+            continue;
+        }
+        if (t.contains("练习") || t.contains("实践") || t.contains("互动") ||
+            t.contains("活动") || t.contains("讨论")) {
+            sections.classExercise = c;
+            continue;
+        }
+        if (t.contains("小结") || t.contains("总结") || t.contains("归纳")) {
+            sections.classSummary = c;
+            continue;
+        }
+
+        // ============ 板书设计 ============
+        if (t.contains("板书")) {
+            sections.boardDesign = c;
+            continue;
+        }
+
+        // ============ 作业布置 ============
+        if (t.contains("作业") || t.contains("课后")) {
+            sections.homework = c;
+            continue;
+        }
+
+        // ============ 教学反思 ============
+        if (t.contains("反思")) {
+            sections.reflection = c;
+            continue;
+        }
+
+        // ============ 未匹配的子章节，根据父级上下文归类 ============
+        if (!c.isEmpty() && currentParent.contains("教学过程")) {
+            // 教学过程下的未识别子环节，按顺序填充
+            if (sections.introduction.isEmpty()) {
+                sections.introduction = c;
+            } else if (sections.mainTeaching.isEmpty()) {
+                sections.mainTeaching = c;
+            } else if (sections.classExercise.isEmpty()) {
+                sections.classExercise = c;
+            } else if (sections.classSummary.isEmpty()) {
+                sections.classSummary = c;
+            } else {
+                // 追加到新课讲授
+                sections.mainTeaching += "\n\n" + c;
             }
         }
     }
