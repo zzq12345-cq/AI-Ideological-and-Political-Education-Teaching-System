@@ -33,6 +33,15 @@ public:
      */
     QString lastError() const { return m_lastError; }
 
+    /**
+     * @brief 直接从 Markdown 文本生成 DOCX 文件
+     * @param outputPath 输出文件路径
+     * @param title 文档标题
+     * @param markdownText AI 输出的 Markdown 源文本
+     * @return 成功返回 true
+     */
+    bool generateFromMarkdown(const QString &outputPath, const QString &title, const QString &markdownText);
+
 signals:
     void generationStarted();
     void generationFinished(bool success, const QString &filePath);
@@ -51,6 +60,10 @@ private:
     QString generateQuestionXml(const PaperQuestion &question, int index);
     QString generateOptionsXml(const QStringList &options);
     QString escapeXml(const QString &text);
+
+    // Markdown → OOXML 段落
+    bool createDocumentFromMarkdown(const QString &tempDir, const QString &title, const QString &markdownText);
+    QString markdownLineToXml(const QString &line);
 
     // 打包为 ZIP
     bool packToZip(const QString &tempDir, const QString &outputPath);

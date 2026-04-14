@@ -50,10 +50,8 @@ private:
     void onQuestionHistorySelected(const QString &id);
     void onQuestionHistoryDeleted(const QString &id);
 
-    // 导出 DOCX
+    // 导出 DOCX（Markdown 直接转换）
     void onExportToDocx(const QString &content);
-    void onExportQuestionsParsed(const QList<PaperQuestion> &questions);
-    void onExportQuestionsParseError(const QString &error);
 
     // 模式切换（AI出题 / 智能组卷）
     QStackedWidget *m_modeStack = nullptr;
@@ -77,7 +75,6 @@ private:
     bool m_isSavingGeneratedQuestions = false;
 
     // 导出链路
-    QuestionParserService *m_exportParser = nullptr;
     DocxGenerator *m_docxGenerator = nullptr;
     bool m_isExporting = false;
 };

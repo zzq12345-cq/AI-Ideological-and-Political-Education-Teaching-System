@@ -125,6 +125,22 @@ private:
      */
     QList<PaperQuestion> parseJsonResponse(const QString &jsonText);
 
+public:
+    /**
+     * @brief 本地解析 Markdown 格式的试题文本为 PaperQuestion 列表
+     * 
+     * 直接在本地使用正则表达式解析 AI（智谱等）生成的 Markdown 试题，
+     * 无需调用 Dify 工作流 API。支持的格式：
+     * - 题目编号 + 题干
+     * - A/B/C/D 选项
+     * - 【答案】标注
+     * - 【解析】说明
+     * 
+     * @param markdownText AI 输出的 Markdown 文本
+     * @return 解析出的 PaperQuestion 列表
+     */
+    static QList<PaperQuestion> parseMarkdownToQuestions(const QString &markdownText);
+
     QNetworkAccessManager *m_networkManager;
     QNetworkReply *m_currentReply;
     QNetworkReply *m_uploadReply;

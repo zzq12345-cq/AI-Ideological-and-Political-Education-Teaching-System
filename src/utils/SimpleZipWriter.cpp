@@ -93,7 +93,7 @@ QStringList SimpleZipWriter::collectFiles(const QString &baseDir, const QString 
     const QString dirPath = subDir.isEmpty() ? baseDir : (baseDir + '/' + subDir);
     QDir dir(dirPath);
 
-    const QFileInfoList entries = dir.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+    const QFileInfoList entries = dir.entryInfoList(QDir::Files | QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot, QDir::Name);
     for (const QFileInfo &fi : entries) {
         QString relativePath = subDir.isEmpty() ? fi.fileName() : (subDir + '/' + fi.fileName());
         if (fi.isDir()) {

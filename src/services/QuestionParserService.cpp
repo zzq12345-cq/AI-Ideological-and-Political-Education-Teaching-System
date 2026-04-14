@@ -787,3 +787,217 @@ QList<PaperQuestion> QuestionParserService::parseJsonResponse(const QString &jso
     
     return questions;
 }
+
+// ==================== 本地 Markdown 解析（无需 Dify API） ====================
+
+QList<PaperQuestion> QuestionParserService::parseMarkdownToQuestions(const QString &markdownText)
+{
+    QList<PaperQuestion> questions;
+
+    if (markdownText.trimmed().isEmpty()) {
+        qDebug() << "[QuestionParserService::parseMarkdown] 输入为空";
+        return questions;
+    }
+
+    // 按行分割
+    QStringList lines = markdownText.split('\n');
+
+    // 调试：将原始输入转储到文件
+    {
+        QFile dumpFile("/tmp/ai_markdown_dump.txt");
+        if (dumpFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&dumpFile);
+            out << markdownText;
+            dumpFile.close();
+            qDebug() << "[parseMarkdown] 原始内容已转储到 /tmp/ai_markdown_dump.txt，共" << lines.size() << "行";
+        }
+    }
+
+    // ---- 正则模式 ----
+    // 题目编号：如 "1." "1、" "1)" "（1）" "第1题" "**1.**" 等
+    static const QRegularExpression questionNumRe(
+        R"(^[\s*]*(?:\*{0,2})(?:(?:第\s*)?(\d+)\s*[.、\)）题]|(\d+)\s*[.、\)）]\s*(?:\*{0,2}))(.*))",
+        QRegularExpression::MultilineOption
+    );
+
+    // 选项行：A. / A、/ A) / A: 等（大小写均可）
+    static const QRegularExpression optionRe(
+        R"(^\s*([A-Ha-h])\s*[.、\)）:：]\s*(.+))"
+    );
+
+    // 【答案】标记
+    static const QRegularExpression answerRe(
+        R"(^\s*[\*]*【答案】[\*]*\s*[:：]?\s*(.*))"
+    );
+
+    // 【解析】标记
+    static const QRegularExpression analysisRe(
+        R"(^\s*[\*]*【解[析释]】[\*]*\s*[:：]?\s*(.*))"
+    );
+
+    // 题型段落标题：如 "## 一、选择题" / "**选择题**" / "一、单选题" 等
+    static const QRegularExpression sectionTypeRe(
+        R"((?:#{1,4}\s+)?(?:[一二三四五六七八九十]+[、.]?\s*)?[\*]*\s*(单选题|多选题|选择题|判断题|判断说理题|填空题|简答题|论述题|材料分析题|材料论述题)\s*[\*]*)"
+    );
+
+    // 题型关键字到内部类型的映射
+    static const QMap<QString, QString> typeMapping = {
+        {"单选题", "single_choice"},
+        {"选择题", "single_choice"},
+        {"多选题", "multiple_choice"},
+        {"填空题", "fill_blank"},
+        {"判断说理题", "true_false"},
+        {"判断题", "true_false"},
+        {"材料论述题", "material_essay"},
+        {"材料分析题", "material_essay"},
+        {"简答题", "short_answer"},
+        {"论述题", "short_answer"}
+    };
+
+    // ---- 解析状态机 ----
+    QString currentSectionType;          // 当前段落的题型
+    PaperQuestion currentQuestion;
+    bool inQuestion = false;             // 是否正在构建一道题
+    bool inAnalysis = false;             // 后续行追加到解析
+    bool inStem = false;                 // 后续行追加到题干
+
+    auto flushQuestion = [&]() {
+        if (!inQuestion) return;
+        // 清理题干中的 Markdown 加粗/标记
+        currentQuestion.stem = currentQuestion.stem.trimmed();
+        currentQuestion.stem.remove(QRegularExpression(R"(\*{1,2})"));
+
+        if (!currentQuestion.stem.isEmpty()) {
+            // 设置默认题型
+            if (currentQuestion.questionType.isEmpty()) {
+                if (!currentQuestion.options.isEmpty()) {
+                    currentQuestion.questionType = "single_choice";
+                } else {
+                    currentQuestion.questionType = "short_answer";
+                }
+            }
+            if (currentQuestion.difficulty.isEmpty()) {
+                currentQuestion.difficulty = "medium";
+            }
+            currentQuestion.visibility = "public";
+            currentQuestion.score = 5;
+            questions.append(currentQuestion);
+        }
+        currentQuestion = PaperQuestion();
+        inQuestion = false;
+        inAnalysis = false;
+        inStem = false;
+    };
+
+    for (int i = 0; i < lines.size(); ++i) {
+        const QString &line = lines[i];
+        QString trimmed = line.trimmed();
+
+        // 跳过空行
+        if (trimmed.isEmpty()) {
+            inStem = false;      // 空行中断题干续行
+            continue;
+        }
+
+        // 跳过 <think> 标签
+        if (trimmed.startsWith("<think>") || trimmed.startsWith("</think>")) {
+            continue;
+        }
+
+        // 检测段落题型标题（如 "一、选择题"）
+        QRegularExpressionMatch sectionMatch = sectionTypeRe.match(trimmed);
+        if (sectionMatch.hasMatch()) {
+            QString typeText = sectionMatch.captured(1);
+            currentSectionType = typeMapping.value(typeText, "short_answer");
+            qDebug() << "[parseMarkdown] 检测到题型段落:" << typeText << "->" << currentSectionType;
+            inStem = false;
+            continue;
+        }
+
+        // 检测【答案】
+        QRegularExpressionMatch ansMatch = answerRe.match(trimmed);
+        if (ansMatch.hasMatch() && inQuestion) {
+            currentQuestion.answer = ansMatch.captured(1).trimmed();
+            // 清除 Markdown 粗体
+            currentQuestion.answer.remove(QRegularExpression(R"(\*{1,2})"));
+            inAnalysis = false;
+            inStem = false;
+            continue;
+        }
+
+        // 检测【解析】
+        QRegularExpressionMatch anaMatch = analysisRe.match(trimmed);
+        if (anaMatch.hasMatch() && inQuestion) {
+            currentQuestion.explanation = anaMatch.captured(1).trimmed();
+            inAnalysis = true;
+            inStem = false;
+            continue;
+        }
+
+        // 检测选项行
+        QRegularExpressionMatch optMatch = optionRe.match(trimmed);
+        if (optMatch.hasMatch() && inQuestion) {
+            currentQuestion.options.append(optMatch.captured(2).trimmed());
+            inAnalysis = false;
+            inStem = false;
+            continue;
+        }
+
+        // 检测题目编号行（新一道题的开始）
+        QRegularExpressionMatch qMatch = questionNumRe.match(trimmed);
+        if (qMatch.hasMatch()) {
+            // 先把上一道题入库
+            flushQuestion();
+
+            inQuestion = true;
+            inStem = true;
+            inAnalysis = false;
+
+            // 提取题干：编号后面的内容
+            QString stemPart = qMatch.captured(3).trimmed();
+
+            // 也可能形如 "1. **（选择题）** 以下关于..."，要提取内嵌题型
+            static const QRegularExpression inlineTypeRe(
+                R"([\(（]?\s*(单选题|多选题|选择题|判断题|判断说理题|填空题|简答题|论述题|材料分析题|材料论述题)\s*[\)）]?\s*)"
+            );
+            QRegularExpressionMatch inlineTypeMatch = inlineTypeRe.match(stemPart);
+            if (inlineTypeMatch.hasMatch()) {
+                QString inlineType = inlineTypeMatch.captured(1);
+                currentQuestion.questionType = typeMapping.value(inlineType, "short_answer");
+                // 从题干中移除内嵌题型标注
+                stemPart.remove(inlineTypeMatch.capturedStart(), inlineTypeMatch.capturedLength());
+                stemPart = stemPart.trimmed();
+            } else if (!currentSectionType.isEmpty()) {
+                // 继承段落题型
+                currentQuestion.questionType = currentSectionType;
+            }
+
+            currentQuestion.stem = stemPart;
+            continue;
+        }
+
+        // 后续追加行
+        if (inQuestion) {
+            if (inAnalysis) {
+                if (!currentQuestion.explanation.isEmpty()) {
+                    currentQuestion.explanation += "\n";
+                }
+                currentQuestion.explanation += trimmed;
+            } else if (inStem) {
+                // 多行题干
+                if (!currentQuestion.stem.isEmpty()) {
+                    currentQuestion.stem += "\n";
+                }
+                currentQuestion.stem += trimmed;
+            }
+        }
+    }
+
+    // 最后一道题入库
+    flushQuestion();
+
+    qDebug() << "[QuestionParserService::parseMarkdown] 本地解析完成，共"
+             << questions.size() << "道题目";
+
+    return questions;
+}

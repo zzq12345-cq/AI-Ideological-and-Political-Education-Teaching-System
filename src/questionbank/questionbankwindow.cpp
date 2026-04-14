@@ -40,7 +40,6 @@ QuestionBankWindow::QuestionBankWindow(QWidget *parent)
     : QWidget(parent)
     , m_paperService(new PaperService(this))
     , m_questionParser(new QuestionParserService(this))
-    , m_exportParser(new QuestionParserService(this))
     , m_docxGenerator(new DocxGenerator(this))
 {
     setObjectName("questionBankWindow");
@@ -68,15 +67,8 @@ QuestionBankWindow::QuestionBankWindow(QWidget *parent)
         m_questionParser->setBaseUrl(parserBaseUrl);
     }
 
-    // 导出链路的解析器配置（复用同一 Key）
-    m_exportParser->setApiKey(parserApiKey);
-    if (!parserBaseUrl.isEmpty()) {
-        m_exportParser->setBaseUrl(parserBaseUrl);
-    }
-    m_aiQuestionGenWidget->setExportAvailable(
-        m_exportParser->isConfigured(),
-        "未配置题目解析服务 API Key，暂时无法导出 DOCX。"
-    );
+    // 导出链路现在使用本地 Markdown 解析，不再依赖 Dify API
+    m_aiQuestionGenWidget->setExportAvailable(true);
 
     // ====== 保存链路信号 ======
     connect(m_aiQuestionGenWidget, &AIQuestionGenWidget::saveRequested,
@@ -90,13 +82,9 @@ QuestionBankWindow::QuestionBankWindow(QWidget *parent)
     connect(m_paperService, &PaperService::questionError,
             this, &QuestionBankWindow::onGeneratedQuestionsSaveError);
 
-    // ====== 导出链路信号 ======
+    // ====== 导出链路信号（本地解析，无需异步回调）======
     connect(m_aiQuestionGenWidget, &AIQuestionGenWidget::exportRequested,
             this, &QuestionBankWindow::onExportToDocx);
-    connect(m_exportParser, &QuestionParserService::parseCompleted,
-            this, &QuestionBankWindow::onExportQuestionsParsed);
-    connect(m_exportParser, &QuestionParserService::errorOccurred,
-            this, &QuestionBankWindow::onExportQuestionsParseError);
 
     // ====== 历史侧边栏信号 ======
     connect(m_questionHistoryWidget, &ChatHistoryWidget::newChatRequested,
@@ -535,37 +523,33 @@ void QuestionBankWindow::onExportToDocx(const QString &content)
 {
     if (content.trimmed().isEmpty() || m_isExporting) return;
 
-    if (!m_exportParser || !m_exportParser->isConfigured()) {
-        QMessageBox::warning(this, "导出失败",
-            "未配置题目解析服务的 API Key，无法导出为 DOCX。\n"
-            "请在 .env.local 中设置 PARSER_API_KEY 或 DIFY_API_KEY。");
-        return;
-    }
-
     m_isExporting = true;
 
-    // 显示进度提示
+    qDebug() << "[QuestionBankWindow] 开始导出 DOCX（Markdown 直接转换）";
+
+    // 智能生成试卷标题（而不是直接用用户的提示词）
+    QString title = "道德与法治 专项练习";
     if (m_aiQuestionGenWidget) {
-        m_aiQuestionGenWidget->setEnabled(false);
-    }
-
-    qDebug() << "[QuestionBankWindow] 开始导出 DOCX，调用解析服务...";
-    m_exportParser->parseDocument(content, "道德与法治");
-}
-
-void QuestionBankWindow::onExportQuestionsParsed(const QList<PaperQuestion> &questions)
-{
-    if (!m_isExporting) return;
-    m_isExporting = false;
-
-    if (m_aiQuestionGenWidget) {
-        m_aiQuestionGenWidget->setEnabled(true);
-    }
-
-    if (questions.isEmpty()) {
-        QMessageBox::warning(this, "导出失败",
-            "AI 内容未能解析为有效题目，请调整输出格式后重试。");
-        return;
+        QString convTitle = m_aiQuestionGenWidget->currentConversationTitle();
+        if (!convTitle.isEmpty() && convTitle != "新对话") {
+            // 从提示词中提取主题关键词
+            // 例如 "帮我出5道选择题，主题：宪法" → 提取 "宪法"
+            static const QRegularExpression topicRe(
+                R"(主题[：:]\s*(.+)|关于[""「]?(.+?)[""」]|(?:出|生成).+?(?:关于|主题)\s*[：:]?\s*(.+))"
+            );
+            QRegularExpressionMatch topicMatch = topicRe.match(convTitle);
+            if (topicMatch.hasMatch()) {
+                QString topic = topicMatch.captured(1);
+                if (topic.isEmpty()) topic = topicMatch.captured(2);
+                if (topic.isEmpty()) topic = topicMatch.captured(3);
+                topic = topic.trimmed();
+                // 清理末尾标点
+                topic.remove(QRegularExpression(R"([。，,.\s]+$)"));
+                if (!topic.isEmpty()) {
+                    title = QString("道德与法治 · %1 专项练习").arg(topic);
+                }
+            }
+        }
     }
 
     // 弹出文件选择对话框
@@ -575,23 +559,20 @@ void QuestionBankWindow::onExportQuestionsParsed(const QList<PaperQuestion> &que
         QDir::homePath() + "/Desktop/" + defaultName,
         "Word 文档 (*.docx)");
 
-    if (filePath.isEmpty()) return;
-
-    // 使用 DocxGenerator 生成真实 .docx
-    QString title = "道德与法治 练习题";
-    if (m_aiQuestionGenWidget) {
-        QString convTitle = m_aiQuestionGenWidget->currentConversationTitle();
-        if (!convTitle.isEmpty() && convTitle != "新对话") {
-            title = convTitle;
-        }
+    if (filePath.isEmpty()) {
+        m_isExporting = false;
+        return;
     }
 
-    bool success = m_docxGenerator->generatePaper(filePath, title, questions);
+    // 直接从 Markdown 生成 DOCX，无需解析为 PaperQuestion
+    bool success = m_docxGenerator->generateFromMarkdown(filePath, title, content);
+
+    m_isExporting = false;
+
     if (success) {
         QMessageBox::StandardButton btn = QMessageBox::information(
             this, "导出成功",
-            QString("试卷已导出到：\n%1\n\n共 %2 道试题。\n\n是否打开文件？")
-                .arg(filePath).arg(questions.size()),
+            QString("试卷已导出到：\n%1\n\n是否打开文件？").arg(filePath),
             QMessageBox::Yes | QMessageBox::No,
             QMessageBox::Yes);
         if (btn == QMessageBox::Yes) {
@@ -601,19 +582,6 @@ void QuestionBankWindow::onExportQuestionsParsed(const QList<PaperQuestion> &que
         QMessageBox::warning(this, "导出失败",
             "DOCX 文件生成失败：" + m_docxGenerator->lastError());
     }
-}
-
-void QuestionBankWindow::onExportQuestionsParseError(const QString &error)
-{
-    if (!m_isExporting) return;
-    m_isExporting = false;
-
-    if (m_aiQuestionGenWidget) {
-        m_aiQuestionGenWidget->setEnabled(true);
-    }
-
-    QMessageBox::warning(this, "导出失败",
-        "试题解析失败：" + error);
 }
 
 // ===================== 保存到题库链路（原有逻辑） =====================
