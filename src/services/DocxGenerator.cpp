@@ -7,6 +7,156 @@
 #include <QDebug>
 #include <QRegularExpression>
 
+namespace {
+struct MarkdownQuestionBlock {
+    QString sectionTitle;
+    QString number;
+    QStringList answerLines;
+    QStringList analysisLines;
+
+    bool hasAnswerContent() const
+    {
+        return !answerLines.isEmpty() || !analysisLines.isEmpty();
+    }
+};
+
+QString stripInlineMarkdown(QString text)
+{
+    text.remove(QRegularExpression(R"(\*{1,2})"));
+    return text.trimmed();
+}
+
+QString normalizedSemanticLine(QString text)
+{
+    text = text.trimmed();
+    text.remove(QRegularExpression(R"(^#{1,4}\s*)"));
+    text = stripInlineMarkdown(text);
+    if (text.startsWith(QStringLiteral("【")) && text.endsWith(QStringLiteral("】")) && text.size() >= 2) {
+        text = text.mid(1, text.size() - 2).trimmed();
+    }
+    return text;
+}
+
+bool isSkippableCommentLine(const QString &line)
+{
+    if (!(line.startsWith("*") && line.endsWith("*")) || line.startsWith("**") || line.length() <= 2) {
+        return false;
+    }
+
+    const QString inner = line.mid(1, line.length() - 2);
+    return !inner.contains("**") && inner.length() > 10;
+}
+
+bool isGlobalAnswerSectionHeader(const QString &line)
+{
+    const QString text = normalizedSemanticLine(line);
+    return text == QStringLiteral("参考答案与解析")
+        || text == QStringLiteral("答案与解析")
+        || text == QStringLiteral("答案和解析");
+}
+
+QString normalizedSectionTitle(const QString &line)
+{
+    static const QRegularExpression markdownHeaderRe(R"(^(#{1,4})\s+(.+))");
+    static const QRegularExpression chineseSectionRe(R"(^[一二三四五六七八九十]+[、\.．]\s*.+)");
+    static const QRegularExpression plainSectionRe(
+        R"(^(选择题|多选题|判断题|判断说理题|填空题|简答题|论述题|材料分析题|材料论述题|综合题).*)"
+    );
+
+    const QRegularExpressionMatch headerMatch = markdownHeaderRe.match(line);
+    QString text = headerMatch.hasMatch() ? headerMatch.captured(2).trimmed() : line.trimmed();
+    text = stripInlineMarkdown(text);
+
+    if (chineseSectionRe.match(text).hasMatch() || plainSectionRe.match(text).hasMatch()) {
+        return text;
+    }
+
+    return QString();
+}
+
+bool isStrongQuestionStart(const QString &line)
+{
+    static const QRegularExpression strongQuestionRe(
+        R"(^[\*]*\d+\s*[.、\)）]\s*[\*]*\s*.+)"
+    );
+    return strongQuestionRe.match(line).hasMatch();
+}
+
+bool isBracketQuestionStart(const QString &line)
+{
+    static const QRegularExpression bracketQuestionRe(
+        R"(^[\*]*[（(]\s*\d+\s*[）)]\s*[\*]*\s*.+)"
+    );
+    return bracketQuestionRe.match(line).hasMatch();
+}
+
+bool isQuestionStartLine(const QString &line, bool allowBracketed)
+{
+    if (isStrongQuestionStart(line)) {
+        return true;
+    }
+
+    return allowBracketed && isBracketQuestionStart(line);
+}
+
+QString extractQuestionNumber(const QString &line)
+{
+    static const QRegularExpression strongQuestionRe(
+        R"(^[\*]*(\d+)\s*[.、\)）]\s*[\*]*\s*.+)"
+    );
+    static const QRegularExpression bracketQuestionRe(
+        R"(^[\*]*[（(]\s*(\d+)\s*[）)]\s*[\*]*\s*.+)"
+    );
+
+    QRegularExpressionMatch match = strongQuestionRe.match(line);
+    if (match.hasMatch()) {
+        return match.captured(1);
+    }
+
+    match = bracketQuestionRe.match(line);
+    if (match.hasMatch()) {
+        return match.captured(1);
+    }
+
+    return QString();
+}
+
+QString answerHeadingXml(const QString &number)
+{
+    return QString(R"(<w:p>
+<w:pPr><w:pStyle w:val="Question"/><w:spacing w:before="240" w:after="80"/></w:pPr>
+<w:r><w:rPr><w:b/></w:rPr><w:t>第%1题</w:t></w:r>
+</w:p>
+)").arg(number);
+}
+
+int findQuestionBlockIndexByNumber(const QList<MarkdownQuestionBlock> &blocks, const QString &number)
+{
+    for (int i = 0; i < blocks.size(); ++i) {
+        if (blocks.at(i).number == number) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+void appendContinuation(QStringList &entries, const QString &line)
+{
+    const QString text = stripInlineMarkdown(line);
+    if (text.isEmpty()) {
+        return;
+    }
+
+    if (entries.isEmpty()) {
+        entries.append(text);
+        return;
+    }
+
+    entries.last().append(QStringLiteral(" ") + text);
+}
+}
+
 DocxGenerator::DocxGenerator(QObject *parent)
     : QObject(parent)
 {
@@ -426,21 +576,35 @@ bool DocxGenerator::createDocumentFromMarkdown(const QString &tempDir, const QSt
 </w:body>
 </w:document>)";
 
-    // ---- 第一步：将行分为"题目区"和"答案/解析区" ----
+    // ---- 第一步：逐题收集正文与答案，避免内联答案把后续题目错误吞入答案区 ----
     QStringList lines = markdownText.split('\n');
-    QStringList questionLines;   // 题目正文
-    QStringList answerLines;     // 答案 + 解析
+    QStringList questionLines;
+    QList<MarkdownQuestionBlock> questionBlocks;
     bool skipThinkBlock = false;
-    bool foundFirstQuestion = false;   // 是否找到第一道题目或题型标题
-    bool inAnswerSection = false;      // 是否进入答案/解析区域
+    bool foundFirstContent = false;
+    QString currentSectionTitle;
+    int currentQuestionIndex = -1;
+    int currentAnswerQuestionIndex = -1;
+    bool inGlobalAnswerSection = false;
 
-    // 检测答案区域开始的正则
-    static const QRegularExpression answerSectionRe(
-        R"(^[\*#\s]*【答案[与和]?解析】|^[\*#\s]*【(参考)?答案】|^#{1,4}\s*[\*]*\s*【答案)"
+    enum class AnswerState {
+        None,
+        Answer,
+        Analysis
+    };
+
+    AnswerState answerState = AnswerState::None;
+
+    static const QRegularExpression answerLineRe(R"(^[\*]*【答案】[\*]*\s*[:：]?\s*(.*))");
+    static const QRegularExpression analysisLineRe(R"(^[\*]*【解[析释]】[\*]*\s*[:：]?\s*(.*))");
+    static const QRegularExpression numberedAnswerLineRe(
+        R"(^[\*]*[（(]?(\d+)[）)]?\s*[.、:：]?\s*【答案】\s*(.*))"
     );
-    // 检测题目开始（编号行或题型标题行）
-    static const QRegularExpression questionStartRe(
-        R"(^[\*]*\d+\s*[.、\)）]|^#{1,4}\s+|^\*{2}材料|^\*{2}\d+\.|^[（(]\s*\d+\s*[）)])"
+    static const QRegularExpression numberedAnalysisLineRe(
+        R"(^[\*]*[（(]?(\d+)[）)]?\s*[.、:：]?\s*【解[析释]】\s*(.*))"
+    );
+    static const QRegularExpression numberedFallbackAnswerLineRe(
+        R"(^[\*]*[（(]?(\d+)[）)]?\s*[.、:：]\s*(.+))"
     );
 
     for (const QString &rawLine : lines) {
@@ -458,53 +622,142 @@ bool DocxGenerator::createDocumentFromMarkdown(const QString &tempDir, const QSt
         if (line.startsWith("---")) continue;
 
         // 跳过斜体注释行（AI 的尾注，如 *祝学习愉快！...* ）
-        if (line.startsWith("*") && line.endsWith("*") && !line.startsWith("**") && line.length() > 2) {
-            QString inner = line.mid(1, line.length() - 2);
-            if (!inner.contains("**") && inner.length() > 10) continue;
+        if (isSkippableCommentLine(line)) {
+            continue;
         }
 
-        // 检测是否进入答案/解析区域
-        if (answerSectionRe.match(line).hasMatch()) {
-            inAnswerSection = true;
+        if (isGlobalAnswerSectionHeader(line)) {
+            inGlobalAnswerSection = true;
+            answerState = AnswerState::None;
+            currentAnswerQuestionIndex = -1;
+            continue;
         }
 
-        // 检测第一道题目的开始（跳过 AI 开场白）
-        if (!foundFirstQuestion && !inAnswerSection) {
-            // 如果是 Markdown 标题或编号行，认为正式题目开始
-            if (questionStartRe.match(line).hasMatch()) {
-                foundFirstQuestion = true;
+        const QString sectionTitle = normalizedSectionTitle(line);
+
+        if (inGlobalAnswerSection) {
+            if (!sectionTitle.isEmpty()) {
+                continue;
+            }
+
+            QRegularExpressionMatch numberedMatch = numberedAnswerLineRe.match(line);
+            if (numberedMatch.hasMatch()) {
+                currentAnswerQuestionIndex = findQuestionBlockIndexByNumber(questionBlocks, numberedMatch.captured(1));
+                if (currentAnswerQuestionIndex >= 0) {
+                    questionBlocks[currentAnswerQuestionIndex].answerLines.append(
+                        stripInlineMarkdown(numberedMatch.captured(2)));
+                    answerState = AnswerState::Answer;
+                }
+                continue;
+            }
+
+            numberedMatch = numberedAnalysisLineRe.match(line);
+            if (numberedMatch.hasMatch()) {
+                currentAnswerQuestionIndex = findQuestionBlockIndexByNumber(questionBlocks, numberedMatch.captured(1));
+                if (currentAnswerQuestionIndex >= 0) {
+                    questionBlocks[currentAnswerQuestionIndex].analysisLines.append(
+                        stripInlineMarkdown(numberedMatch.captured(2)));
+                    answerState = AnswerState::Analysis;
+                }
+                continue;
+            }
+
+            if (currentAnswerQuestionIndex >= 0) {
+                QRegularExpressionMatch match = answerLineRe.match(line);
+                if (match.hasMatch()) {
+                    questionBlocks[currentAnswerQuestionIndex].answerLines.append(
+                        stripInlineMarkdown(match.captured(1)));
+                    answerState = AnswerState::Answer;
+                    continue;
+                }
+
+                match = analysisLineRe.match(line);
+                if (match.hasMatch()) {
+                    questionBlocks[currentAnswerQuestionIndex].analysisLines.append(
+                        stripInlineMarkdown(match.captured(1)));
+                    answerState = AnswerState::Analysis;
+                    continue;
+                }
+            }
+
+            numberedMatch = numberedFallbackAnswerLineRe.match(line);
+            if (numberedMatch.hasMatch()) {
+                currentAnswerQuestionIndex = findQuestionBlockIndexByNumber(questionBlocks, numberedMatch.captured(1));
+                if (currentAnswerQuestionIndex >= 0) {
+                    questionBlocks[currentAnswerQuestionIndex].answerLines.append(
+                        stripInlineMarkdown(numberedMatch.captured(2)));
+                    answerState = AnswerState::Answer;
+                }
+                continue;
+            }
+
+            if (currentAnswerQuestionIndex >= 0 && answerState == AnswerState::Answer) {
+                appendContinuation(questionBlocks[currentAnswerQuestionIndex].answerLines, line);
+            } else if (currentAnswerQuestionIndex >= 0 && answerState == AnswerState::Analysis) {
+                appendContinuation(questionBlocks[currentAnswerQuestionIndex].analysisLines, line);
+            }
+            continue;
+        }
+
+        const bool allowBracketedQuestion = currentQuestionIndex < 0
+            || questionBlocks[currentQuestionIndex].hasAnswerContent();
+
+        if (!foundFirstContent) {
+            if (!sectionTitle.isEmpty() || isQuestionStartLine(line, true)) {
+                foundFirstContent = true;
             } else {
-                // 还是 AI 的开场白/寒暄，跳过
                 continue;
             }
         }
 
-        if (inAnswerSection) {
-            answerLines.append(line);
-        } else {
-            questionLines.append(line);
+        if (!sectionTitle.isEmpty()) {
+            currentSectionTitle = sectionTitle;
+            answerState = AnswerState::None;
+            questionLines.append(sectionTitle);
+            continue;
         }
-    }
 
-    // 如果没有明确的答案区，尝试用【答案】行拆分
-    if (answerLines.isEmpty() && !questionLines.isEmpty()) {
-        static const QRegularExpression inlineAnswerRe(R"(^[\*]*【答案】)");
-        QStringList tempQ, tempA;
-        bool hitAnswer = false;
-        for (const QString &l : questionLines) {
-            if (!hitAnswer && inlineAnswerRe.match(l).hasMatch()) {
-                hitAnswer = true;
-            }
-            if (hitAnswer) {
-                tempA.append(l);
-            } else {
-                tempQ.append(l);
-            }
+        if (isQuestionStartLine(line, allowBracketedQuestion)) {
+            MarkdownQuestionBlock block;
+            block.sectionTitle = currentSectionTitle;
+            block.number = extractQuestionNumber(line);
+            questionBlocks.append(block);
+            currentQuestionIndex = questionBlocks.size() - 1;
+            answerState = AnswerState::None;
+            questionLines.append(line);
+            continue;
         }
-        if (!tempA.isEmpty()) {
-            questionLines = tempQ;
-            answerLines = tempA;
+
+        if (currentQuestionIndex < 0) {
+            questionLines.append(line);
+            continue;
         }
+
+        const QRegularExpressionMatch answerMatch = answerLineRe.match(line);
+        if (answerMatch.hasMatch()) {
+            questionBlocks[currentQuestionIndex].answerLines.append(stripInlineMarkdown(answerMatch.captured(1)));
+            answerState = AnswerState::Answer;
+            continue;
+        }
+
+        const QRegularExpressionMatch analysisMatch = analysisLineRe.match(line);
+        if (analysisMatch.hasMatch()) {
+            questionBlocks[currentQuestionIndex].analysisLines.append(stripInlineMarkdown(analysisMatch.captured(1)));
+            answerState = AnswerState::Analysis;
+            continue;
+        }
+
+        if (answerState == AnswerState::Answer) {
+            appendContinuation(questionBlocks[currentQuestionIndex].answerLines, line);
+            continue;
+        }
+
+        if (answerState == AnswerState::Analysis) {
+            appendContinuation(questionBlocks[currentQuestionIndex].analysisLines, line);
+            continue;
+        }
+
+        questionLines.append(line);
     }
 
     // ---- 第二步：构建文档内容 ----
@@ -530,8 +783,16 @@ bool DocxGenerator::createDocumentFromMarkdown(const QString &tempDir, const QSt
         bodyContent += markdownLineToXml(line);
     }
 
+    bool hasAnyAnswers = false;
+    for (const MarkdownQuestionBlock &block : questionBlocks) {
+        if (block.hasAnswerContent()) {
+            hasAnyAnswers = true;
+            break;
+        }
+    }
+
     // 如果有答案/解析，插入分页符后添加
-    if (!answerLines.isEmpty()) {
+    if (hasAnyAnswers) {
         // 分页符
         bodyContent += R"(<w:p>
 <w:r><w:br w:type="page"/></w:r>
@@ -544,8 +805,29 @@ bool DocxGenerator::createDocumentFromMarkdown(const QString &tempDir, const QSt
 </w:p>
 )";
 
-        for (const QString &line : answerLines) {
-            bodyContent += markdownLineToXml(line);
+        QString lastRenderedSectionTitle;
+        for (int i = 0; i < questionBlocks.size(); ++i) {
+            const MarkdownQuestionBlock &block = questionBlocks.at(i);
+            if (!block.hasAnswerContent()) {
+                continue;
+            }
+
+            if (!block.sectionTitle.isEmpty() && block.sectionTitle != lastRenderedSectionTitle) {
+                bodyContent += markdownLineToXml(block.sectionTitle);
+                lastRenderedSectionTitle = block.sectionTitle;
+            }
+
+            const QString questionNumber = block.number.isEmpty()
+                ? QString::number(i + 1)
+                : block.number;
+            bodyContent += answerHeadingXml(questionNumber);
+
+            for (const QString &answerLine : block.answerLines) {
+                bodyContent += markdownLineToXml(QStringLiteral("【答案】%1").arg(answerLine));
+            }
+            for (const QString &analysisLine : block.analysisLines) {
+                bodyContent += markdownLineToXml(QStringLiteral("【解析】%1").arg(analysisLine));
+            }
         }
     }
 
@@ -579,6 +861,15 @@ QString DocxGenerator::markdownLineToXml(const QString &line)
 <w:r><w:t>%1</w:t></w:r>
 </w:p>
 )").arg(escapeXml(text));
+    }
+
+    const QString sectionTitle = normalizedSectionTitle(line);
+    if (!sectionTitle.isEmpty()) {
+        return QString(R"(<w:p>
+<w:pPr><w:pStyle w:val="Heading1"/></w:pPr>
+<w:r><w:t>%1</w:t></w:r>
+</w:p>
+)").arg(escapeXml(sectionTitle));
     }
 
     // ---- 【答案】行 → 绿色加粗 ----
@@ -638,6 +929,22 @@ QString DocxGenerator::markdownLineToXml(const QString &line)
 )").arg(escapeXml(num), escapeXml(stem));
     }
 
+    static const QRegularExpression bracketQuestionRe(
+        R"(^[\*]*[（(]\s*(\d+)\s*[）)]\s*[\*]*\s*(.+))"
+    );
+    qMatch = bracketQuestionRe.match(line);
+    if (qMatch.hasMatch()) {
+        QString num = qMatch.captured(1);
+        QString stem = qMatch.captured(2).trimmed();
+        stem.remove(QRegularExpression(R"(\*{1,2})"));
+        return QString(R"(<w:p>
+<w:pPr><w:pStyle w:val="Question"/></w:pPr>
+<w:r><w:rPr><w:b/></w:rPr><w:t>（%1）</w:t></w:r>
+<w:r><w:t>%2</w:t></w:r>
+</w:p>
+)").arg(escapeXml(num), escapeXml(stem));
+    }
+
     // ---- 纯加粗行 **text** → 加粗段落 ----
     static const QRegularExpression boldLineRe(R"(^\*{2}(.+)\*{2}\s*$)");
     QRegularExpressionMatch boldMatch = boldLineRe.match(line);
@@ -683,4 +990,3 @@ bool DocxGenerator::packToZip(const QString &tempDir, const QString &outputPath)
 
     return true;
 }
-
