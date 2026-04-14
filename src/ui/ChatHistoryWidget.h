@@ -22,8 +22,17 @@ public:
     // 清空列表
     void clearHistory();
 
+    // 按 id 删除单个条目
+    void removeHistoryItem(const QString &id);
+
+    // 按 id 选中条目
+    void selectItem(const QString &id);
+
     // 清除选中状态
     void clearSelection();
+
+    // 返回条目数量
+    int itemCount() const;
 
     // 更新标题与操作按钮文案
     void setHeaderTitle(const QString &title);

@@ -11,6 +11,8 @@
 #include "../services/PaperService.h"
 #include "../services/QuestionParserService.h"
 #include "../services/QuestionQualityService.h"
+#include "../services/DocxGenerator.h"
+#include "../ui/ChatHistoryWidget.h"
 
 #include <QDebug>
 #include <QEvent>
@@ -25,11 +27,21 @@
 #include <QStackedWidget>
 #include <QVBoxLayout>
 #include <QPainter>
+#include <QFileDialog>
+#include <QDesktopServices>
+#include <QUrl>
+#include <QSettings>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QMessageBox>
 
 QuestionBankWindow::QuestionBankWindow(QWidget *parent)
     : QWidget(parent)
     , m_paperService(new PaperService(this))
     , m_questionParser(new QuestionParserService(this))
+    , m_exportParser(new QuestionParserService(this))
+    , m_docxGenerator(new DocxGenerator(this))
 {
     setObjectName("questionBankWindow");
 
@@ -41,6 +53,7 @@ QuestionBankWindow::QuestionBankWindow(QWidget *parent)
     setupLayout();
     loadStyleSheet();
 
+    // 保存链路的解析器配置
     QString parserApiKey = AppConfig::get("PARSER_API_KEY");
     if (parserApiKey.isEmpty()) {
         parserApiKey = AppConfig::get("DIFY_API_KEY");
@@ -55,6 +68,13 @@ QuestionBankWindow::QuestionBankWindow(QWidget *parent)
         m_questionParser->setBaseUrl(parserBaseUrl);
     }
 
+    // 导出链路的解析器配置（复用同一 Key）
+    m_exportParser->setApiKey(parserApiKey);
+    if (!parserBaseUrl.isEmpty()) {
+        m_exportParser->setBaseUrl(parserBaseUrl);
+    }
+
+    // ====== 保存链路信号 ======
     connect(m_aiQuestionGenWidget, &AIQuestionGenWidget::saveRequested,
             this, &QuestionBankWindow::onSaveGeneratedQuestionsRequested);
     connect(m_questionParser, &QuestionParserService::parseCompleted,
@@ -65,6 +85,35 @@ QuestionBankWindow::QuestionBankWindow(QWidget *parent)
             this, &QuestionBankWindow::onGeneratedQuestionsSaved);
     connect(m_paperService, &PaperService::questionError,
             this, &QuestionBankWindow::onGeneratedQuestionsSaveError);
+
+    // ====== 导出链路信号 ======
+    connect(m_aiQuestionGenWidget, &AIQuestionGenWidget::exportRequested,
+            this, &QuestionBankWindow::onExportToDocx);
+    connect(m_exportParser, &QuestionParserService::parseCompleted,
+            this, &QuestionBankWindow::onExportQuestionsParsed);
+    connect(m_exportParser, &QuestionParserService::errorOccurred,
+            this, &QuestionBankWindow::onExportQuestionsParseError);
+
+    // ====== 历史侧边栏信号 ======
+    connect(m_questionHistoryWidget, &ChatHistoryWidget::newChatRequested,
+            m_aiQuestionGenWidget, &AIQuestionGenWidget::startNewConversation);
+    connect(m_questionHistoryWidget, &ChatHistoryWidget::historyItemSelected,
+            this, &QuestionBankWindow::onQuestionHistorySelected);
+    connect(m_questionHistoryWidget, &ChatHistoryWidget::historyDeleteRequested,
+            this, &QuestionBankWindow::onQuestionHistoryDeleted);
+
+    // 对话更新 → 刷新历史列表
+    connect(m_aiQuestionGenWidget, &AIQuestionGenWidget::conversationUpdated,
+            this, [this](const QString &, const QString &) {
+        refreshQuestionHistory();
+    });
+
+    // 新建对话后也刷新
+    connect(m_questionHistoryWidget, &ChatHistoryWidget::newChatRequested,
+            this, &QuestionBankWindow::refreshQuestionHistory);
+
+    // 初始加载历史
+    refreshQuestionHistory();
 }
 
 void QuestionBankWindow::setupLayout()
@@ -95,9 +144,23 @@ void QuestionBankWindow::setupLayout()
     // ====== 内容区域：AI出题 / 智能组卷 ======
     m_modeStack = new QStackedWidget();
 
-    // page 0: AI 出题
+    // page 0: AI 出题（包裹层：history sidebar + chat area）
+    m_aiGenPageWrapper = new QWidget();
+    auto *aiGenLayout = new QHBoxLayout(m_aiGenPageWrapper);
+    aiGenLayout->setContentsMargins(0, 0, 0, 0);
+    aiGenLayout->setSpacing(0);
+
+    // 左侧历史侧边栏
+    m_questionHistoryWidget = new ChatHistoryWidget();
+    m_questionHistoryWidget->setHeaderTitle("出题历史");
+    m_questionHistoryWidget->setNewButtonText("➕ 新建出题");
+    aiGenLayout->addWidget(m_questionHistoryWidget);
+
+    // 右侧聊天区域
     m_aiQuestionGenWidget = new AIQuestionGenWidget(this);
-    m_modeStack->addWidget(m_aiQuestionGenWidget);
+    aiGenLayout->addWidget(m_aiQuestionGenWidget, 1);
+
+    m_modeStack->addWidget(m_aiGenPageWrapper);
 
     // page 1: 智能组卷
     m_smartPaperWidget = new SmartPaperWidget(this);
@@ -113,7 +176,6 @@ void QuestionBankWindow::setupLayout()
     m_basketWidget->raise();
     m_basketWidget->setAttribute(Qt::WA_TransparentForMouseEvents, false);
 
-    // 连接试题篮信号
     connect(m_basketWidget, &QuestionBasketWidget::composePaperRequested,
             this, &QuestionBankWindow::onComposePaper);
     connect(m_basketWidget, &QuestionBasketWidget::sizeChanged,
@@ -135,7 +197,6 @@ QWidget *QuestionBankWindow::buildHeader()
     header->setObjectName("pageHeader");
     header->setFixedHeight(120);
 
-    // 绿色渐变 + 玻璃质感（教育成长风格）
     header->setStyleSheet(
         "QFrame#pageHeader {"
         "    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, "
@@ -237,7 +298,6 @@ QWidget *QuestionBankWindow::buildHeader()
     rightLayout->setContentsMargins(0, 0, 0, 0);
     rightLayout->setSpacing(8);
 
-    // 分段切换按钮
     auto *tabRow = new QHBoxLayout();
     tabRow->setSpacing(0);
 
@@ -273,8 +333,7 @@ QWidget *QuestionBankWindow::buildHeader()
     );
     connect(qualityCheckBtn, &QPushButton::clicked, this, [this]() {
         auto *difyService = new DifyService(this);
-        difyService->setApiKey(qEnvironmentVariable("DIFY_API_KEY"));
-        // 质量检查需要 PaperService，但现在不再持有。创建临时实例
+        difyService->setApiKey(AppConfig::get("DIFY_API_KEY"));
         auto *paperService = new PaperService(this);
         auto *qualityService = new QuestionQualityService(paperService, difyService, this);
         QualityCheckDialog dialog(qualityService, paperService, this);
@@ -328,7 +387,6 @@ void QuestionBankWindow::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
 
-    // 将试题篮组件定位到右下角
     if (m_basketWidget) {
         const int margin = 24;
         int x = width() - m_basketWidget->width() - margin;
@@ -374,14 +432,12 @@ void QuestionBankWindow::switchMode(int mode)
         "QPushButton:hover { background: rgba(255,255,255,0.25); }";
 
     if (mode == 0) {
-        // AI 出题模式
         if (m_aiGenTabBtn) m_aiGenTabBtn->setStyleSheet(TAB_ACTIVE.arg("16px 0 0 16px"));
         if (m_smartPaperTabBtn) m_smartPaperTabBtn->setStyleSheet(TAB_NORMAL.arg("0 16px 16px 0"));
         if (m_headerTitle) m_headerTitle->setText("AI 智能备课 · AI 出题");
-        if (m_headerSubtitle) m_headerSubtitle->setText("◆ 对话出题  ◆ 智能生成  ◆ 一键保存");
+        if (m_headerSubtitle) m_headerSubtitle->setText("◆ 对话出题  ◆ 智能生成  ◆ 一键导出");
         if (m_basketWidget) m_basketWidget->setVisible(false);
     } else {
-        // 智能组卷模式
         if (m_aiGenTabBtn) m_aiGenTabBtn->setStyleSheet(TAB_NORMAL.arg("16px 0 0 16px"));
         if (m_smartPaperTabBtn) m_smartPaperTabBtn->setStyleSheet(TAB_ACTIVE.arg("0 16px 16px 0"));
         if (m_headerTitle) m_headerTitle->setText("AI 智能备课 · 智能组卷");
@@ -390,15 +446,175 @@ void QuestionBankWindow::switchMode(int mode)
     }
 }
 
-void QuestionBankWindow::onSaveGeneratedQuestionsRequested(const QString &content)
+// ===================== AI 出题历史管理 =====================
+
+void QuestionBankWindow::refreshQuestionHistory()
 {
-    if (m_isSavingGeneratedQuestions) {
+    if (!m_questionHistoryWidget) return;
+
+    m_questionHistoryWidget->clearHistory();
+
+    QSettings settings;
+    QByteArray indexData = settings.value("questionGen/index").toByteArray();
+    QJsonArray index = QJsonDocument::fromJson(indexData).array();
+
+    for (const QJsonValue &val : index) {
+        QJsonObject entry = val.toObject();
+        QString id = entry["id"].toString();
+        QString title = entry["title"].toString();
+        QString updatedAt = entry["updatedAt"].toString();
+
+        // 格式化时间
+        QDateTime dt = QDateTime::fromString(updatedAt, Qt::ISODate);
+        QString timeStr;
+        if (dt.isValid()) {
+            QDate today = QDate::currentDate();
+            if (dt.date() == today) {
+                timeStr = dt.toString("HH:mm");
+            } else if (dt.date() == today.addDays(-1)) {
+                timeStr = "昨天 " + dt.toString("HH:mm");
+            } else {
+                timeStr = dt.toString("MM-dd HH:mm");
+            }
+        }
+
+        m_questionHistoryWidget->addHistoryItem(id, title, timeStr);
+    }
+
+    // 选中当前对话
+    if (m_aiQuestionGenWidget) {
+        QString currentId = m_aiQuestionGenWidget->currentConversationId();
+        if (!currentId.isEmpty()) {
+            m_questionHistoryWidget->selectItem(currentId);
+        }
+    }
+
+    qDebug() << "[QuestionBankWindow] 历史列表已刷新，共" << index.size() << "条";
+}
+
+void QuestionBankWindow::onQuestionHistorySelected(const QString &id)
+{
+    if (!m_aiQuestionGenWidget) return;
+
+    // 如果选中的就是当前对话，忽略
+    if (id == m_aiQuestionGenWidget->currentConversationId()) return;
+
+    m_aiQuestionGenWidget->loadConversation(id);
+    qDebug() << "[QuestionBankWindow] 切换到历史对话:" << id;
+}
+
+void QuestionBankWindow::onQuestionHistoryDeleted(const QString &id)
+{
+    if (!m_aiQuestionGenWidget) return;
+
+    m_aiQuestionGenWidget->deleteConversation(id);
+
+    // 从侧边栏移除
+    if (m_questionHistoryWidget) {
+        m_questionHistoryWidget->removeHistoryItem(id);
+    }
+
+    // 如果删的是当前对话，重建新对话
+    if (id == m_aiQuestionGenWidget->currentConversationId()) {
+        m_aiQuestionGenWidget->startNewConversation();
+    }
+
+    qDebug() << "[QuestionBankWindow] 已删除历史对话:" << id;
+}
+
+// ===================== 导出 DOCX =====================
+
+void QuestionBankWindow::onExportToDocx(const QString &content)
+{
+    if (content.trimmed().isEmpty() || m_isExporting) return;
+
+    if (!m_exportParser || !m_exportParser->isConfigured()) {
+        QMessageBox::warning(this, "导出失败",
+            "未配置题目解析服务的 API Key，无法导出为 DOCX。\n"
+            "请在 .env.local 中设置 PARSER_API_KEY 或 DIFY_API_KEY。");
         return;
     }
 
-    if (!m_aiQuestionGenWidget || !m_questionParser) {
+    m_isExporting = true;
+
+    // 显示进度提示
+    if (m_aiQuestionGenWidget) {
+        m_aiQuestionGenWidget->setEnabled(false);
+    }
+
+    qDebug() << "[QuestionBankWindow] 开始导出 DOCX，调用解析服务...";
+    m_exportParser->parseDocument(content, "道德与法治");
+}
+
+void QuestionBankWindow::onExportQuestionsParsed(const QList<PaperQuestion> &questions)
+{
+    if (!m_isExporting) return;
+    m_isExporting = false;
+
+    if (m_aiQuestionGenWidget) {
+        m_aiQuestionGenWidget->setEnabled(true);
+    }
+
+    if (questions.isEmpty()) {
+        QMessageBox::warning(this, "导出失败",
+            "AI 内容未能解析为有效题目，请调整输出格式后重试。");
         return;
     }
+
+    // 弹出文件选择对话框
+    QString defaultName = "AI出题_" + QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss") + ".docx";
+    QString filePath = QFileDialog::getSaveFileName(
+        this, "导出试卷",
+        QDir::homePath() + "/Desktop/" + defaultName,
+        "Word 文档 (*.docx)");
+
+    if (filePath.isEmpty()) return;
+
+    // 使用 DocxGenerator 生成真实 .docx
+    QString title = "道德与法治 练习题";
+    if (m_aiQuestionGenWidget) {
+        QString convTitle = m_aiQuestionGenWidget->currentConversationTitle();
+        if (!convTitle.isEmpty() && convTitle != "新对话") {
+            title = convTitle;
+        }
+    }
+
+    bool success = m_docxGenerator->generatePaper(filePath, title, questions);
+    if (success) {
+        QMessageBox::StandardButton btn = QMessageBox::information(
+            this, "导出成功",
+            QString("试卷已导出到：\n%1\n\n共 %2 道试题。\n\n是否打开文件？")
+                .arg(filePath).arg(questions.size()),
+            QMessageBox::Yes | QMessageBox::No,
+            QMessageBox::Yes);
+        if (btn == QMessageBox::Yes) {
+            QDesktopServices::openUrl(QUrl::fromLocalFile(filePath));
+        }
+    } else {
+        QMessageBox::warning(this, "导出失败",
+            "DOCX 文件生成失败：" + m_docxGenerator->lastError());
+    }
+}
+
+void QuestionBankWindow::onExportQuestionsParseError(const QString &error)
+{
+    if (!m_isExporting) return;
+    m_isExporting = false;
+
+    if (m_aiQuestionGenWidget) {
+        m_aiQuestionGenWidget->setEnabled(true);
+    }
+
+    QMessageBox::warning(this, "导出失败",
+        "试题解析失败：" + error);
+}
+
+// ===================== 保存到题库链路（原有逻辑） =====================
+
+void QuestionBankWindow::onSaveGeneratedQuestionsRequested(const QString &content)
+{
+    if (m_isSavingGeneratedQuestions) return;
+    if (!m_aiQuestionGenWidget || !m_questionParser) return;
 
     if (content.trimmed().isEmpty()) {
         m_aiQuestionGenWidget->showSaveErrorMessage("没有可保存的题目内容。");
@@ -417,9 +633,7 @@ void QuestionBankWindow::onSaveGeneratedQuestionsRequested(const QString &conten
 
 void QuestionBankWindow::onGeneratedQuestionsParsed(const QList<PaperQuestion> &questions)
 {
-    if (!m_isSavingGeneratedQuestions || !m_aiQuestionGenWidget) {
-        return;
-    }
+    if (!m_isSavingGeneratedQuestions || !m_aiQuestionGenWidget) return;
 
     if (questions.isEmpty()) {
         m_isSavingGeneratedQuestions = false;
@@ -439,9 +653,7 @@ void QuestionBankWindow::onGeneratedQuestionsParsed(const QList<PaperQuestion> &
 
 void QuestionBankWindow::onGeneratedQuestionsSaved(int count)
 {
-    if (!m_isSavingGeneratedQuestions || !m_aiQuestionGenWidget) {
-        return;
-    }
+    if (!m_isSavingGeneratedQuestions || !m_aiQuestionGenWidget) return;
 
     m_isSavingGeneratedQuestions = false;
     m_aiQuestionGenWidget->showSaveSuccessMessage(count, false);
@@ -449,9 +661,7 @@ void QuestionBankWindow::onGeneratedQuestionsSaved(int count)
 
 void QuestionBankWindow::onGeneratedQuestionsSaveError(const QString &, const QString &error)
 {
-    if (!m_isSavingGeneratedQuestions || !m_aiQuestionGenWidget) {
-        return;
-    }
+    if (!m_isSavingGeneratedQuestions || !m_aiQuestionGenWidget) return;
 
     m_isSavingGeneratedQuestions = false;
     m_aiQuestionGenWidget->showSaveErrorMessage(error);
@@ -459,9 +669,7 @@ void QuestionBankWindow::onGeneratedQuestionsSaveError(const QString &, const QS
 
 void QuestionBankWindow::onGeneratedQuestionsParseError(const QString &error)
 {
-    if (!m_isSavingGeneratedQuestions || !m_aiQuestionGenWidget) {
-        return;
-    }
+    if (!m_isSavingGeneratedQuestions || !m_aiQuestionGenWidget) return;
 
     m_isSavingGeneratedQuestions = false;
     m_aiQuestionGenWidget->showSaveErrorMessage(error);

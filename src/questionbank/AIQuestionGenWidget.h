@@ -16,7 +16,7 @@ class PaperService;
  * @brief AI 对话式出题组件
  *
  * 直接调用智谱 GLM-5.1 API（OpenAI 兼容格式），通过自然语言对话生成试题。
- * 支持流式 SSE 响应、快捷提示按钮和保存到题库。
+ * 支持流式 SSE 响应、多轮对话上下文、历史持久化和 DOCX 导出。
  */
 class AIQuestionGenWidget : public QWidget
 {
@@ -25,17 +25,44 @@ class AIQuestionGenWidget : public QWidget
 public:
     explicit AIQuestionGenWidget(QWidget *parent = nullptr);
     ~AIQuestionGenWidget();
+
+    // 保存按钮状态
     void setSavingToBank(bool saving);
     void showSaveSuccessMessage(int savedCount, bool directInsert);
     void showSaveErrorMessage(const QString &error);
+
+    // ===== 对话管理（公开接口）=====
+
+    /// 开始新对话：清空当前对话，生成新 UUID
+    void startNewConversation();
+
+    /// 加载指定历史对话：从 QSettings 恢复消息 + 渲染到 ChatWidget
+    void loadConversation(const QString &id);
+
+    /// 当前会话 ID
+    QString currentConversationId() const { return m_conversationId; }
+
+    /// 当前对话标题（从首条用户消息提取前 20 字）
+    QString currentConversationTitle() const;
+
+    /// 最后一次 AI 回复（供外部解析导出）
+    QString lastAIResponse() const { return m_lastAIResponse; }
+
+    /// 删除指定会话的持久化数据
+    void deleteConversation(const QString &id);
 
 signals:
     /// 请求将 AI 生成的内容保存到题库
     void saveRequested(const QString &content);
 
+    /// 请求导出试卷（content = AI 原始回复 Markdown）
+    void exportRequested(const QString &content);
+
+    /// 对话更新通知（AI 回复完成后发出）
+    void conversationUpdated(const QString &id, const QString &title);
+
 private slots:
     void onUserMessageSent(const QString &message);
-    void onNewConversation();
     void onSaveToBank();
 
 private:
@@ -47,11 +74,15 @@ private:
     void sendToZhipu(const QString &userMessage);
     void processSSEData(const QByteArray &data);
 
+    // 持久化
+    void saveCurrentConversation();
+
     // UI 组件
     ChatWidget *m_chatWidget = nullptr;
     QFrame *m_bottomBar = nullptr;
     QPushButton *m_newChatBtn = nullptr;
     QPushButton *m_saveBtn = nullptr;
+    QPushButton *m_exportBtn = nullptr;
 
     // 网络
     QNetworkAccessManager *m_networkManager = nullptr;
@@ -65,12 +96,13 @@ private:
         QString content;
     };
     QList<ChatMessage> m_conversationHistory;
+    QString m_conversationId;   // 当前会话 UUID
 
     // 状态
     bool m_isGenerating = false;
     bool m_hasPendingAIPlaceholder = false;
     bool m_isSavingToBank = false;
-    QString m_lastAIResponse;       // 最后一次完整 AI 回复（用于保存）
+    QString m_lastAIResponse;       // 最后一次完整 AI 回复（用于保存/导出）
     QByteArray m_sseBuffer;         // SSE 数据缓冲区
 
     // 常量

@@ -243,3 +243,32 @@ void ChatHistoryWidget::setNewButtonText(const QString &text)
         m_newChatBtn->setText(text);
     }
 }
+
+void ChatHistoryWidget::removeHistoryItem(const QString &id)
+{
+    if (!m_listWidget) return;
+    for (int i = 0; i < m_listWidget->count(); ++i) {
+        QListWidgetItem *item = m_listWidget->item(i);
+        if (item && item->data(Qt::UserRole).toString() == id) {
+            delete m_listWidget->takeItem(i);
+            return;
+        }
+    }
+}
+
+void ChatHistoryWidget::selectItem(const QString &id)
+{
+    if (!m_listWidget) return;
+    for (int i = 0; i < m_listWidget->count(); ++i) {
+        QListWidgetItem *item = m_listWidget->item(i);
+        if (item && item->data(Qt::UserRole).toString() == id) {
+            m_listWidget->setCurrentItem(item);
+            return;
+        }
+    }
+}
+
+int ChatHistoryWidget::itemCount() const
+{
+    return m_listWidget ? m_listWidget->count() : 0;
+}

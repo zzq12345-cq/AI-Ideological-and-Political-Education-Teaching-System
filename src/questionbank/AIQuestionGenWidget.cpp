@@ -16,16 +16,16 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QSslConfiguration>
+#include <QUuid>
+#include <QSettings>
+#include <QDateTime>
 
 namespace {
 // 绿色教育风格配色（与 SmartPaperWidget / QuestionBankWindow 统一）
 const QString ACCENT_GREEN = "#2E7D32";
 const QString ACCENT_GREEN_HOVER = "#1B5E20";
-const QString ACCENT_GREEN_LIGHT = "#E8F5E9";
-const QString ACCENT_RED = "#D32F2F";
-const QString ACCENT_RED_HOVER = "#B71C1C";
 const QString ACCENT_BLUE = "#1565C0";
-const QString ACCENT_BLUE_LIGHT = "#E3F2FD";
+const QString ACCENT_BLUE_HOVER = "#0D47A1";
 const QString TEXT_SECONDARY = "#6B7280";
 const QString BORDER_SUBTLE = "#E5E7EB";
 const QString BG_PAGE = "#F8F9FA";
@@ -36,6 +36,9 @@ AIQuestionGenWidget::AIQuestionGenWidget(QWidget *parent)
 {
     setupUI();
     setupZhipuService();
+
+    // 初始分配一个新会话 ID
+    m_conversationId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     showWelcome();
 }
 
@@ -50,20 +53,17 @@ AIQuestionGenWidget::~AIQuestionGenWidget()
 void AIQuestionGenWidget::setSavingToBank(bool saving)
 {
     m_isSavingToBank = saving;
-    if (!m_saveBtn) {
-        return;
+    if (m_saveBtn) {
+        m_saveBtn->setEnabled(!saving && !m_lastAIResponse.trimmed().isEmpty());
+        m_saveBtn->setText(saving ? "保存中..." : "💾 保存到题库");
     }
-
-    m_saveBtn->setEnabled(!saving && !m_lastAIResponse.trimmed().isEmpty());
-    m_saveBtn->setText(saving ? "保存中..." : "💾 保存到题库");
 }
 
 void AIQuestionGenWidget::showSaveSuccessMessage(int savedCount, bool directInsert)
 {
     setSavingToBank(false);
     QMessageBox::information(
-        this,
-        "保存成功",
+        this, "保存成功",
         directInsert
             ? QString("AI 生成的试题已通过工作流直接入库（共 %1 题）。").arg(savedCount)
             : QString("AI 生成的试题已保存到题库（共 %1 题）。").arg(savedCount)
@@ -76,25 +76,25 @@ void AIQuestionGenWidget::showSaveErrorMessage(const QString &error)
     QMessageBox::warning(this, "保存失败", error);
 }
 
+// ===================== UI 构建 =====================
+
 void AIQuestionGenWidget::setupUI()
 {
     auto *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
-
     setStyleSheet(QString("AIQuestionGenWidget { background-color: %1; }").arg(BG_PAGE));
 
-    // ===================== 聊天区域 =====================
+    // ====== 聊天区域 ======
     m_chatWidget = new ChatWidget(this);
     m_chatWidget->setMarkdownEnabled(true);
     m_chatWidget->setPlaceholderText("输入出题需求，例如：帮我出5道关于宪法的选择题...");
     mainLayout->addWidget(m_chatWidget, 1);
 
-    // 连接用户消息信号
     connect(m_chatWidget, &ChatWidget::messageSent,
             this, &AIQuestionGenWidget::onUserMessageSent);
 
-    // ===================== 底部操作栏 =====================
+    // ====== 底部操作栏 ======
     m_bottomBar = new QFrame(this);
     m_bottomBar->setObjectName("aiGenBottomBar");
     m_bottomBar->setStyleSheet(
@@ -128,16 +128,46 @@ void AIQuestionGenWidget::setupUI()
         "    font-size: 13px;"
         "    font-weight: 600;"
         "}"
-        "QPushButton:hover {"
-        "    background-color: #F5F5F5;"
-        "}"
+        "QPushButton:hover { background-color: #F5F5F5; }"
     ).arg(TEXT_SECONDARY, BORDER_SUBTLE));
     m_newChatBtn->setCursor(Qt::PointingHandCursor);
     connect(m_newChatBtn, &QPushButton::clicked,
-            this, &AIQuestionGenWidget::onNewConversation);
+            this, &AIQuestionGenWidget::startNewConversation);
 
     barLayout->addWidget(m_newChatBtn);
     barLayout->addStretch();
+
+    // 导出试卷按钮
+    m_exportBtn = new QPushButton("📥 导出试卷");
+    m_exportBtn->setStyleSheet(QString(
+        "QPushButton {"
+        "    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
+        "        stop:0 %1, stop:1 #1976D2);"
+        "    color: white;"
+        "    border: none;"
+        "    border-radius: 10px;"
+        "    padding: 8px 24px;"
+        "    font-size: 13px;"
+        "    font-weight: 700;"
+        "    letter-spacing: 0.3px;"
+        "}"
+        "QPushButton:hover {"
+        "    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
+        "        stop:0 %2, stop:1 #1565C0);"
+        "}"
+        "QPushButton:disabled {"
+        "    background-color: #E5E7EB;"
+        "    color: #9CA3AF;"
+        "}"
+    ).arg(ACCENT_BLUE, ACCENT_BLUE_HOVER));
+    m_exportBtn->setCursor(Qt::PointingHandCursor);
+    m_exportBtn->setEnabled(false);
+    connect(m_exportBtn, &QPushButton::clicked, this, [this]() {
+        if (!m_lastAIResponse.trimmed().isEmpty()) {
+            emit exportRequested(m_lastAIResponse);
+        }
+    });
+    barLayout->addWidget(m_exportBtn);
 
     // 保存到题库按钮
     m_saveBtn = new QPushButton("💾 保存到题库");
@@ -163,10 +193,9 @@ void AIQuestionGenWidget::setupUI()
         "}"
     ).arg(ACCENT_GREEN, ACCENT_GREEN_HOVER));
     m_saveBtn->setCursor(Qt::PointingHandCursor);
-    m_saveBtn->setEnabled(false);  // 初始禁用，等 AI 生成完再启用
+    m_saveBtn->setEnabled(false);
     connect(m_saveBtn, &QPushButton::clicked,
             this, &AIQuestionGenWidget::onSaveToBank);
-
     barLayout->addWidget(m_saveBtn);
 
     mainLayout->addWidget(m_bottomBar);
@@ -176,7 +205,6 @@ void AIQuestionGenWidget::setupZhipuService()
 {
     m_networkManager = new QNetworkAccessManager(this);
 
-    // 从 AppConfig 读取智谱 API Key 和 Base URL
     m_apiKey = AppConfig::get("ZHIPU_QUESTION_API_KEY");
     if (m_apiKey.isEmpty()) {
         m_apiKey = AppConfig::get("ZHIPU_API_KEY", EmbeddedKeys::ZHIPU_API_KEY);
@@ -188,14 +216,13 @@ void AIQuestionGenWidget::setupZhipuService()
              << "Base URL:" << m_baseUrl
              << "Model:" << MODEL_NAME;
 
-    // 初始化对话历史，添加系统提示
+    // 初始化对话历史
     m_conversationHistory.clear();
     m_conversationHistory.append({QStringLiteral("system"), systemPrompt()});
 }
 
 void AIQuestionGenWidget::showWelcome()
 {
-    // AI 欢迎消息
     const QString welcome =
         "你好！我是 **AI 出题助手** 💡\n\n"
         "我可以帮你生成各类思政试题。请告诉我你的出题需求，例如：\n\n"
@@ -206,14 +233,194 @@ void AIQuestionGenWidget::showWelcome()
         "直接输入需求，或点击下方快捷按钮开始 👇";
 
     m_chatWidget->addMessage(welcome, false);
-
-    // 快捷回复按钮
     m_chatWidget->addQuickReplyOptions({
         "帮我出5道选择题，主题：宪法",
         "生成一道材料论述题，难度中等",
         "围绕'法治'出综合练习（选择+判断+论述）",
         "出3道判断说理题，主题：青少年法律意识"
     });
+}
+
+// ===================== 对话管理（公开接口）=====================
+
+QString AIQuestionGenWidget::currentConversationTitle() const
+{
+    // 从首条用户消息提取标题（前 20 字）
+    for (const auto &msg : m_conversationHistory) {
+        if (msg.role == "user") {
+            QString title = msg.content.left(20).trimmed();
+            if (title.length() < msg.content.length()) {
+                title += "...";
+            }
+            return title;
+        }
+    }
+    return QStringLiteral("新对话");
+}
+
+void AIQuestionGenWidget::startNewConversation()
+{
+    // 中止正在进行的请求
+    if (m_currentReply) {
+        m_currentReply->abort();
+        m_currentReply = nullptr;
+    }
+
+    // 分配新 UUID
+    m_conversationId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+
+    m_chatWidget->clearMessages();
+    m_lastAIResponse.clear();
+    m_saveBtn->setEnabled(false);
+    m_exportBtn->setEnabled(false);
+    m_isGenerating = false;
+    m_chatWidget->setInputEnabled(true);
+
+    // 重置对话历史（保留系统提示）
+    m_conversationHistory.clear();
+    m_conversationHistory.append({QStringLiteral("system"), systemPrompt()});
+
+    showWelcome();
+    qDebug() << "[AIQuestionGen] 新对话已创建:" << m_conversationId;
+}
+
+void AIQuestionGenWidget::loadConversation(const QString &id)
+{
+    QSettings settings;
+    QString messagesKey = QString("questionGen/messages/%1").arg(id);
+    QByteArray data = settings.value(messagesKey).toByteArray();
+
+    if (data.isEmpty()) {
+        qWarning() << "[AIQuestionGen] 加载对话失败，未找到:" << id;
+        return;
+    }
+
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
+    if (parseError.error != QJsonParseError::NoError) {
+        qWarning() << "[AIQuestionGen] 对话 JSON 解析失败:" << parseError.errorString();
+        return;
+    }
+
+    // 中止当前请求
+    if (m_currentReply) {
+        m_currentReply->abort();
+        m_currentReply = nullptr;
+    }
+
+    m_conversationId = id;
+    m_conversationHistory.clear();
+    m_lastAIResponse.clear();
+    m_isGenerating = false;
+    m_chatWidget->setInputEnabled(true);
+    m_chatWidget->clearMessages();
+
+    // 恢复消息
+    QJsonArray messages = doc.array();
+    for (const QJsonValue &val : messages) {
+        QJsonObject obj = val.toObject();
+        QString role = obj["role"].toString();
+        QString content = obj["content"].toString();
+        m_conversationHistory.append({role, content});
+
+        // 渲染到 ChatWidget（跳过 system 消息）
+        if (role == "user") {
+            m_chatWidget->addMessage(content, true);
+        } else if (role == "assistant") {
+            m_chatWidget->addMessage(content, false);
+            m_lastAIResponse = content; // 记录最后一次 AI 回复
+        }
+    }
+
+    // 更新按钮状态
+    bool hasResponse = !m_lastAIResponse.trimmed().isEmpty();
+    m_saveBtn->setEnabled(hasResponse && !m_isSavingToBank);
+    m_exportBtn->setEnabled(hasResponse);
+
+    qDebug() << "[AIQuestionGen] 对话已加载:" << id
+             << "消息数:" << m_conversationHistory.size();
+}
+
+void AIQuestionGenWidget::saveCurrentConversation()
+{
+    if (m_conversationId.isEmpty()) return;
+
+    // 检查是否有实质内容（至少有一条用户消息）
+    bool hasUserMessage = false;
+    for (const auto &msg : m_conversationHistory) {
+        if (msg.role == "user") { hasUserMessage = true; break; }
+    }
+    if (!hasUserMessage) return;
+
+    QSettings settings;
+
+    // 1. 保存消息内容
+    QJsonArray messages;
+    for (const auto &msg : m_conversationHistory) {
+        QJsonObject obj;
+        obj["role"] = msg.role;
+        obj["content"] = msg.content;
+        messages.append(obj);
+    }
+    settings.setValue(
+        QString("questionGen/messages/%1").arg(m_conversationId),
+        QJsonDocument(messages).toJson(QJsonDocument::Compact)
+    );
+
+    // 2. 更新元数据索引
+    QByteArray indexData = settings.value("questionGen/index").toByteArray();
+    QJsonArray index = QJsonDocument::fromJson(indexData).array();
+
+    // 检查是否已存在该 ID
+    bool found = false;
+    for (int i = 0; i < index.size(); ++i) {
+        QJsonObject entry = index[i].toObject();
+        if (entry["id"].toString() == m_conversationId) {
+            entry["title"] = currentConversationTitle();
+            entry["updatedAt"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+            index[i] = entry;
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        QJsonObject newEntry;
+        newEntry["id"] = m_conversationId;
+        newEntry["title"] = currentConversationTitle();
+        newEntry["updatedAt"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+        // 插入到开头（最新在前）
+        QJsonArray newIndex;
+        newIndex.append(newEntry);
+        for (const QJsonValue &v : index) newIndex.append(v);
+        index = newIndex;
+    }
+
+    settings.setValue("questionGen/index", QJsonDocument(index).toJson(QJsonDocument::Compact));
+
+    qDebug() << "[AIQuestionGen] 对话已保存:" << m_conversationId
+             << "标题:" << currentConversationTitle();
+}
+
+void AIQuestionGenWidget::deleteConversation(const QString &id)
+{
+    QSettings settings;
+
+    // 删除消息内容
+    settings.remove(QString("questionGen/messages/%1").arg(id));
+
+    // 从索引中移除
+    QByteArray indexData = settings.value("questionGen/index").toByteArray();
+    QJsonArray index = QJsonDocument::fromJson(indexData).array();
+    QJsonArray newIndex;
+    for (const QJsonValue &v : index) {
+        if (v.toObject()["id"].toString() != id) {
+            newIndex.append(v);
+        }
+    }
+    settings.setValue("questionGen/index", QJsonDocument(newIndex).toJson(QJsonDocument::Compact));
+
+    qDebug() << "[AIQuestionGen] 对话已删除:" << id;
 }
 
 // ===================== 智谱 API 调用 =====================
@@ -261,9 +468,8 @@ void AIQuestionGenWidget::sendToZhipu(const QString &userMessage)
     request.setRawHeader("Authorization", ("Bearer " + m_apiKey).toUtf8());
     request.setRawHeader("Content-Type", "application/json");
     request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
-    request.setTransferTimeout(120000); // 2 分钟超时
+    request.setTransferTimeout(120000);
 
-    // SSL 配置
     QSslConfiguration sslConfig = QSslConfiguration::defaultConfiguration();
     sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
     request.setSslConfiguration(sslConfig);
@@ -280,19 +486,15 @@ void AIQuestionGenWidget::sendToZhipu(const QString &userMessage)
     QJsonObject body;
     body["model"] = MODEL_NAME;
     body["messages"] = messages;
-    body["stream"] = true;  // 启用流式响应
+    body["stream"] = true;
     body["temperature"] = 0.7;
     body["max_tokens"] = 4096;
 
     QJsonDocument doc(body);
     QByteArray data = doc.toJson();
 
-    qDebug() << "[AIQuestionGen] 发送请求到智谱 API:"
-             << "model:" << MODEL_NAME
-             << "messages:" << messages.size()
-             << "body size:" << data.size();
+    qDebug() << "[AIQuestionGen] 发送请求:" << "messages:" << messages.size() << "body:" << data.size();
 
-    // 发送请求
     m_sseBuffer.clear();
     m_currentReply = m_networkManager->post(request, data);
 
@@ -304,7 +506,6 @@ void AIQuestionGenWidget::sendToZhipu(const QString &userMessage)
         return;
     }
 
-    // 处理 SSL 错误
     connect(m_currentReply, &QNetworkReply::sslErrors,
             this, [this](const QList<QSslError> &errors) {
         if (m_currentReply) {
@@ -312,20 +513,16 @@ void AIQuestionGenWidget::sendToZhipu(const QString &userMessage)
         }
     });
 
-    // 流式数据到达
     connect(m_currentReply, &QNetworkReply::readyRead,
             this, [this]() {
         if (!m_currentReply) return;
-        QByteArray newData = m_currentReply->readAll();
-        processSSEData(newData);
+        processSSEData(m_currentReply->readAll());
     });
 
-    // 请求完成
     connect(m_currentReply, &QNetworkReply::finished,
             this, [this]() {
         QNetworkReply *reply = m_currentReply;
         m_currentReply = nullptr;
-
         if (!reply) return;
         reply->deleteLater();
 
@@ -335,8 +532,8 @@ void AIQuestionGenWidget::sendToZhipu(const QString &userMessage)
         m_chatWidget->collapseThinking();
 
         if (reply->error() != QNetworkReply::NoError && m_lastAIResponse.isEmpty()) {
-            QString errMsg;
             int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            QString errMsg;
             if (httpStatus == 401) {
                 errMsg = "⚠️ 出题失败：API Key 无效\n\n请检查 ZHIPU_API_KEY 配置。";
             } else if (httpStatus == 429) {
@@ -346,19 +543,22 @@ void AIQuestionGenWidget::sendToZhipu(const QString &userMessage)
                     .arg(reply->errorString()).arg(httpStatus);
             }
             m_chatWidget->updateLastAIMessage(errMsg);
-            qWarning() << "[AIQuestionGen] 请求失败:" << reply->errorString()
-                       << "HTTP:" << httpStatus;
         } else {
-            // 将 AI 回复添加到对话历史
+            // AI 回复完成 — 添加到历史、保存、通知外部
             if (!m_lastAIResponse.isEmpty()) {
                 m_conversationHistory.append({QStringLiteral("assistant"), m_lastAIResponse});
             }
-            // 启用保存按钮
-            if (!m_lastAIResponse.trimmed().isEmpty() && !m_isSavingToBank) {
+            bool hasResponse = !m_lastAIResponse.trimmed().isEmpty();
+            if (hasResponse && !m_isSavingToBank) {
                 m_saveBtn->setEnabled(true);
             }
-            qDebug() << "[AIQuestionGen] AI 回复完成，长度:" << m_lastAIResponse.length()
-                     << "对话轮数:" << m_conversationHistory.size();
+            m_exportBtn->setEnabled(hasResponse);
+
+            // 自动保存对话 + 通知外部刷新历史
+            saveCurrentConversation();
+            emit conversationUpdated(m_conversationId, currentConversationTitle());
+
+            qDebug() << "[AIQuestionGen] AI 回复完成，长度:" << m_lastAIResponse.length();
         }
     });
 }
@@ -367,32 +567,24 @@ void AIQuestionGenWidget::processSSEData(const QByteArray &data)
 {
     m_sseBuffer.append(data);
 
-    // SSE 格式：data: {...}\n\n
     while (true) {
         int endIdx = m_sseBuffer.indexOf("\n\n");
         if (endIdx < 0) {
-            // 也尝试 \r\n\r\n
             endIdx = m_sseBuffer.indexOf("\r\n\r\n");
             if (endIdx < 0) break;
-            // 取出一个完整事件
             QByteArray event = m_sseBuffer.left(endIdx);
             m_sseBuffer.remove(0, endIdx + 4);
-            // 解析事件
             for (const QByteArray &line : event.split('\n')) {
                 QByteArray trimmed = line.trimmed();
                 if (trimmed.startsWith("data: ")) {
-                    QByteArray jsonStr = trimmed.mid(6); // 去掉 "data: "
-                    if (jsonStr == "[DONE]") {
-                        return; // 流结束
-                    }
-                    QJsonParseError parseError;
-                    QJsonDocument doc = QJsonDocument::fromJson(jsonStr, &parseError);
-                    if (parseError.error == QJsonParseError::NoError) {
-                        QJsonObject obj = doc.object();
-                        QJsonArray choices = obj["choices"].toArray();
+                    QByteArray jsonStr = trimmed.mid(6);
+                    if (jsonStr == "[DONE]") return;
+                    QJsonParseError pe;
+                    QJsonDocument doc = QJsonDocument::fromJson(jsonStr, &pe);
+                    if (pe.error == QJsonParseError::NoError) {
+                        QJsonArray choices = doc.object()["choices"].toArray();
                         if (!choices.isEmpty()) {
-                            QJsonObject delta = choices[0].toObject()["delta"].toObject();
-                            QString content = delta["content"].toString();
+                            QString content = choices[0].toObject()["delta"].toObject()["content"].toString();
                             if (!content.isEmpty()) {
                                 m_lastAIResponse += content;
                                 m_chatWidget->updateLastAIMessage(m_lastAIResponse);
@@ -404,27 +596,20 @@ void AIQuestionGenWidget::processSSEData(const QByteArray &data)
             continue;
         }
 
-        // 取出一个完整事件
         QByteArray event = m_sseBuffer.left(endIdx);
         m_sseBuffer.remove(0, endIdx + 2);
 
-        // 解析 SSE 事件的每一行
         for (const QByteArray &line : event.split('\n')) {
             QByteArray trimmed = line.trimmed();
             if (trimmed.startsWith("data: ")) {
                 QByteArray jsonStr = trimmed.mid(6);
-                if (jsonStr == "[DONE]") {
-                    return; // 流结束
-                }
-
-                QJsonParseError parseError;
-                QJsonDocument doc = QJsonDocument::fromJson(jsonStr, &parseError);
-                if (parseError.error == QJsonParseError::NoError) {
-                    QJsonObject obj = doc.object();
-                    QJsonArray choices = obj["choices"].toArray();
+                if (jsonStr == "[DONE]") return;
+                QJsonParseError pe;
+                QJsonDocument doc = QJsonDocument::fromJson(jsonStr, &pe);
+                if (pe.error == QJsonParseError::NoError) {
+                    QJsonArray choices = doc.object()["choices"].toArray();
                     if (!choices.isEmpty()) {
-                        QJsonObject delta = choices[0].toObject()["delta"].toObject();
-                        QString content = delta["content"].toString();
+                        QString content = choices[0].toObject()["delta"].toObject()["content"].toString();
                         if (!content.isEmpty()) {
                             m_lastAIResponse += content;
                             m_chatWidget->updateLastAIMessage(m_lastAIResponse);
@@ -440,9 +625,7 @@ void AIQuestionGenWidget::processSSEData(const QByteArray &data)
 
 void AIQuestionGenWidget::onUserMessageSent(const QString &message)
 {
-    if (message.trimmed().isEmpty() || m_isGenerating) {
-        return;
-    }
+    if (message.trimmed().isEmpty() || m_isGenerating) return;
 
     qDebug() << "[AIQuestionGen] 用户消息:" << message.left(50);
 
@@ -450,45 +633,20 @@ void AIQuestionGenWidget::onUserMessageSent(const QString &message)
     m_hasPendingAIPlaceholder = true;
     m_lastAIResponse.clear();
     m_saveBtn->setEnabled(false);
+    m_exportBtn->setEnabled(false);
     m_chatWidget->setInputEnabled(false);
 
-    // 创建空的 AI 消息气泡用于流式填充
     m_chatWidget->addMessage("", false);
     m_chatWidget->showTypingIndicator();
 
-    // 发送到智谱 API
     sendToZhipu(message);
 }
 
 // ===================== 操作按钮 =====================
 
-void AIQuestionGenWidget::onNewConversation()
-{
-    // 中止正在进行的请求
-    if (m_currentReply) {
-        m_currentReply->abort();
-        m_currentReply = nullptr;
-    }
-
-    m_chatWidget->clearMessages();
-    m_lastAIResponse.clear();
-    m_saveBtn->setEnabled(false);
-    m_isGenerating = false;
-    m_chatWidget->setInputEnabled(true);
-
-    // 重置对话历史（保留系统提示）
-    m_conversationHistory.clear();
-    m_conversationHistory.append({QStringLiteral("system"), systemPrompt()});
-
-    showWelcome();
-    qDebug() << "[AIQuestionGen] 新对话已创建";
-}
-
 void AIQuestionGenWidget::onSaveToBank()
 {
-    if (m_lastAIResponse.trimmed().isEmpty() || m_isSavingToBank) {
-        return;
-    }
+    if (m_lastAIResponse.trimmed().isEmpty() || m_isSavingToBank) return;
 
     setSavingToBank(true);
     emit saveRequested(m_lastAIResponse);

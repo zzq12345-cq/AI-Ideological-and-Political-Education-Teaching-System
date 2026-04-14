@@ -11,8 +11,10 @@ class QStackedWidget;
 class QuestionBasketWidget;
 class SmartPaperWidget;
 class AIQuestionGenWidget;
+class ChatHistoryWidget;
 class PaperService;
 class QuestionParserService;
+class DocxGenerator;
 struct PaperQuestion;
 
 class QuestionBankWindow : public QWidget
@@ -43,6 +45,16 @@ private:
     QWidget *buildHeader();
     void loadStyleSheet();
 
+    // AI 出题历史管理
+    void refreshQuestionHistory();
+    void onQuestionHistorySelected(const QString &id);
+    void onQuestionHistoryDeleted(const QString &id);
+
+    // 导出 DOCX
+    void onExportToDocx(const QString &content);
+    void onExportQuestionsParsed(const QList<PaperQuestion> &questions);
+    void onExportQuestionsParseError(const QString &error);
+
     // 模式切换（AI出题 / 智能组卷）
     QStackedWidget *m_modeStack = nullptr;
     AIQuestionGenWidget *m_aiQuestionGenWidget = nullptr;
@@ -52,6 +64,10 @@ private:
     QLabel *m_headerTitle = nullptr;
     QLabel *m_headerSubtitle = nullptr;
 
+    // AI 出题页布局包裹层（history + chat）
+    QWidget *m_aiGenPageWrapper = nullptr;
+    ChatHistoryWidget *m_questionHistoryWidget = nullptr;
+
     // 试题篮
     QuestionBasketWidget *m_basketWidget = nullptr;
 
@@ -59,6 +75,11 @@ private:
     PaperService *m_paperService = nullptr;
     QuestionParserService *m_questionParser = nullptr;
     bool m_isSavingGeneratedQuestions = false;
+
+    // 导出链路
+    QuestionParserService *m_exportParser = nullptr;
+    DocxGenerator *m_docxGenerator = nullptr;
+    bool m_isExporting = false;
 };
 
 #endif // QUESTIONBANKWINDOW_H
