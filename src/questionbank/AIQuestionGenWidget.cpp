@@ -654,6 +654,10 @@ void AIQuestionGenWidget::onUserMessageSent(const QString &message)
     updateActionButtons();
     m_chatWidget->setInputEnabled(false);
 
+    // 先添加用户消息气泡
+    m_chatWidget->addMessage(message, true);
+
+    // 再添加 AI 空占位消息（用于流式更新）
     m_chatWidget->addMessage("", false);
 
     sendToZhipu(message);

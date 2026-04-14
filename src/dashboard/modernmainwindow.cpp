@@ -67,6 +67,7 @@
 #include <QDialog>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QStandardPaths>
 #include <QEvent>
 #include <algorithm>
 #include <QMouseEvent>
@@ -3707,7 +3708,12 @@ void ModernMainWindow::handleChatPPTComplete(const QStringList &svgCodes, const 
         QString safeName = m_pptTopic;
         safeName.remove(QRegularExpression(R"([\\/:*?"<>|])"));
         if (safeName.isEmpty()) safeName = "ppt_output";
-        pptxPath = QDir::tempPath() + "/" + safeName + ".pptx";
+
+        // 使用持久化数据目录保存 PPT，而非临时目录（避免退出后文件丢失）
+        QString pptDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/ppt";
+        QDir().mkpath(pptDir);
+        QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+        pptxPath = pptDir + "/" + safeName + "_" + timestamp + ".pptx";
         
         qDebug() << "[PPTAgent] 聊天模式 PPTX 生成开始，目标路径:" << pptxPath
                  << "preview数量:" << previews.size()
