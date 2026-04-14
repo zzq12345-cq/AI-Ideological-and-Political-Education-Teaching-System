@@ -2,9 +2,11 @@
 #define AIQUESTIONGENWIDGET_H
 
 #include <QWidget>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QPointer>
 
 class ChatWidget;
-class DifyService;
 class QVBoxLayout;
 class QFrame;
 class QPushButton;
@@ -13,8 +15,8 @@ class PaperService;
 /**
  * @brief AI 对话式出题组件
  *
- * 复用 ChatWidget 和 DifyService，通过自然语言对话生成试题。
- * 支持流式响应、快捷提示按钮和保存到题库。
+ * 直接调用智谱 GLM-5.1 API（OpenAI 兼容格式），通过自然语言对话生成试题。
+ * 支持流式 SSE 响应、快捷提示按钮和保存到题库。
  */
 class AIQuestionGenWidget : public QWidget
 {
@@ -33,18 +35,17 @@ signals:
 
 private slots:
     void onUserMessageSent(const QString &message);
-    void onStreamChunk(const QString &chunk);
-    void onThinkingChunk(const QString &thought);
-    void onRequestStarted();
-    void onRequestFinished();
     void onNewConversation();
     void onSaveToBank();
-    void onErrorOccurred(const QString &error);
 
 private:
     void setupUI();
-    void setupDifyService();
+    void setupZhipuService();
     void showWelcome();
+
+    // 智谱 API 调用（流式 SSE）
+    void sendToZhipu(const QString &userMessage);
+    void processSSEData(const QByteArray &data);
 
     // UI 组件
     ChatWidget *m_chatWidget = nullptr;
@@ -52,14 +53,29 @@ private:
     QPushButton *m_newChatBtn = nullptr;
     QPushButton *m_saveBtn = nullptr;
 
-    // 服务
-    DifyService *m_difyService = nullptr;
+    // 网络
+    QNetworkAccessManager *m_networkManager = nullptr;
+    QPointer<QNetworkReply> m_currentReply;
+    QString m_apiKey;
+    QString m_baseUrl;
+
+    // 对话历史（OpenAI 格式 messages）
+    struct ChatMessage {
+        QString role;    // "system" / "user" / "assistant"
+        QString content;
+    };
+    QList<ChatMessage> m_conversationHistory;
 
     // 状态
     bool m_isGenerating = false;
     bool m_hasPendingAIPlaceholder = false;
     bool m_isSavingToBank = false;
-    QString m_lastAIResponse;  // 最后一次完整 AI 回复（用于保存）
+    QString m_lastAIResponse;       // 最后一次完整 AI 回复（用于保存）
+    QByteArray m_sseBuffer;         // SSE 数据缓冲区
+
+    // 常量
+    static constexpr const char* MODEL_NAME = "glm-5.1";
+    static const QString systemPrompt();
 };
 
 #endif // AIQUESTIONGENWIDGET_H
