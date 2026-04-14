@@ -1,6 +1,8 @@
 #ifndef LESSONPLANEDITOR_H
 #define LESSONPLANEDITOR_H
 
+#include <QMap>
+
 #include <QWidget>
 #include <QComboBox>
 #include <QTextEdit>
@@ -99,10 +101,33 @@ private:
     void updateWordCount();
     QString buildAIPrompt() const;
 
+    // 教案结构化章节
+    struct LessonPlanSections {
+        QString knowledgeSkills;   // 知识与技能
+        QString processMethod;     // 过程与方法
+        QString emotionValues;     // 情感态度与价值观
+        QString keyPoints;         // 重点
+        QString difficulties;      // 难点
+        QString introduction;      // 导入新课
+        QString mainTeaching;      // 新课讲授
+        QString classExercise;     // 课堂练习
+        QString classSummary;      // 课堂小结
+        QString boardDesign;       // 板书设计
+        QString homework;          // 作业布置
+        QString reflection;        // 教学反思
+    };
+
+    // 解析 Markdown 教案为结构化章节
+    LessonPlanSections parseLessonPlanSections(const QString &markdown) const;
+
+    // 将纯文本列表项转为 HTML 列表
+    QString textToHtmlList(const QString &text) const;
+
     // 保存辅助函数
     bool saveToPdf(const QString &filePath, const QString &title);
     bool saveToWord(const QString &filePath, const QString &title, const QString &content);
     QString buildHtmlDocument(const QString &title, const QString &content);
+    QString buildStructuredHtml(const QString &title, const LessonPlanSections &sections, bool forPrint = false) const;
 
     // UI组件 - 课程选择区
     QComboBox *m_gradeCombo;

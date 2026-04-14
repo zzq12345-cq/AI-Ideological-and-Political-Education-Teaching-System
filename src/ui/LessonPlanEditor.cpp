@@ -945,6 +945,9 @@ void LessonPlanEditor::onSaveClicked()
     bool success = false;
     QString errorMsg;
 
+    // 判断是否有结构化的 Markdown 源文本（AI 生成时会有）
+    bool hasStructuredContent = !m_accumulatedMarkdown.isEmpty();
+
     if (filePath.endsWith(".pdf", Qt::CaseInsensitive)) {
         // 保存为PDF
         success = saveToPdf(filePath, lessonTitle);
@@ -970,8 +973,13 @@ void LessonPlanEditor::onSaveClicked()
         } else if (filePath.endsWith(".md", Qt::CaseInsensitive)) {
             out << (m_accumulatedMarkdown.isEmpty() ? plainText : m_accumulatedMarkdown);
         } else {
-            // HTML格式
-            out << buildHtmlDocument(lessonTitle, content);
+            // HTML格式 - 使用正规表格模板
+            if (hasStructuredContent) {
+                LessonPlanSections sections = parseLessonPlanSections(m_accumulatedMarkdown);
+                out << buildStructuredHtml(lessonTitle, sections, false);
+            } else {
+                out << buildHtmlDocument(lessonTitle, content);
+            }
         }
 
         file.close();
@@ -1006,13 +1014,20 @@ bool LessonPlanEditor::saveToPdf(const QString &filePath, const QString &title)
     printer.setOutputFormat(QPrinter::PdfFormat);
     printer.setOutputFileName(filePath);
     printer.setPageSize(QPageSize::A4);
-    printer.setPageMargins(QMarginsF(20, 20, 20, 20), QPageLayout::Millimeter);
+    printer.setPageMargins(QMarginsF(15, 15, 15, 15), QPageLayout::Millimeter);
 
     // 创建临时文档用于打印
     QTextDocument doc;
-    doc.setHtml(buildHtmlDocument(title, m_editor->toHtml()));
-    doc.setPageSize(printer.pageRect(QPrinter::Point).size());
 
+    if (!m_accumulatedMarkdown.isEmpty()) {
+        // 使用结构化表格模板
+        LessonPlanSections sections = parseLessonPlanSections(m_accumulatedMarkdown);
+        doc.setHtml(buildStructuredHtml(title, sections, true));
+    } else {
+        doc.setHtml(buildHtmlDocument(title, m_editor->toHtml()));
+    }
+
+    doc.setPageSize(printer.pageRect(QPrinter::Point).size());
     doc.print(&printer);
 
     qDebug() << "[LessonPlanEditor] PDF导出成功：" << filePath;
@@ -1021,7 +1036,6 @@ bool LessonPlanEditor::saveToPdf(const QString &filePath, const QString &title)
 
 bool LessonPlanEditor::saveToWord(const QString &filePath, const QString &title, const QString &content)
 {
-    // Word可以直接打开HTML格式的.doc文件
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         return false;
@@ -1030,27 +1044,40 @@ bool LessonPlanEditor::saveToWord(const QString &filePath, const QString &title,
     QTextStream out(&file);
     out.setEncoding(QStringConverter::Utf8);
 
-    // 使用Word兼容的HTML格式
-    out << "<!DOCTYPE html>\n"
-        << "<html xmlns:o=\"urn:schemas-microsoft-com:office:office\" "
-        << "xmlns:w=\"urn:schemas-microsoft-com:office:word\">\n"
-        << "<head>\n"
-        << "<meta charset=\"UTF-8\">\n"
-        << "<meta name=\"ProgId\" content=\"Word.Document\">\n"
-        << "<title>" << (title.isEmpty() ? "教案" : title) << "</title>\n"
-        << "<style>\n"
-        << "@page { size: A4; margin: 2.5cm; }\n"
-        << "body { font-family: '宋体', SimSun, serif; font-size: 12pt; line-height: 1.8; }\n"
-        << "h1 { font-size: 18pt; color: #C62828; text-align: center; border-bottom: 2px solid #C62828; padding-bottom: 10px; }\n"
-        << "h2 { font-size: 14pt; color: #1565C0; margin-top: 20pt; }\n"
-        << "h3 { font-size: 12pt; color: #2E7D32; }\n"
-        << "table { border-collapse: collapse; width: 100%; margin: 10pt 0; }\n"
-        << "th, td { border: 1px solid #000; padding: 8pt; }\n"
-        << "th { background-color: #f0f0f0; }\n"
-        << "</style>\n"
-        << "</head>\n<body>\n"
-        << content
-        << "\n</body>\n</html>";
+    if (!m_accumulatedMarkdown.isEmpty()) {
+        // 使用结构化表格模板（Word 支持 HTML 表格）
+        LessonPlanSections sections = parseLessonPlanSections(m_accumulatedMarkdown);
+        QString html = buildStructuredHtml(title, sections, false);
+        // 添加 Word 兼容的 XML namespace
+        html.replace("<html lang=\"zh-CN\">",
+                     "<html xmlns:o=\"urn:schemas-microsoft-com:office:office\" "
+                     "xmlns:w=\"urn:schemas-microsoft-com:office:word\" lang=\"zh-CN\">");
+        html.replace("<head>",
+                     "<head>\n<meta name=\"ProgId\" content=\"Word.Document\">");
+        out << html;
+    } else {
+        // Fallback: 旧的 Word 导出方式
+        out << "<!DOCTYPE html>\n"
+            << "<html xmlns:o=\"urn:schemas-microsoft-com:office:office\" "
+            << "xmlns:w=\"urn:schemas-microsoft-com:office:word\">\n"
+            << "<head>\n"
+            << "<meta charset=\"UTF-8\">\n"
+            << "<meta name=\"ProgId\" content=\"Word.Document\">\n"
+            << "<title>" << (title.isEmpty() ? "教案" : title) << "</title>\n"
+            << "<style>\n"
+            << "@page { size: A4; margin: 2.5cm; }\n"
+            << "body { font-family: '宋体', SimSun, serif; font-size: 12pt; line-height: 1.8; }\n"
+            << "h1 { font-size: 18pt; color: #C62828; text-align: center; border-bottom: 2px solid #C62828; padding-bottom: 10px; }\n"
+            << "h2 { font-size: 14pt; color: #1565C0; margin-top: 20pt; }\n"
+            << "h3 { font-size: 12pt; color: #2E7D32; }\n"
+            << "table { border-collapse: collapse; width: 100%; margin: 10pt 0; }\n"
+            << "th, td { border: 1px solid #000; padding: 8pt; }\n"
+            << "th { background-color: #f0f0f0; }\n"
+            << "</style>\n"
+            << "</head>\n<body>\n"
+            << content
+            << "\n</body>\n</html>";
+    }
 
     file.close();
 
@@ -1285,4 +1312,618 @@ void LessonPlanEditor::clearAutoSaveDraft()
     settings.remove(key);
     settings.remove(key + "_time");
     qDebug() << "[LessonPlanEditor] 清除自动保存草稿";
+}
+
+// ================== 教案结构化解析与模板 ==================
+
+LessonPlanEditor::LessonPlanSections LessonPlanEditor::parseLessonPlanSections(const QString &markdown) const
+{
+    LessonPlanSections sections;
+
+    // 将 Markdown 按标题层级拆分
+    // 匹配 ## 和 ### 级别标题
+    QRegularExpression headingRe(R"(^(#{1,4})\s+(.+)$)", QRegularExpression::MultilineOption);
+
+    struct Section {
+        int level;
+        QString title;
+        QString content;
+    };
+    QList<Section> parsedSections;
+
+    auto matches = headingRe.globalMatch(markdown);
+    int lastEnd = 0;
+    QString lastTitle;
+    int lastLevel = 0;
+
+    while (matches.hasNext()) {
+        auto match = matches.next();
+        int start = match.capturedStart();
+
+        // 保存上一段内容
+        if (!lastTitle.isEmpty()) {
+            Section sec;
+            sec.level = lastLevel;
+            sec.title = lastTitle;
+            sec.content = markdown.mid(lastEnd, start - lastEnd).trimmed();
+            parsedSections.append(sec);
+        }
+
+        lastLevel = match.captured(1).length();
+        lastTitle = match.captured(2).trimmed();
+        lastEnd = match.capturedEnd() + 1; // skip newline
+    }
+
+    // 保存最后一段
+    if (!lastTitle.isEmpty()) {
+        Section sec;
+        sec.level = lastLevel;
+        sec.title = lastTitle;
+        sec.content = markdown.mid(lastEnd).trimmed();
+        parsedSections.append(sec);
+    }
+
+    // 关键词映射到结构体字段
+    // 按标题关键字匹配内容到各字段
+    QString currentParent; // 当前父级标题（## 级别）
+
+    for (const Section &sec : parsedSections) {
+        const QString &t = sec.title;
+        const QString &c = sec.content;
+
+        // ## 级别标题 - 大章节
+        if (sec.level <= 2) {
+            currentParent = t;
+
+            if (t.contains("教学目标")) {
+                // 可能子章节在 ### 级别，也可能内容直接在这里
+                if (!c.isEmpty() && sections.knowledgeSkills.isEmpty()) {
+                    // 如果教学目标下没有明确的子标题，整体归入
+                    sections.knowledgeSkills = c;
+                }
+            } else if (t.contains("重难点") || t.contains("重点和难点")) {
+                if (!c.isEmpty()) {
+                    // 尝试拆分重点/难点
+                    int diffIdx = c.indexOf("难点");
+                    if (diffIdx > 0) {
+                        // 找到分割点前的换行
+                        int splitAt = c.lastIndexOf('\n', diffIdx);
+                        if (splitAt > 0) {
+                            sections.keyPoints = c.left(splitAt).trimmed();
+                            sections.difficulties = c.mid(splitAt).trimmed();
+                        } else {
+                            sections.keyPoints = c;
+                        }
+                    } else {
+                        sections.keyPoints = c;
+                    }
+                }
+            } else if (t.contains("教学过程")) {
+                // 子章节会通过 ### 级别填充
+                if (!c.isEmpty() && sections.introduction.isEmpty()) {
+                    sections.introduction = c;
+                }
+            } else if (t.contains("板书")) {
+                sections.boardDesign = c;
+            } else if (t.contains("作业")) {
+                sections.homework = c;
+            } else if (t.contains("反思")) {
+                sections.reflection = c;
+            }
+        }
+
+        // ### 级别标题 - 子章节
+        if (sec.level == 3) {
+            // 教学目标下的子章节
+            if (t.contains("知识") && t.contains("技能")) {
+                sections.knowledgeSkills = c;
+            } else if (t.contains("过程") && t.contains("方法")) {
+                sections.processMethod = c;
+            } else if (t.contains("情感") || t.contains("价值观")) {
+                sections.emotionValues = c;
+            }
+            // 教学重难点
+            else if (t.contains("重点") && !t.contains("难点")) {
+                sections.keyPoints = c;
+            } else if (t.contains("难点")) {
+                sections.difficulties = c;
+            }
+            // 教学过程
+            else if (t.contains("导入")) {
+                sections.introduction = c;
+            } else if (t.contains("新课") || t.contains("讲授")) {
+                sections.mainTeaching = c;
+            } else if (t.contains("练习") || t.contains("活动")) {
+                sections.classExercise = c;
+            } else if (t.contains("小结") || t.contains("总结")) {
+                sections.classSummary = c;
+            }
+            // 其他章节
+            else if (t.contains("板书")) {
+                sections.boardDesign = c;
+            } else if (t.contains("作业")) {
+                sections.homework = c;
+            } else if (t.contains("反思")) {
+                sections.reflection = c;
+            }
+        }
+    }
+
+    qDebug() << "[LessonPlanEditor] Markdown 解析完成，各章节内容长度："
+             << "知识与技能:" << sections.knowledgeSkills.length()
+             << "过程与方法:" << sections.processMethod.length()
+             << "情感态度:" << sections.emotionValues.length()
+             << "重点:" << sections.keyPoints.length()
+             << "难点:" << sections.difficulties.length()
+             << "导入:" << sections.introduction.length()
+             << "新课讲授:" << sections.mainTeaching.length()
+             << "练习:" << sections.classExercise.length()
+             << "小结:" << sections.classSummary.length()
+             << "板书:" << sections.boardDesign.length()
+             << "作业:" << sections.homework.length();
+
+    return sections;
+}
+
+QString LessonPlanEditor::textToHtmlList(const QString &text) const
+{
+    if (text.isEmpty()) return QString();
+
+    QString html;
+    QStringList lines = text.split('\n', Qt::SkipEmptyParts);
+
+    bool inList = false;
+    bool isOrdered = false;
+
+    for (const QString &rawLine : lines) {
+        QString line = rawLine.trimmed();
+        if (line.isEmpty()) continue;
+
+        // 检测列表项
+        bool isBullet = line.startsWith("- ") || line.startsWith("* ") || line.startsWith("• ");
+        bool isNumbered = QRegularExpression(R"(^\d+[\.\)]\s)").match(line).hasMatch();
+        bool isSubBullet = (line.startsWith("  - ") || line.startsWith("  * ") ||
+                            line.startsWith("\t- ") || line.startsWith("\t* "));
+
+        if (isBullet || isNumbered) {
+            if (!inList) {
+                html += isNumbered ? "<ol>" : "<ul>";
+                inList = true;
+                isOrdered = isNumbered;
+            }
+            // 去除列表标记
+            QString content = line;
+            if (isBullet) content = line.mid(2);
+            else if (isNumbered) content = line.mid(line.indexOf(' ') + 1);
+
+            // 处理加粗 **text**
+            content.replace(QRegularExpression(R"(\*\*(.+?)\*\*)"), "<b>\\1</b>");
+
+            html += "<li>" + content + "</li>\n";
+        } else if (isSubBullet) {
+            // 子列表项 - 追加到上一个 li 内部
+            QString content = line.trimmed();
+            if (content.startsWith("- ")) content = content.mid(2);
+            else if (content.startsWith("* ")) content = content.mid(2);
+            content.replace(QRegularExpression(R"(\*\*(.+?)\*\*)"), "<b>\\1</b>");
+            html += "  <ul><li>" + content + "</li></ul>\n";
+        } else {
+            // 普通文本行
+            if (inList) {
+                html += isOrdered ? "</ol>" : "</ul>";
+                inList = false;
+            }
+            // 处理加粗
+            QString content = line;
+            content.replace(QRegularExpression(R"(\*\*(.+?)\*\*)"), "<b>\\1</b>");
+            html += "<p>" + content + "</p>\n";
+        }
+    }
+
+    if (inList) {
+        html += isOrdered ? "</ol>" : "</ul>";
+    }
+
+    return html;
+}
+
+QString LessonPlanEditor::buildStructuredHtml(const QString &title, const LessonPlanSections &sections, bool forPrint) const
+{
+    // 从完整标题中提取课程信息
+    // 格式通常为 "八年级 上学期 第X单元 课时名"
+    QString grade, semester, unit, lesson;
+    if (m_gradeCombo && m_gradeCombo->currentIndex() > 0) {
+        grade = m_gradeCombo->currentText();
+        semester = m_semesterCombo->currentText();
+        unit = m_unitCombo->currentText();
+        lesson = m_lessonCombo->currentText();
+    }
+
+    // CSS 样式：forPrint 时使用 QPrinter/QTextDocument 兼容的简化 CSS
+    QString css;
+    if (forPrint) {
+        // QPrinter 支持的 CSS 非常有限，只用最基本的表格样式
+        css = R"(
+            body {
+                font-family: "SimSun", "宋体", "PingFang SC", serif;
+                font-size: 10pt;
+                line-height: 1.6;
+                color: #1a1a1a;
+            }
+            h1 {
+                font-size: 18pt;
+                font-weight: bold;
+                text-align: center;
+                letter-spacing: 5px;
+                margin-bottom: 8px;
+            }
+            .subtitle {
+                text-align: center;
+                font-size: 9pt;
+                color: #666;
+                margin-bottom: 10px;
+            }
+            table {
+                border-collapse: collapse;
+                width: 100%;
+                margin-bottom: 8px;
+            }
+            th, td {
+                border: 1px solid #333;
+                padding: 5px 8px;
+                vertical-align: top;
+                font-size: 9pt;
+                line-height: 1.5;
+            }
+            th {
+                background-color: #f5f5f5;
+                font-weight: bold;
+                text-align: center;
+                width: 70px;
+            }
+            .section-header {
+                background-color: #e8e8e8;
+                font-weight: bold;
+                text-align: center;
+                font-size: 10pt;
+                letter-spacing: 3px;
+            }
+            .label {
+                background-color: #f5f5f5;
+                font-weight: bold;
+                text-align: center;
+                width: 80px;
+            }
+            .time-tag {
+                font-size: 8pt;
+                color: #666;
+            }
+            .board-box {
+                border: 1px solid #333;
+                padding: 8px;
+                margin: 5px 0;
+                background-color: #fafafa;
+            }
+            .board-title {
+                text-align: center;
+                font-weight: bold;
+                font-size: 11pt;
+                margin-bottom: 6px;
+                border-bottom: 1px dashed #999;
+                padding-bottom: 4px;
+            }
+            .reflection-line {
+                border-bottom: 1px dashed #aaa;
+                height: 24px;
+            }
+        )";
+    } else {
+        // 浏览器/Word 完整 CSS
+        css = R"(
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            @page { size: A4; margin: 15mm; }
+            body {
+                font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "SimSun", sans-serif;
+                font-size: 14px;
+                line-height: 1.8;
+                color: #1a1a1a;
+                background: #f0f0f0;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .page {
+                width: 210mm;
+                min-height: 297mm;
+                margin: 20px auto;
+                background: #fff;
+                padding: 20mm 18mm;
+                box-shadow: 0 2px 20px rgba(0,0,0,0.12);
+                page-break-after: always;
+            }
+            @media print {
+                body { background: #fff; }
+                .page { margin: 0; padding: 10mm 15mm; box-shadow: none; width: 100%; }
+                .no-print { display: none !important; }
+            }
+            .header {
+                text-align: center;
+                border-bottom: 3px double #333;
+                padding-bottom: 12px;
+                margin-bottom: 16px;
+            }
+            .header h1 {
+                font-size: 26px;
+                font-weight: 700;
+                letter-spacing: 6px;
+                color: #1a1a1a;
+                margin-bottom: 4px;
+            }
+            .header .subtitle {
+                font-size: 13px;
+                color: #666;
+                letter-spacing: 2px;
+            }
+            .info-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 16px;
+                font-size: 13px;
+            }
+            .info-table td {
+                border: 1px solid #333;
+                padding: 6px 12px;
+                vertical-align: middle;
+            }
+            .info-table .label {
+                background: #f5f5f5;
+                font-weight: 600;
+                width: 15%;
+                text-align: center;
+                white-space: nowrap;
+            }
+            .info-table .value { width: 35%; }
+            .main-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 13.5px;
+            }
+            .main-table th, .main-table td {
+                border: 1px solid #333;
+                padding: 8px 12px;
+                vertical-align: top;
+                line-height: 1.75;
+            }
+            .main-table th {
+                background: #f5f5f5;
+                font-weight: 600;
+                text-align: center;
+                white-space: nowrap;
+                width: 80px;
+            }
+            .section-header {
+                background: #e8e8e8;
+                font-weight: 700;
+                text-align: center;
+                font-size: 14px;
+                letter-spacing: 2px;
+            }
+            .content-block h4 {
+                font-size: 14px;
+                font-weight: 600;
+                margin: 8px 0 4px 0;
+                color: #1a1a1a;
+                border-left: 3px solid #333;
+                padding-left: 8px;
+            }
+            .content-block h4:first-child { margin-top: 0; }
+            .content-block p { margin: 4px 0; }
+            .content-block ul, .content-block ol { margin: 4px 0 8px 0; padding-left: 20px; }
+            .content-block ul li, .content-block ol li { margin: 2px 0; line-height: 1.7; }
+            .time-tag {
+                display: inline-block;
+                background: #f0f0f0;
+                border: 1px solid #ccc;
+                border-radius: 3px;
+                padding: 1px 6px;
+                font-size: 12px;
+                font-weight: 500;
+                color: #555;
+                margin-left: 4px;
+            }
+            .board-box {
+                border: 2px solid #333;
+                padding: 12px 16px;
+                margin: 8px 0;
+                background: #fafafa;
+                font-size: 13px;
+            }
+            .board-title {
+                text-align: center;
+                font-weight: 700;
+                font-size: 15px;
+                margin-bottom: 8px;
+                border-bottom: 1px dashed #999;
+                padding-bottom: 6px;
+            }
+            .reflection-line {
+                border-bottom: 1px dashed #aaa;
+                height: 32px;
+                width: 100%;
+            }
+            .page-footer {
+                text-align: center;
+                font-size: 11px;
+                color: #999;
+                margin-top: 12px;
+                border-top: 1px solid #ddd;
+                padding-top: 6px;
+            }
+            .print-btn {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #333;
+                color: #fff;
+                border: none;
+                padding: 12px 28px;
+                font-size: 15px;
+                border-radius: 6px;
+                cursor: pointer;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                z-index: 1000;
+            }
+            .print-btn:hover { background: #555; }
+        )";
+    }
+
+    // 转换各章节内容为 HTML
+    QString knowledgeHtml = textToHtmlList(sections.knowledgeSkills);
+    QString processHtml = textToHtmlList(sections.processMethod);
+    QString emotionHtml = textToHtmlList(sections.emotionValues);
+    QString keyPointsHtml = textToHtmlList(sections.keyPoints);
+    QString difficultiesHtml = textToHtmlList(sections.difficulties);
+    QString introHtml = textToHtmlList(sections.introduction);
+    QString mainTeachingHtml = textToHtmlList(sections.mainTeaching);
+    QString exerciseHtml = textToHtmlList(sections.classExercise);
+    QString summaryHtml = textToHtmlList(sections.classSummary);
+    QString boardHtml = textToHtmlList(sections.boardDesign);
+    QString homeworkHtml = textToHtmlList(sections.homework);
+
+    // 构建完整 HTML
+    QString html;
+    html += "<!DOCTYPE html>\n<html lang=\"zh-CN\">\n<head>\n";
+    html += "<meta charset=\"UTF-8\">\n";
+    html += "<title>教案 - " + (lesson.isEmpty() ? title : lesson) + "</title>\n";
+    html += "<style>\n" + css + "\n</style>\n";
+    html += "</head>\n<body>\n";
+
+    // 打印按钮（仅浏览器模式）
+    if (!forPrint) {
+        html += "<button class=\"print-btn no-print\" onclick=\"window.print()\">🖨️ 打印教案</button>\n";
+    }
+
+    // 页面容器开始
+    if (!forPrint) {
+        html += "<div class=\"page\">\n";
+    }
+
+    // 标题区
+    if (forPrint) {
+        html += "<h1>教 案</h1>\n";
+        html += "<div class=\"subtitle\">道德与法治 · " + grade + (grade.isEmpty() ? "" : semester) + "</div>\n";
+    } else {
+        html += "<div class=\"header\">\n";
+        html += "  <h1>教 案</h1>\n";
+        html += "  <div class=\"subtitle\">道德与法治 · " + grade + (grade.isEmpty() ? "" : semester) + "</div>\n";
+        html += "</div>\n";
+    }
+
+    // 基本信息表
+    html += "<table class=\"info-table\">\n";
+    html += "<tr><td class=\"label\">课题名称</td>"
+            "<td colspan=\"3\" style=\"font-weight:bold;font-size:15px;\">"
+            + (lesson.isEmpty() ? title : lesson) + "</td></tr>\n";
+    html += "<tr><td class=\"label\">所属单元</td>"
+            "<td class=\"value\">" + (unit.isEmpty() ? "—" : unit) + "</td>"
+            "<td class=\"label\">课时安排</td>"
+            "<td class=\"value\">1 课时（45分钟）</td></tr>\n";
+    html += "<tr><td class=\"label\">授课年级</td>"
+            "<td class=\"value\">" + (grade.isEmpty() ? "—" : grade) + "</td>"
+            "<td class=\"label\">授课教师</td>"
+            "<td class=\"value\"></td></tr>\n";
+    html += "<tr><td class=\"label\">教材版本</td>"
+            "<td class=\"value\">部编版（人教版）</td>"
+            "<td class=\"label\">授课日期</td>"
+            "<td class=\"value\"></td></tr>\n";
+    html += "</table>\n";
+
+    // 主体教案表格
+    html += "<table class=\"main-table\">\n";
+
+    // === 教学目标 ===
+    html += "<tr><td class=\"section-header\" colspan=\"2\">教 学 目 标</td></tr>\n";
+    html += "<tr><th>知识与<br>技能</th><td class=\"content-block\">"
+            + (knowledgeHtml.isEmpty() ? "（待填写）" : knowledgeHtml) + "</td></tr>\n";
+    html += "<tr><th>过程与<br>方法</th><td class=\"content-block\">"
+            + (processHtml.isEmpty() ? "（待填写）" : processHtml) + "</td></tr>\n";
+    html += "<tr><th>情感态度<br>与价值观</th><td class=\"content-block\">"
+            + (emotionHtml.isEmpty() ? "（待填写）" : emotionHtml) + "</td></tr>\n";
+
+    // === 教学重难点 ===
+    html += "<tr><td class=\"section-header\" colspan=\"2\">教 学 重 难 点</td></tr>\n";
+    html += "<tr><th>重点</th><td class=\"content-block\">"
+            + (keyPointsHtml.isEmpty() ? "（待填写）" : keyPointsHtml) + "</td></tr>\n";
+    html += "<tr><th>难点</th><td class=\"content-block\">"
+            + (difficultiesHtml.isEmpty() ? "（待填写）" : difficultiesHtml) + "</td></tr>\n";
+
+    // === 教学过程 ===
+    html += "<tr><td class=\"section-header\" colspan=\"2\">教 学 过 程</td></tr>\n";
+
+    html += "<tr><th>导入新课<br><span class=\"time-tag\">5 min</span></th>"
+            "<td class=\"content-block\">"
+            + (introHtml.isEmpty() ? "（待填写）" : introHtml) + "</td></tr>\n";
+
+    html += "<tr><th>新课讲授<br><span class=\"time-tag\">25 min</span></th>"
+            "<td class=\"content-block\">"
+            + (mainTeachingHtml.isEmpty() ? "（待填写）" : mainTeachingHtml) + "</td></tr>\n";
+
+    html += "<tr><th>课堂练习<br><span class=\"time-tag\">10 min</span></th>"
+            "<td class=\"content-block\">"
+            + (exerciseHtml.isEmpty() ? "（待填写）" : exerciseHtml) + "</td></tr>\n";
+
+    html += "<tr><th>课堂小结<br><span class=\"time-tag\">5 min</span></th>"
+            "<td class=\"content-block\">"
+            + (summaryHtml.isEmpty() ? "（待填写）" : summaryHtml) + "</td></tr>\n";
+
+    html += "</table>\n";
+
+    // 第一页页脚
+    if (!forPrint) {
+        html += "<div class=\"page-footer\">第 1 页 / 共 2 页</div>\n";
+        html += "</div>\n"; // 关闭第一个 .page
+        html += "<div class=\"page\">\n";
+        html += "<div class=\"header\">\n";
+        html += "  <h1>教 案</h1>\n";
+        html += "  <div class=\"subtitle\">道德与法治 · " + (lesson.isEmpty() ? title : lesson) + "（续）</div>\n";
+        html += "</div>\n";
+    }
+
+    // 第二页内容表格
+    html += "<table class=\"main-table\">\n";
+
+    // === 板书设计 ===
+    html += "<tr><td class=\"section-header\" colspan=\"2\">板 书 设 计</td></tr>\n";
+    html += "<tr><td colspan=\"2\" style=\"padding:12px;\">\n";
+    html += "  <div class=\"board-box\">\n";
+    html += "    <div class=\"board-title\">" + (lesson.isEmpty() ? title : lesson) + "</div>\n";
+    html += (boardHtml.isEmpty() ? "（待填写）" : boardHtml);
+    html += "  </div>\n";
+    html += "</td></tr>\n";
+
+    // === 作业布置 ===
+    html += "<tr><td class=\"section-header\" colspan=\"2\">作 业 布 置</td></tr>\n";
+    html += "<tr><th>课后<br>作业</th><td class=\"content-block\">"
+            + (homeworkHtml.isEmpty() ? "（待填写）" : homeworkHtml) + "</td></tr>\n";
+
+    // === 教学反思 ===
+    html += "<tr><td class=\"section-header\" colspan=\"2\">教 学 反 思</td></tr>\n";
+    html += "<tr><td colspan=\"2\" style=\"padding:12px;min-height:200px;\">\n";
+    html += "<div>\n";
+    // 生成虚线书写行
+    for (int i = 0; i < 12; i++) {
+        html += "<div class=\"reflection-line\"></div>\n";
+    }
+    html += "</div>\n</td></tr>\n";
+
+    html += "</table>\n";
+
+    // 第二页页脚
+    if (!forPrint) {
+        html += "<div class=\"page-footer\">第 2 页 / 共 2 页</div>\n";
+        html += "</div>\n"; // 关闭第二个 .page
+    }
+
+    html += "</body>\n</html>";
+
+    return html;
 }
