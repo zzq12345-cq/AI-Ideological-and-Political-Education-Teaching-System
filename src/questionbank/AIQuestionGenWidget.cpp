@@ -547,8 +547,6 @@ void AIQuestionGenWidget::sendToZhipu(const QString &userMessage)
 
         m_isGenerating = false;
         m_chatWidget->setInputEnabled(true);
-        m_chatWidget->hideTypingIndicator();
-        m_chatWidget->collapseThinking();
 
         if (reply->error() != QNetworkReply::NoError && m_lastAIResponse.isEmpty()) {
             int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -651,7 +649,6 @@ void AIQuestionGenWidget::onUserMessageSent(const QString &message)
     m_chatWidget->setInputEnabled(false);
 
     m_chatWidget->addMessage("", false);
-    m_chatWidget->showTypingIndicator();
 
     sendToZhipu(message);
 }
