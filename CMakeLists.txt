@@ -78,6 +78,8 @@ set(PROJECT_SOURCES
     src/questionbank/PaperComposerDialog.h
     src/questionbank/QualityCheckDialog.cpp
     src/questionbank/QualityCheckDialog.h
+    src/questionbank/AIQuestionGenWidget.cpp
+    src/questionbank/AIQuestionGenWidget.h
     src/ui/aipreparationwidget.cpp
     src/ui/aipreparationwidget.h
     src/ui/pptpreviewpage.cpp
@@ -98,6 +100,8 @@ set(PROJECT_SOURCES
     src/services/PaperService.h
     src/services/QuestionQualityService.cpp
     src/services/QuestionQualityService.h
+    src/services/QuestionParserService.cpp
+    src/services/QuestionParserService.h
     src/services/CurriculumService.cpp
     src/services/CurriculumService.h
     src/ui/ChatWidget.cpp

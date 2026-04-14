@@ -12,7 +12,7 @@ inline const char* DIFY_API_KEY = "";
 inline const char* TIANXING_API_KEY = "";
 inline const char* SUPABASE_URL = "";
 inline const char* SUPABASE_ANON_KEY = "";
-inline const char* ZHIPU_API_KEY = "9007199abd0446ca868f74f975521e66.rZdWkaOarykaAXcp";
+inline const char* ZHIPU_API_KEY = "6da4bfb958c043f892b93fa3218db67f.g18ugGET6Ni308TG";
 inline const char* ZHIPU_BASE_URL = "https://open.bigmodel.cn/api/coding/paas/v4";
 
 }  // namespace EmbeddedKeys

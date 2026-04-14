@@ -592,10 +592,11 @@ void RealNewsProvider::fetchFromTianXing(int limit, const QString &category)
         plans.append({"", "http://www.people.com.cn/rss/finance.xml", "人民网-财经", 15, PeopleRSS, "国内"});
 
     } else if (category == "外交") {
-        // 外交：天行 world + BBC RSS + 人民网国际
+        // 外交：天行 world + 网易国际（带图片）+ BBC RSS + 人民网国际
         if (!m_tianxingKey.isEmpty()) {
             plans.append({"world", "", "", qMax(limit / 2, 13), TianXingAPI, "国际"});
         }
+        plans.append({"guoji", "", "", 20, NeteaseChannel, "国际"});
         plans.append({"bbc_rss", "", "", 13, BBCRSS, "国际"});
         plans.append({"", "http://www.people.com.cn/rss/world.xml", "人民网-国际", 15, PeopleRSS, "国际"});
 
@@ -919,8 +920,18 @@ QList<NewsItem> RealNewsProvider::parseTianXingResponse(const QByteArray &data, 
         item.summary = obj["description"].toString();
         item.content = obj["content"].toString();
         item.source = obj["source"].toString();
-        // 国内新闻不需要图片，只要内容
-        item.imageUrl = QString();  // 清空图片URL
+        // 获取图片 URL（天行 API 字段：picUrl / imgurl / imgsrc）
+        item.imageUrl = obj["picUrl"].toString();
+        if (item.imageUrl.isEmpty()) {
+            item.imageUrl = obj["imgurl"].toString();
+        }
+        if (item.imageUrl.isEmpty()) {
+            item.imageUrl = obj["imgsrc"].toString();
+        }
+        // 确保图片 URL 完整
+        if (!item.imageUrl.isEmpty() && !item.imageUrl.startsWith("http")) {
+            item.imageUrl = "https:" + item.imageUrl;
+        }
         item.url = obj["url"].toString();
 
         // 如果 summary 为空，使用标题的前 80 个字符
@@ -1062,6 +1073,14 @@ QList<NewsItem> RealNewsProvider::parseRSSResponse(const QByteArray &data, const
                         currentItem.summary = currentItem.content.left(100) + "...";
                     }
                     currentItem.hotScore = 0; // 真实数据无热度，不再随机生成
+
+                    // 过滤垃圾条目：视频播放器脚本、空白摘要等
+                    bool isJunk = currentItem.summary.contains("showPlayer(")
+                               || currentItem.summary.contains("scriptId")
+                               || currentItem.title.contains("酷玩推荐官");
+                    if (isJunk) {
+                        continue;
+                    }
 
                     // 国际新闻直接添加，不再过滤中国相关内容
                     // 时政课堂需要关注与中国相关的国际动态

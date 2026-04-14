@@ -1,94 +1,35 @@
 #include "questionbankwindow.h"
+#include "AIQuestionGenWidget.h"
 #include "PaperComposerDialog.h"
 #include "QuestionBasket.h"
 #include "QuestionBasketWidget.h"
 #include "QualityCheckDialog.h"
-#include "../ui/moderncheckbox.h"
+#include "../config/AppConfig.h"
 #include "../shared/StyleConfig.h"
-#include "../utils/LayoutUtils.h"
 #include "../smartpaper/SmartPaperWidget.h"
-#include "../services/QuestionQualityService.h"
 #include "../services/DifyService.h"
+#include "../services/PaperService.h"
+#include "../services/QuestionParserService.h"
+#include "../services/QuestionQualityService.h"
 
-#include <QAbstractButton>
-#include <QButtonGroup>
-#include <QComboBox>
 #include <QDebug>
 #include <QEvent>
 #include <QFile>
 #include <QFont>
 #include <QFrame>
 #include <QGraphicsDropShadowEffect>
-#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QList>
-#include <QMessageBox>
-#include <QProgressBar>
 #include <QPushButton>
-#include <QRadioButton>
-#include <QRegularExpression>
 #include <QResizeEvent>
-#include <QScrollArea>
-#include <QScrollBar>
-#include <QStyle>
-#include <QTextBrowser>
+#include <QStackedWidget>
 #include <QVBoxLayout>
 #include <QPainter>
-#include <QStackedWidget>
-#include "../ui/NetworkImageTextBrowser.h"
-#include <algorithm>
-
-namespace {
-constexpr int kPageMaxWidth = 1280;
-constexpr int kSidebarWidth = 320;
-constexpr int kComboHeight = 44;
-constexpr int kFilterButtonHeight = 30;
-constexpr int kGenerateButtonHeight = 40;
-constexpr int kPrimaryActionHeight = 52;
-constexpr int kActionButtonHeight = 44;
-constexpr int kOptionMinHeight = 60;
-constexpr int kCardPadding = 28;
-
-// 绿色主题配色 - 教育成长风格（统一色系）
-const QColor kPrimaryGreen("#2E7D32");      // 主色：深绿
-const QColor kPrimaryGreenLight("#4CAF50"); // 浅绿
-const QColor kMintGreen("#E8F5E9");         // 薄荷绿背景
-const QColor kMintGreenHover("#C8E6C9");    // 薄荷绿hover
-const QColor kTextPrimary("#212121");       // 主文字
-const QColor kTextSecondary("#616161");     // 副文字
-const QColor kBorderLight("#E0E0E0");       // 浅边框
-const QColor kCardBg("#FFFFFF");            // 卡片背景
-const QColor kSidebarShadowColor(46, 125, 50, 20);  // 绿色阴影
-const QColor kButtonShadowColor(46, 125, 50, 60);   // 按钮阴影
-
-QWidget *resolveOptionFrame(QObject *node)
-{
-    QObject *current = node;
-    while (current) {
-        if (current->property("role").toString() == QLatin1String("optionItem")) {
-            return qobject_cast<QWidget *>(current);
-        }
-        current = current->parent();
-    }
-    return nullptr;
-}
-
-void applyShadow(QWidget *target, qreal blurRadius, const QPointF &offset, const QColor &color)
-{
-    if (!target) {
-        return;
-    }
-    auto *shadow = new QGraphicsDropShadowEffect(target);
-    shadow->setBlurRadius(blurRadius);
-    shadow->setOffset(offset);
-    shadow->setColor(color);
-    target->setGraphicsEffect(shadow);
-}
-}
 
 QuestionBankWindow::QuestionBankWindow(QWidget *parent)
     : QWidget(parent)
+    , m_paperService(new PaperService(this))
+    , m_questionParser(new QuestionParserService(this))
 {
     setObjectName("questionBankWindow");
 
@@ -96,23 +37,34 @@ QuestionBankWindow::QuestionBankWindow(QWidget *parent)
     baseFont.setStyleHint(QFont::SansSerif);
     baseFont.setStyleStrategy(QFont::PreferAntialias);
     setFont(baseFont);
-    
-    // 初始化 PaperService
-    m_paperService = new PaperService(this);
-    
-    // 连接信号
-    connect(m_paperService, &PaperService::searchCompleted,
-            this, &QuestionBankWindow::onQuestionsReceived);
-    connect(m_paperService, &PaperService::questionError,
-            this, &QuestionBankWindow::onQuestionsError);
-    connect(m_paperService, &PaperService::searchCompletedWithTotal,
-            this, &QuestionBankWindow::onSearchCompletedWithTotal);
 
     setupLayout();
     loadStyleSheet();
-    
-    // 页面加载时自动获取题目
-    loadQuestions();
+
+    QString parserApiKey = AppConfig::get("PARSER_API_KEY");
+    if (parserApiKey.isEmpty()) {
+        parserApiKey = AppConfig::get("DIFY_API_KEY");
+    }
+    if (parserApiKey.isEmpty()) {
+        parserApiKey = AppConfig::get("DIFY_QUESTION_GEN_API_KEY");
+    }
+    m_questionParser->setApiKey(parserApiKey);
+
+    const QString parserBaseUrl = AppConfig::get("PARSER_API_BASE_URL");
+    if (!parserBaseUrl.isEmpty()) {
+        m_questionParser->setBaseUrl(parserBaseUrl);
+    }
+
+    connect(m_aiQuestionGenWidget, &AIQuestionGenWidget::saveRequested,
+            this, &QuestionBankWindow::onSaveGeneratedQuestionsRequested);
+    connect(m_questionParser, &QuestionParserService::parseCompleted,
+            this, &QuestionBankWindow::onGeneratedQuestionsParsed);
+    connect(m_questionParser, &QuestionParserService::errorOccurred,
+            this, &QuestionBankWindow::onGeneratedQuestionsParseError);
+    connect(m_paperService, &PaperService::questionsAdded,
+            this, &QuestionBankWindow::onGeneratedQuestionsSaved);
+    connect(m_paperService, &PaperService::questionError,
+            this, &QuestionBankWindow::onGeneratedQuestionsSaveError);
 }
 
 void QuestionBankWindow::setupLayout()
@@ -123,51 +75,49 @@ void QuestionBankWindow::setupLayout()
 
     auto *pageContainer = new QWidget(this);
     pageContainer->setObjectName("pageContainer");
-    // 确保不拦截子控件的鼠标事件
     pageContainer->setAttribute(Qt::WA_TransparentForMouseEvents, false);
 
     auto *pageLayout = new QVBoxLayout(pageContainer);
     pageLayout->setContentsMargins(0, 0, 0, 0);
     pageLayout->setSpacing(0);
 
-    // ====== 悬浮卡片风格：Header 外层包装器，添加外边距 ======
+    // ====== Header 悬浮卡片 ======
     auto *headerWrapper = new QWidget(pageContainer);
     headerWrapper->setObjectName("headerWrapper");
     headerWrapper->setStyleSheet("QWidget#headerWrapper { background: transparent; }");
     auto *headerWrapperLayout = new QVBoxLayout(headerWrapper);
-    // 四周 20px 外边距，实现悬浮效果
     headerWrapperLayout->setContentsMargins(20, 16, 20, 0);
     headerWrapperLayout->setSpacing(0);
     headerWrapperLayout->addWidget(buildHeader());
 
     pageLayout->addWidget(headerWrapper);
 
-    // 内容区域使用 QStackedWidget 切换题库浏览/智能组卷
+    // ====== 内容区域：AI出题 / 智能组卷 ======
     m_modeStack = new QStackedWidget();
-    m_modeStack->addWidget(buildBody());  // page 0: 题库浏览
 
+    // page 0: AI 出题
+    m_aiQuestionGenWidget = new AIQuestionGenWidget(this);
+    m_modeStack->addWidget(m_aiQuestionGenWidget);
+
+    // page 1: 智能组卷
     m_smartPaperWidget = new SmartPaperWidget(this);
-    m_modeStack->addWidget(m_smartPaperWidget);  // page 1: 智能组卷
+    m_modeStack->addWidget(m_smartPaperWidget);
 
     pageLayout->addWidget(m_modeStack, 1);
 
     rootLayout->addWidget(pageContainer);
 
-    // 创建试题篮悬浮组件
+    // ====== 试题篮悬浮组件 ======
     m_basketWidget = new QuestionBasketWidget(this);
     m_basketWidget->setParent(this);
     m_basketWidget->raise();
-    // 确保试题篮只响应自己区域内的事件
     m_basketWidget->setAttribute(Qt::WA_TransparentForMouseEvents, false);
 
     // 连接试题篮信号
     connect(m_basketWidget, &QuestionBasketWidget::composePaperRequested,
             this, &QuestionBankWindow::onComposePaper);
-    connect(m_basketWidget, &QuestionBasketWidget::questionRemoved,
-            this, &QuestionBankWindow::onRemoveFromBasket);
     connect(m_basketWidget, &QuestionBasketWidget::sizeChanged,
             this, [this]() {
-                // 重新定位试题篮到右下角
                 if (m_basketWidget) {
                     const int margin = 24;
                     int x = width() - m_basketWidget->width() - margin;
@@ -176,22 +126,7 @@ void QuestionBankWindow::setupLayout()
                 }
             });
 
-    // 监听试题篮数量变化以更新按钮状态
-    connect(QuestionBasket::instance(), &QuestionBasket::questionAdded,
-            this, [this](const PaperQuestion &q) {
-                updateAddToBasketButton(q.id, true);
-            });
-    connect(QuestionBasket::instance(), &QuestionBasket::questionRemoved,
-            this, [this](const QString &id) {
-                updateAddToBasketButton(id, false);
-            });
-    // 试题篮清空时，重置所有按钮状态
-    connect(QuestionBasket::instance(), &QuestionBasket::cleared,
-            this, [this]() {
-                for (auto it = m_addToBasketButtons.begin(); it != m_addToBasketButtons.end(); ++it) {
-                    updateAddToBasketButton(it.key(), false);
-                }
-            });
+    switchMode(0);
 }
 
 QWidget *QuestionBankWindow::buildHeader()
@@ -210,7 +145,6 @@ QWidget *QuestionBankWindow::buildHeader()
         "}"
     );
 
-    // 添加阴影效果
     QGraphicsDropShadowEffect *headerShadow = new QGraphicsDropShadowEffect(header);
     headerShadow->setBlurRadius(20);
     headerShadow->setOffset(0, 6);
@@ -221,7 +155,7 @@ QWidget *QuestionBankWindow::buildHeader()
     layout->setContentsMargins(32, 20, 32, 20);
     layout->setSpacing(20);
 
-    // 返回按钮 - 玻璃风格
+    // 返回按钮
     auto *backButton = new QPushButton(header);
     backButton->setObjectName("backButton");
     backButton->setCursor(Qt::PointingHandCursor);
@@ -250,7 +184,7 @@ QWidget *QuestionBankWindow::buildHeader()
     );
     connect(backButton, &QPushButton::clicked, this, &QuestionBankWindow::backRequested);
 
-    // 装饰图标容器
+    // 装饰图标
     QLabel *iconDecor = new QLabel(header);
     iconDecor->setFixedSize(52, 52);
     iconDecor->setStyleSheet(
@@ -261,7 +195,6 @@ QWidget *QuestionBankWindow::buildHeader()
     iconDecor->setAlignment(Qt::AlignCenter);
     QPixmap bookIcon(":/icons/resources/icons/book.svg");
     if (!bookIcon.isNull()) {
-        // 将图标染成白色
         QPixmap whiteIcon(bookIcon.size());
         whiteIcon.fill(Qt::transparent);
         QPainter painter(&whiteIcon);
@@ -280,26 +213,24 @@ QWidget *QuestionBankWindow::buildHeader()
     titleLayout->setContentsMargins(0, 0, 0, 0);
     titleLayout->setSpacing(6);
 
-    auto *title = new QLabel(QStringLiteral("AI 智能备课 · 试题库"), titleWrapper);
-    title->setObjectName("pageTitle");
-    title->setStyleSheet(
+    m_headerTitle = new QLabel(QStringLiteral("AI 智能备课 · 试题中心"), titleWrapper);
+    m_headerTitle->setObjectName("pageTitle");
+    m_headerTitle->setStyleSheet(
         "font-size: 26px; font-weight: 800; color: white; background: transparent;"
         "letter-spacing: 2px;"
     );
-    m_headerTitle = title;
 
-    auto *subtitle = new QLabel(QStringLiteral("◆ 智能筛选  ◆ 海量题库  ◆ 精准匹配"), titleWrapper);
-    subtitle->setObjectName("pageSubtitle");
-    subtitle->setStyleSheet(
+    m_headerSubtitle = new QLabel(QStringLiteral("◆ AI 出题  ◆ 智能组卷  ◆ 一键导出"), titleWrapper);
+    m_headerSubtitle->setObjectName("pageSubtitle");
+    m_headerSubtitle->setStyleSheet(
         "font-size: 13px; color: rgba(255,255,255,0.8); background: transparent;"
         "font-weight: 500; letter-spacing: 1px;"
     );
-    m_headerSubtitle = subtitle;
 
-    titleLayout->addWidget(title);
-    titleLayout->addWidget(subtitle);
+    titleLayout->addWidget(m_headerTitle);
+    titleLayout->addWidget(m_headerSubtitle);
 
-    // 右侧分段控制 + 搜索框
+    // 右侧分段控制
     auto *rightControls = new QWidget(header);
     rightControls->setStyleSheet("background: transparent;");
     auto *rightLayout = new QVBoxLayout(rightControls);
@@ -320,18 +251,18 @@ QWidget *QuestionBankWindow::buildHeader()
         "border-radius: %1; }"
         "QPushButton:hover { background: rgba(255,255,255,0.25); }";
 
-    m_browseTabBtn = new QPushButton("题库浏览");
-    m_browseTabBtn->setCursor(Qt::PointingHandCursor);
-    m_browseTabBtn->setStyleSheet(TAB_ACTIVE_STYLE.arg("16px 0 0 16px"));
+    m_aiGenTabBtn = new QPushButton("AI 出题");
+    m_aiGenTabBtn->setCursor(Qt::PointingHandCursor);
+    m_aiGenTabBtn->setStyleSheet(TAB_ACTIVE_STYLE.arg("16px 0 0 16px"));
 
     m_smartPaperTabBtn = new QPushButton("智能组卷");
     m_smartPaperTabBtn->setCursor(Qt::PointingHandCursor);
     m_smartPaperTabBtn->setStyleSheet(TAB_NORMAL_STYLE.arg("0 16px 16px 0"));
 
-    connect(m_browseTabBtn, &QPushButton::clicked, this, [this]() { switchMode(0); });
+    connect(m_aiGenTabBtn, &QPushButton::clicked, this, [this]() { switchMode(0); });
     connect(m_smartPaperTabBtn, &QPushButton::clicked, this, [this]() { switchMode(1); });
 
-    // 质量检查按钮（独立风格，不在分段控制中）
+    // 质量检查按钮
     auto *qualityCheckBtn = new QPushButton("质量检查");
     qualityCheckBtn->setCursor(Qt::PointingHandCursor);
     qualityCheckBtn->setStyleSheet(
@@ -341,45 +272,23 @@ QWidget *QuestionBankWindow::buildHeader()
         "QPushButton:hover { background: rgba(255,255,255,0.25); }"
     );
     connect(qualityCheckBtn, &QPushButton::clicked, this, [this]() {
-        // 创建独立的 DifyService 实例用于质量检查
         auto *difyService = new DifyService(this);
         difyService->setApiKey(qEnvironmentVariable("DIFY_API_KEY"));
-        auto *qualityService = new QuestionQualityService(m_paperService, difyService, this);
-        QualityCheckDialog dialog(qualityService, m_paperService, this);
+        // 质量检查需要 PaperService，但现在不再持有。创建临时实例
+        auto *paperService = new PaperService(this);
+        auto *qualityService = new QuestionQualityService(paperService, difyService, this);
+        QualityCheckDialog dialog(qualityService, paperService, this);
         dialog.exec();
-        // 对话框关闭后清理
         qualityService->deleteLater();
         difyService->deleteLater();
+        paperService->deleteLater();
     });
 
     tabRow->addStretch();
-    tabRow->addWidget(m_browseTabBtn);
+    tabRow->addWidget(m_aiGenTabBtn);
     tabRow->addWidget(m_smartPaperTabBtn);
     tabRow->addWidget(qualityCheckBtn);
     rightLayout->addLayout(tabRow);
-
-    // 搜索框
-    auto *searchInput = new QLineEdit(header);
-    searchInput->setPlaceholderText("搜索试题...");
-    searchInput->setFixedSize(240, 36);
-    searchInput->setStyleSheet(
-        "QLineEdit {"
-        "    background-color: rgba(255,255,255,0.12);"
-        "    border: 1px solid rgba(255,255,255,0.2);"
-        "    border-radius: 18px;"
-        "    padding: 6px 16px;"
-        "    font-size: 13px;"
-        "    color: white;"
-        "}"
-        "QLineEdit::placeholder {"
-        "    color: rgba(255,255,255,0.6);"
-        "}"
-        "QLineEdit:focus {"
-        "    background-color: rgba(255,255,255,0.2);"
-        "    border: 2px solid rgba(255,255,255,0.5);"
-        "}"
-    );
-    rightLayout->addWidget(searchInput, 0, Qt::AlignRight);
 
     layout->addWidget(backButton, 0, Qt::AlignLeft | Qt::AlignVCenter);
     layout->addWidget(iconDecor, 0, Qt::AlignVCenter);
@@ -389,424 +298,12 @@ QWidget *QuestionBankWindow::buildHeader()
     return header;
 }
 
-QWidget *QuestionBankWindow::buildBody()
-{
-    auto *body = new QFrame(this);
-    body->setObjectName("mainBody");
-
-    auto *bodyLayout = new QHBoxLayout(body);
-    bodyLayout->setContentsMargins(0, 0, 0, 0);
-    bodyLayout->setSpacing(18);
-
-    bodyLayout->addWidget(buildSidebar(), 0);
-    bodyLayout->addWidget(buildContentArea(), 1);
-
-    return body;
-}
-
-QWidget *QuestionBankWindow::buildSidebar()
-{
-    auto *sidebar = new QFrame(this);
-    sidebar->setObjectName("filterSidebar");
-    sidebar->setFixedWidth(kSidebarWidth);
-    sidebar->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
-    applyShadow(sidebar, 30, QPointF(0, 10), kSidebarShadowColor);
-
-    auto *outerLayout = new QVBoxLayout(sidebar);
-    outerLayout->setContentsMargins(0, 0, 0, 0);
-    outerLayout->setSpacing(0);
-
-    auto *scrollArea = new QScrollArea(sidebar);
-    scrollArea->setObjectName("filterSidebarScroll");
-    scrollArea->setFrameShape(QFrame::NoFrame);
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    scrollArea->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-
-    auto *content = new QWidget(scrollArea);
-    content->setObjectName("filterSidebarContent");
-    content->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
-
-    auto *layout = new QVBoxLayout(content);
-    layout->setContentsMargins(24, 24, 24, 24);
-    layout->setSpacing(16);
-
-    auto *sidebarTitle = new QLabel(QStringLiteral("筛选条件"), content);
-    sidebarTitle->setObjectName("sidebarTitle");
-
-    layout->addWidget(sidebarTitle);
-
-    // 课程范围固定显示
-    auto *courseWrapper = new QWidget(content);
-    courseWrapper->setObjectName("comboField");
-    auto *courseLayout = new QVBoxLayout(courseWrapper);
-    courseLayout->setContentsMargins(0, 0, 0, 0);
-    courseLayout->setSpacing(4);
-    auto *courseLabel = new QLabel(QStringLiteral("课程范围"), courseWrapper);
-    courseLabel->setProperty("role", "comboLabel");
-    auto *courseValue = new QLabel(QStringLiteral("道德与法治"), courseWrapper);
-    courseValue->setObjectName("fixedCourseLabel");
-    courseValue->setStyleSheet("QLabel { background: #F5F7FA; border: 1px solid #E0E0E0; border-radius: 8px; padding: 12px 16px; color: #424242; font-size: 14px; }");
-    courseLayout->addWidget(courseLabel);
-    courseLayout->addWidget(courseValue);
-    layout->addWidget(courseWrapper);
-
-    struct ComboField {
-        QString label;
-        QStringList options;
-    };
-
-    const QList<ComboField> comboFields = {
-        {QStringLiteral("教材版本"), {QStringLiteral("人教版"), QStringLiteral("部编版"), QStringLiteral("自编教材")}},
-        {QStringLiteral("年级学期"), {QStringLiteral("七年级上学期"), QStringLiteral("七年级下学期"), QStringLiteral("八年级上学期"), QStringLiteral("八年级下学期"), QStringLiteral("九年级上学期"), QStringLiteral("九年级下学期")}},
-        {QStringLiteral("章节"), {QStringLiteral("第一章"), QStringLiteral("第二章"), QStringLiteral("第三章"), QStringLiteral("综合复习")}}
-    };
-
-    for (const ComboField &field : comboFields) {
-        layout->addWidget(createComboField(field.label, field.options));
-    }
-
-    layout->addSpacing(4);
-
-    layout->addWidget(createFilterButtons(QStringLiteral("试卷类型"),
-                                          {QStringLiteral("不限"), QStringLiteral("章节练习"), QStringLiteral("课后作业"), QStringLiteral("期中"), QStringLiteral("期末"), QStringLiteral("模拟卷")},
-                                          QStringLiteral("paperType"),
-                                          3));
-
-    m_questionTypeGroup = createFilterButtonsWithGroup(QStringLiteral("题目题型"),
-                                          {QStringLiteral("不限"), QStringLiteral("选择题"), QStringLiteral("填空题"), QStringLiteral("材料论述题"), QStringLiteral("判断说理题")},
-                                          QStringLiteral("questionType"),
-                                          3,
-                                          layout);  // 传递 layout 供添加 widget
-
-    layout->addWidget(createFilterButtons(QStringLiteral("题目难度"),
-                                          {QStringLiteral("不限"), QStringLiteral("简单"), QStringLiteral("中等"), QStringLiteral("困难")},
-                                          QStringLiteral("difficulty"),
-                                          2));
-
-    layout->addStretch(1);
-
-    // 设置滚动区域内容
-    scrollArea->setWidget(content);
-
-    // 滚动区域占满整个侧边栏
-    outerLayout->addWidget(scrollArea, 1);
-
-    return sidebar;
-}
-
-QWidget *QuestionBankWindow::buildContentArea()
-{
-    m_questionScrollArea = new QScrollArea(this);
-    m_questionScrollArea->setObjectName("contentScrollArea");
-    m_questionScrollArea->setWidgetResizable(true);
-    m_questionScrollArea->setFrameShape(QFrame::NoFrame);
-    m_questionScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-
-    auto *scrollWidget = new QWidget(m_questionScrollArea);
-    scrollWidget->setObjectName("scrollWrapper");
-
-    m_questionListLayout = new QVBoxLayout(scrollWidget);
-    m_questionListLayout->setContentsMargins(0, 0, 4, 0);
-    m_questionListLayout->setSpacing(16);
-    
-    // 状态提示标签
-    m_statusLabel = new QLabel("正在加载题目...", scrollWidget);
-    m_statusLabel->setObjectName("statusLabel");
-    m_statusLabel->setAlignment(Qt::AlignCenter);
-    m_statusLabel->setStyleSheet("QLabel { color: #6c757d; font-size: 14px; padding: 40px; }");
-    m_questionListLayout->addWidget(m_statusLabel);
-
-    m_questionListLayout->addStretch(1);
-
-    m_questionScrollArea->setWidget(scrollWidget);
-
-    // 监听滚动事件实现无限加载
-    connect(m_questionScrollArea->verticalScrollBar(), &QScrollBar::valueChanged,
-            this, [this](int value) {
-                auto *bar = m_questionScrollArea->verticalScrollBar();
-                if (!m_isLoadingMore && bar->maximum() > 0 &&
-                    value > bar->maximum() * 0.8) {
-                    loadMoreQuestions();
-                }
-            });
-
-    return m_questionScrollArea;
-}
-
-QWidget *QuestionBankWindow::createComboField(const QString &labelText, const QStringList &options)
-{
-    auto *wrapper = new QWidget(this);
-    wrapper->setObjectName("comboField");
-
-    auto *layout = new QVBoxLayout(wrapper);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(4);
-
-    auto *label = new QLabel(labelText, wrapper);
-    label->setProperty("role", "comboLabel");
-    layout->addWidget(label);
-
-    auto *combo = new QComboBox(wrapper);
-    combo->setProperty("role", "filterSelect");
-    combo->setCursor(Qt::PointingHandCursor);
-    combo->setFixedHeight(kComboHeight);
-    combo->addItems(options);
-
-    layout->addWidget(combo);
-
-    m_filterCombos.append(combo);
-    connectFilterCombo(combo, labelText);
-
-    return wrapper;
-}
-
-QWidget *QuestionBankWindow::createFilterButtons(const QString &labelText,
-                                                 const QStringList &options,
-                                                 const QString &groupId,
-                                                 int columns)
-{
-    const int columnCount = std::max(1, columns);
-
-    auto *section = new QWidget(this);
-    section->setObjectName(groupId + "Section");
-    section->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
-
-    auto *layout = new QVBoxLayout(section);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(12);
-    layout->setSizeConstraint(QLayout::SetMinimumSize);
-
-    auto *label = new QLabel(labelText, section);
-    label->setProperty("role", "comboLabel");
-    layout->addWidget(label);
-
-    auto *gridHost = new QWidget(section);
-    gridHost->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
-    auto *grid = new QGridLayout(gridHost);
-    grid->setContentsMargins(0, 0, 0, 0);
-    grid->setHorizontalSpacing(8);
-    grid->setVerticalSpacing(8);
-    grid->setSizeConstraint(QLayout::SetMinimumSize);
-
-    // 设置网格列拉伸，确保按钮平均分布
-    for (int col = 0; col < columnCount; ++col) {
-        grid->setColumnStretch(col, 1);
-    }
-
-    auto *group = new QButtonGroup(gridHost);
-    group->setExclusive(true);
-
-    for (int i = 0; i < options.size(); ++i) {
-        auto *button = new QPushButton(options.at(i), gridHost);
-        button->setProperty("role", "filterButton");
-        button->setCheckable(true);
-        button->setCursor(Qt::PointingHandCursor);
-        button->setMinimumHeight(kFilterButtonHeight);
-        button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-
-        if (i == 0) {
-            button->setChecked(true);
-        }
-
-        group->addButton(button);
-        grid->addWidget(button, i / columnCount, i % columnCount);
-    }
-
-    layout->addWidget(gridHost);
-
-    m_filterGroups.append(group);
-    connectFilterButton(group, labelText);
-
-    return section;
-}
-
-QButtonGroup *QuestionBankWindow::createFilterButtonsWithGroup(const QString &labelText,
-                                                               const QStringList &options,
-                                                               const QString &groupId,
-                                                               int columns,
-                                                               QVBoxLayout *parentLayout)
-{
-    const int columnCount = std::max(1, columns);
-
-    auto *section = new QWidget(this);
-    section->setObjectName(groupId + "Section");
-    section->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
-
-    auto *layout = new QVBoxLayout(section);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(12);
-    layout->setSizeConstraint(QLayout::SetMinimumSize);
-
-    auto *label = new QLabel(labelText, section);
-    label->setProperty("role", "comboLabel");
-    layout->addWidget(label);
-
-    auto *gridHost = new QWidget(section);
-    gridHost->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
-    auto *grid = new QGridLayout(gridHost);
-    grid->setContentsMargins(0, 0, 0, 0);
-    grid->setHorizontalSpacing(8);
-    grid->setVerticalSpacing(8);
-    grid->setSizeConstraint(QLayout::SetMinimumSize);
-
-    for (int col = 0; col < columnCount; ++col) {
-        grid->setColumnStretch(col, 1);
-    }
-
-    auto *group = new QButtonGroup(gridHost);
-    group->setExclusive(true);
-
-    for (int i = 0; i < options.size(); ++i) {
-        auto *button = new QPushButton(options.at(i), gridHost);
-        button->setProperty("role", "filterButton");
-        button->setCheckable(true);
-        button->setCursor(Qt::PointingHandCursor);
-        button->setMinimumHeight(kFilterButtonHeight);
-        button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-
-        if (i == 0) {
-            button->setChecked(true);
-        }
-
-        group->addButton(button);
-        grid->addWidget(button, i / columnCount, i % columnCount);
-        
-        // 连接按钮点击信号到题型变化处理
-        connect(button, &QPushButton::clicked, this, &QuestionBankWindow::onQuestionTypeChanged);
-    }
-
-    layout->addWidget(gridHost);
-
-    // 添加到传入的布局
-    if (parentLayout) {
-        parentLayout->addWidget(section);
-    }
-
-    m_filterGroups.append(group);
-
-    return group;
-}
-
-QString QuestionBankWindow::getSelectedQuestionType()
-{
-    if (!m_questionTypeGroup) {
-        return QString();
-    }
-    
-    QAbstractButton *checkedButton = m_questionTypeGroup->checkedButton();
-    if (checkedButton) {
-        return checkedButton->text();
-    }
-    
-    return QString();
-}
-
-void QuestionBankWindow::onQuestionTypeChanged()
-{
-    QString selectedType = getSelectedQuestionType();
-    qDebug() << "[QuestionBankWindow] Question type changed to:" << selectedType;
-    loadQuestions(selectedType);
-}
-
-
-QWidget *QuestionBankWindow::createActionRow()
-{
-    auto *row = new QFrame(this);
-    row->setObjectName("actionRow");
-
-    auto *layout = new QHBoxLayout(row);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(12);
-
-    auto *primaryAction = new QPushButton(QStringLiteral("下一题"), row);
-    primaryAction->setObjectName("primaryActionButton");
-    primaryAction->setFixedHeight(kPrimaryActionHeight);
-    primaryAction->setCursor(Qt::PointingHandCursor);
-
-    auto *prevAction = new QPushButton(QStringLiteral("上一题"), row);
-    prevAction->setObjectName("secondaryButton");
-    prevAction->setFixedHeight(kActionButtonHeight);
-    prevAction->setCursor(Qt::PointingHandCursor);
-
-    auto *revealAction = new QPushButton(QStringLiteral("查看解析"), row);
-    revealAction->setObjectName("secondaryButton");
-    revealAction->setFixedHeight(kActionButtonHeight);
-    revealAction->setCursor(Qt::PointingHandCursor);
-
-    auto *exportAction = new QPushButton(QStringLiteral("导出试卷"), row);
-    exportAction->setObjectName("ghostButton");
-    exportAction->setFixedHeight(kActionButtonHeight);
-    exportAction->setCursor(Qt::PointingHandCursor);
-
-    layout->addWidget(primaryAction, 0, Qt::AlignLeft);
-    layout->addWidget(prevAction);
-    layout->addWidget(revealAction);
-    layout->addWidget(exportAction);
-    layout->addStretch(1);
-
-    connect(primaryAction, &QPushButton::clicked, this, [this] {
-        updateProgress(1);
-    });
-
-    connect(prevAction, &QPushButton::clicked, this, [this] {
-        updateProgress(-1);
-    });
-
-    connect(revealAction, &QPushButton::clicked, this, [this] {
-        const bool currentlyVisible = m_answerSection && m_answerSection->isVisible();
-        if (m_answerSection) {
-            m_answerSection->setVisible(!currentlyVisible);
-        }
-        if (m_analysisSection) {
-            m_analysisSection->setVisible(!currentlyVisible);
-        }
-    });
-
-    connect(exportAction, &QPushButton::clicked, this, [] {
-        qInfo() << "Export paper request";
-    });
-
-    return row;
-}
-
-void QuestionBankWindow::connectFilterCombo(QComboBox *combo, const QString &labelText)
-{
-    connect(combo, &QComboBox::currentTextChanged, this, [labelText](const QString &value) {
-        qInfo() << labelText << "changed to" << value;
-    });
-}
-
-void QuestionBankWindow::connectFilterButton(QButtonGroup *group, const QString &labelText)
-{
-    const QList<QAbstractButton *> buttons = group->buttons();
-    for (QAbstractButton *button : buttons) {
-        connect(button, &QAbstractButton::toggled, this, [labelText, button](bool checked) {
-            if (checked) {
-                qInfo() << labelText << "selected" << button->text();
-            }
-        });
-    }
-}
-
-void QuestionBankWindow::updateProgress(int delta)
-{
-    m_currentQuestion = std::clamp(m_currentQuestion + delta, 1, m_totalQuestions);
-    if (m_progressBar) {
-        m_progressBar->setValue(m_currentQuestion);
-    }
-    if (m_progressValueLabel) {
-        m_progressValueLabel->setText(QStringLiteral("%1 / %2").arg(m_currentQuestion).arg(m_totalQuestions));
-    }
-}
-
 void QuestionBankWindow::loadStyleSheet()
 {
     QFile file(QStringLiteral(":/styles/resources/styles/question_bank.qss"));
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qWarning() << "Unable to load question bank stylesheet from :/styles/resources/styles/question_bank.qss";
 
-        // 尝试备用路径 (兼容旧的资源结构)
         QFile fallbackFile(QStringLiteral(":/styles/question_bank.qss"));
         if (!fallbackFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
             qWarning() << "Unable to load question bank stylesheet from fallback path";
@@ -822,1030 +319,10 @@ void QuestionBankWindow::loadStyleSheet()
     qDebug() << "Loaded question bank stylesheet from primary path";
 }
 
-void QuestionBankWindow::refreshOptionFrame(QWidget *frame, bool hovered)
-{
-    if (!frame) {
-        return;
-    }
-    frame->setProperty("hovered", hovered);
-    frame->style()->unpolish(frame);
-    frame->style()->polish(frame);
-    frame->update();
-}
-
 bool QuestionBankWindow::eventFilter(QObject *watched, QEvent *event)
 {
-    if (!watched) {
-        return QWidget::eventFilter(watched, event);
-    }
-
-    auto *optionFrame = resolveOptionFrame(watched);
-    if (optionFrame) {
-        if (event->type() == QEvent::Enter) {
-            refreshOptionFrame(optionFrame, true);
-        } else if (event->type() == QEvent::Leave) {
-            refreshOptionFrame(optionFrame, false);
-        } else if (event->type() == QEvent::MouseButtonRelease) {
-            // 点击容器时触发现代化复选框点击
-            if (auto *checkbox = optionFrame->findChild<ModernCheckBox *>()) {
-                checkbox->setChecked(true);
-            }
-        }
-    }
-
     return QWidget::eventFilter(watched, event);
 }
-
-// ==================== 动态加载题目相关方法 ====================
-
-void QuestionBankWindow::loadQuestions(const QString &questionType)
-{
-    if (!m_paperService) {
-        qWarning() << "[QuestionBankWindow] PaperService is null";
-        return;
-    }
-
-    // 重置分页状态
-    m_currentPage = 0;
-    m_totalServerCount = 0;
-    m_isLoadingMore = false;
-
-    if (m_statusLabel) {
-        m_statusLabel->setText("正在加载题目...");
-        m_statusLabel->show();
-    }
-
-    // 构建搜索条件
-    QuestionSearchCriteria criteria;
-    criteria.visibility = "public";  // 只显示公共题目
-
-    // 如果指定了题型，添加筛选条件
-    QString typeToSearch = questionType;
-    if (typeToSearch.isEmpty()) {
-        typeToSearch = getSelectedQuestionType();
-    }
-
-    if (!typeToSearch.isEmpty() && typeToSearch != "不限") {
-        // 中文题型映射到英文（与数据库存储格式一致）
-        static const QMap<QString, QString> typeMapping = {
-            {"选择题", "single_choice"},
-            {"填空题", "fill_blank"},
-            {"判断说理题", "true_false"},
-            {"判断题", "true_false"},
-            {"材料论述题", "material_essay"},
-            {"简答题", "short_answer"},
-            {"论述题", "short_answer"},
-            {"材料分析题", "material_essay"}
-        };
-
-        QString mappedType = typeMapping.value(typeToSearch, typeToSearch);
-        criteria.questionType = mappedType;
-        qDebug() << "[QuestionBankWindow] Filtering by question type:" << typeToSearch << "->" << mappedType;
-    }
-
-    // 设置分页参数
-    criteria.offset = 0;
-    criteria.limit = m_pageSize;
-
-    qDebug() << "[QuestionBankWindow] Loading questions with criteria...";
-    m_paperService->searchQuestions(criteria);
-}
-
-void QuestionBankWindow::onSearchClicked()
-{
-    loadQuestions();
-}
-
-void QuestionBankWindow::onQuestionsReceived(const QList<PaperQuestion> &questions)
-{
-    qDebug() << "[QuestionBankWindow] Received" << questions.size() << "questions, page:" << m_currentPage;
-
-    if (m_currentPage == 0) {
-        // 首次加载，替换
-        m_questions = questions;
-        m_totalQuestions = questions.size();
-        m_currentQuestion = 1;
-        displayQuestions(questions);
-    } else {
-        // 追加加载
-        m_questions.append(questions);
-        m_totalQuestions = m_questions.size();
-
-        // 追加新卡片到布局（在 stretch 之前插入）
-        int insertIdx = m_questionListLayout->count() - 1;  // stretch 之前
-        if (m_loadingMoreLabel) {
-            m_loadingMoreLabel->hide();
-            m_questionListLayout->removeWidget(m_loadingMoreLabel);
-        }
-
-        int startIndex = m_totalQuestions - questions.size() + 1;
-        for (int i = 0; i < questions.size(); ++i) {
-            QWidget *card = createQuestionCard(questions[i], startIndex + i);
-            m_questionListLayout->insertWidget(insertIdx + i, card);
-        }
-    }
-}
-
-void QuestionBankWindow::onQuestionsError(const QString &type, const QString &error)
-{
-    qWarning() << "[QuestionBankWindow] Error loading questions:" << type << error;
-
-    if (m_statusLabel) {
-        m_statusLabel->setText(QString("加载失败: %1").arg(error));
-        m_statusLabel->show();
-    }
-
-    // 重置加载状态
-    m_isLoadingMore = false;
-    if (m_loadingMoreLabel) {
-        m_loadingMoreLabel->hide();
-    }
-}
-
-void QuestionBankWindow::onSearchCompletedWithTotal(const QList<PaperQuestion> &results, int total)
-{
-    Q_UNUSED(results);
-    m_totalServerCount = total;
-    m_isLoadingMore = false;
-
-    // 隐藏加载指示器
-    if (m_loadingMoreLabel) {
-        m_loadingMoreLabel->hide();
-    }
-}
-
-void QuestionBankWindow::loadMoreQuestions()
-{
-    if (m_isLoadingMore) return;
-
-    int loadedCount = m_questions.size();
-    if (loadedCount >= m_totalServerCount && m_totalServerCount > 0) {
-        return;  // 已加载全部
-    }
-
-    m_isLoadingMore = true;
-    m_currentPage++;
-
-    // 显示加载指示
-    if (!m_loadingMoreLabel) {
-        m_loadingMoreLabel = new QLabel("加载更多...", this);
-        m_loadingMoreLabel->setAlignment(Qt::AlignCenter);
-        m_loadingMoreLabel->setStyleSheet("QLabel { color: #9E9E9E; padding: 20px; font-size: 13px; }");
-    }
-    // 插入到 stretch 之前
-    int stretchIdx = m_questionListLayout->count() - 1;
-    m_questionListLayout->insertWidget(stretchIdx, m_loadingMoreLabel);
-    m_loadingMoreLabel->show();
-
-    // 构建与上次相同的筛选条件
-    QuestionSearchCriteria criteria;
-    criteria.visibility = "public";
-
-    QString typeToSearch = getSelectedQuestionType();
-    if (!typeToSearch.isEmpty() && typeToSearch != "不限") {
-        static const QMap<QString, QString> typeMapping = {
-            {"选择题", "single_choice"},
-            {"填空题", "fill_blank"},
-            {"判断说理题", "true_false"},
-            {"判断题", "true_false"},
-            {"材料论述题", "material_essay"},
-            {"简答题", "short_answer"},
-            {"论述题", "short_answer"},
-            {"材料分析题", "material_essay"}
-        };
-        criteria.questionType = typeMapping.value(typeToSearch, typeToSearch);
-    }
-
-    criteria.offset = m_currentPage * m_pageSize;
-    criteria.limit = m_pageSize;
-
-    qDebug() << "[QuestionBankWindow] Loading more questions, page:" << m_currentPage
-             << "offset:" << criteria.offset;
-    m_paperService->searchQuestions(criteria);
-}
-
-void QuestionBankWindow::setSearchKeyword(const QString &keyword)
-{
-    // 重置分页并用关键词搜索
-    QuestionSearchCriteria criteria;
-    criteria.visibility = "public";
-    criteria.keyword = keyword;
-    criteria.offset = 0;
-    criteria.limit = m_pageSize;
-
-    m_currentPage = 0;
-    m_totalServerCount = 0;
-    m_isLoadingMore = false;
-
-    if (m_statusLabel) {
-        m_statusLabel->setText("正在搜索...");
-        m_statusLabel->show();
-    }
-
-    m_paperService->searchQuestions(criteria);
-}
-
-void QuestionBankWindow::clearQuestionCards()
-{
-    if (!m_questionListLayout) return;
-    
-    LayoutUtils::clearLayout(m_questionListLayout);
-    
-    // 重置 statusLabel 指针，因为它可能已被删除
-    m_statusLabel = nullptr;
-}
-
-void QuestionBankWindow::displayQuestions(const QList<PaperQuestion> &questions)
-{
-    clearQuestionCards();
-
-    if (questions.isEmpty()) {
-        m_statusLabel = new QLabel("暂无题目，请先导入试题或调整筛选条件", this);
-        m_statusLabel->setObjectName("statusLabel");
-        m_statusLabel->setAlignment(Qt::AlignCenter);
-        m_statusLabel->setStyleSheet("QLabel { color: #6c757d; font-size: 14px; padding: 40px; }");
-        m_questionListLayout->addWidget(m_statusLabel);
-        m_questionListLayout->addStretch(1);
-        return;
-    }
-
-    // 定义题型顺序和中文名称（数据库存储英文键）
-    const QList<QPair<QString, QString>> questionTypeOrder = {
-        // 英文键 -> 中文显示名
-        {"single_choice", "选择题"},
-        {"true_false", "判断题"},
-        {"fill_blank", "填空题"},
-        {"short_answer", "简答题"},
-        {"essay", "论述题"},
-        {"material_essay", "材料论述题"},
-        {"material", "材料分析题"}
-    };
-
-    const QStringList chineseNumbers = {"一", "二", "三", "四", "五", "六", "七", "八", "九", "十"};
-
-    // 按题型分组题目
-    QMap<QString, QList<PaperQuestion>> groupedQuestions;
-    for (const PaperQuestion &q : questions) {
-        groupedQuestions[q.questionType].append(q);
-    }
-
-    // 按预定顺序显示各题型
-    int globalIndex = 1;
-    int sectionIndex = 0;
-
-    for (const auto &typePair : questionTypeOrder) {
-        const QString &typeKey = typePair.first;
-        const QString &typeName = typePair.second;
-
-        if (!groupedQuestions.contains(typeKey) || groupedQuestions[typeKey].isEmpty()) {
-            continue;
-        }
-
-        const QList<PaperQuestion> &typeQuestions = groupedQuestions[typeKey];
-
-        // 创建题型标题
-        QString sectionTitle = QString("%1、%2（共%3题）")
-            .arg(sectionIndex < chineseNumbers.size() ? chineseNumbers[sectionIndex] : QString::number(sectionIndex + 1))
-            .arg(typeName)
-            .arg(typeQuestions.size());
-
-        auto *sectionLabel = new QLabel(sectionTitle, this);
-        sectionLabel->setObjectName("sectionTitle");
-        sectionLabel->setStyleSheet(
-            "QLabel {"
-            "  font-size: 17px;"
-            "  font-weight: 600;"
-            "  color: #2E7D32;"
-            "  padding: 16px 0 12px 0;"
-            "  border-bottom: none;"
-            "  margin-bottom: 8px;"
-            "  letter-spacing: 0.5px;"
-            "}"
-        );
-        m_questionListLayout->addWidget(sectionLabel);
-
-        // 为该题型下的每道题目创建卡片
-        for (const PaperQuestion &q : typeQuestions) {
-            QWidget *card = createQuestionCard(q, globalIndex);
-            m_questionListLayout->addWidget(card);
-            globalIndex++;
-        }
-
-        // 移除已处理的题型
-        groupedQuestions.remove(typeKey);
-        sectionIndex++;
-    }
-
-    // 处理未在预定义列表中的其他题型
-    for (auto it = groupedQuestions.begin(); it != groupedQuestions.end(); ++it) {
-        if (it.value().isEmpty()) {
-            continue;
-        }
-
-        QString sectionTitle = QString("%1、%2（共%3题）")
-            .arg(sectionIndex < chineseNumbers.size() ? chineseNumbers[sectionIndex] : QString::number(sectionIndex + 1))
-            .arg(it.key())
-            .arg(it.value().size());
-
-        auto *sectionLabel = new QLabel(sectionTitle, this);
-        sectionLabel->setObjectName("sectionTitle");
-        sectionLabel->setStyleSheet(
-            "QLabel {"
-            "  font-size: 17px;"
-            "  font-weight: 600;"
-            "  color: #2E7D32;"
-            "  padding: 16px 0 12px 0;"
-            "  border-bottom: none;"
-            "  margin-bottom: 8px;"
-            "  letter-spacing: 0.5px;"
-            "}"
-        );
-        m_questionListLayout->addWidget(sectionLabel);
-
-        for (const PaperQuestion &q : it.value()) {
-            QWidget *card = createQuestionCard(q, globalIndex);
-            m_questionListLayout->addWidget(card);
-            globalIndex++;
-        }
-
-        sectionIndex++;
-    }
-
-    m_questionListLayout->addStretch(1);
-
-    // 更新进度
-    if (m_progressBar) {
-        m_progressBar->setRange(0, m_totalQuestions);
-        m_progressBar->setValue(m_currentQuestion);
-    }
-    if (m_progressValueLabel) {
-        m_progressValueLabel->setText(QString("%1 / %2").arg(m_currentQuestion).arg(m_totalQuestions));
-    }
-
-    qDebug() << "[QuestionBankWindow] Displayed" << questions.size() << "question cards in" << sectionIndex << "sections";
-}
-
-QWidget *QuestionBankWindow::createQuestionCard(const PaperQuestion &question, int index)
-{
-    auto *card = new QFrame(this);
-    card->setObjectName("questionCard");
-    applyShadow(card, 36, QPointF(0, 14), QColor(0, 0, 0, 18));
-
-    auto *layout = new QVBoxLayout(card);
-    layout->setContentsMargins(kCardPadding, kCardPadding, kCardPadding, kCardPadding);
-    layout->setSpacing(16);
-
-    // 标签行（题型、难度、学科）
-    layout->addWidget(createTagRow(question.tags));
-
-    // 材料论述题特殊处理
-    bool isMaterialEssay = (question.questionType == "material_essay" ||
-                            question.questionType == "material");
-
-    if (isMaterialEssay) {
-        // 智能解析材料论述题内容
-        MaterialEssayParsed parsed = parseMaterialEssay(question);
-
-        // 题号行（徽章 + 题型标签）
-        auto *headerRow = new QFrame(card);
-        auto *headerLayout = new QHBoxLayout(headerRow);
-        headerLayout->setContentsMargins(0, 0, 0, 8);
-        headerLayout->setSpacing(10);
-
-        // 题号徽章 - 简约灰色设计
-        auto *indexBadge = new QLabel(QString("No.%1").arg(index), headerRow);
-        indexBadge->setStyleSheet(
-            "QLabel {"
-            "  background: transparent;"
-            "  color: #9E9E9E;"
-            "  font-size: 13px;"
-            "  font-weight: 600;"
-            "  padding: 0;"
-            "}"
-        );
-
-        // 题型标签 - 空心标签设计
-        auto *typeTag = new QLabel("材料论述题", headerRow);
-        typeTag->setStyleSheet(
-            "QLabel {"
-            "  background: transparent;"
-            "  color: #2E7D32;"
-            "  font-size: 12px;"
-            "  font-weight: 500;"
-            "  padding: 4px 12px;"
-            "  border: 1px solid #C8E6C9;"
-            "  border-radius: 12px;"
-            "}"
-        );
-
-        headerLayout->addWidget(indexBadge);
-        headerLayout->addWidget(typeTag);
-        headerLayout->addStretch();
-        layout->addWidget(headerRow);
-
-        if (!parsed.material.isEmpty()) {
-        // 材料内容区域 - 绿色左边框
-        auto *materialFrame = new QFrame(card);
-        materialFrame->setObjectName("materialFrame");
-        materialFrame->setStyleSheet(
-            "QFrame#materialFrame {"
-            "  background: #FAFAFA;"
-            "  border-left: 3px solid #4CAF50;"
-            "  border-radius: 0 8px 8px 0;"
-            "  padding: 16px;"
-            "}"
-        );
-
-        auto *materialLayout = new QVBoxLayout(materialFrame);
-        materialLayout->setContentsMargins(16, 12, 16, 12);
-        materialLayout->setSpacing(8);
-
-        auto *materialTitle = new QLabel("【阅读材料】", materialFrame);
-        materialTitle->setStyleSheet("QLabel { font-weight: 600; color: #2E7D32; font-size: 13px; }");
-        materialLayout->addWidget(materialTitle);
-
-        // 使用 NetworkImageTextBrowser 支持网络图片加载
-        auto *materialBrowser = new NetworkImageTextBrowser(materialFrame);
-        materialBrowser->setObjectName("materialContent");
-        materialBrowser->setOpenExternalLinks(true);
-        materialBrowser->setHtml(parsed.material);
-        materialBrowser->setStyleSheet(
-            "NetworkImageTextBrowser {"
-            "  background: transparent;"
-            "  border: none;"
-            "  color: #333;"
-            "  font-size: 14px;"
-            "}"
-        );
-        // 自动调整高度以适应内容
-        materialBrowser->document()->setDocumentMargin(0);
-        materialBrowser->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        materialBrowser->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        materialBrowser->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
-        // 计算合适的高度
-        QSize docSize = materialBrowser->document()->size().toSize();
-        materialBrowser->setMinimumHeight(docSize.height() + 20);
-        materialLayout->addWidget(materialBrowser);
-
-        layout->addWidget(materialFrame);
-        }  // end if (!parsed.material.isEmpty())
-
-        // 显示题干说明（如果有，例如"阅读材料，回答下列问题"）
-        if (!parsed.stem.isEmpty()) {
-            auto *stemLabel = new QLabel(QString("<b>【题目要求】</b> %1").arg(parsed.stem), card);
-            stemLabel->setObjectName("questionStem");
-            stemLabel->setWordWrap(true);
-            stemLabel->setTextFormat(Qt::RichText);
-            stemLabel->setStyleSheet("QLabel { color: #333; font-size: 14px; padding: 8px 0; }");
-            layout->addWidget(stemLabel);
-        }
-
-        // 小问列表
-        if (!parsed.subQuestions.isEmpty()) {
-            auto *questionsFrame = new QFrame(card);
-            questionsFrame->setObjectName("subQuestionsFrame");
-
-            auto *questionsLayout = new QVBoxLayout(questionsFrame);
-            questionsLayout->setContentsMargins(0, 8, 0, 0);
-            questionsLayout->setSpacing(12);
-
-            for (int i = 0; i < parsed.subQuestions.size(); ++i) {
-                auto *subFrame = new QFrame(questionsFrame);
-                auto *subLayout = new QVBoxLayout(subFrame);
-                subLayout->setContentsMargins(0, 0, 0, 0);
-                subLayout->setSpacing(4);
-
-                // 小问题目 - 先去除已有编号前缀，避免重复显示
-                QString questionText = parsed.subQuestions[i].trimmed();
-                // 去除开头的编号格式如 (1) （1） 1. 1、 ⑴ 等
-                static QRegularExpression numPrefixRe(R"(^[\(（⑴⑵⑶⑷⑸]?\s*\d*\s*[\)）]?[\s\.\、\：\:]*)");;
-                questionText.remove(numPrefixRe);
-                QString subText = QString("<b>（%1）</b> %2").arg(i + 1).arg(questionText.trimmed());
-                auto *subLabel = new QLabel(subText, subFrame);
-                subLabel->setWordWrap(true);
-                subLabel->setTextFormat(Qt::RichText);
-                subLayout->addWidget(subLabel);
-
-                // 小问答案（如果有）- 可折叠
-                if (i < parsed.subAnswers.size() && !parsed.subAnswers[i].isEmpty()) {
-                    // 折叠按钮
-                    auto *toggleBtn = new QPushButton(subFrame);
-                    toggleBtn->setText("> 查看答案");
-                    toggleBtn->setCursor(Qt::PointingHandCursor);
-                    toggleBtn->setStyleSheet(
-                        "QPushButton {"
-                        "  background: transparent;"
-                        "  border: none;"
-                        "  color: #28a745;"
-                        "  font-size: 12px;"
-                        "  font-weight: bold;"
-                        "  text-align: left;"
-                        "  padding: 4px 0;"
-                        "}"
-                        "QPushButton:hover {"
-                        "  color: #1e7e34;"
-                        "}"
-                    );
-                    subLayout->addWidget(toggleBtn);
-
-                    // 答案内容（默认隐藏）
-                    auto *answerFrame = new QFrame(subFrame);
-                    answerFrame->setVisible(false);
-                    answerFrame->setStyleSheet(
-                        "QFrame { background: #e8f5e9; border-radius: 6px; padding: 8px; }"
-                    );
-                    auto *answerLayout = new QVBoxLayout(answerFrame);
-                    answerLayout->setContentsMargins(12, 8, 12, 8);
-
-                    auto *answerTitle = new QLabel("正确答案", answerFrame);
-                    answerTitle->setStyleSheet("QLabel { color: #2e7d32; font-weight: bold; font-size: 12px; }");
-                    answerLayout->addWidget(answerTitle);
-
-                    auto *answerContent = new QLabel(parsed.subAnswers[i], answerFrame);
-                    answerContent->setWordWrap(true);
-                    answerContent->setStyleSheet("QLabel { color: #1b5e20; }");
-                    answerLayout->addWidget(answerContent);
-
-                    subLayout->addWidget(answerFrame);
-
-                    // 点击切换显示/隐藏
-                    connect(toggleBtn, &QPushButton::clicked, subFrame, [toggleBtn, answerFrame]() {
-                        bool isVisible = answerFrame->isVisible();
-                        answerFrame->setVisible(!isVisible);
-                        toggleBtn->setText(isVisible ? "> 查看答案" : "v 隐藏答案");
-                    });
-                }
-
-                questionsLayout->addWidget(subFrame);
-            }
-
-            layout->addWidget(questionsFrame);
-        }
-
-        // 总答案（如果有且没有小问答案）
-        if (parsed.subAnswers.isEmpty() && !question.answer.isEmpty()) {
-            layout->addWidget(createAnswerSection(question.answer));
-        }
-    } else {
-        // 普通题目处理
-        // 题号行（徽章 + 题型标签）
-        auto *headerRow = new QFrame(card);
-        auto *headerLayout = new QHBoxLayout(headerRow);
-        headerLayout->setContentsMargins(0, 0, 0, 8);
-        headerLayout->setSpacing(10);
-
-        // 题号徽章 - 简约灰色设计
-        auto *indexBadge = new QLabel(QString("No.%1").arg(index), headerRow);
-        indexBadge->setStyleSheet(
-            "QLabel {"
-            "  background: transparent;"
-            "  color: #9E9E9E;"
-            "  font-size: 13px;"
-            "  font-weight: 600;"
-            "  padding: 0;"
-            "}"
-        );
-
-        // 题型标签（根据题型显示）
-        QString typeText = "选择题";
-        if (question.questionType == "true_false") typeText = "判断题";
-        else if (question.questionType == "fill_blank") typeText = "填空题";
-        else if (question.questionType == "short_answer") typeText = "简答题";
-        else if (question.questionType == "essay") typeText = "论述题";
-
-        auto *typeTag = new QLabel(typeText, headerRow);
-        typeTag->setStyleSheet(
-            "QLabel {"
-            "  background: transparent;"
-            "  color: #757575;"
-            "  font-size: 12px;"
-            "  font-weight: 500;"
-            "  padding: 4px 12px;"
-            "  border: 1px solid #E0E0E0;"
-            "  border-radius: 12px;"
-            "}"
-        );
-
-        headerLayout->addWidget(indexBadge);
-        headerLayout->addWidget(typeTag);
-        headerLayout->addStretch();
-        layout->addWidget(headerRow);
-
-        // 题干内容
-        QString stemText = question.stem;
-
-        // 检查题干是否包含图片
-        if (question.stem.contains("<img")) {
-            // 使用 NetworkImageTextBrowser 支持网络图片
-            auto *stemBrowser = new NetworkImageTextBrowser(card);
-            stemBrowser->setObjectName("questionStem");
-            stemBrowser->setHtml(stemText);
-            stemBrowser->setStyleSheet(
-                "NetworkImageTextBrowser {"
-                "  background: transparent;"
-                "  border: none;"
-                "  color: #333;"
-                "  font-size: 14px;"
-                "}"
-            );
-            stemBrowser->document()->setDocumentMargin(0);
-            stemBrowser->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-            stemBrowser->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-            stemBrowser->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
-            QSize docSize = stemBrowser->document()->size().toSize();
-            stemBrowser->setMinimumHeight(docSize.height() + 10);
-            layout->addWidget(stemBrowser);
-        } else {
-            // 普通文本使用 QLabel
-            auto *questionStem = new QLabel(stemText, card);
-            questionStem->setObjectName("questionStem");
-            questionStem->setWordWrap(true);
-            questionStem->setTextFormat(Qt::PlainText);
-            questionStem->setStyleSheet(
-                "QLabel#questionStem {"
-                "  color: #333;"
-                "  font-size: 14px;"
-                "  line-height: 1.6;"
-                "}"
-            );
-            layout->addWidget(questionStem);
-        }
-
-        // 选项（如果有）
-        if (!question.options.isEmpty()) {
-            auto *optionsPanel = new QFrame(card);
-            optionsPanel->setObjectName("optionsPanel");
-
-            auto *optionsLayout = new QVBoxLayout(optionsPanel);
-            optionsLayout->setContentsMargins(0, 8, 0, 0);
-            optionsLayout->setSpacing(4);
-
-            // 检测组合选择题：每个选项包含重复的编号子项描述 + 组合行
-            // 例如 "①内容A\n②内容B\n③内容C\n④内容D\nA. ①②③"
-            // 需要：把编号描述提出来显示一次，选项只保留组合行
-            static QRegularExpression circledStart(
-                QStringLiteral("^[①②③④⑤⑥⑦⑧⑨⑩]"));
-            bool isCombinationQ = false;
-            QStringList descriptionLines;   // 编号子项描述（只取一份）
-            QStringList cleanedOptions;     // 清洗后的选项文本
-
-            // 检查第一个选项是否为多行且首行以圆圈数字开头
-            if (question.options.first().contains('\n')) {
-                QStringList firstLines = question.options.first().split('\n', Qt::SkipEmptyParts);
-                if (firstLines.size() > 1
-                    && circledStart.match(firstLines.first().trimmed()).hasMatch()) {
-                    isCombinationQ = true;
-                    // 从第一个选项提取编号描述行
-                    for (const QString &line : firstLines) {
-                        QString trimmed = line.trimmed();
-                        if (circledStart.match(trimmed).hasMatch()) {
-                            descriptionLines.append(trimmed);
-                        }
-                    }
-                }
-            }
-
-            if (isCombinationQ) {
-                // 提取每个选项的组合行（最后一个非编号行）
-                for (const QString &opt : question.options) {
-                    QStringList lines = opt.split('\n', Qt::SkipEmptyParts);
-                    QString combo = lines.last().trimmed(); // 默认取最后一行
-                    for (int j = lines.size() - 1; j >= 0; --j) {
-                        QString trimmed = lines[j].trimmed();
-                        if (!trimmed.isEmpty()
-                            && !circledStart.match(trimmed).hasMatch()) {
-                            combo = trimmed;
-                            break;
-                        }
-                    }
-                    cleanedOptions.append(combo);
-                }
-
-                // 在选项面板上方先显示编号描述（只显示一次）
-                if (!descriptionLines.isEmpty()) {
-                    auto *descLabel = new QLabel(
-                        descriptionLines.join("\n"), optionsPanel);
-                    descLabel->setObjectName("comboDescriptions");
-                    descLabel->setWordWrap(true);
-                    descLabel->setTextFormat(Qt::PlainText);
-                    descLabel->setStyleSheet(
-                        "QLabel#comboDescriptions {"
-                        "  color: #555;"
-                        "  font-size: 13px;"
-                        "  line-height: 1.6;"
-                        "  padding: 8px 12px;"
-                        "  background: #F5F5F5;"
-                        "  border-radius: 6px;"
-                        "  margin-bottom: 4px;"
-                        "}"
-                    );
-                    optionsLayout->addWidget(descLabel);
-                }
-            } else {
-                // 普通选择题：选项原样使用
-                for (const QString &opt : question.options) {
-                    cleanedOptions.append(opt);
-                }
-            }
-
-            QStringList optionKeys = {"A", "B", "C", "D", "E", "F"};
-            for (int i = 0; i < cleanedOptions.size() && i < optionKeys.size(); ++i) {
-                QString optionText = cleanedOptions[i];
-                // 检测选项是否已包含字母前缀（如 "A." "A、" "A:" "A " 等）
-                static QRegularExpression prefixPattern("^[A-Fa-f][.、:：\\s]");
-                if (!prefixPattern.match(optionText).hasMatch()) {
-                    optionText = QString("%1. %2").arg(optionKeys[i]).arg(optionText);
-                }
-                auto *optionLabel = new QLabel(optionText, optionsPanel);
-                optionLabel->setObjectName("optionItem");
-                optionLabel->setWordWrap(true);
-                optionLabel->setCursor(Qt::PointingHandCursor);
-                // 块状化选项设计 - hover时变薄荷绿
-                optionLabel->setStyleSheet(
-                    "QLabel#optionItem {"
-                    "  padding: 12px 16px;"
-                    "  background: #FAFAFA;"
-                    "  border: 1px solid #EEEEEE;"
-                    "  border-radius: 8px;"
-                    "  color: #424242;"
-                    "  line-height: 1.5;"
-                    "  margin: 2px 0;"
-                    "}"
-                    "QLabel#optionItem:hover {"
-                    "  background: #E8F5E9;"
-                    "  border-color: #C8E6C9;"
-                    "  color: #2E7D32;"
-                    "}"
-                );
-                optionsLayout->addWidget(optionLabel);
-            }
-
-            layout->addWidget(optionsPanel);
-        }
-
-        // 答案区域
-        layout->addWidget(createAnswerSection(question.answer));
-    }
-
-    // 解析区域
-    if (!question.explanation.isEmpty()) {
-        layout->addWidget(createAnalysisSection(question.explanation));
-    }
-
-    // ========== 操作行：查看答案 + 加入试题篮 ==========
-    auto *actionRow = new QFrame(card);
-    actionRow->setObjectName("cardActionRow");
-    auto *actionLayout = new QHBoxLayout(actionRow);
-    actionLayout->setContentsMargins(0, 12, 0, 0);
-    actionLayout->setSpacing(16);
-
-    actionLayout->addStretch();
-
-    // 加入试题篮按钮（主按钮）
-    auto *addToBasketBtn = new QPushButton(card);
-    addToBasketBtn->setObjectName("addToBasketButton");
-    addToBasketBtn->setCursor(Qt::PointingHandCursor);
-    addToBasketBtn->setFixedHeight(36);
-
-    // 检查是否已在篮子中
-    bool inBasket = QuestionBasket::instance()->contains(question.id);
-    if (inBasket) {
-        addToBasketBtn->setText("[v] 已加入");
-        addToBasketBtn->setProperty("inBasket", true);
-        addToBasketBtn->setEnabled(false);
-    } else {
-        addToBasketBtn->setText("+ 加入试题篮");
-        addToBasketBtn->setProperty("inBasket", false);
-    }
-
-    addToBasketBtn->setStyleSheet(
-        "QPushButton#addToBasketButton {"
-        "  background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2E7D32, stop:1 #388E3C);"
-        "  color: #fff;"
-        "  border: none;"
-        "  border-radius: 18px;"
-        "  padding: 0 24px;"
-        "  font-size: 13px;"
-        "  font-weight: 600;"
-        "}"
-        "QPushButton#addToBasketButton:hover {"
-        "  background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #388E3C, stop:1 #43A047);"
-        "}"
-        "QPushButton#addToBasketButton:disabled {"
-        "  background: #81C784;"
-        "}"
-    );
-
-    // 保存按钮引用以便更新状态
-    m_addToBasketButtons[question.id] = addToBasketBtn;
-
-    // 连接点击事件
-    PaperQuestion q = question;  // 捕获副本
-    connect(addToBasketBtn, &QPushButton::clicked, this, [this, q]() {
-        onAddToBasket(q);
-    });
-
-    actionLayout->addWidget(addToBasketBtn);
-
-    layout->addWidget(actionRow);
-
-    return card;
-}
-
-QWidget *QuestionBankWindow::createTagRow(const QStringList &tags)
-{
-    auto *tagRow = new QFrame(this);
-    tagRow->setObjectName("tagRow");
-
-    auto *layout = new QHBoxLayout(tagRow);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(8);
-
-    auto createTag = [tagRow](const QString &text, const QString &objectName) {
-        auto *label = new QLabel(text, tagRow);
-        label->setObjectName(objectName);
-        label->setStyleSheet("QLabel { background: #e9ecef; color: #495057; padding: 4px 12px; border-radius: 12px; font-size: 12px; }");
-        return label;
-    };
-
-    for (const QString &tag : tags) {
-        layout->addWidget(createTag(tag, "tagItem"));
-    }
-    
-    layout->addStretch(1);
-
-    return tagRow;
-}
-
-QFrame *QuestionBankWindow::createAnswerSection(const QString &answer)
-{
-    auto *section = new QFrame(this);
-    section->setObjectName("answerSection");
-
-    auto *layout = new QVBoxLayout(section);
-    layout->setContentsMargins(20, 16, 20, 16);
-    layout->setSpacing(4);
-
-    // 可点击的标题按钮
-    auto *toggleButton = new QPushButton(section);
-    toggleButton->setObjectName("answerToggleButton");
-    toggleButton->setText("> 查看答案");
-    toggleButton->setCursor(Qt::PointingHandCursor);
-    toggleButton->setStyleSheet(
-        "QPushButton#answerToggleButton {"
-        "  background: transparent;"
-        "  border: none;"
-        "  color: #28a745;"
-        "  font-size: 14px;"
-        "  font-weight: bold;"
-        "  text-align: left;"
-        "  padding: 4px 0;"
-        "}"
-        "QPushButton#answerToggleButton:hover {"
-        "  color: #1e7e34;"
-        "}"
-    );
-
-    // 答案内容（默认隐藏）
-    auto *answerFrame = new QFrame(section);
-    answerFrame->setObjectName("answerContentFrame");
-    answerFrame->setVisible(false);
-
-    auto *answerLayout = new QVBoxLayout(answerFrame);
-    answerLayout->setContentsMargins(0, 8, 0, 0);
-    answerLayout->setSpacing(4);
-
-    auto *title = new QLabel(QStringLiteral("正确答案"), answerFrame);
-    title->setObjectName("answerTitle");
-
-    auto *value = new QLabel(answer, answerFrame);
-    value->setObjectName("answerValue");
-    value->setWordWrap(true);
-
-    answerLayout->addWidget(title);
-    answerLayout->addWidget(value);
-
-    layout->addWidget(toggleButton);
-    layout->addWidget(answerFrame);
-
-    // 点击切换显示/隐藏
-    connect(toggleButton, &QPushButton::clicked, section, [toggleButton, answerFrame]() {
-        bool isVisible = answerFrame->isVisible();
-        answerFrame->setVisible(!isVisible);
-        toggleButton->setText(isVisible ? "> 查看答案" : "v 隐藏答案");
-    });
-
-    return section;
-}
-
-QFrame *QuestionBankWindow::createAnalysisSection(const QString &explanation)
-{
-    auto *section = new QFrame(this);
-    section->setObjectName("analysisSection");
-
-    auto *layout = new QVBoxLayout(section);
-    layout->setContentsMargins(20, 16, 20, 16);
-    layout->setSpacing(6);
-
-    auto *title = new QLabel(QStringLiteral("解析"), section);
-    title->setObjectName("analysisTitle");
-
-    auto *description = new QLabel(explanation, section);
-    description->setObjectName("analysisDescription");
-    description->setWordWrap(true);
-
-    layout->addWidget(title);
-    layout->addWidget(description);
-
-    return section;
-}
-
-// 智能解析材料论述题内容
-// 尝试从 stem 或 material 中提取：材料内容、小问列表、小问答案
-MaterialEssayParsed QuestionBankWindow::parseMaterialEssay(const PaperQuestion &question)
-{
-    MaterialEssayParsed result;
-
-    // 优先使用已有的结构化数据
-    result.material = question.material;
-    result.subQuestions = question.subQuestions;
-    result.subAnswers = question.subAnswers;
-    result.stem = question.stem;
-
-    // 如果已有结构化数据，直接返回
-    if (!result.material.isEmpty() && !result.subQuestions.isEmpty()) {
-        return result;
-    }
-
-    // 否则尝试从 stem 中智能解析
-    QString content = question.stem;
-    if (content.isEmpty()) {
-        content = question.material;
-    }
-    if (content.isEmpty()) {
-        return result;
-    }
-
-    // 尝试提取材料内容（通常在开头，到第一个小问之前）
-    // 小问通常以 (1) （1） ⑴ 1. 1、等格式开始
-    QRegularExpression subQuestionRe(
-        R"([\(（]?\s*[1-9⑴⑵⑶⑷⑸]\s*[\)）]?[\s\.、：:]+)"
-    );
-
-    int firstSubPos = -1;
-    QRegularExpressionMatch firstMatch = subQuestionRe.match(content);
-    if (firstMatch.hasMatch()) {
-        firstSubPos = firstMatch.capturedStart();
-    }
-
-    if (firstSubPos > 0) {
-        // 材料内容是第一个小问之前的部分
-        result.material = content.left(firstSubPos).trimmed();
-
-        // 提取所有小问
-        QString questionsText = content.mid(firstSubPos);
-
-        // 使用正则匹配所有小问
-        QRegularExpression splitRe(
-            R"([\(（]?\s*([1-9⑴⑵⑶⑷⑸])\s*[\)）]?[\s\.、：:]+)"
-        );
-
-        QStringList parts;
-        int lastEnd = 0;
-        QRegularExpressionMatchIterator it = splitRe.globalMatch(questionsText);
-
-        while (it.hasNext()) {
-            QRegularExpressionMatch match = it.next();
-            if (lastEnd > 0) {
-                // 上一个小问的内容
-                QString part = questionsText.mid(lastEnd, match.capturedStart() - lastEnd).trimmed();
-                if (!part.isEmpty()) {
-                    parts.append(part);
-                }
-            }
-            lastEnd = match.capturedEnd();
-        }
-
-        // 最后一个小问
-        if (lastEnd > 0 && lastEnd < questionsText.length()) {
-            QString lastPart = questionsText.mid(lastEnd).trimmed();
-            if (!lastPart.isEmpty()) {
-                parts.append(lastPart);
-            }
-        }
-
-        result.subQuestions = parts;
-        result.stem.clear();  // 已解析到材料和小问，不需要显示 stem
-    } else {
-        // 没有找到小问格式，整个内容作为材料
-        result.material = content;
-        result.stem.clear();
-    }
-
-    return result;
-}
-
-// ==================== 试题篮相关方法 ====================
 
 void QuestionBankWindow::resizeEvent(QResizeEvent *event)
 {
@@ -1860,20 +337,6 @@ void QuestionBankWindow::resizeEvent(QResizeEvent *event)
     }
 }
 
-void QuestionBankWindow::onAddToBasket(const PaperQuestion &question)
-{
-    bool added = QuestionBasket::instance()->addQuestion(question);
-    if (added) {
-        qDebug() << "[QuestionBankWindow] Added to basket:" << question.id;
-    }
-}
-
-void QuestionBankWindow::onRemoveFromBasket(const QString &questionId)
-{
-    QuestionBasket::instance()->removeQuestion(questionId);
-    qDebug() << "[QuestionBankWindow] Removed from basket:" << questionId;
-}
-
 void QuestionBankWindow::onComposePaper()
 {
     int count = QuestionBasket::instance()->count();
@@ -1884,40 +347,15 @@ void QuestionBankWindow::onComposePaper()
 
     qDebug() << "[QuestionBankWindow] Opening paper composer with" << count << "questions";
 
-    // 打开组卷对话框
     PaperComposerDialog dialog(this);
     connect(&dialog, &PaperComposerDialog::paperExported, this, [this](const QString &filePath) {
         qDebug() << "[QuestionBankWindow] Paper exported to:" << filePath;
-        // 导出成功后清空试题篮
         QuestionBasket::instance()->clear();
         if (m_basketWidget) {
             m_basketWidget->refresh();
         }
     });
     dialog.exec();
-}
-
-void QuestionBankWindow::updateAddToBasketButton(const QString &questionId, bool inBasket)
-{
-    auto *button = m_addToBasketButtons.value(questionId, nullptr);
-    if (!button) {
-        return;
-    }
-
-    if (inBasket) {
-        button->setText("[v] 已加入");
-        button->setProperty("inBasket", true);
-        button->setEnabled(false);
-    } else {
-        button->setText("+ 加入试题篮");
-        button->setProperty("inBasket", false);
-        button->setEnabled(true);
-    }
-
-    // 刷新样式
-    button->style()->unpolish(button);
-    button->style()->polish(button);
-    button->update();
 }
 
 void QuestionBankWindow::switchMode(int mode)
@@ -1936,18 +374,95 @@ void QuestionBankWindow::switchMode(int mode)
         "QPushButton:hover { background: rgba(255,255,255,0.25); }";
 
     if (mode == 0) {
-        // 题库浏览模式
-        if (m_browseTabBtn) m_browseTabBtn->setStyleSheet(TAB_ACTIVE.arg("16px 0 0 16px"));
+        // AI 出题模式
+        if (m_aiGenTabBtn) m_aiGenTabBtn->setStyleSheet(TAB_ACTIVE.arg("16px 0 0 16px"));
         if (m_smartPaperTabBtn) m_smartPaperTabBtn->setStyleSheet(TAB_NORMAL.arg("0 16px 16px 0"));
-        if (m_headerTitle) m_headerTitle->setText("AI 智能备课 · 试题库");
-        if (m_headerSubtitle) m_headerSubtitle->setText("◆ 智能筛选  ◆ 海量题库  ◆ 精准匹配");
-        if (m_basketWidget) m_basketWidget->setVisible(true);
+        if (m_headerTitle) m_headerTitle->setText("AI 智能备课 · AI 出题");
+        if (m_headerSubtitle) m_headerSubtitle->setText("◆ 对话出题  ◆ 智能生成  ◆ 一键保存");
+        if (m_basketWidget) m_basketWidget->setVisible(false);
     } else {
         // 智能组卷模式
-        if (m_browseTabBtn) m_browseTabBtn->setStyleSheet(TAB_NORMAL.arg("16px 0 0 16px"));
+        if (m_aiGenTabBtn) m_aiGenTabBtn->setStyleSheet(TAB_NORMAL.arg("16px 0 0 16px"));
         if (m_smartPaperTabBtn) m_smartPaperTabBtn->setStyleSheet(TAB_ACTIVE.arg("0 16px 16px 0"));
         if (m_headerTitle) m_headerTitle->setText("AI 智能备课 · 智能组卷");
         if (m_headerSubtitle) m_headerSubtitle->setText("◆ 智能选题  ◆ 约束优化  ◆ 一键成卷");
-        if (m_basketWidget) m_basketWidget->setVisible(false);
+        if (m_basketWidget) m_basketWidget->setVisible(true);
     }
+}
+
+void QuestionBankWindow::onSaveGeneratedQuestionsRequested(const QString &content)
+{
+    if (m_isSavingGeneratedQuestions) {
+        return;
+    }
+
+    if (!m_aiQuestionGenWidget || !m_questionParser) {
+        return;
+    }
+
+    if (content.trimmed().isEmpty()) {
+        m_aiQuestionGenWidget->showSaveErrorMessage("没有可保存的题目内容。");
+        return;
+    }
+
+    if (!m_questionParser->isConfigured()) {
+        m_aiQuestionGenWidget->showSaveErrorMessage("未配置题目解析服务的 API Key，无法保存到题库。");
+        return;
+    }
+
+    m_isSavingGeneratedQuestions = true;
+    m_aiQuestionGenWidget->setSavingToBank(true);
+    m_questionParser->parseDocument(content, "道德与法治");
+}
+
+void QuestionBankWindow::onGeneratedQuestionsParsed(const QList<PaperQuestion> &questions)
+{
+    if (!m_isSavingGeneratedQuestions || !m_aiQuestionGenWidget) {
+        return;
+    }
+
+    if (questions.isEmpty()) {
+        m_isSavingGeneratedQuestions = false;
+        m_aiQuestionGenWidget->showSaveErrorMessage("AI 内容未能解析为有效题目，请调整格式后重试。");
+        return;
+    }
+
+    const bool directInsert = questions.first().stem.startsWith("已由工作流插入");
+    if (directInsert) {
+        m_isSavingGeneratedQuestions = false;
+        m_aiQuestionGenWidget->showSaveSuccessMessage(questions.size(), true);
+        return;
+    }
+
+    m_paperService->addQuestions(questions);
+}
+
+void QuestionBankWindow::onGeneratedQuestionsSaved(int count)
+{
+    if (!m_isSavingGeneratedQuestions || !m_aiQuestionGenWidget) {
+        return;
+    }
+
+    m_isSavingGeneratedQuestions = false;
+    m_aiQuestionGenWidget->showSaveSuccessMessage(count, false);
+}
+
+void QuestionBankWindow::onGeneratedQuestionsSaveError(const QString &, const QString &error)
+{
+    if (!m_isSavingGeneratedQuestions || !m_aiQuestionGenWidget) {
+        return;
+    }
+
+    m_isSavingGeneratedQuestions = false;
+    m_aiQuestionGenWidget->showSaveErrorMessage(error);
+}
+
+void QuestionBankWindow::onGeneratedQuestionsParseError(const QString &error)
+{
+    if (!m_isSavingGeneratedQuestions || !m_aiQuestionGenWidget) {
+        return;
+    }
+
+    m_isSavingGeneratedQuestions = false;
+    m_aiQuestionGenWidget->showSaveErrorMessage(error);
 }

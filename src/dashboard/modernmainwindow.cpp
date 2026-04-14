@@ -1645,17 +1645,9 @@ void ModernMainWindow::createHeaderWidget()
         QString keyword = searchInput->text().trimmed();
         if (keyword.isEmpty()) return;
 
-        // 判断当前激活的页面
-        QWidget *currentPage = contentStack ? contentStack->currentWidget() : nullptr;
-        if (currentPage == questionBankWindow && questionBankWindow) {
-            // 试题库页面：调用关键词搜索
-            questionBankWindow->setSearchKeyword(keyword);
-            qDebug() << "[ModernMainWindow] 全局搜索 -> 试题库，关键词:" << keyword;
-        } else {
-            // 其他页面：暂时只打印日志
-            qDebug() << "[ModernMainWindow] 全局搜索 -> 当前页面暂不支持搜索，关键词:" << keyword;
-            this->statusBar()->showMessage(QString("搜索: %1（当前页面暂不支持搜索）").arg(keyword), 3000);
-        }
+        // 全局搜索：暂时只打印日志
+        qDebug() << "[ModernMainWindow] 全局搜索，关键词:" << keyword;
+        this->statusBar()->showMessage(QString("搜索: %1（当前页面暂不支持搜索）").arg(keyword), 3000);
     });
 
     // Ctrl+1~6 切换侧边栏页面
@@ -2596,7 +2588,14 @@ void ModernMainWindow::createAIChatWidget()
             if (entry.type != AIHistoryType::LessonPlan &&
                 entry.type != AIHistoryType::AnalyticsReport &&
                 entry.type != AIHistoryType::CaseAnalysis) {
-                entry.type = AIHistoryType::Chat;
+                // 尝试从标题推断类型（本地记录丢失后的恢复策略）
+                const QString title = entry.title;
+                if (title.startsWith(QStringLiteral("教案")) ||
+                    title.contains(QStringLiteral("# 教案生成任务"))) {
+                    entry.type = AIHistoryType::LessonPlan;
+                } else {
+                    entry.type = AIHistoryType::Chat;
+                }
             }
 
             m_historyEntries.insert(id, entry);
