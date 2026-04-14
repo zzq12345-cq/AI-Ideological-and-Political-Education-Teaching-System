@@ -3455,6 +3455,19 @@ void ModernMainWindow::onPPTPreviewBackRequested()
         swapToHistorySidebar();
     }
 
+    // 添加引导提示，让用户知道可以继续输入改进建议
+    if (m_bubbleChatWidget && !m_pptTopic.isEmpty()) {
+        QString hint = QString(
+            "💡 **已返回对话页面**\n\n"
+            "您可以在下方输入对PPT「%1」的修改建议，例如：\n"
+            "- 「第3页内容太少，补充一些案例」\n"
+            "- 「封面标题改为...」\n"
+            "- 「整体配色换成蓝色系」\n\n"
+            "我会根据您的建议重新生成PPT。"
+        ).arg(m_pptTopic);
+        m_bubbleChatWidget->addMessage(hint, false);
+    }
+
     statusBar()->showMessage(QStringLiteral("AI智能备课"));
 }
 
