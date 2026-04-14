@@ -4,6 +4,7 @@
 #include <QWidget>
 
 class QLabel;
+class QLineEdit;
 class QPushButton;
 class MacOSQuickLookPreview;
 
@@ -20,9 +21,11 @@ public:
 signals:
     void backRequested();
     void downloadRequested();
+    void modifySuggestionSubmitted(const QString &suggestion);
 
 private:
     void updateState();
+    void onSendSuggestion();
 
     QString m_title;
     QString m_filePath;
@@ -32,6 +35,10 @@ private:
     QPushButton *m_backButton = nullptr;
     QPushButton *m_downloadButton = nullptr;
     MacOSQuickLookPreview *m_previewWidget = nullptr;
+
+    // 修改建议输入区
+    QLineEdit *m_suggestionInput = nullptr;
+    QPushButton *m_sendSuggestionBtn = nullptr;
 };
 
 #endif // PPTPREVIEWPAGE_H

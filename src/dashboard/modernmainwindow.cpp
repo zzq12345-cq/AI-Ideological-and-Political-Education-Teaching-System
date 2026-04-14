@@ -1230,6 +1230,8 @@ void ModernMainWindow::setupCentralWidget()
             this, &ModernMainWindow::onPPTPreviewBackRequested);
     connect(m_pptPreviewPage, &PPTPreviewPage::downloadRequested,
             this, &ModernMainWindow::onPPTPreviewDownloadRequested);
+    connect(m_pptPreviewPage, &PPTPreviewPage::modifySuggestionSubmitted,
+            this, &ModernMainWindow::onPPTModifySuggestion);
 
     // 添加到主布局
     contentLayout->addWidget(m_sidebarStack);  // 使用侧边栏堆栈
@@ -3477,6 +3479,40 @@ void ModernMainWindow::onPPTPreviewDownloadRequested()
         statusBar()->showMessage(QStringLiteral("PPT 已保存"), 3000);
     }
 }
+
+void ModernMainWindow::onPPTModifySuggestion(const QString &suggestion)
+{
+    // 1. 先返回聊天页面
+    onPPTPreviewBackRequested();
+
+    // 2. 在聊天中显示用户的修改建议
+    if (m_bubbleChatWidget) {
+        m_bubbleChatWidget->addMessage(suggestion, true);  // true = 用户消息
+    }
+
+    // 3. 将修改建议附加到原始主题，触发 PPT 重新生成
+    QString modifiedRequest = QString(
+        "请根据以下修改建议，重新生成关于「%1」的PPT：\n\n"
+        "修改建议：%2"
+    ).arg(m_pptTopic, suggestion);
+
+    // 4. 保持 PPT 聊天模式，直接启动重新生成
+    m_isPptChatMode = true;
+    m_pendingPptRequest = modifiedRequest;
+
+    // 显示 AI 正在处理的提示
+    if (m_bubbleChatWidget) {
+        m_bubbleChatWidget->addMessage(
+            QString("收到，正在根据您的建议重新生成「%1」PPT...\n\n"
+                    "📝 修改要点：%2").arg(m_pptTopic, suggestion),
+            false  // AI 消息
+        );
+    }
+
+    // 5. 启动 PPT 生成
+    startPPTSimulation(modifiedRequest);
+}
+
 
 void ModernMainWindow::showPPTPreviewPage(const QString &pptPath, const QString &title)
 {

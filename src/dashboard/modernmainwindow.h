@@ -87,6 +87,7 @@ private slots:
     void onHistoryDeleteRequested(const QString &conversationId);
     void onPPTPreviewBackRequested();
     void onPPTPreviewDownloadRequested();
+    void onPPTModifySuggestion(const QString &suggestion);
 
 private:
     enum class AIHistoryType {
