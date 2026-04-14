@@ -1352,12 +1352,22 @@ void ModernMainWindow::setupCentralWidget()
         if (contentStack && dashboardWidget) {
             contentStack->setCurrentWidget(dashboardWidget);
         }
+        // 恢复主侧边栏显示
         if (m_sidebarStack) {
+            m_sidebarStack->setVisible(true);
             m_sidebarStack->setCurrentIndex(0);
         }
+        // 重置按钮状态
+        resetAllSidebarButtons();
         if (teacherCenterBtn) {
-            teacherCenterBtn->setChecked(true);
+            teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
         }
+        // 回到欢迎页面
+        if (m_mainStack && m_welcomePanel) {
+            m_mainStack->setCurrentWidget(m_welcomePanel);
+            if (m_welcomeInputWidget) m_welcomeInputWidget->show();
+        }
+        this->statusBar()->showMessage("教师中心");
     });
 
     // 添加到主布局
@@ -2204,6 +2214,10 @@ void ModernMainWindow::onResourceManagementClicked()
     if (questionBankWindow) {
         qDebug() << "切换到试题库页面";
         contentStack->setCurrentWidget(questionBankWindow);
+        // 隐藏主侧边栏（试题库自带出题历史侧边栏）
+        if (m_sidebarStack) {
+            m_sidebarStack->setVisible(false);
+        }
         this->statusBar()->showMessage("试题库");
     } else {
         qDebug() << "错误：questionBankWindow为空";

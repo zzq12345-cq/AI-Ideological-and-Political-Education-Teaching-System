@@ -44,19 +44,16 @@ AIQuestionGenWidget::AIQuestionGenWidget(QWidget *parent)
 
 AIQuestionGenWidget::~AIQuestionGenWidget()
 {
-    if (m_currentReply) {
-        m_currentReply->abort();
-        m_currentReply->deleteLater();
-    }
+    cancelCurrentReply();
 }
 
 void AIQuestionGenWidget::setSavingToBank(bool saving)
 {
     m_isSavingToBank = saving;
     if (m_saveBtn) {
-        m_saveBtn->setEnabled(!saving && !m_lastAIResponse.trimmed().isEmpty());
         m_saveBtn->setText(saving ? "保存中..." : "💾 保存到题库");
     }
+    updateActionButtons();
 }
 
 void AIQuestionGenWidget::showSaveSuccessMessage(int savedCount, bool directInsert)
@@ -74,6 +71,13 @@ void AIQuestionGenWidget::showSaveErrorMessage(const QString &error)
 {
     setSavingToBank(false);
     QMessageBox::warning(this, "保存失败", error);
+}
+
+void AIQuestionGenWidget::setExportAvailable(bool available, const QString &reason)
+{
+    m_exportAvailable = available;
+    m_exportUnavailableReason = reason;
+    updateActionButtons();
 }
 
 // ===================== UI 构建 =====================
@@ -163,7 +167,7 @@ void AIQuestionGenWidget::setupUI()
     m_exportBtn->setCursor(Qt::PointingHandCursor);
     m_exportBtn->setEnabled(false);
     connect(m_exportBtn, &QPushButton::clicked, this, [this]() {
-        if (!m_lastAIResponse.trimmed().isEmpty()) {
+        if (m_exportAvailable && !m_lastAIResponse.trimmed().isEmpty()) {
             emit exportRequested(m_lastAIResponse);
         }
     });
@@ -258,23 +262,53 @@ QString AIQuestionGenWidget::currentConversationTitle() const
     return QStringLiteral("新对话");
 }
 
+void AIQuestionGenWidget::cancelCurrentReply()
+{
+    if (!m_currentReply) {
+        return;
+    }
+
+    QPointer<QNetworkReply> reply = m_currentReply;
+    m_currentReply = nullptr;
+
+    if (reply) {
+        reply->disconnect(this);
+        reply->abort();
+        reply->deleteLater();
+    }
+}
+
+void AIQuestionGenWidget::updateActionButtons()
+{
+    const bool hasResponse = !m_lastAIResponse.trimmed().isEmpty();
+
+    if (m_saveBtn) {
+        m_saveBtn->setEnabled(hasResponse && !m_isSavingToBank);
+    }
+
+    if (m_exportBtn) {
+        m_exportBtn->setEnabled(hasResponse && m_exportAvailable);
+        if (!m_exportAvailable && !m_exportUnavailableReason.isEmpty()) {
+            m_exportBtn->setToolTip(m_exportUnavailableReason);
+        } else {
+            m_exportBtn->setToolTip(QString());
+        }
+    }
+}
+
 void AIQuestionGenWidget::startNewConversation()
 {
-    // 中止正在进行的请求
-    if (m_currentReply) {
-        m_currentReply->abort();
-        m_currentReply = nullptr;
-    }
+    cancelCurrentReply();
 
     // 分配新 UUID
     m_conversationId = QUuid::createUuid().toString(QUuid::WithoutBraces);
 
     m_chatWidget->clearMessages();
     m_lastAIResponse.clear();
-    m_saveBtn->setEnabled(false);
-    m_exportBtn->setEnabled(false);
+    m_sseBuffer.clear();
     m_isGenerating = false;
     m_chatWidget->setInputEnabled(true);
+    updateActionButtons();
 
     // 重置对话历史（保留系统提示）
     m_conversationHistory.clear();
@@ -302,15 +336,12 @@ void AIQuestionGenWidget::loadConversation(const QString &id)
         return;
     }
 
-    // 中止当前请求
-    if (m_currentReply) {
-        m_currentReply->abort();
-        m_currentReply = nullptr;
-    }
+    cancelCurrentReply();
 
     m_conversationId = id;
     m_conversationHistory.clear();
     m_lastAIResponse.clear();
+    m_sseBuffer.clear();
     m_isGenerating = false;
     m_chatWidget->setInputEnabled(true);
     m_chatWidget->clearMessages();
@@ -332,10 +363,7 @@ void AIQuestionGenWidget::loadConversation(const QString &id)
         }
     }
 
-    // 更新按钮状态
-    bool hasResponse = !m_lastAIResponse.trimmed().isEmpty();
-    m_saveBtn->setEnabled(hasResponse && !m_isSavingToBank);
-    m_exportBtn->setEnabled(hasResponse);
+    updateActionButtons();
 
     qDebug() << "[AIQuestionGen] 对话已加载:" << id
              << "消息数:" << m_conversationHistory.size();
@@ -371,30 +399,20 @@ void AIQuestionGenWidget::saveCurrentConversation()
     QByteArray indexData = settings.value("questionGen/index").toByteArray();
     QJsonArray index = QJsonDocument::fromJson(indexData).array();
 
-    // 检查是否已存在该 ID
-    bool found = false;
-    for (int i = 0; i < index.size(); ++i) {
-        QJsonObject entry = index[i].toObject();
-        if (entry["id"].toString() == m_conversationId) {
-            entry["title"] = currentConversationTitle();
-            entry["updatedAt"] = QDateTime::currentDateTime().toString(Qt::ISODate);
-            index[i] = entry;
-            found = true;
-            break;
+    QJsonObject currentEntry;
+    currentEntry["id"] = m_conversationId;
+    currentEntry["title"] = currentConversationTitle();
+    currentEntry["updatedAt"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+
+    // 当前会话每次更新都置顶，保证历史列表和最近使用顺序一致。
+    QJsonArray newIndex;
+    newIndex.append(currentEntry);
+    for (const QJsonValue &v : index) {
+        if (v.toObject()["id"].toString() != m_conversationId) {
+            newIndex.append(v);
         }
     }
-
-    if (!found) {
-        QJsonObject newEntry;
-        newEntry["id"] = m_conversationId;
-        newEntry["title"] = currentConversationTitle();
-        newEntry["updatedAt"] = QDateTime::currentDateTime().toString(Qt::ISODate);
-        // 插入到开头（最新在前）
-        QJsonArray newIndex;
-        newIndex.append(newEntry);
-        for (const QJsonValue &v : index) newIndex.append(v);
-        index = newIndex;
-    }
+    index = newIndex;
 
     settings.setValue("questionGen/index", QJsonDocument(index).toJson(QJsonDocument::Compact));
 
@@ -496,6 +514,7 @@ void AIQuestionGenWidget::sendToZhipu(const QString &userMessage)
     qDebug() << "[AIQuestionGen] 发送请求:" << "messages:" << messages.size() << "body:" << data.size();
 
     m_sseBuffer.clear();
+    cancelCurrentReply();
     m_currentReply = m_networkManager->post(request, data);
 
     if (!m_currentReply) {
@@ -548,11 +567,7 @@ void AIQuestionGenWidget::sendToZhipu(const QString &userMessage)
             if (!m_lastAIResponse.isEmpty()) {
                 m_conversationHistory.append({QStringLiteral("assistant"), m_lastAIResponse});
             }
-            bool hasResponse = !m_lastAIResponse.trimmed().isEmpty();
-            if (hasResponse && !m_isSavingToBank) {
-                m_saveBtn->setEnabled(true);
-            }
-            m_exportBtn->setEnabled(hasResponse);
+            updateActionButtons();
 
             // 自动保存对话 + 通知外部刷新历史
             saveCurrentConversation();
@@ -632,8 +647,7 @@ void AIQuestionGenWidget::onUserMessageSent(const QString &message)
     m_isGenerating = true;
     m_hasPendingAIPlaceholder = true;
     m_lastAIResponse.clear();
-    m_saveBtn->setEnabled(false);
-    m_exportBtn->setEnabled(false);
+    updateActionButtons();
     m_chatWidget->setInputEnabled(false);
 
     m_chatWidget->addMessage("", false);

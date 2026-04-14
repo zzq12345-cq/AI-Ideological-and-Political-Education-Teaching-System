@@ -73,6 +73,10 @@ QuestionBankWindow::QuestionBankWindow(QWidget *parent)
     if (!parserBaseUrl.isEmpty()) {
         m_exportParser->setBaseUrl(parserBaseUrl);
     }
+    m_aiQuestionGenWidget->setExportAvailable(
+        m_exportParser->isConfigured(),
+        "未配置题目解析服务 API Key，暂时无法导出 DOCX。"
+    );
 
     // ====== 保存链路信号 ======
     connect(m_aiQuestionGenWidget, &AIQuestionGenWidget::saveRequested,
@@ -101,6 +105,9 @@ QuestionBankWindow::QuestionBankWindow(QWidget *parent)
             this, &QuestionBankWindow::onQuestionHistorySelected);
     connect(m_questionHistoryWidget, &ChatHistoryWidget::historyDeleteRequested,
             this, &QuestionBankWindow::onQuestionHistoryDeleted);
+    // ← 返回按钮 → 回主页面
+    connect(m_questionHistoryWidget, &ChatHistoryWidget::backRequested,
+            this, &QuestionBankWindow::backRequested);
 
     // 对话更新 → 刷新历史列表
     connect(m_aiQuestionGenWidget, &AIQuestionGenWidget::conversationUpdated,
