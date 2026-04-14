@@ -101,6 +101,10 @@ private slots:
     void onUploadProgress(qint64 bytesSent, qint64 bytesTotal);
 
 private:
+    void cancelCurrentReply();
+    void cancelUploadReply();
+    void cancelActiveOperation();
+
     /**
      * @brief 上传文件到 Dify
      */

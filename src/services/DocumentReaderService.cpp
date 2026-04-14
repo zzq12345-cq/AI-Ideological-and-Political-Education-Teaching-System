@@ -9,6 +9,7 @@
 #include <QFileInfo>
 #include <QMimeDatabase>
 #include <QDateTime>
+#include <QTimer>
 
 DocumentReaderService::DocumentReaderService(QObject *parent)
     : QObject(parent)
@@ -22,36 +23,22 @@ DocumentReaderService::DocumentReaderService(QObject *parent)
 
 void DocumentReaderService::readDocxAsync(const QString &filePath)
 {
-    auto *watcher = new QFutureWatcher<QString>(this);
-    connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher]() {
-        QString result = watcher->result();
-        if (result.isEmpty() && !m_lastError.isEmpty()) {
-            emit errorOccurred(m_lastError);
-        } else {
+    QTimer::singleShot(0, this, [this, filePath]() {
+        QString result = readDocx(filePath);
+        if (!result.isEmpty()) {
             emit readFinished(result);
         }
-        watcher->deleteLater();
     });
-    watcher->setFuture(QtConcurrent::run([this, filePath]() {
-        return readDocx(filePath);
-    }));
 }
 
 void DocumentReaderService::readDocxWithImagesAsync(const QString &filePath)
 {
-    auto *watcher = new QFutureWatcher<QString>(this);
-    connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher]() {
-        QString result = watcher->result();
-        if (result.isEmpty() && !m_lastError.isEmpty()) {
-            emit errorOccurred(m_lastError);
-        } else {
+    QTimer::singleShot(0, this, [this, filePath]() {
+        QString result = readDocxWithImages(filePath);
+        if (!result.isEmpty()) {
             emit readFinished(result);
         }
-        watcher->deleteLater();
     });
-    watcher->setFuture(QtConcurrent::run([this, filePath]() {
-        return readDocxWithImages(filePath);
-    }));
 }
 
 void DocumentReaderService::setUseCloudStorage(bool useCloud)
@@ -125,11 +112,14 @@ QByteArray DocumentReaderService::extractDocumentXml(const QString &zipPath)
         emit errorOccurred(m_lastError);
         return QByteArray();
     }
-    
-    if (unzip.exitCode() != 0) {
-        // 尝试检查是否有部分内容被解压
-        QString errorOutput = QString::fromUtf8(unzip.readAllStandardError());
-        qDebug() << "[DocumentReaderService] unzip 输出:" << errorOutput;
+
+    if (unzip.exitStatus() != QProcess::NormalExit || unzip.exitCode() != 0) {
+        QString errorOutput = QString::fromUtf8(unzip.readAllStandardError()).trimmed();
+        m_lastError = errorOutput.isEmpty()
+            ? "解压 document.xml 失败"
+            : QString("解压 document.xml 失败: %1").arg(errorOutput);
+        emit errorOccurred(m_lastError);
+        return QByteArray();
     }
     
     // 读取解压后的 document.xml
@@ -227,6 +217,15 @@ QString DocumentReaderService::extractDocxToTemp(const QString &zipPath)
     unzip.start("unzip", args);
     if (!unzip.waitForFinished(30000)) {
         m_lastError = "解压超时";
+        emit errorOccurred(m_lastError);
+        return QString();
+    }
+
+    if (unzip.exitStatus() != QProcess::NormalExit || unzip.exitCode() != 0) {
+        QString errorOutput = QString::fromUtf8(unzip.readAllStandardError()).trimmed();
+        m_lastError = errorOutput.isEmpty()
+            ? "解压 DOCX 失败"
+            : QString("解压 DOCX 失败: %1").arg(errorOutput);
         emit errorOccurred(m_lastError);
         return QString();
     }

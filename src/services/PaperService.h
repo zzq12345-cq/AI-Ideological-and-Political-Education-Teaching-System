@@ -9,7 +9,6 @@
 #include <QJsonArray>
 #include <QDateTime>
 
-class NetworkRetryHelper;
 class FailedTaskTracker;
 
 // 试卷数据结构
@@ -138,7 +137,6 @@ private slots:
 private:
     QNetworkAccessManager *m_networkManager;
     QString m_accessToken;
-    NetworkRetryHelper *m_retryHelper;
     FailedTaskTracker *m_failedTaskTracker;
 
     // 请求类型标识

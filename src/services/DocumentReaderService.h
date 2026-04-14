@@ -4,8 +4,6 @@
 #include <QObject>
 #include <QString>
 #include <QMap>
-#include <QtConcurrent/QtConcurrentRun>
-#include <QFutureWatcher>
 
 class SupabaseStorageService;
 

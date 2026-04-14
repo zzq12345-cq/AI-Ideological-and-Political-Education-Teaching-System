@@ -83,6 +83,8 @@ signals:
 private slots:
     void onParseCompleted(const QList<PaperQuestion> &questions);
     void onParseError(const QString &error);
+    void onQuestionsSaved(int count);
+    void onQuestionSaveError(const QString &operation, const QString &error);
     
 private:
     PaperService *m_paperService;
@@ -98,6 +100,8 @@ private:
     int m_processedFiles;
     int m_totalQuestions;
     int m_failedFiles;
+    bool m_waitingForSave = false;
+    int m_pendingExpectedQuestionCount = 0;
     
     // 当前处理的元数据
     QString m_currentSubject;

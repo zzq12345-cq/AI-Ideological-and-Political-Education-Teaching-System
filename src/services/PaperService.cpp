@@ -182,15 +182,8 @@ QJsonObject PaperQuestion::toJson() const
 PaperService::PaperService(QObject *parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
-    , m_retryHelper(new NetworkRetryHelper(m_networkManager, {}, this))
     , m_failedTaskTracker(new FailedTaskTracker(this))
 {
-    connect(m_networkManager, &QNetworkAccessManager::finished,
-            this, &PaperService::onReplyFinished);
-
-    // 重试通知转发
-    connect(m_retryHelper, &NetworkRetryHelper::retrying,
-            this, &PaperService::requestRetrying);
 }
 
 PaperService::~PaperService()
@@ -351,6 +344,9 @@ void PaperService::searchQuestions(const QuestionSearchCriteria &criteria)
     QNetworkReply *reply = m_networkManager->get(request);
     if (reply) {
         reply->setProperty("requestType", static_cast<int>(RequestType::SearchQuestions));
+        connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+            onReplyFinished(reply);
+        });
     }
 }
 
@@ -394,6 +390,9 @@ void PaperService::sendRequest(const QString &endpoint, RequestType type,
     QNetworkReply *reply = m_networkManager->get(request);
     if (reply) {
         reply->setProperty("requestType", static_cast<int>(type));
+        connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+            onReplyFinished(reply);
+        });
     }
 }
 

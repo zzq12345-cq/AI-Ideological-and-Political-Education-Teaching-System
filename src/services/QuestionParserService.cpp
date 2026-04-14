@@ -27,18 +27,7 @@ QuestionParserService::QuestionParserService(QObject *parent)
 
 QuestionParserService::~QuestionParserService()
 {
-    if (m_currentReply) {
-        m_currentReply->abort();
-        m_currentReply->deleteLater();
-    }
-    if (m_uploadReply) {
-        m_uploadReply->abort();
-        m_uploadReply->deleteLater();
-    }
-    if (m_uploadFile) {
-        m_uploadFile->close();
-        delete m_uploadFile;
-    }
+    cancelActiveOperation();
 }
 
 void QuestionParserService::setApiKey(const QString &apiKey)
@@ -61,6 +50,40 @@ bool QuestionParserService::isConfigured() const
     return !m_apiKey.isEmpty();
 }
 
+void QuestionParserService::cancelCurrentReply()
+{
+    if (!m_currentReply) {
+        return;
+    }
+
+    m_currentReply->disconnect(this);
+    m_currentReply->abort();
+    m_currentReply->deleteLater();
+    m_currentReply = nullptr;
+}
+
+void QuestionParserService::cancelUploadReply()
+{
+    if (m_uploadReply) {
+        m_uploadReply->disconnect(this);
+        m_uploadReply->abort();
+        m_uploadReply->deleteLater();
+        m_uploadReply = nullptr;
+    }
+
+    if (m_uploadFile) {
+        m_uploadFile->close();
+        delete m_uploadFile;
+        m_uploadFile = nullptr;
+    }
+}
+
+void QuestionParserService::cancelActiveOperation()
+{
+    cancelCurrentReply();
+    cancelUploadReply();
+}
+
 void QuestionParserService::parseDocument(const QString &documentText,
                                           const QString &subject,
                                           const QString &grade)
@@ -79,12 +102,7 @@ void QuestionParserService::parseDocument(const QString &documentText,
         return;
     }
     
-    // 取消之前的请求
-    if (m_currentReply) {
-        m_currentReply->abort();
-        m_currentReply->deleteLater();
-        m_currentReply = nullptr;
-    }
+    cancelActiveOperation();
     
     // 保存元数据
     m_currentSubject = subject;
@@ -146,6 +164,8 @@ void QuestionParserService::parseFile(const QString &filePath,
         return;
     }
     
+    cancelActiveOperation();
+
     // 保存元数据
     m_currentFilePath = filePath;
     m_currentSubject = subject;
@@ -165,17 +185,7 @@ void QuestionParserService::uploadFileToDify(const QString &filePath)
 {
     qDebug() << "[QuestionParserService] 开始上传文件:" << filePath;
     
-    // 清理之前的上传
-    if (m_uploadReply) {
-        m_uploadReply->abort();
-        m_uploadReply->deleteLater();
-        m_uploadReply = nullptr;
-    }
-    if (m_uploadFile) {
-        m_uploadFile->close();
-        delete m_uploadFile;
-        m_uploadFile = nullptr;
-    }
+    cancelUploadReply();
     
     // 打开文件
     m_uploadFile = new QFile(filePath);
@@ -279,11 +289,7 @@ void QuestionParserService::callWorkflowWithFile(const QString &uploadFileId)
     qDebug() << "[QuestionParserService] 调用工作流，文件 ID:" << uploadFileId;
     
     // 取消之前的请求
-    if (m_currentReply) {
-        m_currentReply->abort();
-        m_currentReply->deleteLater();
-        m_currentReply = nullptr;
-    }
+    cancelCurrentReply();
     
     m_fullResponse.clear();
     m_sseParser.reset();
@@ -395,8 +401,16 @@ void QuestionParserService::onReplyFinished()
             }
 
             // 从完整响应中提取 JSON
+            m_lastError.clear();
             QList<PaperQuestion> questions = parseJsonResponse(m_fullResponse);
-            emit parseCompleted(questions);
+            if (questions.isEmpty()) {
+                if (m_lastError.isEmpty()) {
+                    m_lastError = "未解析到有效题目";
+                }
+                emit errorOccurred(m_lastError);
+            } else {
+                emit parseCompleted(questions);
+            }
         }
     }
     

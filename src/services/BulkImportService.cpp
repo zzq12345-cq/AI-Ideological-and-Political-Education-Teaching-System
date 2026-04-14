@@ -33,6 +33,10 @@ BulkImportService::BulkImportService(PaperService *paperService, QObject *parent
             this, [this](const QString &text) {
                 emit documentParseProgress(m_currentFileName, text);
             });
+    connect(m_paperService, &PaperService::questionsAdded,
+            this, &BulkImportService::onQuestionsSaved);
+    connect(m_paperService, &PaperService::questionError,
+            this, &BulkImportService::onQuestionSaveError);
 }
 
 BulkImportService::~BulkImportService()
@@ -120,6 +124,8 @@ void BulkImportService::importFromDocument(const QString &filePath,
     m_processedFiles = 0;
     m_totalQuestions = 0;
     m_failedFiles = 0;
+    m_waitingForSave = false;
+    m_pendingExpectedQuestionCount = 0;
     m_currentSubject = subject;
     m_currentGrade = grade;
     
@@ -171,6 +177,8 @@ void BulkImportService::importFromDirectory(const QString &dirPath,
     m_processedFiles = 0;
     m_totalQuestions = 0;
     m_failedFiles = 0;
+    m_waitingForSave = false;
+    m_pendingExpectedQuestionCount = 0;
     m_currentSubject = subject;
     m_currentGrade = grade;
     
@@ -236,6 +244,7 @@ void BulkImportService::processNextFile()
 void BulkImportService::onParseCompleted(const QList<PaperQuestion> &questions)
 {
     qDebug() << "BulkImportService: 解析完成，获得" << questions.size() << "道题目";
+    emit documentParseCompleted(m_currentFileName, questions.size());
 
     if (questions.isEmpty()) {
         m_failedFiles++;
@@ -282,19 +291,51 @@ void BulkImportService::onParseCompleted(const QList<PaperQuestion> &questions)
             }
 
             if (!bigQuestions.isEmpty()) {
-                // 需要通过 PaperService 添加到数据库
+                // 等待真实的数据库写入结果后，再推进导入状态。
+                m_waitingForSave = true;
+                m_pendingExpectedQuestionCount = bigQuestions.size();
                 m_paperService->addQuestions(bigQuestions);
-                m_totalQuestions += bigQuestions.size();
+                return;
             }
         }
     }
-
-    emit documentParseCompleted(m_currentFileName, questions.size());
     
     m_processedFiles++;
     emit importProgress(m_processedFiles, m_totalFiles);
     
     // 继续处理下一个
+    processNextFile();
+}
+
+void BulkImportService::onQuestionsSaved(int count)
+{
+    if (!m_isImporting || !m_waitingForSave) {
+        return;
+    }
+
+    m_waitingForSave = false;
+    qDebug() << "BulkImportService: 数据库写入成功" << count
+             << "题，预期" << m_pendingExpectedQuestionCount << "题";
+    m_totalQuestions += count;
+    m_pendingExpectedQuestionCount = 0;
+
+    m_processedFiles++;
+    emit importProgress(m_processedFiles, m_totalFiles);
+    processNextFile();
+}
+
+void BulkImportService::onQuestionSaveError(const QString &, const QString &error)
+{
+    if (!m_isImporting || !m_waitingForSave) {
+        return;
+    }
+
+    qDebug() << "BulkImportService: 数据库写入失败" << error;
+    m_waitingForSave = false;
+    m_pendingExpectedQuestionCount = 0;
+    m_failedFiles++;
+    m_processedFiles++;
+    emit importProgress(m_processedFiles, m_totalFiles);
     processNextFile();
 }
 
