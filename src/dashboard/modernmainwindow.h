@@ -112,6 +112,10 @@ private:
     void setupCentralWidget();
     void setupStyles();
     void resetAllSidebarButtons();  // 重置所有侧边栏按钮为普通状态
+    void ensureQuestionBankWindow();
+    void ensureHotspotWidget();
+    void ensureAnalyticsWidget();
+    void ensureAttendanceWidget();
     void createDashboard();
     void createSidebarProfile();
     void createHeaderWidget();
@@ -228,6 +232,7 @@ private:
 
     // AI 对话组件
     DifyService *m_difyService = nullptr;
+    DifyService *m_analyticsDifyService = nullptr;
     AIChatDialog *m_chatDialog = nullptr;  // AI 对话框（备用）
     class ChatWidget *m_bubbleChatWidget = nullptr;  // 气泡样式聊天组件（主面板用）
     ChatHistoryWidget *m_chatHistoryWidget = nullptr;  // 历史记录侧边栏

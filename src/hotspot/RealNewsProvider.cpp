@@ -12,6 +12,120 @@
 #include <QRandomGenerator>
 #include <QRegularExpression>
 #include <QStringDecoder>
+#include <QUrl>
+
+namespace {
+
+QString decodeHtmlEntities(QString value)
+{
+    value = value.trimmed();
+    if (value.startsWith(QStringLiteral("<![CDATA["))) {
+        value.remove(0, QStringLiteral("<![CDATA[").size());
+    }
+    if (value.endsWith(QStringLiteral("]]>"))) {
+        value.chop(3);
+    }
+
+    return value
+        .replace(QStringLiteral("&amp;"), QStringLiteral("&"))
+        .replace(QStringLiteral("&quot;"), QStringLiteral("\""))
+        .replace(QStringLiteral("&lt;"), QStringLiteral("<"))
+        .replace(QStringLiteral("&gt;"), QStringLiteral(">"))
+        .replace(QStringLiteral("&nbsp;"), QStringLiteral(" "));
+}
+
+QString normalizeImageUrl(const QString &rawUrl, const QString &baseUrl = QString())
+{
+    QString candidate = decodeHtmlEntities(rawUrl);
+    if (candidate.isEmpty()) {
+        return {};
+    }
+
+    if (candidate.startsWith(QStringLiteral("//"))) {
+        candidate.prepend(QStringLiteral("https:"));
+    }
+
+    QUrl url(candidate);
+    if ((!url.isValid() || url.scheme().isEmpty()) && !baseUrl.trimmed().isEmpty()) {
+        const QUrl base = QUrl::fromUserInput(baseUrl.trimmed());
+        if (base.isValid()) {
+            url = base.resolved(QUrl(candidate));
+        }
+    }
+
+    if (!url.isValid() || url.scheme().isEmpty()) {
+        url = QUrl::fromUserInput(candidate);
+    }
+
+    if (!url.isValid()) {
+        return {};
+    }
+
+    const QString scheme = url.scheme().toLower();
+    if (scheme != QStringLiteral("http") && scheme != QStringLiteral("https")) {
+        return {};
+    }
+
+    return url.toString();
+}
+
+QString extractImageUrlFromJsonValue(const QJsonValue &value, const QString &baseUrl)
+{
+    if (value.isString()) {
+        return normalizeImageUrl(value.toString(), baseUrl);
+    }
+
+    if (value.isArray()) {
+        const QJsonArray array = value.toArray();
+        for (const QJsonValue &entry : array) {
+            const QString extracted = extractImageUrlFromJsonValue(entry, baseUrl);
+            if (!extracted.isEmpty()) {
+                return extracted;
+            }
+        }
+        return {};
+    }
+
+    if (value.isObject()) {
+        const QJsonObject object = value.toObject();
+        static const QStringList candidateKeys = {
+            QStringLiteral("src"),
+            QStringLiteral("url"),
+            QStringLiteral("imgurl"),
+            QStringLiteral("imgsrc"),
+            QStringLiteral("picUrl"),
+            QStringLiteral("picurl"),
+            QStringLiteral("thumbnail"),
+            QStringLiteral("image"),
+            QStringLiteral("cover")
+        };
+
+        for (const QString &key : candidateKeys) {
+            const QString extracted = extractImageUrlFromJsonValue(object.value(key), baseUrl);
+            if (!extracted.isEmpty()) {
+                return extracted;
+            }
+        }
+    }
+
+    return {};
+}
+
+QString extractImageUrl(const QJsonObject &object,
+                        const QStringList &candidateKeys,
+                        const QString &baseUrl = QString())
+{
+    for (const QString &key : candidateKeys) {
+        const QString extracted = extractImageUrlFromJsonValue(object.value(key), baseUrl);
+        if (!extracted.isEmpty()) {
+            return extracted;
+        }
+    }
+
+    return {};
+}
+
+} // namespace
 
 RealNewsProvider::RealNewsProvider(QObject *parent)
     : INewsProvider(parent)
@@ -306,26 +420,28 @@ QList<NewsItem> RealNewsProvider::parseTouTiaoResponse(const QByteArray &data)
         }
         item.title = obj["title"].toString();
         
-        // 获取图片 URL (网易使用 imgurl 或 imgsrc)
-        item.imageUrl = obj["imgurl"].toString();
-        if (item.imageUrl.isEmpty()) {
-            item.imageUrl = obj["imgsrc"].toString();
-        }
-        
-        // 确保图片 URL 是完整的
-        if (!item.imageUrl.isEmpty() && !item.imageUrl.startsWith("http")) {
-            item.imageUrl = "http:" + item.imageUrl;
-        }
-        
-        // 热度值（如果没有则设为0，不再随机生成）
-        item.hotScore = obj["hot"].toVariant().toInt();
-        if (item.hotScore <= 0) item.hotScore = 0;
-        
         // 链接
         item.url = obj["url"].toString();
         if (item.url.isEmpty()) {
             item.url = obj["docurl"].toString();
         }
+
+        item.imageUrl = extractImageUrl(
+            obj,
+            {
+                QStringLiteral("imgurl"),
+                QStringLiteral("imgsrc"),
+                QStringLiteral("imgextra"),
+                QStringLiteral("pics"),
+                QStringLiteral("picUrl"),
+                QStringLiteral("picurl"),
+                QStringLiteral("thumbnail")
+            },
+            item.url);
+        
+        // 热度值（如果没有则设为0，不再随机生成）
+        item.hotScore = obj["hot"].toVariant().toInt();
+        if (item.hotScore <= 0) item.hotScore = 0;
         
         // 来源和分类
         item.source = obj["source"].toString();
@@ -920,19 +1036,23 @@ QList<NewsItem> RealNewsProvider::parseTianXingResponse(const QByteArray &data, 
         item.summary = obj["description"].toString();
         item.content = obj["content"].toString();
         item.source = obj["source"].toString();
-        // 获取图片 URL（天行 API 字段：picUrl / imgurl / imgsrc）
-        item.imageUrl = obj["picUrl"].toString();
-        if (item.imageUrl.isEmpty()) {
-            item.imageUrl = obj["imgurl"].toString();
-        }
-        if (item.imageUrl.isEmpty()) {
-            item.imageUrl = obj["imgsrc"].toString();
-        }
-        // 确保图片 URL 完整
-        if (!item.imageUrl.isEmpty() && !item.imageUrl.startsWith("http")) {
-            item.imageUrl = "https:" + item.imageUrl;
-        }
         item.url = obj["url"].toString();
+        item.imageUrl = extractImageUrl(
+            obj,
+            {
+                QStringLiteral("picUrl"),
+                QStringLiteral("picurl"),
+                QStringLiteral("imgurl"),
+                QStringLiteral("imgsrc"),
+                QStringLiteral("thumbnail_pic_s"),
+                QStringLiteral("thumbnail_pic_s02"),
+                QStringLiteral("thumbnail_pic_s03"),
+                QStringLiteral("thumbnail"),
+                QStringLiteral("image"),
+                QStringLiteral("cover"),
+                QStringLiteral("pics")
+            },
+            item.url);
 
         // 如果 summary 为空，使用标题的前 80 个字符
         if (item.summary.isEmpty()) {
@@ -1018,15 +1138,21 @@ QList<NewsItem> RealNewsProvider::parseRSSResponse(const QByteArray &data, const
     bool inItem = false;
 
     // 用于从 HTML 中提取图片 URL 的正则表达式
-    static QRegularExpression imgRegex(R"(<img[^>]+src\s*=\s*[\"']([^\"']+)[\"'])");
+    static QRegularExpression imgRegex(
+        R"(<img[^>]+(?:src|data-src)\s*=\s*[\"']([^\"']+)[\"'])",
+        QRegularExpression::CaseInsensitiveOption);
 
     while (!xml.atEnd() && !xml.hasError()) {
         QXmlStreamReader::TokenType token = xml.readNext();
 
         if (token == QXmlStreamReader::StartElement) {
-            currentElement = xml.name().toString();
+            currentElement = xml.qualifiedName().toString();
+            if (currentElement.isEmpty()) {
+                currentElement = xml.name().toString();
+            }
+            const QString localElement = xml.name().toString();
 
-            if (currentElement == "item" || currentElement == "entry") {
+            if (localElement == "item" || localElement == "entry") {
                 inItem = true;
                 currentItem = NewsItem();
                 currentItem.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -1049,6 +1175,19 @@ QList<NewsItem> RealNewsProvider::parseRSSResponse(const QByteArray &data, const
                     currentItem.url = href;
                 }
             }
+
+            if (inItem && currentItem.imageUrl.isEmpty()) {
+                const QString contentType = xml.attributes().value("type").toString().trimmed();
+                const QString mediaUrl = xml.attributes().value("url").toString().trimmed();
+                const bool isImageEnclosure = localElement == "enclosure"
+                    && contentType.startsWith(QStringLiteral("image/"), Qt::CaseInsensitive);
+                const bool isMediaImage = currentElement == QStringLiteral("media:content")
+                    || currentElement == QStringLiteral("media:thumbnail");
+
+                if (isImageEnclosure || isMediaImage) {
+                    currentItem.imageUrl = mediaUrl;
+                }
+            }
         } else if (token == QXmlStreamReader::EndElement) {
             if (xml.name().toString() == "item" || xml.name().toString() == "entry") {
                 inItem = false;
@@ -1066,6 +1205,9 @@ QList<NewsItem> RealNewsProvider::parseRSSResponse(const QByteArray &data, const
                             .replace("&gt;", ">");
                     }
                 }
+
+                currentItem.url = decodeHtmlEntities(currentItem.url);
+                currentItem.imageUrl = normalizeImageUrl(currentItem.imageUrl, currentItem.url);
 
                 if (currentItem.isValid()) {
                     // 生成摘要

@@ -26,6 +26,7 @@ public:
 
     // 登录
     void login(const QString &email, const QString &password);
+    void refreshSession(const QString &refreshToken);
 
     // 注册
     void signup(const QString &email, const QString &password, const QString &username);
@@ -53,6 +54,13 @@ signals:
     void passwordResetSuccess(const QString &message);
     void passwordResetFailed(const QString &errorMessage);
 
+public:
+    QString currentUserId() const { return m_currentUserId; }
+    QString currentEmail() const { return m_currentEmail; }
+    QString currentAccessToken() const { return m_currentAccessToken; }
+    QString currentRefreshToken() const { return m_currentRefreshToken; }
+    qint64 currentExpiresAt() const { return m_currentExpiresAt; }
+
 private slots:
     void onReplyFinished(QNetworkReply *reply);
     void onNetworkError(QNetworkReply::NetworkError error);
@@ -79,6 +87,12 @@ private:
 
     // 解析错误
     QString parseError(const QJsonObject &json);
+
+    QString m_currentUserId;
+    QString m_currentEmail;
+    QString m_currentAccessToken;
+    QString m_currentRefreshToken;
+    qint64 m_currentExpiresAt = 0;
 };
 
 #endif // SUPABASECLIENT_H

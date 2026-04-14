@@ -14,6 +14,7 @@
 #include <QDialogButtonBox>
 #include <QSvgRenderer>
 #include <QEvent>
+#include <QUrl>
 
 namespace {
 
@@ -127,6 +128,63 @@ bool isDomesticPoliticalHeadline(const NewsItem &news)
     return isPolitical || isOfficialSource;
 }
 
+QString normalizeImageCacheKey(const QString &rawUrl)
+{
+    QString candidate = rawUrl.trimmed();
+    if (candidate.startsWith(QStringLiteral("//"))) {
+        candidate.prepend(QStringLiteral("https:"));
+    }
+
+    const QUrl url = QUrl::fromUserInput(candidate);
+    return url.isValid() ? url.toString() : candidate;
+}
+
+QUrl buildImageUrl(const QString &rawUrl)
+{
+    QString candidate = rawUrl.trimmed();
+    if (candidate.startsWith(QStringLiteral("//"))) {
+        candidate.prepend(QStringLiteral("https:"));
+    }
+
+    const QUrl url = QUrl::fromUserInput(candidate);
+    if (!url.isValid() || url.scheme().isEmpty()) {
+        return {};
+    }
+
+    return url;
+}
+
+QByteArray buildImageReferer(const QUrl &url)
+{
+    if (!url.isValid()) {
+        return {};
+    }
+
+    QUrl referer(url);
+    referer.setPath(QStringLiteral("/"));
+    referer.setQuery(QString());
+    referer.setFragment(QString());
+    return referer.toString().toUtf8();
+}
+
+void applyPixmapToLabel(const QPixmap &pixmap, QLabel *label)
+{
+    if (!label) {
+        return;
+    }
+
+    if (label->width() <= 0 || label->height() <= 0) {
+        label->setPixmap(pixmap);
+        return;
+    }
+
+    QPixmap scaled = pixmap.scaled(
+        label->size(), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+    const int x = qMax(0, (scaled.width() - label->width()) / 2);
+    const int y = qMax(0, (scaled.height() - label->height()) / 2);
+    label->setPixmap(scaled.copy(x, y, label->width(), label->height()));
+}
+
 } // namespace
 
 HotspotTrackingWidget::HotspotTrackingWidget(QWidget *parent)
@@ -152,26 +210,47 @@ HotspotTrackingWidget::~HotspotTrackingWidget()
 
 void HotspotTrackingWidget::loadImage(const QString &url, QLabel *label)
 {
-    if (url.isEmpty()) return;
+    if (!label || url.trimmed().isEmpty()) {
+        return;
+    }
+
+    const QUrl imageUrl = buildImageUrl(url);
+    if (!imageUrl.isValid()) {
+        qWarning() << "[HotspotTrackingWidget] 图片 URL 无效:" << url;
+        return;
+    }
+
+    const QString cacheKey = normalizeImageCacheKey(imageUrl.toString());
 
     // 在 label 上存储关联的 URL，用于调试和验证
-    label->setProperty("imageUrl", url);
+    label->setProperty("imageUrl", cacheKey);
 
     // 缓存命中，直接使用
-    if (m_imageCache.contains(url)) {
-        QPixmap scaled = m_imageCache[url]->scaled(
-            label->size(), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
-        // 居中裁剪
-        int x = (scaled.width() - label->width()) / 2;
-        int y = (scaled.height() - label->height()) / 2;
-        label->setPixmap(scaled.copy(x, y, label->width(), label->height()));
+    if (m_imageCache.contains(cacheKey)) {
+        applyPixmapToLabel(*m_imageCache[cacheKey], label);
         return;
     }
 
     // 发起网络请求
-    QNetworkRequest request{QUrl(url)};
+    QNetworkRequest request(imageUrl);
     request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                         QNetworkRequest::NoLessSafeRedirectPolicy);
+#endif
+    request.setTransferTimeout(15000);
+    request.setRawHeader("User-Agent",
+                         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36");
+    request.setRawHeader("Accept",
+                         "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8");
+    const QByteArray referer = buildImageReferer(imageUrl);
+    if (!referer.isEmpty()) {
+        request.setRawHeader("Referer", referer);
+    }
+
     QNetworkReply *reply = m_networkManager->get(request);
+    reply->setProperty("cacheKey", cacheKey);
     m_pendingImages[reply] = label;
 }
 
@@ -179,24 +258,29 @@ void HotspotTrackingWidget::onImageDownloaded(QNetworkReply *reply)
 {
     if (m_pendingImages.contains(reply)) {
         QLabel *label = m_pendingImages.take(reply);
+        const QString cacheKey = reply->property("cacheKey").toString();
         if (reply->error() == QNetworkReply::NoError) {
             QByteArray data = reply->readAll();
             QPixmap pixmap;
             if (pixmap.loadFromData(data)) {
-                QString url = reply->url().toString();
-                m_imageCache.insert(url, new QPixmap(pixmap));
-                if (label) {
-                    QPixmap scaled = pixmap.scaled(
-                        label->size(), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
-                    int x = (scaled.width() - label->width()) / 2;
-                    int y = (scaled.height() - label->height()) / 2;
-                    label->setPixmap(scaled.copy(x, y, label->width(), label->height()));
+                const QString finalUrl = normalizeImageCacheKey(reply->url().toString());
+                if (!cacheKey.isEmpty()) {
+                    m_imageCache.insert(cacheKey, new QPixmap(pixmap));
+                }
+                if (!finalUrl.isEmpty() && finalUrl != cacheKey) {
+                    m_imageCache.insert(finalUrl, new QPixmap(pixmap));
+                }
+                if (label && label->property("imageUrl").toString() == cacheKey) {
+                    applyPixmapToLabel(pixmap, label);
                 }
             } else {
-                qWarning() << "[HotspotTrackingWidget] 图片加载失败:" << reply->url().toString();
+                qWarning() << "[HotspotTrackingWidget] 图片解码失败:" << reply->url().toString()
+                           << "content-type:" << reply->header(QNetworkRequest::ContentTypeHeader).toString()
+                           << "bytes:" << data.size();
             }
         } else {
-            qWarning() << "[HotspotTrackingWidget] 图片下载失败:" << reply->errorString();
+            qWarning() << "[HotspotTrackingWidget] 图片下载失败:" << reply->errorString()
+                       << "url:" << reply->url().toString();
         }
     }
     reply->deleteLater();

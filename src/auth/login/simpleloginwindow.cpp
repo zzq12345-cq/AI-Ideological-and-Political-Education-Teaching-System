@@ -7,6 +7,8 @@
 #include <QSize>
 #include <QEvent>
 #include <QTimer>
+#include <QApplication>
+#include <QDateTime>
 #include <QDebug>
 #include <iostream>
 
@@ -30,6 +32,11 @@ SimpleLoginWindow::SimpleLoginWindow(QWidget *parent)
     if (hasRememberedCredentials()) {
         loadRememberedCredentials();
     }
+
+    connect(usernameEdit, &QLineEdit::textChanged, this, [this]() {
+        updateLoginButtonState();
+    });
+    updateLoginButtonState();
 }
 
 SimpleLoginWindow::~SimpleLoginWindow()
@@ -498,15 +505,38 @@ void SimpleLoginWindow::setupStyle()
 void SimpleLoginWindow::onLoginClicked()
 {
     qDebug() << "=== onLoginClicked 开始 ===";
-    QString username = usernameEdit->text();
+    QString username = usernameEdit->text().trimmed();
     QString password = passwordEdit->text();
 
-    if (username.isEmpty() || password.isEmpty()) {
-        QMessageBox::warning(this, "提示", "请输入用户名和密码！");
+    if (username.isEmpty()) {
+        QMessageBox::warning(this, "提示", "请输入用户名或邮箱！");
         return;
     }
 
     qDebug() << "用户名:" << username;
+
+    if (rememberMeCheck->isChecked() && hasRememberedSessionForUser(username)) {
+        const QString rememberedUserId = m_settings->value("savedUserId").toString();
+        if (isRememberedSessionStillValid(username) && !rememberedUserId.isEmpty()) {
+            qDebug() << "检测到有效本地会话，直接进入主页";
+            m_loginProcessed = true;
+            m_isRestoringSession = false;
+            loginButton->setEnabled(false);
+            loginButton->setText("正在进入工作台...");
+            saveRememberedCredentials();
+            openMainWindow(username, "教师", rememberedUserId);
+            return;
+        }
+
+        if (canRefreshRememberedSession(username)) {
+            qDebug() << "本地会话已过期，尝试刷新会话";
+            m_isRestoringSession = true;
+            loginButton->setEnabled(false);
+            loginButton->setText("正在恢复会话...");
+            m_supabaseClient->refreshSession(m_settings->value("savedRefreshToken").toString());
+            return;
+        }
+    }
 
     // 检查是否是测试账号
     if ((username == "teacher01" && password == "Teacher@2024") ||
@@ -525,13 +555,14 @@ void SimpleLoginWindow::onLoginClicked()
         QMessageBox::information(this, "登录成功", "欢迎 " + username + "！\n\n正在进入" + role + "端...");
         qDebug() << "登录成功提示已关闭";
 
-        qDebug() << "准备关闭登录窗口...";
-        this->close(); // 关闭登录窗口
-        qDebug() << "登录窗口已关闭";
-
         // 打开主界面
         openMainWindow(username, role);
         qDebug() << "openMainWindow 调用完成";
+        return;
+    }
+
+    if (password.isEmpty()) {
+        QMessageBox::warning(this, "提示", "请输入密码。");
         return;
     }
 
@@ -539,6 +570,7 @@ void SimpleLoginWindow::onLoginClicked()
     // 检查输入的是否是邮箱格式
     if (username.contains("@")) {
         qDebug() << "尝试Supabase登录:" << username;
+        m_isRestoringSession = false;
         loginButton->setEnabled(false);
         loginButton->setText("登录中...");
 
@@ -568,11 +600,16 @@ void SimpleLoginWindow::openMainWindow(const QString &username, const QString &r
     qDebug() << "准备打开主窗口...";
     qDebug() << "用户名:" << username << "角色:" << role << "用户ID:" << userId;
 
+    this->setEnabled(false);
+    this->hide();
+    QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+
     qDebug() << "正在创建主窗口...";
     ModernMainWindow *mainWindow = new ModernMainWindow(role, username, userId);
     qDebug() << "主窗口创建完成，准备显示...";
     mainWindow->show();
     qDebug() << "主窗口已显示!";
+    this->close();
 }
 
 void SimpleLoginWindow::onLoginSuccess(const QString &userId, const QString &email)
@@ -583,30 +620,40 @@ void SimpleLoginWindow::onLoginSuccess(const QString &userId, const QString &ema
         return;
     }
     m_loginProcessed = true;
+    m_isRestoringSession = false;
 
     qDebug() << "Supabase登录成功! 用户ID:" << userId << "邮箱:" << email;
 
     loginButton->setEnabled(false);
-    loginButton->setText("登录中...");
+    loginButton->setText("正在进入工作台...");
 
     // 保存记住的凭证
     saveRememberedCredentials();
 
     // 打开主界面，默认角色为教师
     openMainWindow(email, "教师", userId);
-
-    // 最后关闭登录窗口
-    this->close();
 }
 
 void SimpleLoginWindow::onLoginFailed(const QString &errorMessage)
 {
     qDebug() << "Supabase登录失败:" << errorMessage;
 
-    QMessageBox::warning(this, "登录失败", errorMessage);
+    if (m_isRestoringSession) {
+        m_isRestoringSession = false;
+        clearRememberedCredentials();
+        if (rememberMeCheck) {
+            rememberMeCheck->setChecked(false);
+        }
+        QMessageBox::warning(this,
+                             "登录状态失效",
+                             "已保存的登录状态不可用了，请重新输入密码登录。\n\n" + errorMessage);
+    } else {
+        QMessageBox::warning(this, "登录失败", errorMessage);
+    }
 
     loginButton->setEnabled(true);
     loginButton->setText("登 录");
+    updateLoginButtonState();
 }
 
 
@@ -666,6 +713,8 @@ void SimpleLoginWindow::onRememberMeToggled(bool checked)
         // 如果取消记住我，清除保存的凭证
         clearRememberedCredentials();
     }
+
+    updateLoginButtonState();
 }
 
 bool SimpleLoginWindow::hasRememberedCredentials()
@@ -674,26 +723,78 @@ bool SimpleLoginWindow::hasRememberedCredentials()
            !m_settings->value("savedUsername", "").toString().isEmpty();
 }
 
+bool SimpleLoginWindow::hasRememberedSessionForUser(const QString &username) const
+{
+    return rememberMeCheck->isChecked() &&
+           !username.trimmed().isEmpty() &&
+           username.trimmed() == m_settings->value("savedUsername").toString().trimmed() &&
+           !m_settings->value("savedUserId").toString().isEmpty();
+}
+
+bool SimpleLoginWindow::isRememberedSessionStillValid(const QString &username) const
+{
+    if (!hasRememberedSessionForUser(username)) {
+        return false;
+    }
+
+    const qint64 expiresAt = m_settings->value("savedSessionExpiresAt", 0).toLongLong();
+    return expiresAt > (QDateTime::currentSecsSinceEpoch() + 60);
+}
+
+bool SimpleLoginWindow::canRefreshRememberedSession(const QString &username) const
+{
+    return hasRememberedSessionForUser(username) &&
+           !m_settings->value("savedRefreshToken").toString().isEmpty();
+}
+
+void SimpleLoginWindow::updateLoginButtonState()
+{
+    if (!loginButton) {
+        return;
+    }
+
+    loginButton->setText("登 录");
+
+    const QString username = usernameEdit ? usernameEdit->text().trimmed() : QString();
+    if (isRememberedSessionStillValid(username)) {
+        loginButton->setToolTip("已记住登录状态，点击后可直接进入主页");
+    } else if (canRefreshRememberedSession(username)) {
+        loginButton->setToolTip("已记住登录状态，点击后将恢复会话并进入主页");
+    } else {
+        loginButton->setToolTip(QString());
+    }
+}
+
 void SimpleLoginWindow::loadRememberedCredentials()
 {
     QString username = m_settings->value("savedUsername", "").toString();
-    QString password = m_settings->value("savedPassword", "").toString();
-    
-    if (!username.isEmpty() && !password.isEmpty()) {
+
+    if (!username.isEmpty()) {
         usernameEdit->setText(username);
-        passwordEdit->setText(password);
+        passwordEdit->clear();
         rememberMeCheck->setChecked(true);
-        qDebug() << "已加载记住的用户凭证:" << username;
+        qDebug() << "已加载记住的登录信息:" << username;
     }
+
+    updateLoginButtonState();
 }
 
 void SimpleLoginWindow::saveRememberedCredentials()
 {
     if (rememberMeCheck->isChecked()) {
         m_settings->setValue("rememberMe", true);
-        m_settings->setValue("savedUsername", usernameEdit->text());
-        m_settings->setValue("savedPassword", passwordEdit->text());
-        qDebug() << "已保存用户凭证";
+        m_settings->setValue("savedUsername", usernameEdit->text().trimmed());
+        m_settings->remove("savedPassword");
+
+        if (!m_supabaseClient->currentUserId().isEmpty()) {
+            m_settings->setValue("savedUserId", m_supabaseClient->currentUserId());
+            m_settings->setValue("savedEmail", m_supabaseClient->currentEmail());
+            m_settings->setValue("savedAccessToken", m_supabaseClient->currentAccessToken());
+            m_settings->setValue("savedRefreshToken", m_supabaseClient->currentRefreshToken());
+            m_settings->setValue("savedSessionExpiresAt", m_supabaseClient->currentExpiresAt());
+        }
+
+        qDebug() << "已保存记住我登录状态";
     }
 }
 
@@ -702,5 +803,10 @@ void SimpleLoginWindow::clearRememberedCredentials()
     m_settings->remove("rememberMe");
     m_settings->remove("savedUsername");
     m_settings->remove("savedPassword");
-    qDebug() << "已清除记住的凭证";
+    m_settings->remove("savedUserId");
+    m_settings->remove("savedEmail");
+    m_settings->remove("savedAccessToken");
+    m_settings->remove("savedRefreshToken");
+    m_settings->remove("savedSessionExpiresAt");
+    qDebug() << "已清除记住的登录状态";
 }

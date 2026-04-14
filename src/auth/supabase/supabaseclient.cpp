@@ -6,6 +6,7 @@
 #include <QNetworkProxy>
 #include <QUrl>
 #include <QUrlQuery>
+#include <QDateTime>
 
 namespace {
 QString mapAuthNetworkError(QNetworkReply::NetworkError error, const QString &detail)
@@ -105,6 +106,17 @@ void SupabaseClient::login(const QString &email, const QString &password)
     authData["password"] = password;
 
     QString endpoint = SupabaseConfig::supabaseUrl() + "/auth/v1/token?grant_type=password";
+    sendRequest(endpoint, authData, true);
+}
+
+void SupabaseClient::refreshSession(const QString &refreshToken)
+{
+    qDebug() << "尝试刷新会话";
+
+    QJsonObject authData;
+    authData["refresh_token"] = refreshToken;
+
+    const QString endpoint = SupabaseConfig::supabaseUrl() + "/auth/v1/token?grant_type=refresh_token";
     sendRequest(endpoint, authData, true);
 }
 
@@ -348,8 +360,18 @@ void SupabaseClient::handleLoginResponse(const QJsonObject &json)
     qDebug() << "处理登录响应";
 
     if (json.contains("access_token")) {
-        QString userId = json["user"].toObject()["id"].toString();
-        QString email = json["user"].toObject()["email"].toString();
+        const QJsonObject userObject = json["user"].toObject();
+        const QString userId = userObject["id"].toString();
+        const QString email = userObject["email"].toString();
+        const qint64 expiresAt = json.contains("expires_at")
+            ? json["expires_at"].toVariant().toLongLong()
+            : (QDateTime::currentSecsSinceEpoch() + json["expires_in"].toVariant().toLongLong());
+
+        m_currentUserId = userId;
+        m_currentEmail = email;
+        m_currentAccessToken = json["access_token"].toString();
+        m_currentRefreshToken = json["refresh_token"].toString();
+        m_currentExpiresAt = expiresAt;
 
         qDebug() << "登录成功! 用户ID:" << userId << "邮箱:" << email;
         emit loginSuccess(userId, email);

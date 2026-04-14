@@ -48,6 +48,10 @@ private:
     void saveRememberedCredentials();
     void clearRememberedCredentials();
     bool hasRememberedCredentials();
+    bool hasRememberedSessionForUser(const QString &username) const;
+    bool isRememberedSessionStillValid(const QString &username) const;
+    bool canRefreshRememberedSession(const QString &username) const;
+    void updateLoginButtonState();
 
     // Supabase回调
     void onLoginSuccess(const QString &userId, const QString &email);
@@ -59,6 +63,7 @@ private:
     // 不再需要UI文件指针
 
     bool m_loginProcessed = false;  // 防止重复处理登录
+    bool m_isRestoringSession = false;
 
     QHBoxLayout *mainLayout;
     QFrame *leftPanel;

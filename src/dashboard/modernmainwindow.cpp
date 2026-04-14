@@ -934,12 +934,12 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
         qDebug() << "[Info] Create .env.local file with: ZHIPU_API_KEY=your-key";
     }
 
-    auto *analyticsDifyService = new DifyService(this);
+    m_analyticsDifyService = new DifyService(this);
     if (hasDifyApiKey) {
-        analyticsDifyService->setApiKey(difyApiKey);
+        m_analyticsDifyService->setApiKey(difyApiKey);
     }
     if (!currentUserId.isEmpty()) {
-        analyticsDifyService->setUserId(currentUserId + "_analytics");
+        m_analyticsDifyService->setUserId(currentUserId + "_analytics");
     }
 
     // 不再使用独立的 AI 对话框，直接在主页面显示
@@ -999,30 +999,6 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     loadDeletedHistoryIds();
     loadHistoryEntries();
     setupCentralWidget();
-    if (m_dataAnalyticsWidget) {
-        m_dataAnalyticsWidget->setDifyService(analyticsDifyService);
-        connect(m_dataAnalyticsWidget, &DataAnalyticsWidget::reportGenerationStarted, this, [this, analyticsDifyService]() {
-            setActiveHistoryType(AIHistoryType::AnalyticsReport);
-            m_pendingHistoryType = AIHistoryType::AnalyticsReport;
-            m_pendingHistoryTitle = QStringLiteral("AI智能分析报告");
-            m_pendingAnalyticsContent.clear();
-            m_pendingCasePrompt.clear();
-            m_pendingLessonPlanContent.clear();
-            if (analyticsDifyService) {
-                analyticsDifyService->clearConversation();
-            }
-        });
-        connect(m_dataAnalyticsWidget, &DataAnalyticsWidget::reportGenerationFinished, this, [this, analyticsDifyService](const QString &content) {
-            if (!analyticsDifyService) {
-                return;
-            }
-            const QString conversationId = analyticsDifyService->currentConversationId();
-            if (!conversationId.isEmpty()) {
-                recordAnalyticsHistory(conversationId, QStringLiteral("AI智能分析报告"), content);
-            }
-        });
-    }
-
     QTimer::singleShot(0, this, [this]() {
         if (m_notificationService) {
             m_notificationService->fetchNotifications();
@@ -1248,10 +1224,6 @@ void ModernMainWindow::setupCentralWidget()
     dashboardWidget = new QWidget();
     contentStack->addWidget(dashboardWidget);
 
-    // 创建 AI 智能备课页面
-    aiPreparationWidget = new AIPreparationWidget();
-    contentStack->addWidget(aiPreparationWidget);
-
     m_pptPreviewPage = new PPTPreviewPage(this);
     contentStack->addWidget(m_pptPreviewPage);
     connect(m_pptPreviewPage, &PPTPreviewPage::backRequested,
@@ -1259,44 +1231,74 @@ void ModernMainWindow::setupCentralWidget()
     connect(m_pptPreviewPage, &PPTPreviewPage::downloadRequested,
             this, &ModernMainWindow::onPPTPreviewDownloadRequested);
 
-    // 创建试题库页面
+    // 添加到主布局
+    contentLayout->addWidget(m_sidebarStack);  // 使用侧边栏堆栈
+    contentLayout->addWidget(contentStack);
+
+    mainLayout->addLayout(contentLayout);
+}
+
+void ModernMainWindow::ensureQuestionBankWindow()
+{
+    if (questionBankWindow || !contentStack) {
+        return;
+    }
+
+    qDebug() << "[ModernMainWindow] 按需初始化试题库页面";
     questionBankWindow = new QuestionBankWindow(this);
     contentStack->addWidget(questionBankWindow);
 
-    // 创建时政新闻页面
-    m_hotspotService = new HotspotService(this);
-    RealNewsProvider *newsProvider = new RealNewsProvider(this);
-    // API Key 优先级：环境变量 > 随包 config.env > .env.local
-    QString tianxingKey = AppConfig::get("TIANXING_API_KEY");
-    if (!tianxingKey.isEmpty()) {
-        newsProvider->setTianXingApiKey(tianxingKey);
-        qDebug() << "[ModernMainWindow] 天行数据 API Key 已配置";
-    } else {
-        qWarning() << "[ModernMainWindow] TIANXING_API_KEY 未设置，将使用 RSS 源（可能是旧数据）";
+    connect(questionBankWindow, &QuestionBankWindow::backRequested, this, [this]() {
+        if (contentStack && dashboardWidget) {
+            contentStack->setCurrentWidget(dashboardWidget);
+        }
+        if (m_sidebarStack) {
+            m_sidebarStack->setVisible(true);
+            m_sidebarStack->setCurrentIndex(0);
+        }
+        resetAllSidebarButtons();
+        if (teacherCenterBtn) {
+            teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+        }
+        if (m_mainStack && m_welcomePanel) {
+            m_mainStack->setCurrentWidget(m_welcomePanel);
+            if (m_welcomeInputWidget) {
+                m_welcomeInputWidget->show();
+            }
+        }
+        this->statusBar()->showMessage("教师中心");
+    });
+}
+
+void ModernMainWindow::ensureHotspotWidget()
+{
+    if (m_hotspotWidget || !contentStack) {
+        return;
     }
-    m_hotspotService->setNewsProvider(newsProvider);
+
+    qDebug() << "[ModernMainWindow] 按需初始化时政新闻页面";
+
+    if (!m_hotspotService) {
+        m_hotspotService = new HotspotService(this);
+        auto *newsProvider = new RealNewsProvider(this);
+        const QString tianxingKey = AppConfig::get("TIANXING_API_KEY");
+        if (!tianxingKey.isEmpty()) {
+            newsProvider->setTianXingApiKey(tianxingKey);
+            qDebug() << "[ModernMainWindow] 天行数据 API Key 已配置";
+        } else {
+            qWarning() << "[ModernMainWindow] TIANXING_API_KEY 未设置，将使用 RSS 源（可能是旧数据）";
+        }
+        m_hotspotService->setNewsProvider(newsProvider);
+    }
 
     m_hotspotWidget = new HotspotTrackingWidget(this);
     m_hotspotWidget->setHotspotService(m_hotspotService);
     m_hotspotWidget->setDifyService(m_difyService);
     contentStack->addWidget(m_hotspotWidget);
 
-    // 创建数据分析报告页面
-    m_dataAnalyticsWidget = new DataAnalyticsWidget(this);
-    contentStack->addWidget(m_dataAnalyticsWidget);
-
-    // 创建考勤管理页面
-    m_attendanceWidget = new AttendanceWidget(this);
-    auto *attendanceService = new AttendanceService(this);
-    attendanceService->setCurrentUserId("teacher_001");  // TODO: 使用实际登录用户ID
-    m_attendanceWidget->setAttendanceService(attendanceService);
-    contentStack->addWidget(m_attendanceWidget);
-
-    // 连接时政热点"生成案例"信号 - 自动切换到AI对话页面并发送请求
     connect(m_hotspotWidget, &HotspotTrackingWidget::teachingContentRequested, this, [this](const NewsItem &news) {
         qDebug() << "[ModernMainWindow] 收到生成教学案例请求:" << news.title;
 
-        // 1. 切换到AI对话页面
         if (contentStack && dashboardWidget) {
             contentStack->setCurrentWidget(dashboardWidget);
         }
@@ -1306,12 +1308,10 @@ void ModernMainWindow::setupCentralWidget()
             swapToHistorySidebar();
         }
 
-        // 2. 更新侧边栏按钮状态
         resetAllSidebarButtons();
         aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
 
-        // 3. 构建教学案例生成提示并直接发送（不显示问候语）
-        QString prompt = QString(
+        const QString prompt = QString(
             "请根据以下时政新闻，生成一份适合思政课堂使用的教学案例分析。\n\n"
             "【新闻标题】%1\n"
             "【新闻来源】%2\n"
@@ -1327,13 +1327,11 @@ void ModernMainWindow::setupCentralWidget()
             "引导学生进行深入思考的问题"
         ).arg(news.title, news.source, news.summary);
 
-        // 4. 在聊天界面显示用户的请求（简化版）
         if (m_bubbleChatWidget) {
-            QString userMsg = QString("请根据新闻《%1》生成思政教学案例").arg(news.title);
+            const QString userMsg = QString("请根据新闻《%1》生成思政教学案例").arg(news.title);
             m_bubbleChatWidget->addMessage(userMsg, true);
         }
 
-        // 5. 发送到Dify（直接发送，不需要问候语）
         if (m_difyService) {
             m_pendingHistoryType = AIHistoryType::CaseAnalysis;
             m_pendingHistoryTitle = QString("案例分析：%1").arg(news.title);
@@ -1346,36 +1344,56 @@ void ModernMainWindow::setupCentralWidget()
 
         this->statusBar()->showMessage("AI智能备课 - 正在生成教学案例...");
     });
+}
 
-    // 连接试题库返回信号
-    connect(questionBankWindow, &QuestionBankWindow::backRequested, this, [this]() {
-        // 返回首页（教师中心）
-        if (contentStack && dashboardWidget) {
-            contentStack->setCurrentWidget(dashboardWidget);
+void ModernMainWindow::ensureAnalyticsWidget()
+{
+    if (m_dataAnalyticsWidget || !contentStack) {
+        return;
+    }
+
+    qDebug() << "[ModernMainWindow] 按需初始化数据分析页面";
+    m_dataAnalyticsWidget = new DataAnalyticsWidget(this);
+    contentStack->addWidget(m_dataAnalyticsWidget);
+
+    if (m_analyticsDifyService) {
+        m_dataAnalyticsWidget->setDifyService(m_analyticsDifyService);
+    }
+
+    connect(m_dataAnalyticsWidget, &DataAnalyticsWidget::reportGenerationStarted, this, [this]() {
+        setActiveHistoryType(AIHistoryType::AnalyticsReport);
+        m_pendingHistoryType = AIHistoryType::AnalyticsReport;
+        m_pendingHistoryTitle = QStringLiteral("AI智能分析报告");
+        m_pendingAnalyticsContent.clear();
+        m_pendingCasePrompt.clear();
+        m_pendingLessonPlanContent.clear();
+        if (m_analyticsDifyService) {
+            m_analyticsDifyService->clearConversation();
         }
-        // 恢复主侧边栏显示
-        if (m_sidebarStack) {
-            m_sidebarStack->setVisible(true);
-            m_sidebarStack->setCurrentIndex(0);
-        }
-        // 重置按钮状态
-        resetAllSidebarButtons();
-        if (teacherCenterBtn) {
-            teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-        }
-        // 回到欢迎页面
-        if (m_mainStack && m_welcomePanel) {
-            m_mainStack->setCurrentWidget(m_welcomePanel);
-            if (m_welcomeInputWidget) m_welcomeInputWidget->show();
-        }
-        this->statusBar()->showMessage("教师中心");
     });
+    connect(m_dataAnalyticsWidget, &DataAnalyticsWidget::reportGenerationFinished, this, [this](const QString &content) {
+        if (!m_analyticsDifyService) {
+            return;
+        }
+        const QString conversationId = m_analyticsDifyService->currentConversationId();
+        if (!conversationId.isEmpty()) {
+            recordAnalyticsHistory(conversationId, QStringLiteral("AI智能分析报告"), content);
+        }
+    });
+}
 
-    // 添加到主布局
-    contentLayout->addWidget(m_sidebarStack);  // 使用侧边栏堆栈
-    contentLayout->addWidget(contentStack);
+void ModernMainWindow::ensureAttendanceWidget()
+{
+    if (m_attendanceWidget || !contentStack) {
+        return;
+    }
 
-    mainLayout->addLayout(contentLayout);
+    qDebug() << "[ModernMainWindow] 按需初始化考勤管理页面";
+    m_attendanceWidget = new AttendanceWidget(this);
+    auto *attendanceService = new AttendanceService(this);
+    attendanceService->setCurrentUserId(currentUserId.isEmpty() ? currentUsername : currentUserId);
+    m_attendanceWidget->setAttendanceService(attendanceService);
+    contentStack->addWidget(m_attendanceWidget);
 }
 
 void ModernMainWindow::applySidebarIcons()
@@ -2211,6 +2229,8 @@ void ModernMainWindow::onResourceManagementClicked()
     resetAllSidebarButtons();
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
 
+    ensureQuestionBankWindow();
+
     // 切换到试题库页面
     if (questionBankWindow) {
         qDebug() << "切换到试题库页面";
@@ -2232,6 +2252,8 @@ void ModernMainWindow::onAttendanceClicked()
     resetAllSidebarButtons();
     attendanceBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
 
+    ensureAttendanceWidget();
+
     // 切换到考勤管理页面
     if (m_attendanceWidget) {
         contentStack->setCurrentWidget(m_attendanceWidget);
@@ -2245,6 +2267,8 @@ void ModernMainWindow::onLearningAnalysisClicked()
 
     resetAllSidebarButtons();
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+
+    ensureAnalyticsWidget();
 
     // 切换到数据分析报告页面
     if (m_dataAnalyticsWidget) {
@@ -2262,6 +2286,8 @@ void ModernMainWindow::onNewsTrackingClicked()
 
     resetAllSidebarButtons();
     newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+
+    ensureHotspotWidget();
 
     // 切换到时政新闻页面
     if (contentStack && m_hotspotWidget) {
