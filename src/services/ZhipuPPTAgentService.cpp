@@ -734,46 +734,101 @@ QString ZhipuPPTAgentService::sanitizeSvg(const QString &svgCode) const
                     R"(<svg xmlns="http://www.w3.org/2000/svg")");
     }
 
-    // 2. 移除 AI 常输出但 QSvgRenderer 不支持的 CSS 特性
-    //    移除 <style> 块中的 unsupported 属性
-    static const QRegularExpression styleBlockRe(R"(<style[\s\S]*?</style>)");
-    QRegularExpressionMatchIterator it = styleBlockRe.globalMatch(svg);
-    while (it.hasNext()) {
-        auto match = it.next();
-        QString styleBlock = match.captured(0);
-        QString cleaned = styleBlock;
-        // 移除 flex/grid/gap/pointer-events 等 Qt SVG 不支持的属性
-        static const QRegularExpression unsupportedPropRe(
-            R"([a-zA-Z-]+\s*:\s*[^;}]*(?:flex|grid|gap|pointer-events|cursor|filter|backdrop-filter|box-shadow|text-shadow|overflow|clip-path|mask|animation|transition|transform-origin|object-fit|opacity)[^;}]*;?)",
-            QRegularExpression::CaseInsensitiveOption);
-        cleaned.remove(unsupportedPropRe);
-        if (cleaned != styleBlock) {
-            svg.replace(match.capturedStart(), match.capturedLength(), cleaned);
-        }
-    }
+    // 2. 移除 <script> 标签
+    static const QRegularExpression scriptRe(R"(<script[\s\S]*?</script>)",
+                                              QRegularExpression::CaseInsensitiveOption);
+    svg.remove(scriptRe);
 
-    // 3. 移除内联样式中的 unsupported 属性
-    static const QRegularExpression inlineStyleRe("style=\\\"([^\\\"]*)\\\"");
-    it = inlineStyleRe.globalMatch(svg);
-    while (it.hasNext()) {
-        auto match = it.next();
-        QString styleVal = match.captured(1);
-        QString cleaned = styleVal;
-        static const QRegularExpression badInlinePropRe(
-            R"((?:flex|grid|gap|pointer-events|cursor|filter|backdrop-filter|box-shadow|text-shadow|overflow|clip-path|mask|animation|transition|transform-origin|object-fit)[^;]*;?)",
-            QRegularExpression::CaseInsensitiveOption);
-        cleaned.remove(badInlinePropRe);
-        if (cleaned != styleVal) {
-            svg.replace(match.capturedStart(), match.capturedLength(),
-                        QStringLiteral("style=\"%1\"").arg(cleaned));
-        }
-    }
+    // 3. 移除 <image> 标签引用外部资源（QSvgRenderer 无法加载外部图片）
+    static const QRegularExpression imageRe(R"(<image\b[^>]*(?:href|xlink:href)=[^>]*>(?:</image>)?)",
+                                             QRegularExpression::CaseInsensitiveOption);
+    svg.remove(imageRe);
 
     // 4. 移除 foreignObject（QSvgRenderer 不支持）
     static const QRegularExpression foreignRe(
         R"(<foreignObject[\s\S]*?</foreignObject>)",
         QRegularExpression::CaseInsensitiveOption);
     svg.remove(foreignRe);
+
+    // 5. 清理 <style> 块
+    static const QRegularExpression styleBlockRe(R"(<style[\s\S]*?</style>)");
+    QRegularExpressionMatchIterator it = styleBlockRe.globalMatch(svg);
+    // 收集替换对（从后向前替换，避免位移问题）
+    QVector<QPair<int, QPair<int, QString>>> replacements;
+    while (it.hasNext()) {
+        auto match = it.next();
+        QString styleBlock = match.captured(0);
+        QString cleaned = styleBlock;
+
+        // 5a. 移除 @keyframes 块
+        static const QRegularExpression keyframesRe(
+            R"(@keyframes\s+[\w-]+\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})",
+            QRegularExpression::CaseInsensitiveOption);
+        cleaned.remove(keyframesRe);
+
+        // 5b. 移除 @media 块
+        static const QRegularExpression mediaRe(
+            R"(@media\s+[^{]*\{[\s\S]*?\}\s*\})",
+            QRegularExpression::CaseInsensitiveOption);
+        cleaned.remove(mediaRe);
+
+        // 5c. 移除 @import
+        static const QRegularExpression importRe(
+            R"(@import\s+[^;]+;)",
+            QRegularExpression::CaseInsensitiveOption);
+        cleaned.remove(importRe);
+
+        // 5d. 移除 Qt SVG 不支持的 CSS 属性（保留 opacity，它是合法的）
+        static const QRegularExpression unsupportedPropRe(
+            R"([a-zA-Z-]+\s*:\s*[^;}]*(?:flex|grid|gap|pointer-events|cursor|backdrop-filter|box-shadow|text-shadow|overflow|clip-path|mask|animation|transition|transform-origin|object-fit|z-index|position\s*:\s*(?:absolute|relative|fixed))[^;}]*;?)",
+            QRegularExpression::CaseInsensitiveOption);
+        cleaned.remove(unsupportedPropRe);
+
+        if (cleaned != styleBlock) {
+            replacements.append({match.capturedStart(), {match.capturedLength(), cleaned}});
+        }
+    }
+    // 从后向前替换
+    for (int i = replacements.size() - 1; i >= 0; --i) {
+        svg.replace(replacements[i].first, replacements[i].second.first, replacements[i].second.second);
+    }
+
+    // 6. 移除内联样式中的不支持属性（保留 opacity）
+    static const QRegularExpression inlineStyleRe("style=\\\"([^\\\"]*)\\\"");
+    it = inlineStyleRe.globalMatch(svg);
+    replacements.clear();
+    while (it.hasNext()) {
+        auto match = it.next();
+        QString styleVal = match.captured(1);
+        QString cleaned = styleVal;
+        static const QRegularExpression badInlinePropRe(
+            R"((?:flex|grid|gap|pointer-events|cursor|backdrop-filter|box-shadow|text-shadow|overflow|clip-path|mask|animation|transition|transform-origin|object-fit|z-index|position\s*:\s*(?:absolute|relative|fixed))[^;]*;?)",
+            QRegularExpression::CaseInsensitiveOption);
+        cleaned.remove(badInlinePropRe);
+        // 处理 filter 属性（但保留 SVG 原生的 url(#...) 引用）
+        static const QRegularExpression cssFilterRe(
+            R"(filter\s*:\s*(?!url\()[^;]*;?)",
+            QRegularExpression::CaseInsensitiveOption);
+        cleaned.remove(cssFilterRe);
+        if (cleaned != styleVal) {
+            replacements.append({match.capturedStart(), {match.capturedLength(),
+                                 QStringLiteral("style=\"%1\"").arg(cleaned)}});
+        }
+    }
+    for (int i = replacements.size() - 1; i >= 0; --i) {
+        svg.replace(replacements[i].first, replacements[i].second.first, replacements[i].second.second);
+    }
+
+    // 7. ç§»é¤ HTML å®ä½å¼ç¨
+    svg.replace("&nbsp;", " ");
+    svg.replace("&mdash;", QString(QChar(0x2014)));
+    svg.replace("&ndash;", QString(QChar(0x2013)));
+    svg.replace("&ldquo;", QString(QChar(0x201C)));
+    svg.replace("&rdquo;", QString(QChar(0x201D)));
+    svg.replace("&lsquo;", QString(QChar(0x2018)));
+    svg.replace("&rsquo;", QString(QChar(0x2019)));
+    svg.replace("&hellip;", QString(QChar(0x2026)));
+    svg.replace("&bull;", QString(QChar(0x2022)));
 
     return svg;
 }
