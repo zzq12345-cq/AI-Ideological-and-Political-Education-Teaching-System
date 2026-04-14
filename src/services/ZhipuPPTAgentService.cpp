@@ -559,32 +559,9 @@ void ZhipuPPTAgentService::onPlanReplyFinished()
 
 void ZhipuPPTAgentService::startSvgGeneration()
 {
-    if (m_useLayoutDriven) {
-        // 本地布局驱动：直接拼装 SVG，不调 AI
-        qDebug() << "[PPTAgent] Using layout-driven SVG generation (local)";
-        for (int i = 0; i < m_totalPages; ++i) {
-            if (m_cancelled) return;
-
-            QJsonObject pageLayout = m_pageLayouts[i].toObject();
-            QString svgCode = buildSvgFromLayout(pageLayout, i);
-            QImage preview = renderSvgToImage(svgCode);
-
-            m_svgCodes.append(svgCode);
-            m_previewImages.append(preview);
-            emit slideGenerated(i, svgCode, preview);
-
-            int progress = 60 + (i * 40 / m_totalPages);
-            emit progressUpdated(progress, "阶段3/3: SVG 页面生成",
-                                 QString("第 %1/%2 页完成").arg(i + 1).arg(m_totalPages));
-        }
-        setState(State::Finished);
-        emit progressUpdated(100, "生成完成", QString("共生成 %1 页PPT").arg(m_svgCodes.size()));
-        emit allSlidesGenerated(m_svgCodes, m_previewImages);
-    } else {
-        // 回退：走 AI SVG 生成
-        qDebug() << "[PPTAgent] Using AI-driven SVG generation (fallback)";
-        generateNextSvg();
-    }
+    // 始终使用 glm-5v-turbo 逐页 AI 生成 SVG
+    qDebug() << "[PPTAgent] Using AI-driven SVG generation (glm-5v-turbo)";
+    generateNextSvg();
 }
 
 void ZhipuPPTAgentService::generateNextSvg()
