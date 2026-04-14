@@ -121,7 +121,9 @@ void AIQuestionGenWidget::setupUI()
     barLayout->setSpacing(12);
 
     // 新对话按钮
-    m_newChatBtn = new QPushButton("🔄 新对话");
+    m_newChatBtn = new QPushButton(" 新对话");
+    m_newChatBtn->setIcon(QIcon(":/icons/resources/icons/refresh.svg"));
+    m_newChatBtn->setIconSize(QSize(18, 18));
     m_newChatBtn->setStyleSheet(QString(
         "QPushButton {"
         "    background-color: transparent;"
@@ -142,7 +144,9 @@ void AIQuestionGenWidget::setupUI()
     barLayout->addStretch();
 
     // 导出试卷按钮
-    m_exportBtn = new QPushButton("📥 导出试卷");
+    m_exportBtn = new QPushButton(" 导出试卷");
+    m_exportBtn->setIcon(QIcon(":/icons/resources/icons/export-white.svg"));
+    m_exportBtn->setIconSize(QSize(18, 18));
     m_exportBtn->setStyleSheet(QString(
         "QPushButton {"
         "    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
@@ -174,7 +178,9 @@ void AIQuestionGenWidget::setupUI()
     barLayout->addWidget(m_exportBtn);
 
     // 保存到题库按钮
-    m_saveBtn = new QPushButton("💾 保存到题库");
+    m_saveBtn = new QPushButton(" 保存到题库");
+    m_saveBtn->setIcon(QIcon(":/icons/resources/icons/save-white.svg"));
+    m_saveBtn->setIconSize(QSize(18, 18));
     m_saveBtn->setStyleSheet(QString(
         "QPushButton {"
         "    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
