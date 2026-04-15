@@ -9,9 +9,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QPropertyAnimation>
-#include <QPointer>
 #include <QTextDocument>
-#include <QTimer>
 #include <memory>
 
 // 前向声明
@@ -87,21 +85,6 @@ public:
     void setInputEnabled(bool enabled);
 
     /**
-     * @brief 添加一组快捷回复按钮
-     */
-    void addQuickReplyOptions(const QStringList &options);
-
-    /**
-     * @brief 显示 AI 正在思考的动画指示器（三点脉冲）
-     */
-    void showTypingIndicator();
-
-    /**
-     * @brief 隐藏思考动画指示器
-     */
-    void hideTypingIndicator();
-
-    /**
      * @brief 获取输入框文本
      */
     QString inputText() const;
@@ -130,7 +113,6 @@ private:
     void setupUI();
     void setupStyles();
     QWidget* createMessageBubble(const QString &text, bool isUser);
-    void deactivateActiveQuickReplies();
     void scrollToBottom();
 
     // Markdown渲染相关
@@ -156,14 +138,7 @@ private:
 
     // Markdown渲染开关
     bool m_markdownEnabled;
-
-    // AI 思考动画指示器
-    QWidget *m_typingIndicator;
-    QTimer *m_typingAnimTimer;
-    QList<QLabel*> m_typingDots;
-    int m_typingAnimStep;
-    QPointer<QWidget> m_activeQuickReplyWidget;
-
+    
     // 样式常量
     static const QString USER_BUBBLE_COLOR;
     static const QString AI_BUBBLE_COLOR;

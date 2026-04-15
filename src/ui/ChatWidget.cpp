@@ -1,7 +1,6 @@
 #include "ChatWidget.h"
 #include "../shared/StyleConfig.h"
 #include "../utils/MarkdownRenderer.h"
-#include "../utils/LayoutUtils.h"
 #include <QScrollBar>
 #include <QTimer>
 #include <QGraphicsDropShadowEffect>
@@ -11,8 +10,6 @@
 #include <QApplication>
 #include <QFile>
 #include <QDebug>
-#include <QFontMetrics>
-#include <QGridLayout>
 
 const QString ChatWidget::USER_BUBBLE_COLOR = StyleConfig::PATRIOTIC_RED_DARK;
 const QString ChatWidget::AI_BUBBLE_COLOR = StyleConfig::BG_CARD;
@@ -31,10 +28,7 @@ ChatWidget::ChatWidget(QWidget *parent)
     , m_lastAIThinkingLabel(nullptr)
     , m_lastAIThinkingToggle(nullptr)
     , m_markdownRenderer(nullptr)
-    , m_markdownEnabled(true)
-    , m_typingIndicator(nullptr)
-    , m_typingAnimTimer(nullptr)
-    , m_typingAnimStep(0)
+    , m_markdownEnabled(true)  // 默认启用Markdown
 {
     // 初始化Markdown渲染器
     m_markdownRenderer = std::make_unique<MarkdownRenderer>();
@@ -411,12 +405,6 @@ void ChatWidget::updateLastAIMessage(const QString &text)
     qDebug() << "[ChatWidget] updateLastAIMessage called with text length:" << text.length();
     qDebug() << "[ChatWidget] m_lastAIMessageLabel is null?" << (m_lastAIMessageLabel == nullptr);
 
-    if (!m_lastAIMessageLabel && !text.trimmed().isEmpty()) {
-        hideTypingIndicator();
-        addMessage(text, false);
-        return;
-    }
-
     if (m_lastAIMessageLabel) {
         m_lastAIMessageLabel->setTextFormat(m_markdownEnabled ? Qt::RichText : Qt::PlainText);
         QString currentText = m_lastAIMessageLabel->text();
@@ -486,10 +474,14 @@ void ChatWidget::expandThinking()
 
 void ChatWidget::clearMessages()
 {
-    hideTypingIndicator();
-
     // 清除所有消息组件
-    LayoutUtils::clearLayout(m_messageLayout);
+    while (m_messageLayout->count() > 0) {
+        QLayoutItem *item = m_messageLayout->takeAt(0);
+        if (item->widget()) {
+            delete item->widget();
+        }
+        delete item;
+    }
     
     // 重新添加弹簧
     m_messageLayout->addStretch();
@@ -498,133 +490,6 @@ void ChatWidget::clearMessages()
     m_lastAIThinkingWidget = nullptr;
     m_lastAIThinkingLabel = nullptr;
     m_lastAIThinkingToggle = nullptr;
-    m_activeQuickReplyWidget = nullptr;
-    m_typingDots.clear();
-}
-
-void ChatWidget::deactivateActiveQuickReplies()
-{
-    if (!m_activeQuickReplyWidget) {
-        return;
-    }
-
-    const QList<QPushButton *> buttons = m_activeQuickReplyWidget->findChildren<QPushButton *>();
-    for (QPushButton *button : buttons) {
-        button->setEnabled(false);
-        button->setCursor(Qt::ArrowCursor);
-    }
-
-    m_activeQuickReplyWidget = nullptr;
-}
-
-void ChatWidget::addQuickReplyOptions(const QStringList &options)
-{
-    if (!m_messageLayout || options.isEmpty()) {
-        return;
-    }
-
-    deactivateActiveQuickReplies();
-
-    if (m_messageLayout->count() > 0) {
-        QLayoutItem *stretch = m_messageLayout->takeAt(m_messageLayout->count() - 1);
-        if (stretch) {
-            delete stretch;
-        }
-    }
-
-    QWidget *rowWidget = new QWidget();
-    rowWidget->setAttribute(Qt::WA_TranslucentBackground);
-    rowWidget->setStyleSheet("background: transparent;");
-
-    QHBoxLayout *rowLayout = new QHBoxLayout(rowWidget);
-    rowLayout->setContentsMargins(0, 0, 0, 2);
-    rowLayout->setSpacing(14);
-    rowLayout->addSpacing(58);
-
-    QWidget *optionsWidget = new QWidget(rowWidget);
-    optionsWidget->setObjectName("quickReplyContainer");
-
-    int maxBubbleWidth = qMin(static_cast<int>(width() * 0.76), 720);
-    if (maxBubbleWidth < 320) {
-        maxBubbleWidth = 460;
-    }
-    optionsWidget->setMaximumWidth(maxBubbleWidth);
-
-    QGridLayout *gridLayout = new QGridLayout(optionsWidget);
-    gridLayout->setContentsMargins(0, 0, 0, 0);
-    gridLayout->setHorizontalSpacing(10);
-    gridLayout->setVerticalSpacing(10);
-
-    const QString buttonStyle = QStringLiteral(
-        "QPushButton {"
-        "  background-color: #FFFFFF;"
-        "  border: 1px solid #E5E7EB;"
-        "  border-radius: 18px;"
-        "  padding: 10px 16px;"
-        "  color: #1F2937;"
-        "  font-size: 14px;"
-        "  text-align: left;"
-        "}"
-        "QPushButton:hover {"
-        "  background-color: #FFF7F7;"
-        "  border-color: #E53935;"
-        "  color: #C62828;"
-        "}"
-        "QPushButton:disabled {"
-        "  background-color: #F3F4F6;"
-        "  border-color: #E5E7EB;"
-        "  color: #9CA3AF;"
-        "}"
-    );
-
-    QFont buttonFont = QApplication::font();
-    buttonFont.setPixelSize(14);
-
-    QFontMetrics buttonMetrics(buttonFont);
-    int widestOptionWidth = 0;
-    for (const QString &option : options) {
-        widestOptionWidth = qMax(
-            widestOptionWidth,
-            buttonMetrics.horizontalAdvance(option.trimmed()) + 32
-        );
-    }
-
-    const int estimatedTwoColumnWidth = widestOptionWidth * 2 + gridLayout->horizontalSpacing();
-    const int columnCount = (options.size() > 1 && estimatedTwoColumnWidth <= maxBubbleWidth) ? 2 : 1;
-
-    for (int index = 0; index < options.size(); ++index) {
-        const QString option = options.at(index).trimmed();
-        if (option.isEmpty()) {
-            continue;
-        }
-
-        QPushButton *optionButton = new QPushButton(option);
-        optionButton->setCursor(Qt::PointingHandCursor);
-        optionButton->setFont(buttonFont);
-        optionButton->setMinimumHeight(40);
-        optionButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-        optionButton->setStyleSheet(buttonStyle);
-        optionButton->setToolTip(option);
-
-        connect(optionButton, &QPushButton::clicked, this, [this, rowWidget, option]() {
-            m_activeQuickReplyWidget = rowWidget;
-            deactivateActiveQuickReplies();
-            emit messageSent(option);
-        });
-
-        const int row = index / columnCount;
-        const int column = index % columnCount;
-        gridLayout->addWidget(optionButton, row, column);
-    }
-
-    rowLayout->addWidget(optionsWidget);
-    rowLayout->addStretch();
-
-    m_messageLayout->addWidget(rowWidget);
-    m_messageLayout->addStretch();
-    m_activeQuickReplyWidget = rowWidget;
-
-    scrollToBottom();
 }
 
 void ChatWidget::setPlaceholderText(const QString &text)
@@ -671,8 +536,6 @@ void ChatWidget::onSendClicked()
         qDebug() << "[ChatWidget] Text is empty, not sending";
         return;
     }
-
-    deactivateActiveQuickReplies();
 
     qDebug() << "[ChatWidget] Emitting messageSent signal with text:" << text;
     emit messageSent(text);
@@ -721,121 +584,4 @@ QString ChatWidget::renderMessage(const QString &text, bool isUser)
         qDebug() << "[ChatWidget] Unknown Markdown rendering error";
         return text; // 渲染失败时返回纯文本
     }
-}
-
-void ChatWidget::showTypingIndicator()
-{
-    hideTypingIndicator();
-
-    // 开始新一轮 AI 回复时，清空上一条 AI 气泡/思考区域引用，
-    // 避免后续流式文本误写到更早的消息卡片上。
-    m_lastAIMessageLabel = nullptr;
-    m_lastAIThinkingWidget = nullptr;
-    m_lastAIThinkingLabel = nullptr;
-    m_lastAIThinkingToggle = nullptr;
-
-    // 创建指示器行（与 AI 消息气泡布局一致）
-    m_typingIndicator = new QWidget();
-    m_typingIndicator->setAttribute(Qt::WA_TranslucentBackground);
-    m_typingIndicator->setStyleSheet("background: transparent;");
-
-    QHBoxLayout *rowLayout = new QHBoxLayout(m_typingIndicator);
-    rowLayout->setContentsMargins(0, 4, 0, 4);
-    rowLayout->setSpacing(14);
-
-    // AI 头像（与 createMessageBubble 中的 AI 头像一致）
-    QLabel *avatarLabel = new QLabel();
-    avatarLabel->setFixedSize(44, 44);
-    avatarLabel->setAlignment(Qt::AlignCenter);
-    avatarLabel->setStyleSheet(
-        "QLabel {"
-        "   background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #D4A017, stop:1 #B8860B);"
-        "   border-radius: 22px;"
-        "   color: #ffffff;"
-        "   font-size: 13px;"
-        "   font-weight: 700;"
-        "   border: 2px solid rgba(255, 255, 255, 0.3);"
-        "}"
-    );
-    avatarLabel->setText("AI");
-
-    // 气泡容器
-    QWidget *bubbleWidget = new QWidget();
-    bubbleWidget->setObjectName("typingBubble");
-    bubbleWidget->setStyleSheet(
-        "QWidget#typingBubble {"
-        "   background-color: #FFFFFF;"
-        "   border: 1px solid #e5e7eb;"
-        "   border-radius: 18px;"
-        "   border-top-left-radius: 6px;"
-        "}"
-    );
-
-    QHBoxLayout *bubbleLayout = new QHBoxLayout(bubbleWidget);
-    bubbleLayout->setContentsMargins(20, 16, 20, 16);
-    bubbleLayout->setSpacing(8);
-
-    // 三个脉冲圆点
-    m_typingDots.clear();
-    for (int i = 0; i < 3; ++i) {
-        QLabel *dot = new QLabel("●");
-        dot->setFixedSize(16, 16);
-        dot->setAlignment(Qt::AlignCenter);
-        dot->setStyleSheet("QLabel { color: #D1D5DB; font-size: 12px; background: transparent; }");
-        m_typingDots.append(dot);
-        bubbleLayout->addWidget(dot);
-    }
-
-    rowLayout->addWidget(avatarLabel);
-    rowLayout->addWidget(bubbleWidget);
-    rowLayout->addStretch();
-
-    // 添加到消息布局
-    if (m_messageLayout->count() > 0) {
-        QLayoutItem *stretch = m_messageLayout->takeAt(m_messageLayout->count() - 1);
-        if (stretch) delete stretch;
-    }
-    m_messageLayout->addWidget(m_typingIndicator);
-    m_messageLayout->addStretch();
-
-    // 启动脉冲动画
-    m_typingAnimStep = 0;
-    m_typingAnimTimer = new QTimer(this);
-    connect(m_typingAnimTimer, &QTimer::timeout, this, [this]() {
-        if (m_typingDots.isEmpty()) return;
-
-        // 所有点先恢复浅色
-        for (QLabel *dot : m_typingDots) {
-            dot->setStyleSheet("QLabel { color: #D1D5DB; font-size: 12px; background: transparent; }");
-        }
-        // 当前活跃点高亮为思政红
-        int activeIdx = m_typingAnimStep % 3;
-        m_typingDots[activeIdx]->setStyleSheet(
-            "QLabel { color: #E53935; font-size: 12px; background: transparent; }"
-        );
-        m_typingAnimStep++;
-    });
-    m_typingAnimTimer->start(350);
-
-    scrollToBottom();
-    qDebug() << "[ChatWidget] Typing indicator shown";
-}
-
-void ChatWidget::hideTypingIndicator()
-{
-    if (m_typingAnimTimer) {
-        m_typingAnimTimer->stop();
-        m_typingAnimTimer->deleteLater();
-        m_typingAnimTimer = nullptr;
-    }
-
-    if (m_typingIndicator) {
-        m_messageLayout->removeWidget(m_typingIndicator);
-        m_typingIndicator->deleteLater();
-        m_typingIndicator = nullptr;
-    }
-
-    m_typingDots.clear();
-    m_typingAnimStep = 0;
-    qDebug() << "[ChatWidget] Typing indicator hidden";
 }

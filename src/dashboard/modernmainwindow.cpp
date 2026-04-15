@@ -2,12 +2,10 @@
 #include "../shared/StyleConfig.h"
 #include "../auth/login/simpleloginwindow.h"
 #include "../ui/aipreparationwidget.h"
-#include "../ui/pptpreviewpage.h"
-
+#include "../questionbank/QuestionRepository.h"
 #include "../questionbank/questionbankwindow.h"
 #include "../services/DifyService.h"
 #include "../services/PPTXGenerator.h"
-#include "../services/ZhipuPPTAgentService.h"
 #include "../ui/AIChatDialog.h"
 #include "../ui/ChatWidget.h"
 #include "../ui/ChatHistoryWidget.h"
@@ -17,9 +15,6 @@
 #include "../settings/UserSettingsDialog.h"
 #include "../settings/UserSettingsManager.h"
 #include "../analytics/DataAnalyticsWidget.h"
-#include "../analytics/ui/AnalyticsNavigationBar.h"
-#include "../analytics/ui/PersonalAnalyticsPage.h"
-#include "../analytics/ui/ClassAnalyticsPage.h"
 #include "../notifications/NotificationService.h"
 #include "../notifications/ui/NotificationWidget.h"
 #include "../notifications/ui/NotificationBadge.h"
@@ -27,16 +22,10 @@
 #include "../attendance/services/AttendanceService.h"
 #include "../ui/LessonPlanEditor.h"
 #include "../config/embedded_keys.h"
-#include "../config/AppConfig.h"
 #include <QApplication>
 #include <QMessageBox>
 #include <QFile>
-#include <QDir>
 #include <QRegularExpression>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QSettings>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QGridLayout>
@@ -66,10 +55,7 @@
 #include <QSharedPointer>
 #include <QDialog>
 #include <QFileDialog>
-#include <QFileInfo>
-#include <QStandardPaths>
 #include <QEvent>
-#include <algorithm>
 #include <QMouseEvent>
 #include <QPropertyAnimation>
 #include <QEasingCurve>
@@ -143,73 +129,6 @@ const int CARD_CORNER_RADIUS = StyleConfig::RADIUS_L;
 const int CARD_PADDING_PX = 24;
 const QString PATRIOTIC_RED_DEEP_TONE = StyleConfig::PATRIOTIC_RED_DARK;
 const QString CULTURE_GOLD = StyleConfig::GOLD_ACCENT;
-
-QString findBundledDemoPPTPath()
-{
-    const QString appPath = QCoreApplication::applicationDirPath();
-    const QStringList pptCandidatePaths = {
-        QDir::cleanPath(appPath + "/../Resources/ppt/爱国主义精神传承.pptx"),
-        QDir::cleanPath(appPath + "/ppt/爱国主义精神传承.pptx"),
-        QDir::cleanPath(appPath + "/resources/ppt/爱国主义精神传承.pptx"),
-        QDir::cleanPath(appPath + "/../resources/ppt/爱国主义精神传承.pptx")
-    };
-
-    for (const QString &candidatePath : pptCandidatePaths) {
-        if (QFile::exists(candidatePath)) {
-            return candidatePath;
-        }
-    }
-
-    return QString();
-}
-
-struct PPTQuestionConfig
-{
-    QString question;
-    QStringList options;
-};
-
-QList<PPTQuestionConfig> buildPPTQuestionFlow()
-{
-    return {
-        {
-            QStringLiteral("第1问：这次课件更偏向什么授课场景？"),
-            {
-                QStringLiteral("新授课导入"),
-                QStringLiteral("课堂讲授"),
-                QStringLiteral("公开课展示"),
-                QStringLiteral("复习总结")
-            }
-        },
-        {
-            QStringLiteral("第2问：你希望整体表达风格更接近哪一种？"),
-            {
-                QStringLiteral("严谨知识型"),
-                QStringLiteral("启发互动型"),
-                QStringLiteral("故事表达型"),
-                QStringLiteral("青年化表达")
-            }
-        },
-        {
-            QStringLiteral("第3问：这份 PPT 你更想突出哪一类内容？"),
-            {
-                QStringLiteral("知识梳理"),
-                QStringLiteral("案例分析"),
-                QStringLiteral("金句提炼"),
-                QStringLiteral("课堂讨论")
-            }
-        },
-        {
-            QStringLiteral("第4问：最后确认一下，你更偏好哪种呈现节奏？"),
-            {
-                QStringLiteral("简洁精炼"),
-                QStringLiteral("标准教学节奏"),
-                QStringLiteral("内容丰富一些"),
-                QStringLiteral("更适合展示")
-            }
-        }
-    };
-}
 
 QString buildCardStyle(const QString &selector)
 {
@@ -307,10 +226,6 @@ public:
         button->setCursor(Qt::PointingHandCursor);
         button->setProperty("cardState", "base");
 
-        // 在构造时记录原始位置，避免动画期间 Enter 事件覆盖导致漂移
-        basePos = button->pos();
-        basePosInitialized = true;
-
         shadowEffect = qobject_cast<QGraphicsDropShadowEffect *>(button->graphicsEffect());
         if (!shadowEffect) {
             shadowEffect = new QGraphicsDropShadowEffect(button);
@@ -361,11 +276,7 @@ protected:
         switch (event->type()) {
         case QEvent::Enter:
             hovered = true;
-            // 不在 Enter 时覆盖 basePos，避免动画中间态被当作基准
-            if (!basePosInitialized) {
-                basePos = button->pos();
-                basePosInitialized = true;
-            }
+            basePos = button->pos();
             animateToState();
             updateVisualState();
             break;
@@ -376,8 +287,7 @@ protected:
             updateVisualState();
             break;
         case QEvent::Move:
-            // 仅在非 hovered 且动画未运行时更新基准位置
-            if (!hovered && liftAnimation->state() != QAbstractAnimation::Running) {
+            if (!hovered) {
                 basePos = button->pos();
             }
             break;
@@ -464,7 +374,6 @@ private:
     QVariantAnimation *yOffsetAnimation = nullptr;
     QVariantAnimation *shadowColorAnimation = nullptr;
     QPoint basePos;
-    bool basePosInitialized = false;
     qreal baseBlur = 18.0;
     qreal baseYOffset = 6.0;
     QColor baseShadowColor = QColor(15, 23, 42, 35);
@@ -716,10 +625,6 @@ public:
         card->installEventFilter(this);
         card->setProperty("cardState", "base");
 
-        // 在构造时记录原始位置，避免动画期间 Enter 事件覆盖导致漂移
-        basePos = card->pos();
-        frameBasePosInitialized = true;
-
         shadowEffect = qobject_cast<QGraphicsDropShadowEffect *>(card->graphicsEffect());
         if (!shadowEffect) {
             shadowEffect = new QGraphicsDropShadowEffect(card);
@@ -770,11 +675,7 @@ protected:
         switch (event->type()) {
         case QEvent::Enter:
             hovered = true;
-            // 不在 Enter 时覆盖 basePos，避免动画中间态被当作基准
-            if (!frameBasePosInitialized) {
-                basePos = card->pos();
-                frameBasePosInitialized = true;
-            }
+            basePos = card->pos();
             animateState();
             updateVisualState();
             break;
@@ -784,8 +685,7 @@ protected:
             updateVisualState();
             break;
         case QEvent::Move:
-            // 仅在非 hovered 且动画未运行时更新基准位置
-            if (!hovered && liftAnimation->state() != QAbstractAnimation::Running) {
+            if (!hovered) {
                 basePos = card->pos();
             }
             break;
@@ -847,7 +747,6 @@ private:
     QVariantAnimation *yOffsetAnimation = nullptr;
     QVariantAnimation *shadowColorAnimation = nullptr;
     QPoint basePos;
-    bool frameBasePosInitialized = false;
     qreal baseBlur = 20.0;
     qreal baseYOffset = 8.0;
     QColor baseShadowColor = QColor(15, 23, 42, 30);
@@ -856,34 +755,43 @@ private:
 };
 }
 
-ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &username, const QString &userId, QWidget *parent)
+ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &username, QWidget *parent)
     : QMainWindow(parent)
     , currentUserRole(userRole)
     , currentUsername(username)
-    , currentUserId(userId)
 {
     qDebug() << "=== ModernMainWindow 构造函数开始 ===";
-    qDebug() << "用户角色:" << userRole << "用户名:" << username << "用户ID:" << userId;
+    qDebug() << "用户角色:" << userRole << "用户名:" << username;
 
     setWindowTitle("思政智慧课堂 - 教师中心");
     setMinimumSize(1400, 900);
     resize(1600, 1000);
 
+    // 初始化试题库数据仓库
+    questionRepository = new QuestionRepository(this);
+    questionRepository->loadQuestions("resources/data/questions.json");
+
     // 初始化 Dify AI 服务
     m_difyService = new DifyService(this);
-
-    // 绑定真实用户 ID 到 Dify 服务
-    if (!userId.isEmpty()) {
-        m_difyService->setUserId(userId);
-    }
     
     // 初始化 PPTX 生成器
     m_pptxGenerator = new PPTXGenerator(this);
 
-    // 初始化真实 PPT Agent 服务
-    m_pptAgentService = new ZhipuPPTAgentService(this);
-    
-    // API Key 获取优先级：环境变量 > 本地配置文件 > 内嵌Key
+    // 初始化 PPT 模拟生成定时器
+    m_pptSimulationTimer = new QTimer(this);
+    m_pptSimulationTimer->setSingleShot(false);
+    m_pptSimulationStep = 0;
+    m_pptQuestionStep = 0;  // 0=未开始问答
+    m_pendingPPTPath = "";
+    connect(m_pptSimulationTimer, &QTimer::timeout, this, &ModernMainWindow::onPPTSimulationStep);
+
+    // 初始化打字效果定时器
+    m_pptTypingTimer = new QTimer(this);
+    m_pptTypingTimer->setSingleShot(false);
+    m_pptTypingIndex = 0;
+    connect(m_pptTypingTimer, &QTimer::timeout, this, &ModernMainWindow::onPPTTypingStep);
+
+    // 初始化流式更新节流定时器（每100ms最多更新一次UI）
     m_streamUpdateTimer = new QTimer(this);
     m_streamUpdateTimer->setSingleShot(true);
     m_streamUpdatePending = false;
@@ -899,47 +807,41 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
         }
     });
 
-    // API Key 获取：环境变量 > 随包 config.env > .env.local
-    QString difyApiKey = AppConfig::get("DIFY_API_KEY");
-    if (!difyApiKey.isEmpty()) {
-        qDebug() << "[Info] Dify API Key loaded.";
-    }
+    // API Key 获取优先级：环境变量 > 本地配置文件 > 内嵌Key
+    QString apiKey = qgetenv("DIFY_API_KEY");
 
-    QString zhipuApiKey = AppConfig::get("ZHIPU_API_KEY", EmbeddedKeys::ZHIPU_API_KEY);
-    if (!zhipuApiKey.isEmpty()) {
-        qDebug() << "[Info] Zhipu API Key loaded.";
-    }
-
-    QString zhipuBaseUrl = AppConfig::get("ZHIPU_BASE_URL", EmbeddedKeys::ZHIPU_BASE_URL);
-    if (zhipuBaseUrl.isEmpty()) {
-        zhipuBaseUrl = QStringLiteral("https://open.bigmodel.cn/api/coding/paas/v4");
-    }
-
-    const bool hasDifyApiKey = !difyApiKey.isEmpty();
-    if (hasDifyApiKey) {
-        m_difyService->setApiKey(difyApiKey);
-    } else {
-        qDebug() << "[Warning] No Dify API Key found. Chat features will be disabled.";
-        qDebug() << "[Info] Create .env.local file with: DIFY_API_KEY=your-key";
-    }
-
-    const bool hasZhipuApiKey = !zhipuApiKey.isEmpty();
-    if (hasZhipuApiKey) {
-        m_pptAgentService->setApiKey(zhipuApiKey);
-        if (!zhipuBaseUrl.isEmpty()) {
-            m_pptAgentService->setBaseUrl(zhipuBaseUrl);
+    if (apiKey.isEmpty()) {
+        // 尝试从本地配置文件读取（此文件不提交到 Git）
+        // macOS: .app/Contents/MacOS/ -> 需要往上 4 级到项目根目录
+        QString configPath = QCoreApplication::applicationDirPath() + "/../../../../.env.local";
+        QFile envFile(configPath);
+        if (envFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            while (!envFile.atEnd()) {
+                QString line = QString::fromUtf8(envFile.readLine()).trimmed();
+                if (line.startsWith("DIFY_API_KEY=")) {
+                    apiKey = line.mid(13);  // 跳过 "DIFY_API_KEY="
+                    qDebug() << "[Info] Dify API Key loaded from .env.local";
+                    break;
+                }
+            }
+            envFile.close();
         }
     } else {
-        qDebug() << "[Warning] No Zhipu API Key found. PPT generation will be disabled.";
-        qDebug() << "[Info] Create .env.local file with: ZHIPU_API_KEY=your-key";
+        qDebug() << "[Info] Dify API Key loaded from environment variable.";
     }
 
-    m_analyticsDifyService = new DifyService(this);
-    if (hasDifyApiKey) {
-        m_analyticsDifyService->setApiKey(difyApiKey);
+    // 如果仍为空，使用内嵌的 API Key（发布版本用）
+    if (apiKey.isEmpty() && strlen(EmbeddedKeys::DIFY_API_KEY) > 0) {
+        apiKey = QString::fromUtf8(EmbeddedKeys::DIFY_API_KEY);
+        qDebug() << "[Info] Dify API Key loaded from embedded keys.";
     }
-    if (!currentUserId.isEmpty()) {
-        m_analyticsDifyService->setUserId(currentUserId + "_analytics");
+
+    const bool hasApiKey = !apiKey.isEmpty();
+    if (hasApiKey) {
+        m_difyService->setApiKey(apiKey);
+    } else {
+        qDebug() << "[Warning] No API Key found. AI features will be disabled.";
+        qDebug() << "[Info] Create .env.local file with: DIFY_API_KEY=your-key";
     }
 
     // 不再使用独立的 AI 对话框，直接在主页面显示
@@ -953,39 +855,6 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     connect(m_difyService, &DifyService::requestStarted, this, &ModernMainWindow::onAIRequestStarted);
     connect(m_difyService, &DifyService::requestFinished, this, &ModernMainWindow::onAIRequestFinished);
 
-    // ==================== PPT Agent 信号连接 ====================
-    connect(m_pptAgentService, &ZhipuPPTAgentService::progressUpdated,
-            this, [this](int percent, const QString &stage, const QString &detail) {
-        if (m_bubbleChatWidget) {
-            QString msg = QString("好的，我来帮您生成关于「%1」的课件...\n\n"
-                                  "阶段%2: %3 (%4%)\n\n"
-                                  "正在%5...")
-                              .arg(m_pptTopic)
-                              .arg(stage.contains("大纲") ? "1/3" : (stage.contains("策划") ? "2/3" : "3/3"))
-                              .arg(stage)
-                              .arg(percent)
-                              .arg(detail);
-            m_bubbleChatWidget->updateLastAIMessage(msg);
-        }
-    });
-
-    connect(m_pptAgentService, &ZhipuPPTAgentService::errorOccurred,
-            this, [this](const QString &error) {
-        // "Operation canceled" 类错误已经在 Agent 内部静默返回，此处不予提示
-        if (error.contains("canceled", Qt::CaseInsensitive) || error.contains("被中止")) {
-            return;
-        }
-        if (m_bubbleChatWidget) {
-            m_bubbleChatWidget->updateLastAIMessage(
-                QString("抱歉，PPT 生成失败：%1\n\n请稍后重试。").arg(error));
-        }
-    });
-
-    connect(m_pptAgentService, &ZhipuPPTAgentService::allSlidesGenerated,
-            this, [this](const QStringList &svgCodes, const QVector<QImage> &previews) {
-        handleChatPPTComplete(svgCodes, previews);
-    });
-
     // 初始化通知服务
     m_notificationService = new NotificationService(this);
     // TODO: 从登录状态获取用户ID，暂时用用户名模拟
@@ -996,15 +865,7 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     initUI();
     setupMenuBar();
     setupStatusBar();
-    loadDeletedHistoryIds();
-    loadHistoryEntries();
     setupCentralWidget();
-    QTimer::singleShot(0, this, [this]() {
-        if (m_notificationService) {
-            m_notificationService->fetchNotifications();
-        }
-    });
-
     setupStyles();
     applyPatrioticRedTheme();
 
@@ -1012,7 +873,7 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
     createDashboard();
     contentStack->setCurrentWidget(dashboardWidget);
 
-    if (!hasDifyApiKey) {
+    if (!hasApiKey) {
         QTimer::singleShot(0, this, [this]() {
             if (statusBar()) {
                 statusBar()->showMessage("未设置 DIFY_API_KEY：AI 功能暂不可用（可正常使用其他页面）", 8000);
@@ -1137,7 +998,6 @@ void ModernMainWindow::setupCentralWidget()
     // 底部按钮
     settingsBtn = new QPushButton("系统设置");
     helpBtn = new QPushButton("帮助中心");
-    logoutBtn = new QPushButton("退出登录");
 
     // 确保所有按钮都可见
     teacherCenterBtn->setVisible(true);
@@ -1147,7 +1007,7 @@ void ModernMainWindow::setupCentralWidget()
     attendanceBtn->setVisible(true);
     learningAnalysisBtn->setVisible(true);
     settingsBtn->setVisible(true);
-    logoutBtn->setVisible(true);
+    helpBtn->setVisible(true);
 
     applySidebarIcons();
 
@@ -1160,7 +1020,6 @@ void ModernMainWindow::setupCentralWidget()
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    logoutBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
     // 连接信号
     connect(teacherCenterBtn, &QPushButton::clicked, this, [=]() { qDebug() << "教师中心按钮被点击"; onTeacherCenterClicked(); });
@@ -1171,17 +1030,6 @@ void ModernMainWindow::setupCentralWidget()
     connect(learningAnalysisBtn, &QPushButton::clicked, this, [=]() { qDebug() << "学情与教评按钮被点击"; onLearningAnalysisClicked(); });
     connect(settingsBtn, &QPushButton::clicked, this, [=]() { qDebug() << "系统设置按钮被点击"; onSettingsClicked(); });
     connect(helpBtn, &QPushButton::clicked, this, [=]() { qDebug() << "帮助中心按钮被点击"; onHelpClicked(); });
-    connect(logoutBtn, &QPushButton::clicked, this, [this]() {
-        QMessageBox::StandardButton reply = QMessageBox::question(this, "退出登录",
-            "确定要退出当前账户吗？",
-            QMessageBox::Yes | QMessageBox::No);
-        if (reply == QMessageBox::Yes) {
-            SimpleLoginWindow *loginWindow = new SimpleLoginWindow();
-            loginWindow->show();
-            this->close();
-            this->deleteLater();
-        }
-    });
 
     // 调试按钮状态
     qDebug() << "=== 按钮状态检查 ===";
@@ -1201,7 +1049,7 @@ void ModernMainWindow::setupCentralWidget()
     sidebarLayout->addWidget(learningAnalysisBtn);
     sidebarLayout->addStretch();
     sidebarLayout->addWidget(settingsBtn);
-    sidebarLayout->addWidget(logoutBtn);
+    sidebarLayout->addWidget(helpBtn);
 
     // 创建侧边栏堆栈（用于在导航和历史记录之间切换）
     m_sidebarStack = new QStackedWidget();
@@ -1224,96 +1072,69 @@ void ModernMainWindow::setupCentralWidget()
     dashboardWidget = new QWidget();
     contentStack->addWidget(dashboardWidget);
 
-    m_pptPreviewPage = new PPTPreviewPage(this);
-    contentStack->addWidget(m_pptPreviewPage);
-    connect(m_pptPreviewPage, &PPTPreviewPage::backRequested,
-            this, &ModernMainWindow::onPPTPreviewBackRequested);
-    connect(m_pptPreviewPage, &PPTPreviewPage::downloadRequested,
-            this, &ModernMainWindow::onPPTPreviewDownloadRequested);
-    connect(m_pptPreviewPage, &PPTPreviewPage::modifySuggestionSubmitted,
-            this, &ModernMainWindow::onPPTModifySuggestion);
+    // 创建 AI 智能备课页面
+    aiPreparationWidget = new AIPreparationWidget();
+    contentStack->addWidget(aiPreparationWidget);
 
-    // 添加到主布局
-    contentLayout->addWidget(m_sidebarStack);  // 使用侧边栏堆栈
-    contentLayout->addWidget(contentStack);
-
-    mainLayout->addLayout(contentLayout);
-}
-
-void ModernMainWindow::ensureQuestionBankWindow()
-{
-    if (questionBankWindow || !contentStack) {
-        return;
-    }
-
-    qDebug() << "[ModernMainWindow] 按需初始化试题库页面";
+    // 创建试题库页面
     questionBankWindow = new QuestionBankWindow(this);
     contentStack->addWidget(questionBankWindow);
 
-    connect(questionBankWindow, &QuestionBankWindow::backRequested, this, [this]() {
-        if (contentStack && dashboardWidget) {
-            contentStack->setCurrentWidget(dashboardWidget);
-        }
-        if (m_sidebarStack) {
-            m_sidebarStack->setVisible(true);
-            m_sidebarStack->setCurrentIndex(0);
-        }
-        resetAllSidebarButtons();
-        if (teacherCenterBtn) {
-            teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-        }
-        if (m_mainStack && m_welcomePanel) {
-            m_mainStack->setCurrentWidget(m_welcomePanel);
-            if (m_welcomeInputWidget) {
-                m_welcomeInputWidget->show();
-            }
-        }
-        this->statusBar()->showMessage("教师中心");
-    });
-}
-
-void ModernMainWindow::ensureHotspotWidget()
-{
-    if (m_hotspotWidget || !contentStack) {
-        return;
+    // 创建时政新闻页面
+    m_hotspotService = new HotspotService(this);
+    RealNewsProvider *newsProvider = new RealNewsProvider(this);
+    // API Key 优先级：环境变量 > 内嵌Key
+    QString tianxingKey = qEnvironmentVariable("TIANXING_API_KEY");
+    if (tianxingKey.isEmpty() && strlen(EmbeddedKeys::TIANXING_API_KEY) > 0) {
+        tianxingKey = QString::fromUtf8(EmbeddedKeys::TIANXING_API_KEY);
     }
-
-    qDebug() << "[ModernMainWindow] 按需初始化时政新闻页面";
-
-    if (!m_hotspotService) {
-        m_hotspotService = new HotspotService(this);
-        auto *newsProvider = new RealNewsProvider(this);
-        const QString tianxingKey = AppConfig::get("TIANXING_API_KEY");
-        if (!tianxingKey.isEmpty()) {
-            newsProvider->setTianXingApiKey(tianxingKey);
-            qDebug() << "[ModernMainWindow] 天行数据 API Key 已配置";
-        } else {
-            qWarning() << "[ModernMainWindow] TIANXING_API_KEY 未设置，将使用 RSS 源（可能是旧数据）";
-        }
-        m_hotspotService->setNewsProvider(newsProvider);
+    if (!tianxingKey.isEmpty()) {
+        newsProvider->setTianXingApiKey(tianxingKey);
+        qDebug() << "[ModernMainWindow] 天行数据 API Key 已配置";
+    } else {
+        qWarning() << "[ModernMainWindow] TIANXING_API_KEY 未设置，将使用 RSS 源（可能是旧数据）";
     }
+    m_hotspotService->setNewsProvider(newsProvider);
 
     m_hotspotWidget = new HotspotTrackingWidget(this);
     m_hotspotWidget->setHotspotService(m_hotspotService);
     m_hotspotWidget->setDifyService(m_difyService);
     contentStack->addWidget(m_hotspotWidget);
 
+    // 创建数据分析报告页面
+    m_dataAnalyticsWidget = new DataAnalyticsWidget(this);
+    m_dataAnalyticsWidget->setDifyService(m_difyService);
+    contentStack->addWidget(m_dataAnalyticsWidget);
+
+    // 创建考勤管理页面
+    m_attendanceWidget = new AttendanceWidget(this);
+    auto *attendanceService = new AttendanceService(this);
+    attendanceService->setCurrentUserId("teacher_001");  // TODO: 使用实际登录用户ID
+    m_attendanceWidget->setAttendanceService(attendanceService);
+    contentStack->addWidget(m_attendanceWidget);
+
+    // 连接时政热点"生成案例"信号 - 自动切换到AI对话页面并发送请求
     connect(m_hotspotWidget, &HotspotTrackingWidget::teachingContentRequested, this, [this](const NewsItem &news) {
         qDebug() << "[ModernMainWindow] 收到生成教学案例请求:" << news.title;
 
+        // 1. 切换到AI对话页面
         if (contentStack && dashboardWidget) {
             contentStack->setCurrentWidget(dashboardWidget);
         }
         if (m_mainStack && m_chatContainer) {
             m_mainStack->setCurrentWidget(m_chatContainer);
-            setActiveHistoryType(AIHistoryType::CaseAnalysis);
             swapToHistorySidebar();
         }
 
-        resetAllSidebarButtons();
+        // 2. 更新侧边栏按钮状态
+        newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
         aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+        resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+        learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+        teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
-        const QString prompt = QString(
+        // 3. 构建教学案例生成提示并直接发送（不显示问候语）
+        QString prompt = QString(
             "请根据以下时政新闻，生成一份适合思政课堂使用的教学案例分析。\n\n"
             "【新闻标题】%1\n"
             "【新闻来源】%2\n"
@@ -1329,73 +1150,39 @@ void ModernMainWindow::ensureHotspotWidget()
             "引导学生进行深入思考的问题"
         ).arg(news.title, news.source, news.summary);
 
+        // 4. 在聊天界面显示用户的请求（简化版）
         if (m_bubbleChatWidget) {
-            const QString userMsg = QString("请根据新闻《%1》生成思政教学案例").arg(news.title);
+            QString userMsg = QString("请根据新闻《%1》生成思政教学案例").arg(news.title);
             m_bubbleChatWidget->addMessage(userMsg, true);
         }
 
+        // 5. 发送到Dify（直接发送，不需要问候语）
         if (m_difyService) {
-            m_pendingHistoryType = AIHistoryType::CaseAnalysis;
-            m_pendingHistoryTitle = QString("案例分析：%1").arg(news.title);
-            m_pendingCasePrompt = QString("请根据新闻《%1》生成思政教学案例").arg(news.title);
-            m_pendingAnalyticsContent.clear();
-            m_pendingLessonPlanContent.clear();
-            m_difyService->clearConversation();
             m_difyService->sendMessage(prompt);
         }
 
         this->statusBar()->showMessage("AI智能备课 - 正在生成教学案例...");
     });
-}
 
-void ModernMainWindow::ensureAnalyticsWidget()
-{
-    if (m_dataAnalyticsWidget || !contentStack) {
-        return;
-    }
-
-    qDebug() << "[ModernMainWindow] 按需初始化数据分析页面";
-    m_dataAnalyticsWidget = new DataAnalyticsWidget(this);
-    contentStack->addWidget(m_dataAnalyticsWidget);
-
-    if (m_analyticsDifyService) {
-        m_dataAnalyticsWidget->setDifyService(m_analyticsDifyService);
-    }
-
-    connect(m_dataAnalyticsWidget, &DataAnalyticsWidget::reportGenerationStarted, this, [this]() {
-        setActiveHistoryType(AIHistoryType::AnalyticsReport);
-        m_pendingHistoryType = AIHistoryType::AnalyticsReport;
-        m_pendingHistoryTitle = QStringLiteral("AI智能分析报告");
-        m_pendingAnalyticsContent.clear();
-        m_pendingCasePrompt.clear();
-        m_pendingLessonPlanContent.clear();
-        if (m_analyticsDifyService) {
-            m_analyticsDifyService->clearConversation();
+    // 连接试题库返回信号
+    connect(questionBankWindow, &QuestionBankWindow::backRequested, this, [this]() {
+        // 返回首页（教师中心）
+        if (contentStack && dashboardWidget) {
+            contentStack->setCurrentWidget(dashboardWidget);
+        }
+        if (m_sidebarStack) {
+            m_sidebarStack->setCurrentIndex(0);
+        }
+        if (teacherCenterBtn) {
+            teacherCenterBtn->setChecked(true);
         }
     });
-    connect(m_dataAnalyticsWidget, &DataAnalyticsWidget::reportGenerationFinished, this, [this](const QString &content) {
-        if (!m_analyticsDifyService) {
-            return;
-        }
-        const QString conversationId = m_analyticsDifyService->currentConversationId();
-        if (!conversationId.isEmpty()) {
-            recordAnalyticsHistory(conversationId, QStringLiteral("AI智能分析报告"), content);
-        }
-    });
-}
 
-void ModernMainWindow::ensureAttendanceWidget()
-{
-    if (m_attendanceWidget || !contentStack) {
-        return;
-    }
+    // 添加到主布局
+    contentLayout->addWidget(m_sidebarStack);  // 使用侧边栏堆栈
+    contentLayout->addWidget(contentStack);
 
-    qDebug() << "[ModernMainWindow] 按需初始化考勤管理页面";
-    m_attendanceWidget = new AttendanceWidget(this);
-    auto *attendanceService = new AttendanceService(this);
-    attendanceService->setCurrentUserId(currentUserId.isEmpty() ? currentUsername : currentUserId);
-    m_attendanceWidget->setAttendanceService(attendanceService);
-    contentStack->addWidget(m_attendanceWidget);
+    mainLayout->addLayout(contentLayout);
 }
 
 void ModernMainWindow::applySidebarIcons()
@@ -1414,9 +1201,8 @@ void ModernMainWindow::applySidebarIcons()
     setIcon(resourceManagementBtn, "folder", QStyle::SP_DirIcon);
     setIcon(attendanceBtn, "x-office-calendar", QStyle::SP_FileDialogListView);
     setIcon(learningAnalysisBtn, "view-list-details", QStyle::SP_FileDialogDetailedView);
-    settingsBtn->setIcon(QIcon(":/resources/icons/settings.svg"));
+    setIcon(settingsBtn, "settings-configure", QStyle::SP_FileDialogDetailedView);
     setIcon(helpBtn, "help-browser", QStyle::SP_MessageBoxQuestion);
-    logoutBtn->setIcon(QIcon(":/resources/icons/logout.svg"));
 }
 
 QIcon ModernMainWindow::loadSidebarIcon(const QString &themeName, QStyle::StandardPixmap fallback) const
@@ -1483,6 +1269,31 @@ void ModernMainWindow::createSidebarProfile()
     avatarLayout->addLayout(userInfoLayout);
     avatarLayout->addStretch();
 
+    // 个人信息设置按钮
+    QPushButton *profileSettingsBtn = new QPushButton();
+    profileSettingsBtn->setIcon(QIcon(":/icons/resources/icons/settings.svg"));
+    profileSettingsBtn->setIconSize(QSize(18, 18));
+    profileSettingsBtn->setFixedSize(32, 32);
+    profileSettingsBtn->setCursor(Qt::PointingHandCursor);
+    profileSettingsBtn->setToolTip("个人信息设置");
+    profileSettingsBtn->setStyleSheet(QString(
+        "QPushButton {"
+        "  background-color: transparent;"
+        "  border: none;"
+        "  border-radius: 16px;"
+        "}"
+        "QPushButton:hover {"
+        "  background-color: %1;"
+        "}"
+        "QPushButton:pressed {"
+        "  background-color: %2;"
+        "}"
+    ).arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED_TINT));
+    connect(profileSettingsBtn, &QPushButton::clicked, this, [this]() {
+        UserSettingsDialog dialog(this);
+        dialog.exec();
+    });
+    avatarLayout->addWidget(profileSettingsBtn);
 
     // 监听用户设置变化，更新头像和名称
     connect(UserSettingsManager::instance(), &UserSettingsManager::settingsChanged, this, [this]() {
@@ -1670,57 +1481,6 @@ void ModernMainWindow::createHeaderWidget()
     // Ctrl+K 快捷键
     auto ctrlKShortcut = new QShortcut(QKeySequence("Ctrl+K"), this);
     connect(ctrlKShortcut, &QShortcut::activated, this, [this](){ this->searchInput->setFocus(); this->searchInput->selectAll(); });
-
-    // 全局搜索：按回车时根据当前页面执行搜索
-    connect(searchInput, &QLineEdit::returnPressed, this, [this]() {
-        QString keyword = searchInput->text().trimmed();
-        if (keyword.isEmpty()) return;
-
-        // 全局搜索：暂时只打印日志
-        qDebug() << "[ModernMainWindow] 全局搜索，关键词:" << keyword;
-        this->statusBar()->showMessage(QString("搜索: %1（当前页面暂不支持搜索）").arg(keyword), 3000);
-    });
-
-    // Ctrl+1~6 切换侧边栏页面
-    // 按钮和对应点击槽函数的映射
-    struct PageMapping {
-        QString shortcutKey;
-        std::function<void()> action;
-    };
-    QVector<PageMapping> pageMappings = {
-        {"Ctrl+1", [this]() { onTeacherCenterClicked(); }},
-        {"Ctrl+2", [this]() { onNewsTrackingClicked(); }},
-        {"Ctrl+3", [this]() { onAIPreparationClicked(); }},
-        {"Ctrl+4", [this]() { onResourceManagementClicked(); }},
-        {"Ctrl+5", [this]() { onAttendanceClicked(); }},
-        {"Ctrl+6", [this]() { onLearningAnalysisClicked(); }},
-    };
-    for (const auto &mapping : pageMappings) {
-        auto *shortcut = new QShortcut(QKeySequence(mapping.shortcutKey), this);
-        auto action = mapping.action;
-        connect(shortcut, &QShortcut::activated, this, action);
-    }
-
-    // Ctrl+N 新建对话
-    auto *newChatShortcut = new QShortcut(QKeySequence("Ctrl+N"), this);
-    connect(newChatShortcut, &QShortcut::activated, this, [this]() {
-        // 复用 ChatHistoryWidget 的新建对话逻辑
-        if (m_chatHistoryWidget) {
-            emit m_chatHistoryWidget->newChatRequested();
-        }
-        // 确保切换到AI对话页面
-        onAIPreparationClicked();
-        qDebug() << "[ModernMainWindow] 快捷键 Ctrl+N - 新建对话";
-    });
-
-    // Escape 清空搜索框并取消焦点
-    auto *escShortcut = new QShortcut(QKeySequence("Escape"), this);
-    connect(escShortcut, &QShortcut::activated, this, [this]() {
-        if (searchInput->hasFocus()) {
-            searchInput->clear();
-            searchInput->clearFocus();
-        }
-    });
 }
 
 
@@ -2050,7 +1810,6 @@ void ModernMainWindow::createDashboard()
         // 切换到聊天页面
         m_isConversationStarted = true;
         m_mainStack->setCurrentWidget(m_chatContainer);
-        setActiveHistoryType(AIHistoryType::Chat);
         swapToHistorySidebar();  // 切换到历史记录侧边栏
         m_welcomeInputWidget->hide();
         
@@ -2093,7 +1852,7 @@ void ModernMainWindow::setupStyles()
     this->setStyleSheet(R"(
         QMainWindow {
             background: )" + WINDOW_BACKGROUND_GRADIENT + R"(;
-            font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Source Han Sans SC", "Helvetica Neue", Arial, sans-serif;
+            font-family: "PingFang SC", -apple-system, sans-serif;
         }
         QMenuBar {
             background-color: )" + CARD_WHITE + R"(;
@@ -2119,38 +1878,30 @@ void ModernMainWindow::setupStyles()
             border: none;
         }
         QScrollBar:vertical {
-            background: transparent;
-            width: 6px;
-            margin: 0;
+            background-color: #F0F0F0;
+            width: 8px;
+            border-radius: 4px;
         }
         QScrollBar::handle:vertical {
-            background-color: #D1D5DB;
-            border-radius: 3px;
-            min-height: 30px;
+            background-color: )" + SECONDARY_TEXT + R"(;
+            border-radius: 4px;
+            min-height: 20px;
         }
         QScrollBar::handle:vertical:hover {
-            background-color: #9CA3AF;
-        }
-        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
-        QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-            height: 0; background: transparent;
+            background-color: )" + PRIMARY_TEXT + R"(;
         }
         QScrollBar:horizontal {
-            background: transparent;
-            height: 6px;
-            margin: 0;
+            background-color: #F0F0F0;
+            height: 8px;
+            border-radius: 4px;
         }
         QScrollBar::handle:horizontal {
-            background-color: #D1D5DB;
-            border-radius: 3px;
-            min-width: 30px;
+            background-color: )" + SECONDARY_TEXT + R"(;
+            border-radius: 4px;
+            min-width: 20px;
         }
         QScrollBar::handle:horizontal:hover {
-            background-color: #9CA3AF;
-        }
-        QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal,
-        QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
-            width: 0; background: transparent;
+            background-color: )" + PRIMARY_TEXT + R"(;
         }
     )");
 }
@@ -2164,24 +1915,15 @@ void ModernMainWindow::applyPatrioticRedTheme()
     this->update();
 }
 
-void ModernMainWindow::resetAllSidebarButtons()
-{
-    // 统一重置所有侧边栏按钮为普通状态（带 null 检查防止构造阶段崩溃）
-    if (teacherCenterBtn) teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    if (newsTrackingBtn) newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    if (aiPreparationBtn) aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    if (resourceManagementBtn) resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    if (attendanceBtn) attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    if (learningAnalysisBtn) learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    if (settingsBtn) settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    if (helpBtn) helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    if (logoutBtn) logoutBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-}
-
 // 槽函数实现
 void ModernMainWindow::onTeacherCenterClicked()
 {
-    resetAllSidebarButtons();
+    // 重置所有按钮样式
+    newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
 
     contentStack->setCurrentWidget(dashboardWidget);
@@ -2203,8 +1945,13 @@ void ModernMainWindow::onAIPreparationClicked()
 {
     qDebug() << "AI智能备课按钮被点击";
 
-    resetAllSidebarButtons();
+    // 重置所有按钮样式
+    newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
     // 首先切换 contentStack 到 dashboardWidget（m_mainStack 在其中）
     if (contentStack && dashboardWidget) {
@@ -2215,10 +1962,6 @@ void ModernMainWindow::onAIPreparationClicked()
     qDebug() << "切换到AI对话页面";
     if (m_mainStack && m_chatContainer) {
         m_mainStack->setCurrentWidget(m_chatContainer);
-        const AIHistoryType type = (m_aiTabWidget && m_aiTabWidget->currentIndex() == 1)
-            ? AIHistoryType::LessonPlan
-            : AIHistoryType::Chat;
-        setActiveHistoryType(type);
         swapToHistorySidebar();  // 切换到历史记录侧边栏
     }
     this->statusBar()->showMessage("AI智能备课");
@@ -2228,19 +1971,18 @@ void ModernMainWindow::onResourceManagementClicked()
 {
     qDebug() << "试题库按钮被点击";
 
-    resetAllSidebarButtons();
+    // 重置所有按钮样式
+    newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-
-    ensureQuestionBankWindow();
+    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
     // 切换到试题库页面
     if (questionBankWindow) {
         qDebug() << "切换到试题库页面";
         contentStack->setCurrentWidget(questionBankWindow);
-        // 隐藏主侧边栏（试题库自带出题历史侧边栏）
-        if (m_sidebarStack) {
-            m_sidebarStack->setVisible(false);
-        }
         this->statusBar()->showMessage("试题库");
     } else {
         qDebug() << "错误：questionBankWindow为空";
@@ -2251,10 +1993,15 @@ void ModernMainWindow::onAttendanceClicked()
 {
     qDebug() << "切换到考勤管理页面";
 
-    resetAllSidebarButtons();
+    // 重置所有侧边栏按钮样式
+    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     attendanceBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-
-    ensureAttendanceWidget();
+    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
     // 切换到考勤管理页面
     if (m_attendanceWidget) {
@@ -2267,17 +2014,20 @@ void ModernMainWindow::onLearningAnalysisClicked()
 {
     qDebug() << "切换到数据分析报告页面";
 
-    resetAllSidebarButtons();
+    // 重置所有侧边栏按钮样式
+    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-
-    ensureAnalyticsWidget();
+    settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
     // 切换到数据分析报告页面
     if (m_dataAnalyticsWidget) {
         contentStack->setCurrentWidget(m_dataAnalyticsWidget);
-        setActiveHistoryType(AIHistoryType::AnalyticsReport);
         m_dataAnalyticsWidget->refresh();  // 刷新数据
-        refreshHistorySidebar();
         this->statusBar()->showMessage("数据分析报告");
     }
 }
@@ -2286,10 +2036,13 @@ void ModernMainWindow::onNewsTrackingClicked()
 {
     qDebug() << "切换到时政新闻页面";
 
-    resetAllSidebarButtons();
+    // 重置所有侧边栏按钮样式
+    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-
-    ensureHotspotWidget();
 
     // 切换到时政新闻页面
     if (contentStack && m_hotspotWidget) {
@@ -2583,7 +2336,29 @@ void ModernMainWindow::createAIChatWidget()
     
     // 连接历史记录侧边栏信号（m_chatHistoryWidget 已在 setupCentralWidget 中创建）
     connect(m_chatHistoryWidget, &ChatHistoryWidget::newChatRequested, this, [this]() {
-        resetConversationForType(m_activeHistoryType);
+        // 步骤 1: 如果当前有对话，先刷新历史列表（Dify 云端已自动保存）
+        if (m_isConversationStarted && m_difyService) {
+            // 请求刷新对话列表，让刚才的对话出现在历史记录中
+            m_difyService->fetchConversations();
+            qDebug() << "[ModernMainWindow] 新建对话 - 刷新历史记录列表";
+        }
+
+        // 步骤 2: 清空聊天并重置 Dify 会话
+        if (m_bubbleChatWidget) {
+            m_bubbleChatWidget->clearMessages();
+            m_bubbleChatWidget->addMessage("老师您好！我是智慧课堂助手，请问有什么可以帮你？", false);
+        }
+        if (m_difyService) {
+            m_difyService->clearConversation();
+        }
+
+        // 步骤 3: 清除选中状态
+        if (m_chatHistoryWidget) {
+            m_chatHistoryWidget->clearSelection();
+        }
+
+        // 步骤 4: 重置对话开始标志
+        m_isConversationStarted = false;
     });
     
     connect(m_chatHistoryWidget, &ChatHistoryWidget::backRequested, this, [this]() {
@@ -2597,93 +2372,70 @@ void ModernMainWindow::createAIChatWidget()
     });
     
     connect(m_chatHistoryWidget, &ChatHistoryWidget::historyItemSelected, this, [this](const QString &id) {
-        handleHistorySelection(id);
+        // 1. 确保主界面切换到 AI 对话容器
+        if (m_mainStack && m_mainStack->currentWidget() != m_chatContainer) {
+            m_mainStack->setCurrentWidget(m_chatContainer);
+            m_isConversationStarted = true;
+        }
+
+        // 2. 强制切换到 "AI对话" 标签页 (索引 0)
+        if (m_aiTabWidget) {
+            m_aiTabWidget->setCurrentIndex(0);
+        }
+
+        // 3. 加载选中对话的消息历史
+        if (m_difyService) {
+            m_difyService->fetchMessages(id);
+        }
     });
-    connect(m_chatHistoryWidget, &ChatHistoryWidget::historyDeleteRequested,
-            this, &ModernMainWindow::onHistoryDeleteRequested);
     
     // 连接对话列表接收信号
     connect(m_difyService, &DifyService::conversationsReceived, this, [this](const QJsonArray &conversations) {
+        if (!m_chatHistoryWidget) return;
+        
+        m_chatHistoryWidget->clearHistory();
+        
         for (const QJsonValue &val : conversations) {
             QJsonObject conv = val.toObject();
             QString id = conv["id"].toString();
-            if (id.isEmpty() || m_deletedHistoryIds.contains(id)) {
-                continue;
+            QString name = conv["name"].toString();
+            if (name.isEmpty()) {
+                // 如果没有名称，使用对话ID的前几个字符
+                name = QString("对话 %1").arg(id.left(8));
             }
-
-            AIHistoryEntry entry = m_historyEntries.value(id);
-            entry.conversationId = id;
-            if (entry.title.isEmpty()) {
-                QString name = conv["name"].toString();
-                entry.title = name.isEmpty() ? QString("对话 %1").arg(id.left(8)) : name;
-            }
-            if (entry.type == AIHistoryType::Chat && entry.title.isEmpty()) {
-                entry.title = QString("对话 %1").arg(id.left(8));
-            }
-
+            
+            // 获取更新时间并格式化
             qint64 updatedAt = conv["updated_at"].toVariant().toLongLong();
+            QString timeStr;
             if (updatedAt > 0) {
-                entry.updatedAt = QDateTime::fromSecsSinceEpoch(updatedAt);
-            } else if (!entry.updatedAt.isValid()) {
-                entry.updatedAt = QDateTime::currentDateTime();
+                QDateTime dt = QDateTime::fromSecsSinceEpoch(updatedAt);
+                timeStr = dt.toString("M月d日 HH:mm");
+            } else {
+                timeStr = "未知时间";
             }
-
-            if (entry.type != AIHistoryType::LessonPlan &&
-                entry.type != AIHistoryType::AnalyticsReport &&
-                entry.type != AIHistoryType::CaseAnalysis) {
-                // 尝试从标题推断类型（本地记录丢失后的恢复策略）
-                const QString title = entry.title;
-                if (title.startsWith(QStringLiteral("教案")) ||
-                    title.contains(QStringLiteral("# 教案生成任务"))) {
-                    entry.type = AIHistoryType::LessonPlan;
-                } else {
-                    entry.type = AIHistoryType::Chat;
-                }
-            }
-
-            m_historyEntries.insert(id, entry);
+            
+            m_chatHistoryWidget->addHistoryItem(id, name, timeStr);
         }
-
-        refreshHistorySidebar();
+        
         qDebug() << "[ModernMainWindow] Loaded" << conversations.size() << "conversations";
     });
     
-    connect(m_difyService, &DifyService::conversationCreated, this, [this](const QString &conversationId) {
-        AIHistoryEntry entry = m_historyEntries.value(conversationId);
-        entry.conversationId = conversationId;
-        entry.type = m_pendingHistoryType;
-        entry.title = m_pendingHistoryTitle.isEmpty()
-            ? historyHeaderTitle(m_pendingHistoryType)
-            : m_pendingHistoryTitle;
-        entry.updatedAt = QDateTime::currentDateTime();
-        entry.lessonContent = m_pendingLessonPlanContent;
-        entry.previewText = !m_pendingAnalyticsContent.isEmpty() ? m_pendingAnalyticsContent : m_pendingCasePrompt;
-        upsertHistoryEntry(entry);
-
-        if (entry.type == AIHistoryType::LessonPlan && m_lessonPlanEditor) {
-            m_lessonPlanEditor->setConversationId(conversationId);
-        }
-    });
-
     // 连接消息历史接收信号
     connect(m_difyService, &DifyService::messagesReceived, this, [this](const QJsonArray &messages, const QString &conversationId) {
-        const AIHistoryEntry entry = m_historyEntries.value(conversationId);
-        if ((entry.type != AIHistoryType::Chat && entry.type != AIHistoryType::CaseAnalysis) || !m_bubbleChatWidget) {
-            return;
-        }
-
+        if (!m_bubbleChatWidget) return;
+        
         m_bubbleChatWidget->clearMessages();
-
+        
         // 消息是按时间倒序的，需要反转
         QList<QJsonObject> msgList;
         for (const QJsonValue &val : messages) {
             msgList.prepend(val.toObject());
         }
-
+        
         for (const QJsonObject &msg : msgList) {
             QString query = msg["query"].toString();
             QString answer = msg["answer"].toString();
-
+            
             if (!query.isEmpty()) {
                 m_bubbleChatWidget->addMessage(query, true);  // 用户消息
             }
@@ -2691,7 +2443,7 @@ void ModernMainWindow::createAIChatWidget()
                 m_bubbleChatWidget->addMessage(answer, false);  // AI 消息
             }
         }
-
+        
         qDebug() << "[ModernMainWindow] Loaded" << messages.size() << "messages for conversation:" << conversationId;
     });
     
@@ -2742,63 +2494,13 @@ void ModernMainWindow::createAIChatWidget()
 
     // 标签页2: 教案编辑器 - 使用SVG图标
     m_lessonPlanEditor = new LessonPlanEditor();
-    m_lessonPlanEditor->setDifyService(m_difyService);
     m_aiTabWidget->addTab(m_lessonPlanEditor, QIcon(":/icons/resources/icons/document-edit.svg"), "教案编辑");
-
-    connect(m_aiTabWidget, &QTabWidget::currentChanged, this, [this](int index) {
-        if (index == 1) {
-            setActiveHistoryType(AIHistoryType::LessonPlan);
-            return;
-        }
-
-        if (m_activeHistoryType != AIHistoryType::CaseAnalysis) {
-            setActiveHistoryType(AIHistoryType::Chat);
-        }
-    });
 
     // 连接教案编辑器的保存信号
     connect(m_lessonPlanEditor, &LessonPlanEditor::saveRequested,
             this, [this](const QString &title, const QString &content) {
         qDebug() << "[ModernMainWindow] 教案已保存：" << title;
         // 可在此处理保存到数据库等逻辑
-        const QString conversationId = m_lessonPlanEditor ? m_lessonPlanEditor->conversationId() : QString();
-        if (!conversationId.isEmpty()) {
-            recordLessonPlanHistory(conversationId, title, content);
-        }
-    });
-
-    connect(m_lessonPlanEditor, &LessonPlanEditor::aiGenerationStarted, this, [this]() {
-        if (!m_difyService || !m_lessonPlanEditor) {
-            return;
-        }
-
-        setActiveHistoryType(AIHistoryType::LessonPlan);
-        if (m_aiTabWidget) {
-            m_aiTabWidget->setCurrentWidget(m_lessonPlanEditor);
-        }
-
-        const QString title = m_lessonPlanEditor->getCurrentLessonTitle();
-        m_pendingHistoryType = AIHistoryType::LessonPlan;
-        m_pendingHistoryTitle = title.isEmpty() ? QStringLiteral("教案编辑") : QStringLiteral("教案：") + title;
-        m_pendingLessonPlanContent.clear();
-        m_pendingAnalyticsContent.clear();
-        m_pendingCasePrompt.clear();
-        m_difyService->clearConversation();
-        m_lessonPlanEditor->setConversationId(QString());
-    });
-
-    connect(m_lessonPlanEditor, &LessonPlanEditor::aiGenerationFinished, this, [this]() {
-        if (!m_lessonPlanEditor) {
-            return;
-        }
-
-        const QString conversationId = m_lessonPlanEditor->conversationId();
-        if (!conversationId.isEmpty()) {
-            recordLessonPlanHistory(
-                conversationId,
-                m_lessonPlanEditor->getCurrentLessonTitle(),
-                m_lessonPlanEditor->getContent());
-        }
     });
 
     // 添加标签页容器到主布局
@@ -2834,14 +2536,26 @@ void ModernMainWindow::createAIChatWidget()
             // 显示用户消息
             m_bubbleChatWidget->addMessage(message, true);
 
-            if (m_isPptQuestionFlowActive) {
-                handlePPTQuestionAnswer(message);
+            // 如果正在 PPT 问答阶段或打字中，继续问答流程
+            if (m_pptQuestionStep > 0 && m_pptQuestionStep <= 5) {
+                // 如果还在打字中，忽略用户输入
+                if (m_pptTypingTimer->isActive()) {
+                    return;
+                }
+                // 如果已经进入生成阶段，忽略
+                if (m_pptQuestionStep == 5) {
+                    return;
+                }
+                handlePPTConversation(message);
                 return;
             }
 
-            // PPT 请求先走伪提问流程，不发给 Dify
+            // 检测是否是 PPT 生成请求
             if (isPPTGenerationRequest(message)) {
-                startPPTQuestionFlow(message);
+                // 开始问答流程
+                m_pptQuestionStep = 1;
+                m_pptUserAnswers.clear();
+                handlePPTConversation(message);
                 return;
             }
 
@@ -2850,417 +2564,10 @@ void ModernMainWindow::createAIChatWidget()
 
             // 直接发送到 Dify，使用 Dify 中配置的提示词
             if (m_difyService) {
-                m_pendingHistoryType = AIHistoryType::Chat;
-                m_pendingHistoryTitle = message.left(24);
-                m_pendingLessonPlanContent.clear();
-                m_pendingAnalyticsContent.clear();
-                m_pendingCasePrompt.clear();
                 m_difyService->sendMessage(message);
             }
         });
     }
-}
-
-QString ModernMainWindow::historyHeaderTitle(AIHistoryType type) const
-{
-    switch (type) {
-    case AIHistoryType::Chat:
-        return QStringLiteral("对话历史");
-    case AIHistoryType::LessonPlan:
-        return QStringLiteral("教案历史");
-    case AIHistoryType::AnalyticsReport:
-        return QStringLiteral("分析报告历史");
-    case AIHistoryType::CaseAnalysis:
-        return QStringLiteral("案例分析历史");
-    }
-
-    return QStringLiteral("历史记录");
-}
-
-QString ModernMainWindow::historyNewButtonText(AIHistoryType type) const
-{
-    switch (type) {
-    case AIHistoryType::Chat:
-        return QStringLiteral("➕  新建对话");
-    case AIHistoryType::LessonPlan:
-        return QStringLiteral("➕  新建教案会话");
-    case AIHistoryType::AnalyticsReport:
-        return QStringLiteral("➕  新建分析报告");
-    case AIHistoryType::CaseAnalysis:
-        return QStringLiteral("➕  新建案例分析");
-    }
-
-    return QStringLiteral("➕  新建记录");
-}
-
-QString ModernMainWindow::formatHistoryTime(const QDateTime &time) const
-{
-    if (!time.isValid()) {
-        return QStringLiteral("未知时间");
-    }
-    return time.toString("M月d日 HH:mm");
-}
-
-void ModernMainWindow::refreshHistorySidebar()
-{
-    if (!m_chatHistoryWidget) {
-        return;
-    }
-
-    m_chatHistoryWidget->setHeaderTitle(historyHeaderTitle(m_activeHistoryType));
-    m_chatHistoryWidget->setNewButtonText(historyNewButtonText(m_activeHistoryType));
-    m_chatHistoryWidget->clearHistory();
-
-    QList<AIHistoryEntry> entries;
-    for (auto it = m_historyEntries.cbegin(); it != m_historyEntries.cend(); ++it) {
-        if (it.value().type == m_activeHistoryType) {
-            entries.append(it.value());
-        }
-    }
-
-    std::sort(entries.begin(), entries.end(), [](const AIHistoryEntry &a, const AIHistoryEntry &b) {
-        return a.updatedAt > b.updatedAt;
-    });
-
-    for (const AIHistoryEntry &entry : entries) {
-        const QString title = entry.title.isEmpty()
-            ? historyHeaderTitle(entry.type)
-            : entry.title;
-        m_chatHistoryWidget->addHistoryItem(entry.conversationId, title, formatHistoryTime(entry.updatedAt));
-    }
-}
-
-void ModernMainWindow::setActiveHistoryType(AIHistoryType type)
-{
-    m_activeHistoryType = type;
-    refreshHistorySidebar();
-}
-
-void ModernMainWindow::resetConversationForType(AIHistoryType type)
-{
-    resetPPTQuestionFlow();
-    m_selectedHistoryConversationId.clear();
-    setActiveHistoryType(type);
-
-    if (type == AIHistoryType::Chat || type == AIHistoryType::CaseAnalysis) {
-        if (m_bubbleChatWidget) {
-            m_bubbleChatWidget->clearMessages();
-            m_bubbleChatWidget->addMessage("老师您好！我是智慧课堂助手，请问有什么可以帮你？", false);
-        }
-        if (m_difyService) {
-            m_difyService->clearConversation();
-        }
-        m_isConversationStarted = false;
-    } else if (type == AIHistoryType::LessonPlan) {
-        if (m_lessonPlanEditor) {
-            m_lessonPlanEditor->clear();
-            m_lessonPlanEditor->setConversationId(QString());
-        }
-        if (m_aiTabWidget && m_lessonPlanEditor) {
-            m_aiTabWidget->setCurrentWidget(m_lessonPlanEditor);
-        }
-        if (contentStack && dashboardWidget) {
-            contentStack->setCurrentWidget(dashboardWidget);
-        }
-        if (m_mainStack && m_chatContainer) {
-            m_mainStack->setCurrentWidget(m_chatContainer);
-        }
-        if (m_difyService) {
-            m_difyService->clearConversation();
-        }
-    } else if (type == AIHistoryType::AnalyticsReport) {
-        if (m_dataAnalyticsWidget) {
-            contentStack->setCurrentWidget(m_dataAnalyticsWidget);
-            m_dataAnalyticsWidget->showOverview();
-            m_dataAnalyticsWidget->setReportContent(QString());
-        }
-    }
-
-    if (m_chatHistoryWidget) {
-        m_chatHistoryWidget->clearSelection();
-    }
-}
-
-void ModernMainWindow::handleHistorySelection(const QString &conversationId)
-{
-    const AIHistoryEntry entry = m_historyEntries.value(conversationId);
-    if (entry.conversationId.isEmpty()) {
-        return;
-    }
-
-    resetPPTQuestionFlow();
-    m_selectedHistoryConversationId = conversationId;
-
-    setActiveHistoryType(entry.type);
-
-    switch (entry.type) {
-    case AIHistoryType::Chat:
-    case AIHistoryType::CaseAnalysis:
-    {
-        const bool isLocalPptHistory = entry.conversationId.startsWith(QStringLiteral("ppt_"));
-        QString localPptPath = entry.localFilePath;
-        if (localPptPath.isEmpty() && isLocalPptHistory) {
-            localPptPath = findBundledDemoPPTPath();
-        }
-
-        if (!localPptPath.isEmpty() || isLocalPptHistory) {
-            if (QFileInfo::exists(localPptPath)) {
-                showPPTPreviewPage(localPptPath, entry.title);
-            } else {
-                QMessageBox::warning(this,
-                                     QStringLiteral("预览不可用"),
-                                     QStringLiteral("该 PPT 文件已不存在，无法重新打开预览。"));
-            }
-            break;
-        }
-        if (contentStack && dashboardWidget) {
-            contentStack->setCurrentWidget(dashboardWidget);
-        }
-        if (m_mainStack && m_chatContainer) {
-            m_mainStack->setCurrentWidget(m_chatContainer);
-        }
-        if (m_aiTabWidget) {
-            m_aiTabWidget->setCurrentIndex(0);
-        }
-        if (m_difyService) {
-            m_difyService->setCurrentConversationId(conversationId);
-            m_difyService->fetchMessages(conversationId);
-        }
-        m_isConversationStarted = true;
-        break;
-    }
-    case AIHistoryType::LessonPlan:
-        if (contentStack && dashboardWidget) {
-            contentStack->setCurrentWidget(dashboardWidget);
-        }
-        if (m_mainStack && m_chatContainer) {
-            m_mainStack->setCurrentWidget(m_chatContainer);
-        }
-        if (m_aiTabWidget && m_lessonPlanEditor) {
-            m_aiTabWidget->setCurrentWidget(m_lessonPlanEditor);
-            m_lessonPlanEditor->setConversationId(conversationId);
-            m_lessonPlanEditor->setContent(entry.lessonContent);
-        }
-        break;
-    case AIHistoryType::AnalyticsReport:
-        if (m_dataAnalyticsWidget) {
-            contentStack->setCurrentWidget(m_dataAnalyticsWidget);
-            m_dataAnalyticsWidget->showOverview();
-            m_dataAnalyticsWidget->setReportContent(entry.previewText);
-        }
-        break;
-    }
-}
-
-void ModernMainWindow::onHistoryDeleteRequested(const QString &conversationId)
-{
-    const AIHistoryEntry entry = m_historyEntries.value(conversationId);
-    if (entry.conversationId.isEmpty()) {
-        return;
-    }
-
-    const QString displayTitle = entry.title.isEmpty()
-        ? historyHeaderTitle(entry.type)
-        : entry.title;
-    const QMessageBox::StandardButton answer = QMessageBox::question(
-        this,
-        QStringLiteral("删除本地记录"),
-        QStringLiteral("确定删除“%1”吗？\n\n此操作只会删除本地侧边栏记录，不会删除云端会话。").arg(displayTitle),
-        QMessageBox::Yes | QMessageBox::No,
-        QMessageBox::No);
-
-    if (answer != QMessageBox::Yes) {
-        return;
-    }
-
-    const bool isCurrentSelection = (m_selectedHistoryConversationId == conversationId);
-
-    m_deletedHistoryIds.insert(conversationId);
-    m_historyEntries.remove(conversationId);
-    saveDeletedHistoryIds();
-    saveHistoryEntries();
-    refreshHistorySidebar();
-
-    if (m_chatHistoryWidget) {
-        m_chatHistoryWidget->clearSelection();
-    }
-
-    if (isCurrentSelection) {
-        if (contentStack && contentStack->currentWidget() == m_pptPreviewPage) {
-            onPPTPreviewBackRequested();
-        }
-        resetConversationForType(entry.type);
-    }
-
-    statusBar()->showMessage(QStringLiteral("已删除本地历史记录"), 3000);
-}
-
-void ModernMainWindow::upsertHistoryEntry(const AIHistoryEntry &entry)
-{
-    if (entry.conversationId.isEmpty()) {
-        return;
-    }
-
-    if (m_deletedHistoryIds.contains(entry.conversationId)) {
-        return;
-    }
-
-    AIHistoryEntry merged = m_historyEntries.value(entry.conversationId);
-    merged.conversationId = entry.conversationId;
-    merged.type = entry.type;
-    if (!entry.title.isEmpty()) {
-        merged.title = entry.title;
-    }
-    if (entry.updatedAt.isValid()) {
-        merged.updatedAt = entry.updatedAt;
-    } else if (!merged.updatedAt.isValid()) {
-        merged.updatedAt = QDateTime::currentDateTime();
-    }
-    if (!entry.previewText.isEmpty()) {
-        merged.previewText = entry.previewText;
-    }
-    if (!entry.lessonContent.isEmpty()) {
-        merged.lessonContent = entry.lessonContent;
-    }
-    if (!entry.localFilePath.isEmpty()) {
-        merged.localFilePath = entry.localFilePath;
-    }
-
-    m_historyEntries.insert(merged.conversationId, merged);
-    saveHistoryEntries();
-    refreshHistorySidebar();
-}
-
-void ModernMainWindow::loadHistoryEntries()
-{
-    m_historyEntries.clear();
-
-    QSettings settings;
-    const QString raw = settings.value(QStringLiteral("aiHistory/entries")).toString();
-    if (raw.trimmed().isEmpty()) {
-        return;
-    }
-
-    const QJsonDocument doc = QJsonDocument::fromJson(raw.toUtf8());
-    if (!doc.isArray()) {
-        return;
-    }
-
-    const QJsonArray entries = doc.array();
-    for (const QJsonValue &value : entries) {
-        if (!value.isObject()) {
-            continue;
-        }
-
-        const QJsonObject obj = value.toObject();
-        AIHistoryEntry entry;
-        entry.conversationId = obj.value(QStringLiteral("conversationId")).toString();
-        if (entry.conversationId.isEmpty() || m_deletedHistoryIds.contains(entry.conversationId)) {
-            continue;
-        }
-
-        const QString type = obj.value(QStringLiteral("type")).toString();
-        if (type == QStringLiteral("lesson_plan")) {
-            entry.type = AIHistoryType::LessonPlan;
-        } else if (type == QStringLiteral("analytics_report")) {
-            entry.type = AIHistoryType::AnalyticsReport;
-        } else if (type == QStringLiteral("case_analysis")) {
-            entry.type = AIHistoryType::CaseAnalysis;
-        } else {
-            entry.type = AIHistoryType::Chat;
-        }
-
-        entry.title = obj.value(QStringLiteral("title")).toString();
-        entry.previewText = obj.value(QStringLiteral("previewText")).toString();
-        entry.lessonContent = obj.value(QStringLiteral("lessonContent")).toString();
-        entry.localFilePath = obj.value(QStringLiteral("localFilePath")).toString();
-        entry.updatedAt = QDateTime::fromString(
-            obj.value(QStringLiteral("updatedAt")).toString(),
-            Qt::ISODate);
-
-        m_historyEntries.insert(entry.conversationId, entry);
-    }
-}
-
-void ModernMainWindow::saveHistoryEntries() const
-{
-    QJsonArray entries;
-    for (auto it = m_historyEntries.cbegin(); it != m_historyEntries.cend(); ++it) {
-        const AIHistoryEntry &entry = it.value();
-        QJsonObject obj;
-        obj.insert(QStringLiteral("conversationId"), entry.conversationId);
-
-        QString type = QStringLiteral("chat");
-        switch (entry.type) {
-        case AIHistoryType::LessonPlan:
-            type = QStringLiteral("lesson_plan");
-            break;
-        case AIHistoryType::AnalyticsReport:
-            type = QStringLiteral("analytics_report");
-            break;
-        case AIHistoryType::CaseAnalysis:
-            type = QStringLiteral("case_analysis");
-            break;
-        case AIHistoryType::Chat:
-            break;
-        }
-
-        obj.insert(QStringLiteral("type"), type);
-        obj.insert(QStringLiteral("title"), entry.title);
-        obj.insert(QStringLiteral("updatedAt"), entry.updatedAt.toString(Qt::ISODate));
-        obj.insert(QStringLiteral("previewText"), entry.previewText);
-        obj.insert(QStringLiteral("lessonContent"), entry.lessonContent);
-        obj.insert(QStringLiteral("localFilePath"), entry.localFilePath);
-        entries.append(obj);
-    }
-
-    QSettings settings;
-    settings.setValue(QStringLiteral("aiHistory/entries"), QString::fromUtf8(QJsonDocument(entries).toJson(QJsonDocument::Compact)));
-}
-
-void ModernMainWindow::loadDeletedHistoryIds()
-{
-    QSettings settings;
-    const QStringList ids = settings.value(QStringLiteral("aiHistory/deletedEntryIds")).toStringList();
-    m_deletedHistoryIds = QSet<QString>(ids.cbegin(), ids.cend());
-}
-
-void ModernMainWindow::saveDeletedHistoryIds() const
-{
-    QSettings settings;
-    settings.setValue(QStringLiteral("aiHistory/deletedEntryIds"), QStringList(m_deletedHistoryIds.cbegin(), m_deletedHistoryIds.cend()));
-}
-
-void ModernMainWindow::recordLessonPlanHistory(const QString &conversationId, const QString &title, const QString &content)
-{
-    AIHistoryEntry entry;
-    entry.conversationId = conversationId;
-    entry.type = AIHistoryType::LessonPlan;
-    entry.title = title.isEmpty() ? QStringLiteral("教案编辑") : QStringLiteral("教案：") + title;
-    entry.lessonContent = content;
-    entry.updatedAt = QDateTime::currentDateTime();
-    upsertHistoryEntry(entry);
-}
-
-void ModernMainWindow::recordAnalyticsHistory(const QString &conversationId, const QString &title, const QString &content)
-{
-    AIHistoryEntry entry;
-    entry.conversationId = conversationId;
-    entry.type = AIHistoryType::AnalyticsReport;
-    entry.title = title;
-    entry.previewText = content;
-    entry.updatedAt = QDateTime::currentDateTime();
-    upsertHistoryEntry(entry);
-}
-
-void ModernMainWindow::recordCaseAnalysisHistory(const QString &conversationId, const QString &title)
-{
-    AIHistoryEntry entry;
-    entry.conversationId = conversationId;
-    entry.type = AIHistoryType::CaseAnalysis;
-    entry.title = title;
-    entry.updatedAt = QDateTime::currentDateTime();
-    upsertHistoryEntry(entry);
 }
 
 void ModernMainWindow::swapToHistorySidebar()
@@ -3268,7 +2575,6 @@ void ModernMainWindow::swapToHistorySidebar()
     if (m_sidebarStack) {
         m_sidebarStack->setCurrentIndex(1);  // 历史记录侧边栏
     }
-    refreshHistorySidebar();
 }
 
 void ModernMainWindow::swapToNavSidebar()
@@ -3303,27 +2609,11 @@ void ModernMainWindow::onSendChatMessage()
     // 清空输入框
     m_chatInput->clear();
 
-    if (m_isPptQuestionFlowActive) {
-        handlePPTQuestionAnswer(message);
-        return;
-    }
-
-    // PPT 请求先走伪提问流程
-    if (isPPTGenerationRequest(message)) {
-        startPPTQuestionFlow(message);
-        return;
-    }
-
     // 清空累积响应
     m_currentAIResponse.clear();
 
-    // 发送到 Dify
+    // 发送到 Dify（不添加额外前缀，让 AI 自由使用 Markdown 格式回复）
     if (m_difyService) {
-        m_pendingHistoryType = AIHistoryType::Chat;
-        m_pendingHistoryTitle = message.left(24);
-        m_pendingLessonPlanContent.clear();
-        m_pendingAnalyticsContent.clear();
-        m_pendingCasePrompt.clear();
         m_difyService->sendMessage(message);
     }
 }
@@ -3344,9 +2634,11 @@ void ModernMainWindow::onAIStreamChunk(const QString &chunk)
     displayText.remove(QRegularExpression("//+\\s*"));
     displayText.remove(QRegularExpression("\\*\\*"));
 
-    // 如果是第一个 chunk，直接把“正在思考”替换成真实 AI 回复
+    // 如果是第一个 chunk，先添加一个空的 AI 消息
     if (m_currentAIResponse.length() == chunk.length()) {
-        qDebug() << "[ModernMainWindow] Replacing typing indicator with first AI chunk";
+        qDebug() << "[ModernMainWindow] Adding first AI message placeholder";
+        m_bubbleChatWidget->addMessage("", false); // 添加空的 AI 消息占位
+        // 第一个 chunk 立即更新
         m_bubbleChatWidget->updateLastAIMessage(displayText);
     } else {
         // 使用节流机制：标记有待更新，如果定时器没在运行则启动
@@ -3375,17 +2667,20 @@ void ModernMainWindow::onAIResponseReceived(const QString &response)
     qDebug() << "[ModernMainWindow] AI Response received, length:" << response.length();
     qDebug() << "[ModernMainWindow] Current accumulated response length:" << m_currentAIResponse.length();
 
-    if (m_bubbleChatWidget) {
-        qDebug() << "[ModernMainWindow] Updating final AI message";
-        m_bubbleChatWidget->updateLastAIMessage(response);
+    // 如果没有累积的响应，直接显示
+    if (m_currentAIResponse.isEmpty()) {
+        qDebug() << "[ModernMainWindow] No accumulated response, adding new message";
+        appendChatMessage("AI 助手", response, false);
     } else {
-        qDebug() << "[ModernMainWindow] Error: m_bubbleChatWidget is null!";
+        // 更新最后的 AI 消息为完整响应
+        if (m_bubbleChatWidget) {
+            qDebug() << "[ModernMainWindow] Updating final AI message";
+            m_bubbleChatWidget->updateLastAIMessage(response);
+        } else {
+            qDebug() << "[ModernMainWindow] Error: m_bubbleChatWidget is null!";
+        }
     }
-
-    // 保留完整响应，供 onAIRequestFinished 阶段解析 PPT JSON 使用
-    if (!response.trimmed().isEmpty()) {
-        m_currentAIResponse = response;
-    }
+    m_currentAIResponse.clear();
 }
 
 void ModernMainWindow::onAIError(const QString &error)
@@ -3396,8 +2691,7 @@ void ModernMainWindow::onAIError(const QString &error)
     // 直接在主页面聊天组件中显示错误消息
     QString errorMessage = QString("[!] 错误：%1").arg(error);
     if (m_bubbleChatWidget) {
-        m_bubbleChatWidget->hideTypingIndicator();
-        m_bubbleChatWidget->updateLastAIMessage(errorMessage);
+        m_bubbleChatWidget->addMessage(errorMessage, false);
     } else {
         // 聊天组件尚未初始化，仅输出日志
         qWarning() << "[ModernMainWindow] ChatWidget not ready, error not displayed:" << error;
@@ -3412,7 +2706,6 @@ void ModernMainWindow::onAIRequestStarted()
     // 通过 ChatWidget 的公共方法来控制状态
     if (m_bubbleChatWidget) {
         m_bubbleChatWidget->setInputEnabled(false);
-        m_bubbleChatWidget->showTypingIndicator();
         qDebug() << "[ModernMainWindow] Input disabled";
         // 注意：暂时无法设置发送按钮文本，因为 ChatWidget 没有提供这个方法
     } else {
@@ -3422,159 +2715,50 @@ void ModernMainWindow::onAIRequestStarted()
 
 void ModernMainWindow::onAIRequestFinished()
 {
+    // 通过 ChatWidget 的公共方法来控制状态
     if (m_bubbleChatWidget) {
         m_bubbleChatWidget->setInputEnabled(true);
-        if (m_currentAIResponse.trimmed().isEmpty()) {
-            m_bubbleChatWidget->hideTypingIndicator();
-        }
         m_bubbleChatWidget->focusInput();
     }
-
-    m_currentAIResponse.clear();
-
+    
+    // 检测是否是 PPT 响应（包含 JSON 格式的 PPT 大纲）
+    if (m_pptxGenerator && !m_currentAIResponse.isEmpty()) {
+        QJsonObject pptJson = PPTXGenerator::parseJsonFromResponse(m_currentAIResponse);
+        
+        // 检查是否是 PPT 类型
+        if (!pptJson.isEmpty() && 
+            (pptJson.contains("slides") || pptJson["type"].toString() == "ppt")) {
+            
+            qDebug() << "[ModernMainWindow] Detected PPT JSON response, offering download";
+            
+            // 弹出保存对话框
+            QString defaultName = pptJson["title"].toString();
+            if (defaultName.isEmpty()) defaultName = "思政课PPT";
+            defaultName += ".pptx";
+            
+            QString filePath = QFileDialog::getSaveFileName(
+                this, 
+                "保存 PPT 文件", 
+                QDir::homePath() + "/Desktop/" + defaultName,
+                "PowerPoint 文件 (*.pptx)"
+            );
+            
+            if (!filePath.isEmpty()) {
+                if (m_pptxGenerator->generateFromJson(pptJson, filePath)) {
+                    QMessageBox::information(this, "成功", 
+                        QString("PPT 已生成！\n\n文件位置：%1").arg(filePath));
+                } else {
+                    QMessageBox::warning(this, "生成失败", 
+                        QString("PPT 生成失败：%1").arg(m_pptxGenerator->lastError()));
+                }
+            }
+        }
+    }
+    
     // 刷新对话列表以显示新创建的对话
-    if (m_difyService && (m_activeHistoryType == AIHistoryType::Chat || m_activeHistoryType == AIHistoryType::CaseAnalysis)) {
+    if (m_difyService) {
         m_difyService->fetchConversations();
     }
-    refreshHistorySidebar();
-}
-
-void ModernMainWindow::onPPTPreviewBackRequested()
-{
-    resetAllSidebarButtons();
-    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-
-    if (contentStack && dashboardWidget) {
-        contentStack->setCurrentWidget(dashboardWidget);
-    }
-    if (m_mainStack && m_chatContainer) {
-        m_mainStack->setCurrentWidget(m_chatContainer);
-    }
-    if (m_sidebarStack) {
-        swapToHistorySidebar();
-    }
-
-    // 添加引导提示，让用户知道可以继续输入改进建议
-    if (m_bubbleChatWidget && !m_pptTopic.isEmpty()) {
-        QString hint = QString(
-            "💡 **已返回对话页面**\n\n"
-            "您可以在下方输入对PPT「%1」的修改建议，例如：\n"
-            "- 「第3页内容太少，补充一些案例」\n"
-            "- 「封面标题改为...」\n"
-            "- 「整体配色换成蓝色系」\n\n"
-            "我会根据您的建议重新生成PPT。"
-        ).arg(m_pptTopic);
-        m_bubbleChatWidget->addMessage(hint, false);
-    }
-
-    statusBar()->showMessage(QStringLiteral("AI智能备课"));
-}
-
-void ModernMainWindow::onPPTPreviewDownloadRequested()
-{
-    if (savePPTToUserLocation(m_previewPPTPath, m_previewPPTTitle)) {
-        statusBar()->showMessage(QStringLiteral("PPT 已保存"), 3000);
-    }
-}
-
-void ModernMainWindow::onPPTModifySuggestion(const QString &suggestion)
-{
-    // 1. 先返回聊天页面
-    onPPTPreviewBackRequested();
-
-    // 2. 在聊天中显示用户的修改建议
-    if (m_bubbleChatWidget) {
-        m_bubbleChatWidget->addMessage(suggestion, true);  // true = 用户消息
-    }
-
-    // 3. 将修改建议附加到原始主题，触发 PPT 重新生成
-    QString modifiedRequest = QString(
-        "请根据以下修改建议，重新生成关于「%1」的PPT：\n\n"
-        "修改建议：%2"
-    ).arg(m_pptTopic, suggestion);
-
-    // 4. 保持 PPT 聊天模式，直接启动重新生成
-    m_isPptChatMode = true;
-    m_pendingPptRequest = modifiedRequest;
-
-    // 显示 AI 正在处理的提示
-    if (m_bubbleChatWidget) {
-        m_bubbleChatWidget->addMessage(
-            QString("收到，正在根据您的建议重新生成「%1」PPT...\n\n"
-                    "📝 修改要点：%2").arg(m_pptTopic, suggestion),
-            false  // AI 消息
-        );
-    }
-
-    // 5. 启动 PPT 生成
-    startPPTSimulation(modifiedRequest);
-}
-
-
-void ModernMainWindow::showPPTPreviewPage(const QString &pptPath, const QString &title)
-{
-    m_previewPPTPath = pptPath;
-    m_previewPPTTitle = title;
-
-    if (m_pptPreviewPage) {
-        m_pptPreviewPage->setPresentation(title, pptPath);
-    }
-
-    resetAllSidebarButtons();
-    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-
-    if (contentStack && m_pptPreviewPage) {
-        contentStack->setCurrentWidget(m_pptPreviewPage);
-    }
-    if (m_sidebarStack) {
-        swapToHistorySidebar();
-    }
-
-    statusBar()->showMessage(QStringLiteral("PPT 预览"));
-}
-
-bool ModernMainWindow::savePPTToUserLocation(const QString &sourcePath, const QString &title)
-{
-    if (sourcePath.isEmpty() || !QFileInfo::exists(sourcePath)) {
-        QMessageBox::warning(this, QStringLiteral("保存失败"), QStringLiteral("当前没有可下载的 PPT 文件。"));
-        return false;
-    }
-
-    QString suggestedName = title;
-    suggestedName.remove(QRegularExpression("[/\\:*?\"<>|]"));
-    if (suggestedName.isEmpty()) {
-        suggestedName = QStringLiteral("思政课PPT");
-    }
-    if (!suggestedName.endsWith(QStringLiteral(".pptx"), Qt::CaseInsensitive)) {
-        suggestedName += QStringLiteral(".pptx");
-    }
-
-    QString targetPath = QFileDialog::getSaveFileName(
-        this,
-        QStringLiteral("保存PPT"),
-        QDir::homePath() + "/Desktop/" + suggestedName,
-        QStringLiteral("PowerPoint 演示文稿 (*.pptx)")
-    );
-
-    if (targetPath.isEmpty()) {
-        return false;
-    }
-
-    if (!targetPath.endsWith(QStringLiteral(".pptx"), Qt::CaseInsensitive)) {
-        targetPath += QStringLiteral(".pptx");
-    }
-
-    if (QFile::exists(targetPath) && !QFile::remove(targetPath)) {
-        QMessageBox::warning(this, QStringLiteral("保存失败"), QStringLiteral("目标文件已存在且无法覆盖，请检查权限。"));
-        return false;
-    }
-
-    if (!QFile::copy(sourcePath, targetPath)) {
-        QMessageBox::warning(this, QStringLiteral("保存失败"), QStringLiteral("PPT 文件复制失败，请稍后重试。"));
-        return false;
-    }
-
-    return true;
 }
 
 // ==================== PPT 模拟生成功能 ====================
@@ -3596,247 +2780,238 @@ bool ModernMainWindow::isPPTGenerationRequest(const QString &message)
     return hasPPTKeyword && hasGenerateKeyword;
 }
 
-QString ModernMainWindow::extractPPTTopic(const QString &message) const
+void ModernMainWindow::handlePPTConversation(const QString &message)
 {
-    // 从用户消息中提取 PPT 主题
-    QString msg = message.trimmed();
+    if (!m_bubbleChatWidget) return;
 
-    auto cleanupTopic = [](QString topic) {
-        topic = topic.trimmed();
-        topic.remove(QRegularExpression(R"(^(?:[0-9一二两三四五六七八九十百]+)\s*(?:页|张|份|个|套))"));
-        topic.remove(QRegularExpression(R"(^(?:关于))"));
-        topic.remove(QRegularExpression("^[的了一个]+"));
-        topic.remove(QRegularExpression("[的了吧呢]+$"));
-        return topic.trimmed();
-    };
+    // 记录用户回答（除了第一次触发）
+    if (m_pptQuestionStep > 1) {
+        m_pptUserAnswers.append(message);
+    }
 
-    // 常见句式：「帮我生成一个关于XX的PPT」「制作XX课件」等
-    QStringList patterns = {
-        "关于(.+?)的(?:ppt|PPT|课件|幻灯片|演示文稿)",
-        "(?:生成|制作|做一个|创建)(.+?)(?:ppt|PPT|课件|幻灯片|演示文稿)",
-        "(.+?)(?:ppt|PPT|课件|幻灯片|演示文稿)",
-    };
+    // 模拟 AI 思考延迟
+    QTimer::singleShot(600, this, [this]() {
+        if (!m_bubbleChatWidget) return;
 
-    for (const QString &pat : patterns) {
-        QRegularExpression re(pat);
-        QRegularExpressionMatch match = re.match(msg);
-        if (match.hasMatch()) {
-            QString topic = cleanupTopic(match.captured(1));
-            if (!topic.isEmpty() && topic.length() > 1) {
-                return topic;
+        QString response;
+        switch (m_pptQuestionStep) {
+            case 1: {
+                // 第一个问题：确认主题
+                response = "好的，我来帮您制作PPT！\n\n"
+                           "为了更好地满足您的教学需求，请问：\n\n"
+                           "**1. 这个PPT主要面向哪个年级的学生？**\n"
+                           "（例如：七年级、八年级、九年级）";
+                m_pptQuestionStep = 2;
+                break;
+            }
+            case 2: {
+                // 第二个问题：课时长度
+                response = "明白了！\n\n"
+                           "**2. 您计划这节课的时长是多少？**\n"
+                           "（例如：一课时40分钟、两课时等）";
+                m_pptQuestionStep = 3;
+                break;
+            }
+            case 3: {
+                // 第三个问题：内容侧重
+                response = "好的！\n\n"
+                           "**3. 您希望PPT的内容侧重于哪个方面？**\n"
+                           "- A. 历史故事与人物事迹\n"
+                           "- B. 理论知识与概念讲解\n"
+                           "- C. 实践活动与课堂互动\n"
+                           "- D. 综合呈现";
+                m_pptQuestionStep = 4;
+                break;
+            }
+            case 4: {
+                // 问答结束，开始生成
+                response = "非常感谢您的回答！我已经了解您的需求：\n\n"
+                           "📌 **目标年级**：" + (m_pptUserAnswers.size() > 0 ? m_pptUserAnswers[0] : "初中") + "\n"
+                           "📌 **课时安排**：" + (m_pptUserAnswers.size() > 1 ? m_pptUserAnswers[1] : "一课时") + "\n"
+                           "📌 **内容侧重**：" + (m_pptUserAnswers.size() > 2 ? m_pptUserAnswers[2] : "综合呈现") + "\n\n"
+                           "正在为您生成PPT，请稍候...";
+                m_pptQuestionStep = 5;  // 标记为生成阶段，防止再次进入问答
+                break;
             }
         }
-    }
 
-    // 兜底：去掉关键词后剩余部分作为主题
-    QString fallback = msg;
-    for (const QString &kw : {"帮我", "请", "生成", "制作", "做一个", "创建", "一个", "ppt", "PPT", "课件", "幻灯片", "演示文稿"}) {
-        fallback.remove(kw);
-    }
-    fallback = cleanupTopic(fallback);
-    return fallback.isEmpty() ? "思政教学" : fallback;
-}
-
-void ModernMainWindow::startPPTQuestionFlow(const QString &userMessage)
-{
-    if (!m_bubbleChatWidget) {
-        return;
-    }
-
-    resetPPTQuestionFlow();
-    m_isPptQuestionFlowActive = true;
-    m_pptQuestionStep = 0;
-    m_pendingPptRequest = userMessage;
-    m_pptTopic = extractPPTTopic(userMessage);
-    m_pptUserPreferences.clear();  // 清空上次的偏好
-
-    m_bubbleChatWidget->setPlaceholderText(QStringLiteral("可直接输入回答，或点击上方选项"));
-    m_bubbleChatWidget->addMessage(QStringLiteral("好的，我先快速了解一下这次课件偏好，这样更像真实备课流程。"), false);
-
-    QTimer::singleShot(260, this, [this]() {
-        if (m_isPptQuestionFlowActive) {
-            askNextPPTQuestion();
-        }
+        // 使用打字效果显示回复
+        typeMessageWithEffect(response);
     });
 }
 
-void ModernMainWindow::askNextPPTQuestion()
+void ModernMainWindow::typeMessageWithEffect(const QString &text)
 {
-    if (!m_bubbleChatWidget || !m_isPptQuestionFlowActive) {
-        return;
-    }
+    if (!m_bubbleChatWidget) return;
 
-    const QList<PPTQuestionConfig> questions = buildPPTQuestionFlow();
-    if (m_pptQuestionStep < 0 || m_pptQuestionStep >= questions.size()) {
-        return;
-    }
+    // 停止之前的打字效果
+    m_pptTypingTimer->stop();
 
-    const PPTQuestionConfig &question = questions.at(m_pptQuestionStep);
-    m_bubbleChatWidget->addMessage(question.question, false);
-    m_bubbleChatWidget->addQuickReplyOptions(question.options);
+    // 设置待打字文本
+    m_pptTypingText = text;
+    m_pptTypingIndex = 0;
+
+    // 添加空的 AI 消息占位
+    m_bubbleChatWidget->addMessage("", false);
+
+    // 开始打字效果（每 30ms 输出一个字符）
+    m_pptTypingTimer->start(30);
 }
 
-void ModernMainWindow::handlePPTQuestionAnswer(const QString &answer)
+void ModernMainWindow::onPPTTypingStep()
 {
-    if (!m_isPptQuestionFlowActive) {
-        return;
-    }
+    if (!m_bubbleChatWidget || m_pptTypingIndex >= m_pptTypingText.length()) {
+        m_pptTypingTimer->stop();
 
-    // 收集用户偏好——根据当前步骤存入对应 key
-    switch (m_pptQuestionStep) {
-    case 0: m_pptUserPreferences["pref_scene"] = answer; break;  // 授课场景
-    case 1: m_pptUserPreferences["pref_style"] = answer; break;  // 表达风格
-    case 2: m_pptUserPreferences["pref_focus"] = answer; break;  // 内容重点
-    case 3: m_pptUserPreferences["pref_pace"]  = answer; break;  // 呈现节奏
-    default: break;
-    }
-    qDebug() << "[PPT] 用户偏好收集 step" << m_pptQuestionStep << ":" << answer;
-
-    ++m_pptQuestionStep;
-    const int totalQuestions = buildPPTQuestionFlow().size();
-    if (m_pptQuestionStep < totalQuestions) {
-        QTimer::singleShot(260, this, [this]() {
-            if (m_isPptQuestionFlowActive) {
-                askNextPPTQuestion();
-            }
-        });
-        return;
-    }
-
-    const QString pendingRequest = m_pendingPptRequest;
-    if (m_bubbleChatWidget) {
-        m_bubbleChatWidget->addMessage(QStringLiteral("好的，偏好我记下了，现在开始为你整理课件。"), false);
-    }
-
-    resetPPTQuestionFlow();
-
-    QTimer::singleShot(420, this, [this, pendingRequest]() {
-        if (!pendingRequest.isEmpty()) {
-            startPPTSimulation(pendingRequest);
+        // 如果是问答结束阶段，延迟后开始生成
+        if (m_pptQuestionStep == 5) {
+            QTimer::singleShot(800, this, [this]() {
+                startPPTSimulation("");
+            });
         }
-    });
-}
-
-void ModernMainWindow::resetPPTQuestionFlow()
-{
-    m_isPptQuestionFlowActive = false;
-    m_pptQuestionStep = 0;
-    m_pendingPptRequest.clear();
-
-    if (m_bubbleChatWidget) {
-        m_bubbleChatWidget->setPlaceholderText(QStringLiteral("向AI助手发送信息..."));
+        return;
     }
+
+    // 每次输出多个字符，加快速度
+    int charsPerStep = 2;
+    int endIndex = qMin(m_pptTypingIndex + charsPerStep, m_pptTypingText.length());
+    QString currentText = m_pptTypingText.left(endIndex);
+
+    m_bubbleChatWidget->updateLastAIMessage(currentText);
+    m_pptTypingIndex = endIndex;
 }
 
 void ModernMainWindow::startPPTSimulation(const QString &userMessage)
 {
-    if (!m_bubbleChatWidget) return;
+    Q_UNUSED(userMessage);
 
-    // 提取主题
-    m_pptTopic = extractPPTTopic(userMessage);
-    qDebug() << "[PPT] 模拟生成，提取主题:" << m_pptTopic;
+    // 设置预制 PPT 路径（从 App Bundle 的 Resources 目录读取）
+    QString appPath = QCoreApplication::applicationDirPath();
+    // macOS: appPath 是 .app/Contents/MacOS/，需要回到上级找 Resources
+    m_pendingPPTPath = appPath + "/../Resources/ppt/爱国主义精神传承.pptx";
 
-    // 如果之前有正在进行的 PPT 生成，先停止
-    if (m_pptAgentService->currentState() != ZhipuPPTAgentService::State::Idle &&
-        m_pptAgentService->currentState() != ZhipuPPTAgentService::State::Finished &&
-        m_pptAgentService->currentState() != ZhipuPPTAgentService::State::Failed) {
-        m_pptAgentService->cancel();
-    }
-    
-    // 在最后添加 AI 回复占位
-    if (m_bubbleChatWidget) {
-        m_bubbleChatWidget->addMessage("好的，我来帮您生成关于「" + m_pptTopic + "」的课件...\n\n⏳ 正在准备生成环境...", false);
-    }
-
-    // 构建生成参数
-    QMap<QString, QString> params;
-    params["topic"] = m_pptTopic;
-    params["userRequest"] = userMessage;
-
-    // 注入用户偏好（从提问流程收集而来）
-    for (auto it = m_pptUserPreferences.constBegin(); it != m_pptUserPreferences.constEnd(); ++it) {
-        params[it.key()] = it.value();
-    }
-    if (!m_pptUserPreferences.isEmpty()) {
-        qDebug() << "[PPT] 已注入用户偏好:" << m_pptUserPreferences;
-    }
-    
-    // 启动 PPT Agent
-    m_pptAgentService->generate(params);
-}
-
-void ModernMainWindow::handleChatPPTComplete(const QStringList &svgCodes, const QVector<QImage> &previews)
-{
-    // 生成 PPTX 文件
-    QString pptxPath;
-    QString pptxError;
-    if (!m_pptxGenerator) {
-        pptxError = "PPTXGenerator 未初始化";
-        qWarning() << "[PPTAgent]" << pptxError;
-    } else if (previews.isEmpty() && svgCodes.isEmpty()) {
-        pptxError = "生成结果为空，无法导出 PPTX";
-        qWarning() << "[PPTAgent]" << pptxError;
-    } else {
-        QString safeName = m_pptTopic;
-        safeName.remove(QRegularExpression(R"([\\/:*?"<>|])"));
-        if (safeName.isEmpty()) safeName = "ppt_output";
-
-        // 使用持久化数据目录保存 PPT，而非临时目录（避免退出后文件丢失）
-        QString pptDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/ppt";
-        QDir().mkpath(pptDir);
-        QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
-        pptxPath = pptDir + "/" + safeName + "_" + timestamp + ".pptx";
-        
-        qDebug() << "[PPTAgent] 聊天模式 PPTX 生成开始，目标路径:" << pptxPath
-                 << "preview数量:" << previews.size()
-                 << "svg数量:" << svgCodes.size();
-        
-        bool ok = !previews.isEmpty()
-            ? m_pptxGenerator->generateFromImages(m_pptTopic, previews, pptxPath)
-            : false;
-        qDebug() << "[PPTAgent] 聊天模式 PPTX 生成:" << (ok ? "成功" : "失败") << pptxPath;
-        if (!ok) {
-            pptxError = m_pptxGenerator->lastError();
-            qWarning() << "[PPTAgent] PPTXGenerator error:" << pptxError;
-            if (!QFile::exists(pptxPath)) {
-                pptxPath.clear();
-            }
+    // 检查文件是否存在
+    if (!QFile::exists(m_pendingPPTPath)) {
+        qDebug() << "[PPT] Resource not found at:" << m_pendingPPTPath;
+        if (m_bubbleChatWidget) {
+            m_bubbleChatWidget->addMessage("抱歉，PPT 资源文件未找到，请稍后再试。", false);
         }
+        m_pptQuestionStep = 0;  // 重置状态
+        return;
     }
 
-    if (!pptxPath.isEmpty() && QFile::exists(pptxPath)) {
-        m_pendingPPTPath = pptxPath;
+    // 重置步骤计数
+    m_pptSimulationStep = 0;
 
-        QString finalMsg =
-            "好的，我来帮您生成关于「" + m_pptTopic + "」的课件...\n\n"
-            "✅ **PPT 生成完成！**\n\n"
-            "---\n\n"
-            "📎 **" + QFileInfo(m_pendingPPTPath).fileName() + "**\n\n"
-            "已为您打开应用内预览页面，您可以先查看效果，再点击下载保存。";
-
-        m_bubbleChatWidget->updateLastAIMessage(finalMsg);
-        showPPTPreviewPage(m_pendingPPTPath, m_pptTopic);
-
-        AIHistoryEntry entry;
-        entry.conversationId = "ppt_" + QString::number(QDateTime::currentDateTime().toSecsSinceEpoch());
-        entry.type = AIHistoryType::Chat;
-        entry.title = "PPT生成：" + m_pptTopic;
-        entry.updatedAt = QDateTime::currentDateTime();
-        entry.localFilePath = m_pendingPPTPath;
-        upsertHistoryEntry(entry);
-    } else {
-        QString errMsg = "抱歉，PPT 生成完成但文件保存失败";
-        if (!pptxError.isEmpty()) {
-            errMsg += "：" + pptxError;
-        }
-        errMsg += "\n\n请稍后重试。";
-        m_bubbleChatWidget->updateLastAIMessage(errMsg);
-    }
+    // 不创建新气泡，直接在上一条消息基础上更新
+    // 开始模拟思考（初始每 800ms 一步，后面会逐渐变慢）
+    m_pptSimulationTimer->setInterval(800);
+    m_pptSimulationTimer->start();
 }
 
 void ModernMainWindow::onPPTSimulationStep()
 {
-    // 该方法已废弃，由真实的 ZhipuPPTAgentService 替代
+    if (!m_bubbleChatWidget) {
+        m_pptSimulationTimer->stop();
+        return;
+    }
+
+    // 构建需求确认的前缀（保持之前的回答内容）
+    QString prefix = "非常感谢您的回答！我已经了解您的需求：\n\n"
+                     "📌 **目标年级**：" + (m_pptUserAnswers.size() > 0 ? m_pptUserAnswers[0] : "初中") + "\n"
+                     "📌 **课时安排**：" + (m_pptUserAnswers.size() > 1 ? m_pptUserAnswers[1] : "一课时") + "\n"
+                     "📌 **内容侧重**：" + (m_pptUserAnswers.size() > 2 ? m_pptUserAnswers[2] : "综合呈现") + "\n\n"
+                     "---\n\n";
+
+    // 定义思考过程的各个阶段
+    QStringList thinkingSteps = {
+        "🤔 正在理解您的需求...",
+        "🤔 正在理解您的需求...\n\n📚 分析教学目标和核心知识点...",
+        "🤔 正在理解您的需求...\n\n📚 分析教学目标和核心知识点...\n\n🎨 设计课件结构和视觉风格...",
+        "🤔 正在理解您的需求...\n\n📚 分析教学目标和核心知识点...\n\n🎨 设计课件结构和视觉风格...\n\n✍️ 生成内容大纲...",
+        "🤔 正在理解您的需求...\n\n📚 分析教学目标和核心知识点...\n\n🎨 设计课件结构和视觉风格...\n\n✍️ 生成内容大纲...\n\n🖼️ 排版幻灯片页面...",
+        "🤔 正在理解您的需求...\n\n📚 分析教学目标和核心知识点...\n\n🎨 设计课件结构和视觉风格...\n\n✍️ 生成内容大纲...\n\n🖼️ 排版幻灯片页面...\n\n✅ PPT 生成完成！"
+    };
+
+    if (m_pptSimulationStep < thinkingSteps.size()) {
+        // 更新思考进度（在前缀基础上追加）
+        m_bubbleChatWidget->updateLastAIMessage(prefix + thinkingSteps[m_pptSimulationStep]);
+        m_pptSimulationStep++;
+
+        // 最后两步放慢速度，更真实
+        if (m_pptSimulationStep >= 4) {
+            m_pptSimulationTimer->setInterval(1500);  // 最后阶段 1.5 秒
+        } else if (m_pptSimulationStep >= 3) {
+            m_pptSimulationTimer->setInterval(1200);  // 中后期 1.2 秒
+        }
+    } else {
+        // 思考完成，停止定时器
+        m_pptSimulationTimer->stop();
+
+        // 显示最终结果和下载提示
+        QString finalMessage = prefix +
+                               "🤔 正在理解您的需求...\n\n"
+                               "📚 分析教学目标和核心知识点...\n\n"
+                               "🎨 设计课件结构和视觉风格...\n\n"
+                               "✍️ 生成内容大纲...\n\n"
+                               "🖼️ 排版幻灯片页面...\n\n"
+                               "✅ **PPT 生成完成！**\n\n"
+                               "---\n\n"
+                               "📎 **爱国主义精神传承.pptx**\n\n"
+                               "课件已生成，包含以下内容：\n"
+                               "- 爱国主义精神的历史渊源\n"
+                               "- 新时代爱国主义的内涵\n"
+                               "- 青少年爱国主义教育实践\n\n"
+                               "请点击下方按钮保存到本地：";
+
+        m_bubbleChatWidget->updateLastAIMessage(finalMessage);
+
+        // 延迟一点显示保存对话框，让用户看到完成消息
+        QTimer::singleShot(500, this, [this, prefix]() {
+            QString savePath = QFileDialog::getSaveFileName(
+                this,
+                "保存 PPT 文件",
+                QDir::homePath() + "/Desktop/爱国主义精神传承.pptx",
+                "PowerPoint 文件 (*.pptx)"
+            );
+
+            if (!savePath.isEmpty()) {
+                // 复制预制的 PPT 到用户选择的位置
+                if (QFile::exists(savePath)) {
+                    QFile::remove(savePath);
+                }
+
+                if (QFile::copy(m_pendingPPTPath, savePath)) {
+                    // 更新消息显示保存成功
+                    QString successMessage = prefix +
+                                           "🤔 正在理解您的需求...\n\n"
+                                           "📚 分析教学目标和核心知识点...\n\n"
+                                           "🎨 设计课件结构和视觉风格...\n\n"
+                                           "✍️ 生成内容大纲...\n\n"
+                                           "🖼️ 排版幻灯片页面...\n\n"
+                                           "✅ **PPT 生成完成！**\n\n"
+                                           "---\n\n"
+                                           "📎 **爱国主义精神传承.pptx**\n\n"
+                                           "✅ 文件已保存到：\n`" + savePath + "`\n\n"
+                                           "您可以使用 PowerPoint 或 WPS 打开编辑。";
+                    m_bubbleChatWidget->updateLastAIMessage(successMessage);
+
+                    // 添加到历史记录
+                    if (m_chatHistoryWidget) {
+                        QString timeStr = QDateTime::currentDateTime().toString("MM-dd HH:mm");
+                        m_chatHistoryWidget->insertHistoryItem(0,
+                            "ppt_" + QString::number(QDateTime::currentDateTime().toSecsSinceEpoch()),
+                            "PPT生成：爱国主义精神传承", timeStr);
+                    }
+                } else {
+                    QMessageBox::warning(this, "生成失败", "文件保存失败，请检查权限或磁盘空间。");
+                }
+            }
+            // 重置问答状态，允许下次继续生成
+            m_pptQuestionStep = 0;
+            m_pptUserAnswers.clear();
+        });
+    }
 }
 
 // ========== 通知系统相关槽函数 ==========

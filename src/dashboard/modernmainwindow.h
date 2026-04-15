@@ -25,9 +25,6 @@
 #include <QTextEdit>
 
 #include <QTabWidget>
-#include <QHash>
-#include <QDateTime>
-#include <QSet>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class ModernMainWindow; }
@@ -36,12 +33,12 @@ QT_END_NAMESPACE
 // 前向声明
 class SimpleLoginWindow;
 class AIPreparationWidget;
+class QuestionRepository;
 class QuestionBankWindow;
 class DifyService;
 class AIChatDialog;
 class ChatHistoryWidget;
 class PPTXGenerator;
-class ZhipuPPTAgentService;
 class HotspotTrackingWidget;
 class HotspotService;
 class DataAnalyticsWidget;
@@ -50,13 +47,13 @@ class NotificationWidget;
 class NotificationBadge;
 class AttendanceWidget;  // 考勤管理组件
 class LessonPlanEditor;
-class PPTPreviewPage;
+
 class ModernMainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    ModernMainWindow(const QString &userRole = "教师", const QString &username = "王老师", const QString &userId = "", QWidget *parent = nullptr);
+    ModernMainWindow(const QString &userRole = "教师", const QString &username = "王老师", QWidget *parent = nullptr);
     ~ModernMainWindow();
 
 private slots:
@@ -84,39 +81,13 @@ private slots:
     void onAIError(const QString &error);
     void onAIRequestStarted();
     void onAIRequestFinished();
-    void onHistoryDeleteRequested(const QString &conversationId);
-    void onPPTPreviewBackRequested();
-    void onPPTPreviewDownloadRequested();
-    void onPPTModifySuggestion(const QString &suggestion);
 
 private:
-    enum class AIHistoryType {
-        Chat,
-        LessonPlan,
-        AnalyticsReport,
-        CaseAnalysis
-    };
-
-    struct AIHistoryEntry {
-        QString conversationId;
-        AIHistoryType type = AIHistoryType::Chat;
-        QString title;
-        QDateTime updatedAt;
-        QString previewText;
-        QString lessonContent;
-        QString localFilePath;
-    };
-
     void initUI();
     void setupMenuBar();
     void setupStatusBar();
     void setupCentralWidget();
     void setupStyles();
-    void resetAllSidebarButtons();  // 重置所有侧边栏按钮为普通状态
-    void ensureQuestionBankWindow();
-    void ensureHotspotWidget();
-    void ensureAnalyticsWidget();
-    void ensureAttendanceWidget();
     void createDashboard();
     void createSidebarProfile();
     void createHeaderWidget();
@@ -136,23 +107,6 @@ private:
     void appendChatMessage(const QString &sender, const QString &message, bool isUser);
     void swapToHistorySidebar();    // 切换到历史记录侧边栏
     void swapToNavSidebar();        // 切换回导航侧边栏
-    QString historyHeaderTitle(AIHistoryType type) const;
-    QString historyNewButtonText(AIHistoryType type) const;
-    QString formatHistoryTime(const QDateTime &time) const;
-    void refreshHistorySidebar();
-    void setActiveHistoryType(AIHistoryType type);
-    void resetConversationForType(AIHistoryType type);
-    void handleHistorySelection(const QString &conversationId);
-    void upsertHistoryEntry(const AIHistoryEntry &entry);
-    void loadHistoryEntries();
-    void saveHistoryEntries() const;
-    void loadDeletedHistoryIds();
-    void saveDeletedHistoryIds() const;
-    void recordLessonPlanHistory(const QString &conversationId, const QString &title, const QString &content);
-    void recordAnalyticsHistory(const QString &conversationId, const QString &title, const QString &content);
-    void recordCaseAnalysisHistory(const QString &conversationId, const QString &title);
-    void showPPTPreviewPage(const QString &pptPath, const QString &title);
-    bool savePPTToUserLocation(const QString &sourcePath, const QString &title);
 
     // 创建指标项组件 - 紧凑单行信息
     QWidget* createMetricItem(const QString& name,
@@ -186,17 +140,16 @@ private:
     // 底部菜单
     QPushButton *settingsBtn = nullptr;           // 系统设置
     QPushButton *helpBtn = nullptr;               // 帮助中心
-    QPushButton *logoutBtn = nullptr;             // 退出登录
 
     // 主内容区域
     QStackedWidget *contentStack = nullptr;
     QWidget *dashboardWidget = nullptr;
     QScrollArea *dashboardScrollArea = nullptr;
     AIPreparationWidget *aiPreparationWidget = nullptr;
-    PPTPreviewPage *m_pptPreviewPage = nullptr;
 
     // 试题库相关组件
     QuestionBankWindow *questionBankWindow = nullptr;
+    QuestionRepository *questionRepository = nullptr;
 
     // 时政新闻相关组件
     HotspotTrackingWidget *m_hotspotWidget = nullptr;
@@ -233,7 +186,6 @@ private:
 
     // AI 对话组件
     DifyService *m_difyService = nullptr;
-    DifyService *m_analyticsDifyService = nullptr;
     AIChatDialog *m_chatDialog = nullptr;  // AI 对话框（备用）
     class ChatWidget *m_bubbleChatWidget = nullptr;  // 气泡样式聊天组件（主面板用）
     ChatHistoryWidget *m_chatHistoryWidget = nullptr;  // 历史记录侧边栏
@@ -248,49 +200,32 @@ private:
     QTimer *m_streamUpdateTimer = nullptr;  // 流式更新节流定时器
     bool m_streamUpdatePending = false;   // 是否有待处理的更新
     PPTXGenerator *m_pptxGenerator = nullptr;  // PPTX 生成器
-    ZhipuPPTAgentService *m_pptAgentService = nullptr;  // 智谱 PPT Agent 服务
 
-    // PPT 生成相关
-    QTimer *m_pptSimulationTimer = nullptr;     // PPT 模拟思考定时器（已废弃，保留兼容）
+    // PPT 模拟生成相关
+    QTimer *m_pptSimulationTimer = nullptr;     // PPT 模拟思考定时器
     int m_pptSimulationStep = 0;          // 当前模拟步骤
     QString m_pendingPPTPath;         // 待提供的 PPT 文件路径
-    QString m_pptTopic;               // 用户请求的 PPT 主题
-    bool m_isPptChatMode = false;     // true=聊天面板发起的PPT生成
-    bool m_isPptQuestionFlowActive = false;
-    int m_pptQuestionStep = 0;
-    QString m_pendingPptRequest;
-    QMap<QString, QString> m_pptUserPreferences;  // 用户偏好（场景/风格/内容/节奏）
-    QString m_previewPPTPath;         // 当前预览的 PPT 文件路径
-    QString m_previewPPTTitle;        // 当前预览的 PPT 标题
-    void startPPTQuestionFlow(const QString &userMessage); // PPT 伪提问流程
-    void askNextPPTQuestion();
-    void handlePPTQuestionAnswer(const QString &answer);
-    void resetPPTQuestionFlow();
-    void startPPTSimulation(const QString &userMessage);  // 开始 PPT 生成（通过 Agent）
-    void handleChatPPTComplete(const QStringList &svgCodes, const QVector<QImage> &previews); // 聊天面板 PPT 生成完成
+    int m_pptQuestionStep = 0;            // PPT 问答阶段（0=未开始，1-3=问问题，4=生成中）
+    QStringList m_pptUserAnswers;     // 用户的回答记录
+    QTimer *m_pptTypingTimer = nullptr;         // 打字效果定时器
+    QString m_pptTypingText;          // 待打字的完整文本
+    int m_pptTypingIndex = 0;             // 当前打字位置
+    void startPPTSimulation(const QString &userMessage);  // 开始 PPT 模拟生成
     void onPPTSimulationStep();       // PPT 模拟步骤处理
     bool isPPTGenerationRequest(const QString &message);  // 检测是否是 PPT 生成请求
-    QString extractPPTTopic(const QString &message) const; // 从用户消息中提取主题
+    void handlePPTConversation(const QString &message);   // 处理 PPT 问答对话
+    void typeMessageWithEffect(const QString &text);      // 带打字效果的消息显示
+    void onPPTTypingStep();           // 打字效果定时器回调
 
     // 欢迎面板（首页显示，对话后隐藏）
     QWidget *m_welcomePanel = nullptr;
     QWidget *m_welcomeInputWidget = nullptr;  // 欢迎页面底部输入框
     QStackedWidget *m_mainStack = nullptr;    // 主内容切换栈
     bool m_isConversationStarted = false;   // 是否已开始对话
-    AIHistoryType m_activeHistoryType = AIHistoryType::Chat;
-    AIHistoryType m_pendingHistoryType = AIHistoryType::Chat;
-    QString m_pendingHistoryTitle;
-    QString m_pendingLessonPlanContent;
-    QString m_pendingAnalyticsContent;
-    QString m_pendingCasePrompt;
-    QHash<QString, AIHistoryEntry> m_historyEntries;
-    QSet<QString> m_deletedHistoryIds;
-    QString m_selectedHistoryConversationId;
 
     // 数据
     QString currentUserRole;
     QString currentUsername;
-    QString currentUserId;
 
     // 菜单动作
     QAction *profileAction = nullptr;
