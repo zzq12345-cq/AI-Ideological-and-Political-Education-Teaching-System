@@ -2,11 +2,19 @@
 #include <QVBoxLayout>
 #include <QPushButton>
 #include <QLabel>
+#include <QFrame>
 #include <QPainter>
 #include <QDateTime>
 #include <QListWidgetItem>
 #include <QFontMetrics>
 #include <QMenu>
+
+namespace {
+const QString kHistoryAccentColor = QStringLiteral("#C62828");
+const QString kHistoryAccentDarkColor = QStringLiteral("#8E0000");
+const QString kHistoryTitleColor = QStringLiteral("#1C1C1E");
+const QString kHistorySecondaryColor = QStringLiteral("#8E8E93");
+} // namespace
 
 // 自定义列表项组件
 class HistoryItemWidget : public QWidget {
@@ -18,43 +26,88 @@ public:
         setAttribute(Qt::WA_TransparentForMouseEvents);
 
         QHBoxLayout *layout = new QHBoxLayout(this);
-        layout->setContentsMargins(12, 10, 12, 10); // 稍微增加内边距
+        layout->setContentsMargins(0, 10, 12, 10);
         layout->setSpacing(12);
 
+        m_accentBar = new QFrame(this);
+        m_accentBar->setFixedWidth(4);
+        m_accentBar->setStyleSheet(QStringLiteral("background: transparent; border-radius: 2px;"));
+        m_accentBar->setAttribute(Qt::WA_TransparentForMouseEvents);
+        layout->addWidget(m_accentBar);
+
         // 1. 图标区域 - 圆形箭头图标
-        QLabel *iconLabel = new QLabel(this);
-        iconLabel->setFixedSize(20, 20);
+        m_iconLabel = new QLabel(this);
+        m_iconLabel->setFixedSize(20, 20);
         // 使用类似圆形箭头的 Unicode 字符，或者用 emoji
-        iconLabel->setText("↻"); // 圆形箭头符号
-        iconLabel->setStyleSheet("color: #8E8E93; border: none; font-size: 16px; background: transparent;");
-        iconLabel->setAlignment(Qt::AlignCenter);
-        iconLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+        m_iconLabel->setText(QStringLiteral("↻"));
+        m_iconLabel->setAlignment(Qt::AlignCenter);
+        m_iconLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
         
         // 2. 标题和时间区域
         QVBoxLayout *textLayout = new QVBoxLayout();
         textLayout->setSpacing(3);
         textLayout->setContentsMargins(0, 0, 0, 0);
         
-        QLabel *titleLabel = new QLabel();
-        titleLabel->setStyleSheet("font-weight: 500; font-size: 14px; color: #1C1C1E; border: none; background: transparent;");
-        titleLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
-        titleLabel->setMaximumWidth(220);  // 限制最大宽度
+        m_titleLabel = new QLabel();
+        m_titleLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+        m_titleLabel->setMaximumWidth(212);
         // 使用省略号显示过长的文字
-        QFontMetrics fm(titleLabel->font());
-        QString elidedTitle = fm.elidedText(title, Qt::ElideRight, 220);
-        titleLabel->setText(elidedTitle);
+        QFontMetrics fm(m_titleLabel->font());
+        QString elidedTitle = fm.elidedText(title, Qt::ElideRight, 212);
+        m_titleLabel->setText(elidedTitle);
         
-        QLabel *timeLabel = new QLabel(timeStr);
-        timeLabel->setStyleSheet("color: #8E8E93; font-size: 12px; border: none; background: transparent;"); 
-        timeLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+        m_timeLabel = new QLabel(timeStr);
+        m_timeLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
         
-        textLayout->addWidget(titleLabel);
-        textLayout->addWidget(timeLabel);
+        textLayout->addWidget(m_titleLabel);
+        textLayout->addWidget(m_timeLabel);
         
-        layout->addWidget(iconLabel);
+        layout->addWidget(m_iconLabel);
         layout->addLayout(textLayout);
         layout->addStretch();
+
+        updateAppearance();
     }
+
+    void setSelected(bool selected)
+    {
+        if (m_selected == selected) {
+            return;
+        }
+
+        m_selected = selected;
+        updateAppearance();
+    }
+
+private:
+    void updateAppearance()
+    {
+        const bool selected = m_selected;
+
+        const QString accentColor = selected ? kHistoryAccentColor : QStringLiteral("transparent");
+        const QString iconColor = selected ? kHistoryAccentColor : kHistorySecondaryColor;
+        const QString titleColor = selected ? kHistoryAccentDarkColor : kHistoryTitleColor;
+        const QString timeColor = selected ? kHistoryAccentColor : kHistorySecondaryColor;
+        const QString titleWeight = selected ? QStringLiteral("600") : QStringLiteral("500");
+
+        m_accentBar->setStyleSheet(QStringLiteral(
+            "background: %1; border-radius: 2px;"
+        ).arg(accentColor));
+        m_iconLabel->setStyleSheet(QStringLiteral(
+            "color: %1; border: none; font-size: 16px; background: transparent;"
+        ).arg(iconColor));
+        m_titleLabel->setStyleSheet(QStringLiteral(
+            "font-weight: %1; font-size: 14px; color: %2; border: none; background: transparent;"
+        ).arg(titleWeight, titleColor));
+        m_timeLabel->setStyleSheet(QStringLiteral(
+            "color: %1; font-size: 12px; border: none; background: transparent;"
+        ).arg(timeColor));
+    }
+    QFrame *m_accentBar = nullptr;
+    QLabel *m_iconLabel = nullptr;
+    QLabel *m_titleLabel = nullptr;
+    QLabel *m_timeLabel = nullptr;
+    bool m_selected = false;
 };
 
 ChatHistoryWidget::ChatHistoryWidget(QWidget *parent)
@@ -135,9 +188,9 @@ void ChatHistoryWidget::setupUI()
     m_listWidget->setFrameShape(QFrame::NoFrame);
     m_listWidget->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     m_listWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_listWidget->setSpacing(6); // 列表项之间的间距
+    m_listWidget->setSpacing(8);
+    m_listWidget->setSelectionMode(QAbstractItemView::SingleSelection);
     
-    // 卡片样式：浅灰背景，蓝色选中边框
     m_listWidget->setStyleSheet(
         "QListWidget {"
         "   background: transparent;"
@@ -145,18 +198,18 @@ void ChatHistoryWidget::setupUI()
         "   border: none;"
         "}"
         "QListWidget::item {"
-        "   background-color: #F2F2F7;" // 默认浅灰背景
-        "   border: 2px solid transparent;"
-        "   border-radius: 10px;"
-        "   padding: 0px;" 
-        "   min-height: 60px;"
+        "   background-color: #F2F2F7;"
+        "   border: 1px solid transparent;"
+        "   border-radius: 12px;"
+        "   padding: 0px;"
+        "   min-height: 64px;"
         "}"
         "QListWidget::item:hover {"
-        "   background-color: #E5E5EA;"
+        "   background-color: #ECECF1;"
         "}"
         "QListWidget::item:selected {"
-        "   background-color: #E8F0FE;"
-        "   border: 2px solid #007AFF;" // 蓝色边框
+        "   background-color: #FFF4F4;"
+        "   border: 1px solid #F3C4C4;"
         "}"
     );
     
@@ -164,8 +217,13 @@ void ChatHistoryWidget::setupUI()
     m_listWidget->setFocusPolicy(Qt::NoFocus);
     
     connect(m_listWidget, &QListWidget::itemClicked, [this](QListWidgetItem *item) {
-        QString id = item->data(Qt::UserRole).toString();
-        emit historyItemSelected(id);
+        if (!item) {
+            return;
+        }
+
+        m_selectedConversationId = item->data(Qt::UserRole).toString();
+        applySelectionState();
+        emit historyItemSelected(m_selectedConversationId);
     });
 
     m_listWidget->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -203,6 +261,10 @@ void ChatHistoryWidget::addHistoryItem(const QString &id, const QString &title, 
     
     m_listWidget->addItem(item);
     m_listWidget->setItemWidget(item, widget);
+    if (id == m_selectedConversationId) {
+        m_listWidget->setCurrentItem(item);
+    }
+    applySelectionState();
 }
 
 void ChatHistoryWidget::insertHistoryItem(int index, const QString &id, const QString &title, const QString &timeStr)
@@ -218,6 +280,10 @@ void ChatHistoryWidget::insertHistoryItem(int index, const QString &id, const QS
     // 在指定位置插入
     m_listWidget->insertItem(index, item);
     m_listWidget->setItemWidget(item, widget);
+    if (id == m_selectedConversationId) {
+        m_listWidget->setCurrentItem(item);
+    }
+    applySelectionState();
 }
 
 void ChatHistoryWidget::clearHistory()
@@ -227,7 +293,10 @@ void ChatHistoryWidget::clearHistory()
 
 void ChatHistoryWidget::clearSelection()
 {
+    m_selectedConversationId.clear();
     m_listWidget->clearSelection();
+    m_listWidget->setCurrentItem(nullptr);
+    applySelectionState();
 }
 
 void ChatHistoryWidget::setHeaderTitle(const QString &title)
@@ -250,7 +319,11 @@ void ChatHistoryWidget::removeHistoryItem(const QString &id)
     for (int i = 0; i < m_listWidget->count(); ++i) {
         QListWidgetItem *item = m_listWidget->item(i);
         if (item && item->data(Qt::UserRole).toString() == id) {
+            if (m_selectedConversationId == id) {
+                m_selectedConversationId.clear();
+            }
             delete m_listWidget->takeItem(i);
+            applySelectionState();
             return;
         }
     }
@@ -259,16 +332,40 @@ void ChatHistoryWidget::removeHistoryItem(const QString &id)
 void ChatHistoryWidget::selectItem(const QString &id)
 {
     if (!m_listWidget) return;
+    m_selectedConversationId = id;
     for (int i = 0; i < m_listWidget->count(); ++i) {
         QListWidgetItem *item = m_listWidget->item(i);
         if (item && item->data(Qt::UserRole).toString() == id) {
             m_listWidget->setCurrentItem(item);
+            applySelectionState();
             return;
         }
     }
+
+    applySelectionState();
 }
 
 int ChatHistoryWidget::itemCount() const
 {
     return m_listWidget ? m_listWidget->count() : 0;
+}
+
+void ChatHistoryWidget::applySelectionState()
+{
+    if (!m_listWidget) {
+        return;
+    }
+
+    for (int i = 0; i < m_listWidget->count(); ++i) {
+        QListWidgetItem *item = m_listWidget->item(i);
+        QWidget *widget = m_listWidget->itemWidget(item);
+        auto *historyWidget = static_cast<HistoryItemWidget *>(widget);
+        if (!item || !historyWidget) {
+            continue;
+        }
+
+        const bool isSelected = item->data(Qt::UserRole).toString() == m_selectedConversationId;
+        item->setSelected(isSelected);
+        historyWidget->setSelected(isSelected);
+    }
 }

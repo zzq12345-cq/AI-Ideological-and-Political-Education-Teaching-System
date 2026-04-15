@@ -53,10 +53,12 @@ signals:
 
 private:
     void setupUI();
+    void applySelectionState();
 
     QLabel *m_titleLabel = nullptr;
     QPushButton *m_newChatBtn = nullptr;
     QListWidget *m_listWidget = nullptr;
+    QString m_selectedConversationId;
 };
 
 #endif // CHATHISTORYWIDGET_H
