@@ -13,6 +13,7 @@
 #include <QScrollArea>
 #include <QStackedWidget>
 #include <QProgressBar>
+#include <QListWidget>
 #include <QList>
 
 #include "SmartPaperConfig.h"
@@ -61,6 +62,10 @@ private:
     void setupStatusArea(QVBoxLayout *mainLayout);
     void setupResultPreview(QVBoxLayout *mainLayout);
     void setupBottomActions(QVBoxLayout *mainLayout);
+    void refreshCurriculumFilters();
+    void refreshKnowledgePointList();
+    QString selectedChapter() const;
+    QStringList selectedKnowledgePoints() const;
 
     // 题型分布表管理
     QWidget *createTypeRow(int index);
@@ -92,7 +97,9 @@ private:
     QLineEdit *m_titleEdit = nullptr;
     QComboBox *m_subjectCombo = nullptr;
     QComboBox *m_gradeCombo = nullptr;
+    QComboBox *m_chapterCombo = nullptr;
     QComboBox *m_durationCombo = nullptr;
+    QListWidget *m_knowledgePointList = nullptr;
 
     // 题型分布表
     QVBoxLayout *m_typeRowsLayout = nullptr;

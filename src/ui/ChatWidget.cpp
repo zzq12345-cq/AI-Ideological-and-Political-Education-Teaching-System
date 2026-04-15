@@ -23,6 +23,9 @@ ChatWidget::ChatWidget(QWidget *parent)
     , m_messageLayout(nullptr)
     , m_inputEdit(nullptr)
     , m_sendBtn(nullptr)
+    , m_quickReplyContainer(nullptr)
+    , m_quickReplyLayout(nullptr)
+    , m_typingIndicatorRow(nullptr)
     , m_lastAIMessageLabel(nullptr)
     , m_lastAIThinkingWidget(nullptr)
     , m_lastAIThinkingLabel(nullptr)
@@ -81,6 +84,15 @@ void ChatWidget::setupUI()
     QVBoxLayout *bottomLayout = new QVBoxLayout(bottomWidget);
     bottomLayout->setContentsMargins(20, 10, 20, 5);
     bottomLayout->setSpacing(4);
+
+    m_quickReplyContainer = new QWidget();
+    m_quickReplyContainer->setObjectName("quickReplyContainer");
+    m_quickReplyContainer->setVisible(false);
+    m_quickReplyLayout = new QGridLayout(m_quickReplyContainer);
+    m_quickReplyLayout->setContentsMargins(0, 0, 0, 6);
+    m_quickReplyLayout->setHorizontalSpacing(8);
+    m_quickReplyLayout->setVerticalSpacing(8);
+    bottomLayout->addWidget(m_quickReplyContainer);
 
     // 输入框容器（胶囊状）
     QFrame *inputContainer = new QFrame();
@@ -485,11 +497,161 @@ void ChatWidget::clearMessages()
     
     // 重新添加弹簧
     m_messageLayout->addStretch();
-    
+
     m_lastAIMessageLabel = nullptr;
     m_lastAIThinkingWidget = nullptr;
     m_lastAIThinkingLabel = nullptr;
     m_lastAIThinkingToggle = nullptr;
+    m_typingIndicatorRow = nullptr;
+}
+
+void ChatWidget::showTypingIndicator()
+{
+    if (!m_messageLayout || m_typingIndicatorRow) {
+        return;
+    }
+
+    if (m_messageLayout->count() > 0) {
+        QLayoutItem *stretch = m_messageLayout->takeAt(m_messageLayout->count() - 1);
+        delete stretch;
+    }
+
+    m_typingIndicatorRow = new QWidget();
+    m_typingIndicatorRow->setAttribute(Qt::WA_TranslucentBackground);
+
+    auto *rowLayout = new QHBoxLayout(m_typingIndicatorRow);
+    rowLayout->setContentsMargins(0, 4, 0, 4);
+    rowLayout->setSpacing(14);
+
+    auto *avatarLabel = new QLabel();
+    avatarLabel->setFixedSize(44, 44);
+    avatarLabel->setAlignment(Qt::AlignCenter);
+    avatarLabel->setText("AI");
+    avatarLabel->setStyleSheet(
+        "QLabel {"
+        "   background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #D4A017, stop:1 #B8860B);"
+        "   border-radius: 22px;"
+        "   color: #ffffff;"
+        "   font-size: 13px;"
+        "   font-weight: 700;"
+        "   border: 2px solid rgba(255, 255, 255, 0.3);"
+        "}"
+    );
+
+    auto *bubble = new QWidget();
+    bubble->setStyleSheet(
+        "QWidget {"
+        "   background-color: #FFFFFF;"
+        "   border: 1px solid #E5E7EB;"
+        "   border-radius: 18px;"
+        "   border-top-left-radius: 6px;"
+        "}"
+    );
+
+    auto *bubbleLayout = new QVBoxLayout(bubble);
+    bubbleLayout->setContentsMargins(18, 14, 18, 14);
+    bubbleLayout->setSpacing(0);
+
+    auto *typingLabel = new QLabel("AI 正在思考当前课标范围内的出题思路...");
+    typingLabel->setWordWrap(true);
+    typingLabel->setStyleSheet(
+        "QLabel {"
+        "   color: #6B7280;"
+        "   font-size: 14px;"
+        "   line-height: 1.5;"
+        "   background: transparent;"
+        "}"
+    );
+    bubbleLayout->addWidget(typingLabel);
+
+    rowLayout->addWidget(avatarLabel);
+    rowLayout->addWidget(bubble);
+    rowLayout->addStretch();
+
+    m_messageLayout->addWidget(m_typingIndicatorRow);
+    m_messageLayout->addStretch();
+    scrollToBottom();
+}
+
+void ChatWidget::hideTypingIndicator()
+{
+    if (!m_messageLayout || !m_typingIndicatorRow) {
+        return;
+    }
+
+    m_messageLayout->removeWidget(m_typingIndicatorRow);
+    m_typingIndicatorRow->deleteLater();
+    m_typingIndicatorRow = nullptr;
+
+    scrollToBottom();
+}
+
+void ChatWidget::addQuickReplyOptions(const QStringList &options)
+{
+    clearQuickReplyOptions();
+
+    if (!m_quickReplyContainer || !m_quickReplyLayout || options.isEmpty()) {
+        return;
+    }
+
+    const int columnCount = 2;
+    for (int i = 0; i < options.size(); ++i) {
+        const QString option = options.at(i);
+        auto *button = new QPushButton(option);
+        button->setCursor(Qt::PointingHandCursor);
+        button->setMinimumHeight(36);
+        button->setStyleSheet(
+            "QPushButton {"
+            "   background-color: #FFFFFF;"
+            "   color: #2E7D32;"
+            "   border: 1px solid #C8E6C9;"
+            "   border-radius: 18px;"
+            "   padding: 8px 14px;"
+            "   font-size: 12px;"
+            "   font-weight: 600;"
+            "   text-align: left;"
+            "}"
+            "QPushButton:hover {"
+            "   background-color: #F1F8E9;"
+            "   border-color: #81C784;"
+            "}"
+            "QPushButton:disabled {"
+            "   color: #9CA3AF;"
+            "   border-color: #E5E7EB;"
+            "}"
+        );
+
+        connect(button, &QPushButton::clicked, this, [this, option]() {
+            if (option.trimmed().isEmpty() || !m_inputEdit || !m_inputEdit->isEnabled()) {
+                return;
+            }
+            m_inputEdit->clear();
+            emit messageSent(option);
+        });
+
+        const int row = i / columnCount;
+        const int column = i % columnCount;
+        m_quickReplyLayout->addWidget(button, row, column);
+    }
+
+    m_quickReplyContainer->setVisible(true);
+}
+
+void ChatWidget::clearQuickReplyOptions()
+{
+    if (!m_quickReplyLayout || !m_quickReplyContainer) {
+        return;
+    }
+
+    while (m_quickReplyLayout->count() > 0) {
+        QLayoutItem *item = m_quickReplyLayout->takeAt(0);
+        if (item->widget()) {
+            delete item->widget();
+        }
+        delete item;
+    }
+
+    m_quickReplyContainer->setVisible(false);
 }
 
 void ChatWidget::setPlaceholderText(const QString &text)

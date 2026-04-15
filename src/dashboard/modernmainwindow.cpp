@@ -755,13 +755,17 @@ private:
 };
 }
 
-ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &username, QWidget *parent)
+ModernMainWindow::ModernMainWindow(const QString &userRole,
+                                   const QString &username,
+                                   const QString &userId,
+                                   QWidget *parent)
     : QMainWindow(parent)
     , currentUserRole(userRole)
     , currentUsername(username)
+    , currentUserId(userId)
 {
     qDebug() << "=== ModernMainWindow 构造函数开始 ===";
-    qDebug() << "用户角色:" << userRole << "用户名:" << username;
+    qDebug() << "用户角色:" << userRole << "用户名:" << username << "用户ID:" << userId;
 
     setWindowTitle("思政智慧课堂 - 教师中心");
     setMinimumSize(1400, 900);
@@ -857,8 +861,7 @@ ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &usern
 
     // 初始化通知服务
     m_notificationService = new NotificationService(this);
-    // TODO: 从登录状态获取用户ID，暂时用用户名模拟
-    m_notificationService->setCurrentUserId(username);
+    m_notificationService->setCurrentUserId(currentUserId.isEmpty() ? username : currentUserId);
     connect(m_notificationService, &NotificationService::unreadCountChanged,
             this, &ModernMainWindow::onUnreadCountChanged);
 
@@ -1109,7 +1112,7 @@ void ModernMainWindow::setupCentralWidget()
     // 创建考勤管理页面
     m_attendanceWidget = new AttendanceWidget(this);
     auto *attendanceService = new AttendanceService(this);
-    attendanceService->setCurrentUserId("teacher_001");  // TODO: 使用实际登录用户ID
+    attendanceService->setCurrentUserId(currentUserId.isEmpty() ? "teacher_001" : currentUserId);
     m_attendanceWidget->setAttendanceService(attendanceService);
     contentStack->addWidget(m_attendanceWidget);
 

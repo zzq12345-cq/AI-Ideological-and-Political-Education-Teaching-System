@@ -95,6 +95,9 @@ void SmartPaperService::startNextSearch()
     criteria.grade = m_config.grade;
     criteria.questionType = m_currentSearchType;
     criteria.visibility = "public";  // 从公共题库选题
+    if (m_config.chapters.size() == 1) {
+        criteria.chapter = m_config.chapters.first();
+    }
 
     m_paperService->searchQuestions(criteria);
 }
@@ -110,10 +113,33 @@ void SmartPaperService::onSearchCompleted(const QList<PaperQuestion> &results)
 
     // 排除指定的题目ID
     QList<PaperQuestion> filtered;
+    QSet<QString> targetKnowledgePoints;
+    for (const auto &knowledgePoint : m_config.knowledgePoints) {
+        targetKnowledgePoints.insert(knowledgePoint);
+    }
     for (const auto &q : results) {
-        if (!m_config.excludeQuestionIds.contains(q.id)) {
-            filtered.append(q);
+        if (m_config.excludeQuestionIds.contains(q.id)) {
+            continue;
         }
+
+        if (!m_config.chapters.isEmpty() && !m_config.chapters.contains(q.chapter)) {
+            continue;
+        }
+
+        if (!targetKnowledgePoints.isEmpty()) {
+            bool matchedKnowledgePoint = false;
+            for (const auto &kp : q.knowledgePoints) {
+                if (targetKnowledgePoints.contains(kp)) {
+                    matchedKnowledgePoint = true;
+                    break;
+                }
+            }
+            if (!matchedKnowledgePoint) {
+                continue;
+            }
+        }
+
+        filtered.append(q);
     }
 
     m_rawCandidates[m_currentSearchType] = filtered;
@@ -305,6 +331,17 @@ int SmartPaperService::scoreCandidate(const PaperQuestion &question,
         if (m_config.chapters.contains(question.chapter)) {
             difficultyMatchScore += 20;
             reasonParts.append("匹配目标章节");
+        }
+    }
+
+    // 目标知识点匹配度: +25
+    if (!m_config.knowledgePoints.isEmpty()) {
+        for (const auto &kp : question.knowledgePoints) {
+            if (m_config.knowledgePoints.contains(kp)) {
+                difficultyMatchScore += 25;
+                reasonParts.append(QString("命中目标考点「%1」").arg(kp));
+                break;
+            }
         }
     }
 

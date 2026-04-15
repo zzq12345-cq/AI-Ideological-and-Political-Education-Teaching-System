@@ -30,14 +30,24 @@ set(PROJECT_SOURCES
     src/dashboard/SidebarManager.h
     src/questionbank/questionbankwindow.cpp
     src/questionbank/questionbankwindow.h
+    src/questionbank/AIQuestionGenWidget.cpp
+    src/questionbank/AIQuestionGenWidget.h
+    src/questionbank/CurriculumData.h
     src/questionbank/QuestionRepository.cpp
     src/questionbank/QuestionRepository.h
     src/questionbank/QuestionBasket.cpp
     src/questionbank/QuestionBasket.h
     src/questionbank/QuestionBasketWidget.cpp
     src/questionbank/QuestionBasketWidget.h
+    src/questionbank/QualityCheckDialog.cpp
+    src/questionbank/QualityCheckDialog.h
     src/questionbank/PaperComposerDialog.cpp
     src/questionbank/PaperComposerDialog.h
+    src/smartpaper/SmartPaperConfig.h
+    src/smartpaper/SmartPaperService.cpp
+    src/smartpaper/SmartPaperService.h
+    src/smartpaper/SmartPaperWidget.cpp
+    src/smartpaper/SmartPaperWidget.h
     src/ui/aipreparationwidget.cpp
     src/ui/aipreparationwidget.h
     src/ui/moderncheckbox.cpp
@@ -48,6 +58,10 @@ set(PROJECT_SOURCES
     src/services/DocxGenerator.h
     src/services/DifyService.cpp
     src/services/DifyService.h
+    src/services/QuestionParserService.cpp
+    src/services/QuestionParserService.h
+    src/services/QuestionQualityService.cpp
+    src/services/QuestionQualityService.h
     src/services/PPTXGenerator.cpp
     src/services/PPTXGenerator.h
     src/services/PaperService.cpp
@@ -74,6 +88,8 @@ set(PROJECT_SOURCES
     src/services/HotspotService.h
     src/hotspot/INewsProvider.h
     src/hotspot/NewsItem.h
+    src/hotspot/NewsCategoryUtils.cpp
+    src/hotspot/NewsCategoryUtils.h
     src/hotspot/MockNewsProvider.cpp
     src/hotspot/MockNewsProvider.h
     src/hotspot/RealNewsProvider.cpp
@@ -129,10 +145,19 @@ set(PROJECT_SOURCES
     src/attendance/services/AttendanceService.h
     src/attendance/ui/AttendanceWidget.cpp
     src/attendance/ui/AttendanceWidget.h
+    src/config/AppConfig.cpp
+    src/config/AppConfig.h
     src/config/embedded_keys.h
+    src/utils/FailedTaskTracker.cpp
+    src/utils/FailedTaskTracker.h
+    src/utils/NetworkRetryHelper.cpp
+    src/utils/NetworkRetryHelper.h
+    src/utils/SimpleZipWriter.cpp
+    src/utils/SimpleZipWriter.h
     resources.qrc
     resources/QtTheme/QtTheme.qrc
 )
+list(TRANSFORM PROJECT_SOURCES PREPEND "${CMAKE_SOURCE_DIR}/")
 
 # macOS 应用图标
 set(MACOSX_BUNDLE_ICON_FILE AppIcon.icns)
@@ -199,9 +224,16 @@ set(SHARED_SERVICES
     src/services/SupabaseStorageService.h
     src/auth/supabase/supabaseconfig.cpp
     src/auth/supabase/supabaseconfig.h
+    src/config/AppConfig.cpp
+    src/config/AppConfig.h
+    src/utils/FailedTaskTracker.cpp
+    src/utils/FailedTaskTracker.h
     src/utils/NetworkRequestFactory.cpp
     src/utils/NetworkRequestFactory.h
+    src/utils/NetworkRetryHelper.cpp
+    src/utils/NetworkRetryHelper.h
 )
+list(TRANSFORM SHARED_SERVICES PREPEND "${CMAKE_SOURCE_DIR}/")
 
 qt_add_executable(ImportTool
     src/tools/import_tool.cpp

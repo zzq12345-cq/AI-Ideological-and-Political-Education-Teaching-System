@@ -223,10 +223,14 @@ void ModernMainWindow::setupCentralWidget()
 
 /*
 // 在 ModernMainWindow 构造函数中调用：
-ModernMainWindow::ModernMainWindow(const QString &userRole, const QString &username, QWidget *parent)
+ModernMainWindow::ModernMainWindow(const QString &userRole,
+                                   const QString &username,
+                                   const QString &userId,
+                                   QWidget *parent)
     : QMainWindow(parent)
     , currentUserRole(userRole)
     , currentUsername(username)
+    , currentUserId(userId)
 {
     // ... 初始化代码 ...
 

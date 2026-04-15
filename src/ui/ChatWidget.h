@@ -5,6 +5,7 @@
 #include <QScrollArea>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QGridLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
@@ -62,6 +63,26 @@ public:
      * @brief 清空所有消息
      */
     void clearMessages();
+
+    /**
+     * @brief 显示 AI 正在思考提示
+     */
+    void showTypingIndicator();
+
+    /**
+     * @brief 隐藏 AI 正在思考提示
+     */
+    void hideTypingIndicator();
+
+    /**
+     * @brief 设置快捷建议按钮
+     */
+    void addQuickReplyOptions(const QStringList &options);
+
+    /**
+     * @brief 清空快捷建议按钮
+     */
+    void clearQuickReplyOptions();
 
     /**
      * @brief 设置输入框占位符文本
@@ -124,6 +145,9 @@ private:
     QVBoxLayout *m_messageLayout;
     QLineEdit *m_inputEdit;
     QPushButton *m_sendBtn;
+    QWidget *m_quickReplyContainer;
+    QGridLayout *m_quickReplyLayout;
+    QWidget *m_typingIndicatorRow;
 
     // 用于流式更新的最后一条 AI 消息
     QLabel *m_lastAIMessageLabel;

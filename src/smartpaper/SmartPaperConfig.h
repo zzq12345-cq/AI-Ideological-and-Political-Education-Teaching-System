@@ -24,6 +24,7 @@ struct SmartPaperConfig {
     QString title;
     QString subject;
     QString grade;
+    QString gradeSemester;
     int duration = 90;              // 考试时长（分钟）
     int targetTotalScore = 100;     // 目标总分
 

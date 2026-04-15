@@ -1,4 +1,5 @@
 #include "AIQuestionGenWidget.h"
+#include "CurriculumData.h"
 #include "../ui/ChatWidget.h"
 #include "../config/AppConfig.h"
 #include "../config/embedded_keys.h"
@@ -9,6 +10,7 @@
 #include <QFrame>
 #include <QPushButton>
 #include <QLabel>
+#include <QComboBox>
 #include <QGraphicsDropShadowEffect>
 #include <QDebug>
 #include <QMessageBox>
@@ -88,6 +90,8 @@ void AIQuestionGenWidget::setupUI()
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
     setStyleSheet(QString("AIQuestionGenWidget { background-color: %1; }").arg(BG_PAGE));
+
+    setupCurriculumBar(mainLayout);
 
     // ====== 聊天区域 ======
     m_chatWidget = new ChatWidget(this);
@@ -211,6 +215,66 @@ void AIQuestionGenWidget::setupUI()
     mainLayout->addWidget(m_bottomBar);
 }
 
+void AIQuestionGenWidget::setupCurriculumBar(QVBoxLayout *mainLayout)
+{
+    m_curriculumBar = new QFrame(this);
+    m_curriculumBar->setObjectName("aiCurriculumBar");
+    m_curriculumBar->setStyleSheet(
+        "QFrame#aiCurriculumBar {"
+        "    background-color: #FFFFFF;"
+        "    border-bottom: 1px solid " + BORDER_SUBTLE + ";"
+        "}"
+        "QComboBox {"
+        "    background-color: #F9FAFB;"
+        "    border: 1px solid #D1D5DB;"
+        "    border-radius: 10px;"
+        "    padding: 8px 12px;"
+        "    min-height: 20px;"
+        "    color: #111827;"
+        "    font-size: 13px;"
+        "}"
+        "QComboBox:hover { border-color: #9CA3AF; background-color: #FFFFFF; }"
+        "QComboBox:focus { border-color: #2E7D32; background-color: #FFFFFF; }"
+    );
+
+    auto *layout = new QHBoxLayout(m_curriculumBar);
+    layout->setContentsMargins(20, 14, 20, 14);
+    layout->setSpacing(12);
+
+    auto *scopeLabel = new QLabel("课标范围");
+    scopeLabel->setStyleSheet("QLabel { font-size: 13px; font-weight: 700; color: #111827; }");
+    layout->addWidget(scopeLabel);
+
+    m_gradeCombo = new QComboBox(m_curriculumBar);
+    m_gradeCombo->addItem("不限年级册别");
+    for (const auto &grade : CurriculumData::gradeSemesters()) {
+        m_gradeCombo->addItem(grade);
+    }
+    layout->addWidget(m_gradeCombo, 1);
+
+    m_chapterCombo = new QComboBox(m_curriculumBar);
+    layout->addWidget(m_chapterCombo, 2);
+    layout->addStretch();
+
+    connect(m_gradeCombo, &QComboBox::currentTextChanged, this, [this]() {
+        if (m_isUpdatingCurriculumUi) {
+            return;
+        }
+        refreshChapterOptions(false);
+        applyCurriculumContextChange();
+    });
+
+    connect(m_chapterCombo, &QComboBox::currentTextChanged, this, [this]() {
+        if (m_isUpdatingCurriculumUi) {
+            return;
+        }
+        applyCurriculumContextChange();
+    });
+
+    refreshChapterOptions(false);
+    mainLayout->addWidget(m_curriculumBar);
+}
+
 void AIQuestionGenWidget::setupZhipuService()
 {
     m_networkManager = new QNetworkAccessManager(this);
@@ -228,27 +292,144 @@ void AIQuestionGenWidget::setupZhipuService()
 
     // 初始化对话历史
     m_conversationHistory.clear();
-    m_conversationHistory.append({QStringLiteral("system"), systemPrompt()});
+    m_conversationHistory.append({QStringLiteral("system"), currentSystemPrompt()});
 }
 
 void AIQuestionGenWidget::showWelcome()
 {
-    const QString welcome =
-        "你好！我是 **AI 出题助手** 💡\n\n"
-        "我可以帮你生成各类思政试题。请告诉我你的出题需求，例如：\n\n"
-        "- 帮我出 **5道关于宪法** 的选择题\n"
-        "- 生成一道 **中等难度** 的材料论述题\n"
-        "- 围绕 **\"法治与道德\"** 出一套综合练习\n"
-        "- 出 **3道判断说理题**，主题：青少年法律意识\n\n"
-        "直接输入需求，或点击下方快捷按钮开始 👇";
+    const QString gradeSemester = selectedGradeSemester();
+    const QString chapter = selectedChapter();
+    const QStringList knowledgePoints = selectedKnowledgePoints();
 
+    QString welcome =
+        "你好！我是 **AI 出题助手** 💡\n\n"
+        "我会根据你当前选择的课标范围生成更贴教材、更贴章节的思政试题。";
+
+    if (!gradeSemester.isEmpty() && !chapter.isEmpty()) {
+        welcome += QString(
+            "\n\n**当前范围**：%1 · %2\n"
+            "**核心考点**：%3\n"
+            "**高频考法**：%4"
+        ).arg(
+            gradeSemester,
+            chapter,
+            knowledgePoints.isEmpty() ? QStringLiteral("本单元核心内容") : knowledgePoints.join("、"),
+            CurriculumData::highFrequencyPatternsFor(gradeSemester, chapter).join("；")
+        );
+        m_chatWidget->setPlaceholderText(
+            QString("例如：为%1 %2出3道材料分析题，难度中等...")
+                .arg(gradeSemester, chapter));
+    } else if (!gradeSemester.isEmpty()) {
+        welcome += QString(
+            "\n\n**当前范围**：%1\n"
+            "**核心考点示例**：%2"
+        ).arg(
+            gradeSemester,
+            knowledgePoints.isEmpty() ? QStringLiteral("请继续选择章节以缩小范围") : knowledgePoints.join("、")
+        );
+        m_chatWidget->setPlaceholderText(
+            QString("例如：围绕%1核心内容出5道选择题...").arg(gradeSemester));
+    } else {
+        welcome +=
+            "\n\n你可以先在上方选择 **年级册别 + 章节**，再生成更精准的题目。"
+            "\n也可以直接输入需求，我会按通用课程范围出题。";
+        m_chatWidget->setPlaceholderText("输入出题需求，例如：帮我出5道关于宪法的选择题...");
+    }
+
+    welcome += "\n\n直接输入需求，或点击下方快捷按钮开始 👇";
     m_chatWidget->addMessage(welcome, false);
-    m_chatWidget->addQuickReplyOptions({
-        "帮我出5道选择题，主题：宪法",
-        "生成一道材料论述题，难度中等",
-        "围绕'法治'出综合练习（选择+判断+论述）",
-        "出3道判断说理题，主题：青少年法律意识"
-    });
+    m_chatWidget->addQuickReplyOptions(CurriculumData::quickPromptsFor(gradeSemester, chapter));
+}
+
+void AIQuestionGenWidget::refreshChapterOptions(bool preserveSelection)
+{
+    if (!m_chapterCombo) {
+        return;
+    }
+
+    const QString previous = preserveSelection ? selectedChapter() : QString();
+
+    m_isUpdatingCurriculumUi = true;
+    m_chapterCombo->clear();
+    m_chapterCombo->addItem("不限章节");
+
+    const QString gradeSemester = selectedGradeSemester();
+    if (!gradeSemester.isEmpty()) {
+        for (const auto &chapter : CurriculumData::chaptersForGradeSemester(gradeSemester)) {
+            m_chapterCombo->addItem(chapter);
+        }
+    }
+
+    if (!previous.isEmpty()) {
+        const int index = m_chapterCombo->findText(previous);
+        if (index >= 0) {
+            m_chapterCombo->setCurrentIndex(index);
+        }
+    }
+    m_isUpdatingCurriculumUi = false;
+}
+
+void AIQuestionGenWidget::applyCurriculumContextChange()
+{
+    if (m_isUpdatingCurriculumUi) {
+        return;
+    }
+
+    const QString oldId = m_conversationId;
+    const QString oldTitle = currentConversationTitle();
+    bool hasUserMessage = false;
+    for (const auto &msg : m_conversationHistory) {
+        if (msg.role == "user") {
+            hasUserMessage = true;
+            break;
+        }
+    }
+
+    if (hasUserMessage && !oldId.isEmpty()) {
+        saveCurrentConversation();
+        emit conversationUpdated(oldId, oldTitle);
+    }
+
+    startNewConversation();
+}
+
+QString AIQuestionGenWidget::selectedGradeSemester() const
+{
+    if (!m_gradeCombo) {
+        return {};
+    }
+    const QString value = m_gradeCombo->currentText().trimmed();
+    return value == "不限年级册别" ? QString() : value;
+}
+
+QString AIQuestionGenWidget::selectedChapter() const
+{
+    if (!m_chapterCombo) {
+        return {};
+    }
+    const QString value = m_chapterCombo->currentText().trimmed();
+    return value == "不限章节" ? QString() : value;
+}
+
+QStringList AIQuestionGenWidget::selectedKnowledgePoints() const
+{
+    return CurriculumData::promptKnowledgePointsFor(selectedGradeSemester(), selectedChapter());
+}
+
+QString AIQuestionGenWidget::currentSystemPrompt() const
+{
+    return buildSystemPrompt(selectedGradeSemester(), selectedChapter(), selectedKnowledgePoints());
+}
+
+void AIQuestionGenWidget::ensureAssistantMessagePlaceholder()
+{
+    if (!m_hasPendingAIPlaceholder) {
+        return;
+    }
+
+    m_chatWidget->hideTypingIndicator();
+    m_chatWidget->addMessage("", false);
+    m_hasPendingAIPlaceholder = false;
 }
 
 // ===================== 对话管理（公开接口）=====================
@@ -318,7 +499,7 @@ void AIQuestionGenWidget::startNewConversation()
 
     // 重置对话历史（保留系统提示）
     m_conversationHistory.clear();
-    m_conversationHistory.append({QStringLiteral("system"), systemPrompt()});
+    m_conversationHistory.append({QStringLiteral("system"), currentSystemPrompt()});
 
     showWelcome();
     qDebug() << "[AIQuestionGen] 新对话已创建:" << m_conversationId;
@@ -449,9 +630,11 @@ void AIQuestionGenWidget::deleteConversation(const QString &id)
 
 // ===================== 智谱 API 调用 =====================
 
-const QString AIQuestionGenWidget::systemPrompt()
+QString AIQuestionGenWidget::buildSystemPrompt(const QString &gradeSemester,
+                                               const QString &chapter,
+                                               const QStringList &knowledgePoints)
 {
-    return QStringLiteral(
+    QString prompt = QStringLiteral(
         "你是一位专业的中学《道德与法治》出题专家。你的任务是根据用户的需求生成高质量的试题。\n\n"
         "## 出题规范\n"
         "1. 所有试题必须围绕中学《道德与法治》课程内容\n"
@@ -471,11 +654,44 @@ const QString AIQuestionGenWidget::systemPrompt()
         "- 材料分析题\n\n"
         "请认真审题，确保答案准确、解析详尽。"
     );
+
+    if (gradeSemester.isEmpty() && chapter.isEmpty()) {
+        return prompt;
+    }
+
+    prompt += "\n\n## 当前课标上下文\n";
+    if (!gradeSemester.isEmpty() && !chapter.isEmpty()) {
+        prompt += QString("你正在为“%1 %2”出题。\n").arg(gradeSemester, chapter);
+    } else {
+        prompt += QString("你正在为“%1”范围内的内容出题。\n").arg(gradeSemester);
+    }
+
+    if (!knowledgePoints.isEmpty()) {
+        prompt += QString("核心考点：%1。\n").arg(knowledgePoints.join("、"));
+    }
+
+    const QStringList patterns = CurriculumData::highFrequencyPatternsFor(gradeSemester, chapter);
+    if (!patterns.isEmpty()) {
+        prompt += QString("高频考法：%1。\n").arg(patterns.join("；"));
+    }
+
+    const QStringList types = CurriculumData::suitableTypesFor(gradeSemester, chapter);
+    if (!types.isEmpty()) {
+        QStringList displayTypes;
+        for (const auto &type : types) {
+            displayTypes.append(CurriculumData::displayQuestionType(type));
+        }
+        prompt += QString("优先考虑的题型：%1。\n").arg(displayTypes.join("、"));
+    }
+
+    prompt += "如果用户要求超出当前课标范围，请温和提醒并把题目拉回当前范围。";
+    return prompt;
 }
 
 void AIQuestionGenWidget::sendToZhipu(const QString &userMessage)
 {
     if (m_apiKey.isEmpty()) {
+        ensureAssistantMessagePlaceholder();
         m_chatWidget->updateLastAIMessage("⚠️ 出题失败：API Key 未设置\n\n请在 .env.local 中配置 ZHIPU_API_KEY。");
         m_isGenerating = false;
         m_chatWidget->setInputEnabled(true);
@@ -524,6 +740,7 @@ void AIQuestionGenWidget::sendToZhipu(const QString &userMessage)
     m_currentReply = m_networkManager->post(request, data);
 
     if (!m_currentReply) {
+        ensureAssistantMessagePlaceholder();
         m_chatWidget->updateLastAIMessage("⚠️ 出题失败：网络请求创建失败\n\n请稍后重试。");
         m_isGenerating = false;
         m_chatWidget->setInputEnabled(true);
@@ -567,6 +784,7 @@ void AIQuestionGenWidget::sendToZhipu(const QString &userMessage)
                 errMsg = QString("⚠️ 出题失败：%1 (HTTP %2)\n\n请稍后重试。")
                     .arg(reply->errorString()).arg(httpStatus);
             }
+            ensureAssistantMessagePlaceholder();
             m_chatWidget->updateLastAIMessage(errMsg);
         } else {
             // AI 回复完成 — 添加到历史、保存、通知外部
@@ -607,9 +825,7 @@ void AIQuestionGenWidget::processSSEData(const QByteArray &data)
                         if (!choices.isEmpty()) {
                             QString content = choices[0].toObject()["delta"].toObject()["content"].toString();
                             if (!content.isEmpty()) {
-                                if (m_hasPendingAIPlaceholder) {
-                                    m_hasPendingAIPlaceholder = false;
-                                }
+                                ensureAssistantMessagePlaceholder();
                                 m_lastAIResponse += content;
                                 m_chatWidget->updateLastAIMessage(m_lastAIResponse);
                             }
@@ -635,6 +851,7 @@ void AIQuestionGenWidget::processSSEData(const QByteArray &data)
                     if (!choices.isEmpty()) {
                         QString content = choices[0].toObject()["delta"].toObject()["content"].toString();
                         if (!content.isEmpty()) {
+                            ensureAssistantMessagePlaceholder();
                             m_lastAIResponse += content;
                             m_chatWidget->updateLastAIMessage(m_lastAIResponse);
                         }
@@ -661,6 +878,7 @@ void AIQuestionGenWidget::onUserMessageSent(const QString &message)
 
     // 先添加用户消息气泡
     m_chatWidget->addMessage(message, true);
+    m_chatWidget->clearQuickReplyOptions();
 
     // 显示 AI 正在思考，而不是空白占位气泡
     m_chatWidget->showTypingIndicator();

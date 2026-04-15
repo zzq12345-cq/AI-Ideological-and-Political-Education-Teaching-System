@@ -53,7 +53,10 @@ class ModernMainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    ModernMainWindow(const QString &userRole = "教师", const QString &username = "王老师", QWidget *parent = nullptr);
+    ModernMainWindow(const QString &userRole = "教师",
+                     const QString &username = "王老师",
+                     const QString &userId = QString(),
+                     QWidget *parent = nullptr);
     ~ModernMainWindow();
 
 private slots:
@@ -226,6 +229,7 @@ private:
     // 数据
     QString currentUserRole;
     QString currentUsername;
+    QString currentUserId;
 
     // 菜单动作
     QAction *profileAction = nullptr;

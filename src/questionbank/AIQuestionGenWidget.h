@@ -10,6 +10,7 @@ class ChatWidget;
 class QVBoxLayout;
 class QFrame;
 class QPushButton;
+class QComboBox;
 class PaperService;
 
 /**
@@ -72,6 +73,14 @@ private:
     void setupUI();
     void setupZhipuService();
     void showWelcome();
+    void setupCurriculumBar(QVBoxLayout *mainLayout);
+    void refreshChapterOptions(bool preserveSelection = false);
+    void applyCurriculumContextChange();
+    QString selectedGradeSemester() const;
+    QString selectedChapter() const;
+    QStringList selectedKnowledgePoints() const;
+    QString currentSystemPrompt() const;
+    void ensureAssistantMessagePlaceholder();
 
     // 智谱 API 调用（流式 SSE）
     void sendToZhipu(const QString &userMessage);
@@ -84,6 +93,9 @@ private:
 
     // UI 组件
     ChatWidget *m_chatWidget = nullptr;
+    QFrame *m_curriculumBar = nullptr;
+    QComboBox *m_gradeCombo = nullptr;
+    QComboBox *m_chapterCombo = nullptr;
     QFrame *m_bottomBar = nullptr;
     QPushButton *m_newChatBtn = nullptr;
     QPushButton *m_saveBtn = nullptr;
@@ -111,10 +123,13 @@ private:
     QString m_lastAIResponse;       // 最后一次完整 AI 回复（用于保存/导出）
     QString m_exportUnavailableReason;
     QByteArray m_sseBuffer;         // SSE 数据缓冲区
+    bool m_isUpdatingCurriculumUi = false;
 
     // 常量
     static constexpr const char* MODEL_NAME = "glm-5.1";
-    static const QString systemPrompt();
+    static QString buildSystemPrompt(const QString &gradeSemester,
+                                     const QString &chapter,
+                                     const QStringList &knowledgePoints);
 };
 
 #endif // AIQUESTIONGENWIDGET_H

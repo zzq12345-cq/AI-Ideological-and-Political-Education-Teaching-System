@@ -1,4 +1,5 @@
 #include "SmartPaperWidget.h"
+#include "../questionbank/CurriculumData.h"
 #include "../services/PaperService.h"
 #include "../utils/LayoutUtils.h"
 #include "../questionbank/QuestionBasket.h"
@@ -344,9 +345,9 @@ void SmartPaperWidget::setupConfigCard(QVBoxLayout *mainLayout)
 
     // 年级
     auto *gradeGroup = new QVBoxLayout();
-    gradeGroup->addWidget(labelStyle("年级"));
+    gradeGroup->addWidget(labelStyle("年级册别"));
     m_gradeCombo = new QComboBox();
-    m_gradeCombo->addItems({"七年级", "八年级", "九年级"});
+    m_gradeCombo->addItems(CurriculumData::gradeSemesters());
     m_gradeCombo->setMinimumHeight(40);
     gradeGroup->addWidget(m_gradeCombo);
     basicRow->addLayout(gradeGroup, 1);
@@ -362,6 +363,57 @@ void SmartPaperWidget::setupConfigCard(QVBoxLayout *mainLayout)
     basicRow->addLayout(durationGroup, 1);
 
     cardLayout->addLayout(basicRow);
+
+    // ==================== 课标范围 ====================
+    auto *curriculumRow = new QHBoxLayout();
+    curriculumRow->setSpacing(16);
+
+    auto *chapterGroup = new QVBoxLayout();
+    chapterGroup->addWidget(labelStyle("教材章节"));
+    m_chapterCombo = new QComboBox();
+    m_chapterCombo->setMinimumHeight(40);
+    chapterGroup->addWidget(m_chapterCombo);
+    curriculumRow->addLayout(chapterGroup, 2);
+
+    auto *knowledgeHintGroup = new QVBoxLayout();
+    knowledgeHintGroup->addWidget(labelStyle("考点筛选"));
+    auto *knowledgeHint = new QLabel("可按章节勾选核心考点；未勾选时默认按章节范围组卷。");
+    knowledgeHint->setWordWrap(true);
+    knowledgeHint->setStyleSheet("QLabel { font-size: 12px; color: #6B7280; line-height: 1.5; }");
+    knowledgeHintGroup->addWidget(knowledgeHint);
+    curriculumRow->addLayout(knowledgeHintGroup, 2);
+
+    cardLayout->addLayout(curriculumRow);
+
+    m_knowledgePointList = new QListWidget();
+    m_knowledgePointList->setSelectionMode(QAbstractItemView::NoSelection);
+    m_knowledgePointList->setAlternatingRowColors(true);
+    m_knowledgePointList->setMinimumHeight(148);
+    m_knowledgePointList->setStyleSheet(R"(
+        QListWidget {
+            background-color: #F9FAFB;
+            border: 1.5px solid #E5E7EB;
+            border-radius: 12px;
+            padding: 6px;
+            font-size: 13px;
+            color: #1A1A2E;
+        }
+        QListWidget::item {
+            padding: 8px 10px;
+            border-radius: 8px;
+        }
+        QListWidget::item:alternate {
+            background-color: #FFFFFF;
+        }
+    )");
+    cardLayout->addWidget(m_knowledgePointList);
+
+    connect(m_gradeCombo, &QComboBox::currentTextChanged,
+            this, [this]() { refreshCurriculumFilters(); });
+    connect(m_chapterCombo, &QComboBox::currentTextChanged,
+            this, [this]() { refreshKnowledgePointList(); });
+
+    refreshCurriculumFilters();
 
     // ==================== 分隔线 ====================
     auto *sep1 = new QFrame();
@@ -474,6 +526,78 @@ void SmartPaperWidget::setupConfigCard(QVBoxLayout *mainLayout)
 
     // 初始校验
     updateGenerateButton();
+}
+
+void SmartPaperWidget::refreshCurriculumFilters()
+{
+    if (!m_gradeCombo || !m_chapterCombo) {
+        return;
+    }
+
+    m_chapterCombo->blockSignals(true);
+    m_chapterCombo->clear();
+    m_chapterCombo->addItem("不限定章节");
+    for (const auto &chapter : CurriculumData::chaptersForGradeSemester(m_gradeCombo->currentText())) {
+        m_chapterCombo->addItem(chapter);
+    }
+    m_chapterCombo->setCurrentIndex(0);
+    m_chapterCombo->blockSignals(false);
+
+    refreshKnowledgePointList();
+}
+
+void SmartPaperWidget::refreshKnowledgePointList()
+{
+    if (!m_knowledgePointList || !m_gradeCombo) {
+        return;
+    }
+
+    const QStringList previousChecked = selectedKnowledgePoints();
+    const QList<KnowledgePoint> knowledgePoints =
+        CurriculumData::knowledgePointsFor(m_gradeCombo->currentText(), selectedChapter());
+
+    m_knowledgePointList->clear();
+
+    for (const auto &point : knowledgePoints) {
+        auto *item = new QListWidgetItem(
+            QString("%1  [%2]").arg(point.name, point.examWeight),
+            m_knowledgePointList);
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setCheckState(previousChecked.contains(point.name) ? Qt::Checked : Qt::Unchecked);
+
+        QStringList typeNames;
+        for (const auto &type : point.suitableTypes) {
+            typeNames.append(CurriculumData::displayQuestionType(type));
+        }
+        item->setToolTip(QString("%1\n适配题型：%2")
+                             .arg(point.chapter, typeNames.join("、")));
+        item->setData(Qt::UserRole, point.name);
+    }
+}
+
+QString SmartPaperWidget::selectedChapter() const
+{
+    if (!m_chapterCombo) {
+        return {};
+    }
+    const QString value = m_chapterCombo->currentText().trimmed();
+    return value == "不限定章节" ? QString() : value;
+}
+
+QStringList SmartPaperWidget::selectedKnowledgePoints() const
+{
+    QStringList points;
+    if (!m_knowledgePointList) {
+        return points;
+    }
+
+    for (int i = 0; i < m_knowledgePointList->count(); ++i) {
+        QListWidgetItem *item = m_knowledgePointList->item(i);
+        if (item && item->checkState() == Qt::Checked) {
+            points.append(item->data(Qt::UserRole).toString());
+        }
+    }
+    return points;
 }
 
 QWidget *SmartPaperWidget::createTypeRow(int index)
@@ -784,11 +908,16 @@ void SmartPaperWidget::onGenerateClicked()
         m_config.title = "智能组卷试卷";
     }
     m_config.subject = m_subjectCombo->currentText();
-    m_config.grade = m_gradeCombo->currentText();
+    m_config.gradeSemester = m_gradeCombo->currentText();
+    m_config.grade = CurriculumData::baseGradeFromGradeSemester(m_config.gradeSemester);
     m_config.duration = m_durationCombo->currentText().toInt();
     m_config.easyRatio = m_easyRatioSpin->value();
     m_config.mediumRatio = m_mediumRatioSpin->value();
     m_config.hardRatio = m_hardRatioSpin->value();
+    if (!selectedChapter().isEmpty()) {
+        m_config.chapters = {selectedChapter()};
+    }
+    m_config.knowledgePoints = selectedKnowledgePoints();
 
     // 收集题型配置
     for (auto *row : m_typeRows) {
