@@ -552,7 +552,9 @@ void AIQuestionGenWidget::sendToZhipu(const QString &userMessage)
         reply->deleteLater();
 
         m_isGenerating = false;
+        m_hasPendingAIPlaceholder = false;
         m_chatWidget->setInputEnabled(true);
+        m_chatWidget->hideTypingIndicator();
 
         if (reply->error() != QNetworkReply::NoError && m_lastAIResponse.isEmpty()) {
             int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -605,6 +607,9 @@ void AIQuestionGenWidget::processSSEData(const QByteArray &data)
                         if (!choices.isEmpty()) {
                             QString content = choices[0].toObject()["delta"].toObject()["content"].toString();
                             if (!content.isEmpty()) {
+                                if (m_hasPendingAIPlaceholder) {
+                                    m_hasPendingAIPlaceholder = false;
+                                }
                                 m_lastAIResponse += content;
                                 m_chatWidget->updateLastAIMessage(m_lastAIResponse);
                             }
@@ -657,8 +662,8 @@ void AIQuestionGenWidget::onUserMessageSent(const QString &message)
     // 先添加用户消息气泡
     m_chatWidget->addMessage(message, true);
 
-    // 再添加 AI 空占位消息（用于流式更新）
-    m_chatWidget->addMessage("", false);
+    // 显示 AI 正在思考，而不是空白占位气泡
+    m_chatWidget->showTypingIndicator();
 
     sendToZhipu(message);
 }

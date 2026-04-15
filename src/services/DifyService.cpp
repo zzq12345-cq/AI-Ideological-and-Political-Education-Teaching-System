@@ -201,6 +201,7 @@ void DifyService::onReplyFinished()
     } else {
         // 发送完整响应
         QByteArray responseData = m_currentReply->readAll();
+        const bool hasStreamedText = !m_fullResponse.trimmed().isEmpty();
         qDebug() << "[DifyService] Request successful, response data length:" << responseData.length();
 
         if (m_sseParser.hasPendingData()) {
@@ -225,12 +226,15 @@ void DifyService::onReplyFinished()
                     QString filteredAnswer = filterThinkTagsStreaming(answer);
                     qDebug() << "[DifyService] Emitting messageReceived with content:" << filteredAnswer.left(100) + "...";
                     emit messageReceived(filteredAnswer);
-                } else {
-                    qDebug() << "[DifyService] Warning: No answer field in response!";
-                    qDebug() << "[DifyService] Full response:" << responseData;
+                } else if (!hasStreamedText) {
+                    qDebug() << "[DifyService] Warning: No answer field and no streamed text in response";
                     if (responseObj.contains("message")) {
                         emit errorOccurred(responseObj["message"].toString());
+                    } else {
+                        emit errorOccurred(QStringLiteral("AI 未返回有效内容，请稍后重试。"));
                     }
+                } else {
+                    qDebug() << "[DifyService] No answer field, but stream chunks were already received";
                 }
             } else {
                 qDebug() << "[DifyService] Failed to parse JSON response, using raw data";
@@ -238,6 +242,9 @@ void DifyService::onReplyFinished()
             }
         } else {
             qDebug() << "[DifyService] Warning: Response data is empty!";
+            if (!hasStreamedText) {
+                emit errorOccurred(QStringLiteral("AI 未返回任何内容，请稍后重试。"));
+            }
         }
     }
 

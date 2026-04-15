@@ -3344,11 +3344,9 @@ void ModernMainWindow::onAIStreamChunk(const QString &chunk)
     displayText.remove(QRegularExpression("//+\\s*"));
     displayText.remove(QRegularExpression("\\*\\*"));
 
-    // 如果是第一个 chunk，先添加一个空的 AI 消息
+    // 如果是第一个 chunk，直接把“正在思考”替换成真实 AI 回复
     if (m_currentAIResponse.length() == chunk.length()) {
-        qDebug() << "[ModernMainWindow] Adding first AI message placeholder";
-        m_bubbleChatWidget->addMessage("", false); // 添加空的 AI 消息占位
-        // 第一个 chunk 立即更新
+        qDebug() << "[ModernMainWindow] Replacing typing indicator with first AI chunk";
         m_bubbleChatWidget->updateLastAIMessage(displayText);
     } else {
         // 使用节流机制：标记有待更新，如果定时器没在运行则启动
@@ -3377,19 +3375,13 @@ void ModernMainWindow::onAIResponseReceived(const QString &response)
     qDebug() << "[ModernMainWindow] AI Response received, length:" << response.length();
     qDebug() << "[ModernMainWindow] Current accumulated response length:" << m_currentAIResponse.length();
 
-    // 如果没有累积的响应，直接显示
-    if (m_currentAIResponse.isEmpty()) {
-        qDebug() << "[ModernMainWindow] No accumulated response, adding new message";
-        appendChatMessage("AI 助手", response, false);
+    if (m_bubbleChatWidget) {
+        qDebug() << "[ModernMainWindow] Updating final AI message";
+        m_bubbleChatWidget->updateLastAIMessage(response);
     } else {
-        // 更新最后的 AI 消息为完整响应
-        if (m_bubbleChatWidget) {
-            qDebug() << "[ModernMainWindow] Updating final AI message";
-            m_bubbleChatWidget->updateLastAIMessage(response);
-        } else {
-            qDebug() << "[ModernMainWindow] Error: m_bubbleChatWidget is null!";
-        }
+        qDebug() << "[ModernMainWindow] Error: m_bubbleChatWidget is null!";
     }
+
     // 保留完整响应，供 onAIRequestFinished 阶段解析 PPT JSON 使用
     if (!response.trimmed().isEmpty()) {
         m_currentAIResponse = response;
@@ -3404,7 +3396,8 @@ void ModernMainWindow::onAIError(const QString &error)
     // 直接在主页面聊天组件中显示错误消息
     QString errorMessage = QString("[!] 错误：%1").arg(error);
     if (m_bubbleChatWidget) {
-        m_bubbleChatWidget->addMessage(errorMessage, false);
+        m_bubbleChatWidget->hideTypingIndicator();
+        m_bubbleChatWidget->updateLastAIMessage(errorMessage);
     } else {
         // 聊天组件尚未初始化，仅输出日志
         qWarning() << "[ModernMainWindow] ChatWidget not ready, error not displayed:" << error;
@@ -3419,6 +3412,7 @@ void ModernMainWindow::onAIRequestStarted()
     // 通过 ChatWidget 的公共方法来控制状态
     if (m_bubbleChatWidget) {
         m_bubbleChatWidget->setInputEnabled(false);
+        m_bubbleChatWidget->showTypingIndicator();
         qDebug() << "[ModernMainWindow] Input disabled";
         // 注意：暂时无法设置发送按钮文本，因为 ChatWidget 没有提供这个方法
     } else {
@@ -3430,6 +3424,9 @@ void ModernMainWindow::onAIRequestFinished()
 {
     if (m_bubbleChatWidget) {
         m_bubbleChatWidget->setInputEnabled(true);
+        if (m_currentAIResponse.trimmed().isEmpty()) {
+            m_bubbleChatWidget->hideTypingIndicator();
+        }
         m_bubbleChatWidget->focusInput();
     }
 

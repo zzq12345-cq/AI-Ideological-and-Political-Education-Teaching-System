@@ -11,6 +11,7 @@
 #include <QApplication>
 #include <QFile>
 #include <QDebug>
+#include <QFontMetrics>
 #include <QGridLayout>
 
 const QString ChatWidget::USER_BUBBLE_COLOR = StyleConfig::PATRIOTIC_RED_DARK;
@@ -410,6 +411,12 @@ void ChatWidget::updateLastAIMessage(const QString &text)
     qDebug() << "[ChatWidget] updateLastAIMessage called with text length:" << text.length();
     qDebug() << "[ChatWidget] m_lastAIMessageLabel is null?" << (m_lastAIMessageLabel == nullptr);
 
+    if (!m_lastAIMessageLabel && !text.trimmed().isEmpty()) {
+        hideTypingIndicator();
+        addMessage(text, false);
+        return;
+    }
+
     if (m_lastAIMessageLabel) {
         m_lastAIMessageLabel->setTextFormat(m_markdownEnabled ? Qt::RichText : Qt::PlainText);
         QString currentText = m_lastAIMessageLabel->text();
@@ -479,6 +486,8 @@ void ChatWidget::expandThinking()
 
 void ChatWidget::clearMessages()
 {
+    hideTypingIndicator();
+
     // 清除所有消息组件
     LayoutUtils::clearLayout(m_messageLayout);
     
@@ -490,6 +499,7 @@ void ChatWidget::clearMessages()
     m_lastAIThinkingLabel = nullptr;
     m_lastAIThinkingToggle = nullptr;
     m_activeQuickReplyWidget = nullptr;
+    m_typingDots.clear();
 }
 
 void ChatWidget::deactivateActiveQuickReplies()
@@ -534,8 +544,8 @@ void ChatWidget::addQuickReplyOptions(const QStringList &options)
     QWidget *optionsWidget = new QWidget(rowWidget);
     optionsWidget->setObjectName("quickReplyContainer");
 
-    int maxBubbleWidth = qMin(static_cast<int>(width() * 0.68), 620);
-    if (maxBubbleWidth < 280) {
+    int maxBubbleWidth = qMin(static_cast<int>(width() * 0.76), 720);
+    if (maxBubbleWidth < 320) {
         maxBubbleWidth = 460;
     }
     optionsWidget->setMaximumWidth(maxBubbleWidth);
@@ -567,7 +577,21 @@ void ChatWidget::addQuickReplyOptions(const QStringList &options)
         "}"
     );
 
-    const int columnCount = options.size() > 1 ? 2 : 1;
+    QFont buttonFont = QApplication::font();
+    buttonFont.setPixelSize(14);
+
+    QFontMetrics buttonMetrics(buttonFont);
+    int widestOptionWidth = 0;
+    for (const QString &option : options) {
+        widestOptionWidth = qMax(
+            widestOptionWidth,
+            buttonMetrics.horizontalAdvance(option.trimmed()) + 32
+        );
+    }
+
+    const int estimatedTwoColumnWidth = widestOptionWidth * 2 + gridLayout->horizontalSpacing();
+    const int columnCount = (options.size() > 1 && estimatedTwoColumnWidth <= maxBubbleWidth) ? 2 : 1;
+
     for (int index = 0; index < options.size(); ++index) {
         const QString option = options.at(index).trimmed();
         if (option.isEmpty()) {
@@ -576,9 +600,11 @@ void ChatWidget::addQuickReplyOptions(const QStringList &options)
 
         QPushButton *optionButton = new QPushButton(option);
         optionButton->setCursor(Qt::PointingHandCursor);
+        optionButton->setFont(buttonFont);
         optionButton->setMinimumHeight(40);
         optionButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
         optionButton->setStyleSheet(buttonStyle);
+        optionButton->setToolTip(option);
 
         connect(optionButton, &QPushButton::clicked, this, [this, rowWidget, option]() {
             m_activeQuickReplyWidget = rowWidget;
@@ -700,6 +726,13 @@ QString ChatWidget::renderMessage(const QString &text, bool isUser)
 void ChatWidget::showTypingIndicator()
 {
     hideTypingIndicator();
+
+    // 开始新一轮 AI 回复时，清空上一条 AI 气泡/思考区域引用，
+    // 避免后续流式文本误写到更早的消息卡片上。
+    m_lastAIMessageLabel = nullptr;
+    m_lastAIThinkingWidget = nullptr;
+    m_lastAIThinkingLabel = nullptr;
+    m_lastAIThinkingToggle = nullptr;
 
     // 创建指示器行（与 AI 消息气泡布局一致）
     m_typingIndicator = new QWidget();
