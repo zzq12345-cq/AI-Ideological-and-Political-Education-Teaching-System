@@ -3,6 +3,8 @@
 #include "ui/AnalyticsNavigationBar.h"
 #include "ui/PersonalAnalyticsPage.h"
 #include "ui/ClassAnalyticsPage.h"
+#include "ui/KnowledgeGraphWidget.h"
+#include "models/KnowledgeGraph.h"
 #include "datasources/MockDataSource.h"
 #include "../services/DifyService.h"
 #include "../shared/StyleConfig.h"
@@ -136,7 +138,7 @@ void DataAnalyticsWidget::setupUI()
     m_stackedWidget = new QStackedWidget();
     m_stackedWidget->setStyleSheet("background: transparent;");
 
-    // 创建三个页面
+    // 创建四个页面
     createOverviewPage();
 
     m_personalPage = new PersonalAnalyticsPage();
@@ -145,10 +147,14 @@ void DataAnalyticsWidget::setupUI()
     m_classPage = new ClassAnalyticsPage();
     m_classPage->setDataSource(m_mockDataSource);
 
+    m_knowledgeGraphPage = new KnowledgeGraphWidget();
+    m_knowledgeGraphPage->loadGraph(KnowledgeGraph::instance());
+
     // 添加到堆叠容器
     m_stackedWidget->addWidget(m_overviewPage);
     m_stackedWidget->addWidget(m_personalPage);
     m_stackedWidget->addWidget(m_classPage);
+    m_stackedWidget->addWidget(m_knowledgeGraphPage);
 
     m_mainLayout->addWidget(m_stackedWidget, 1);
 }
@@ -301,6 +307,9 @@ void DataAnalyticsWidget::onViewChanged(int viewType)
             m_personalPage->refresh();
         } else if (viewType == 2 && m_classPage) {
             m_classPage->refresh();
+        } else if (viewType == 3 && m_knowledgeGraphPage) {
+            // 知识图谱页面
+            m_knowledgeGraphPage->fitToScreen();
         }
     }
 }

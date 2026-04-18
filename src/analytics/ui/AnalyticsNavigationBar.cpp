@@ -24,22 +24,26 @@ void AnalyticsNavigationBar::setupUI()
     m_buttonGroup = new QButtonGroup(this);
     m_buttonGroup->setExclusive(true);
 
-    // 创建三个导航按钮
+    // 创建四个导航按钮
     QPushButton *overviewBtn = createNavButton("数据概览", "overview");
     QPushButton *personalBtn = createNavButton("个人分析", "personal");
     QPushButton *classBtn = createNavButton("班级分析", "class");
+    QPushButton *graphBtn = createNavButton("知识图谱", "graph");
 
     m_buttons.append(overviewBtn);
     m_buttons.append(personalBtn);
     m_buttons.append(classBtn);
+    m_buttons.append(graphBtn);
 
     m_buttonGroup->addButton(overviewBtn, Overview);
     m_buttonGroup->addButton(personalBtn, Personal);
     m_buttonGroup->addButton(classBtn, ClassWide);
+    m_buttonGroup->addButton(graphBtn, KnowledgeGraph);
 
     m_layout->addWidget(overviewBtn);
     m_layout->addWidget(personalBtn);
     m_layout->addWidget(classBtn);
+    m_layout->addWidget(graphBtn);
     m_layout->addStretch();
 
     // 默认选中概览

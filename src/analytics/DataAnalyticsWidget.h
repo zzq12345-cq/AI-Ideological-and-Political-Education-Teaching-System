@@ -27,6 +27,7 @@ class MockDataSource;
 class AnalyticsNavigationBar;
 class PersonalAnalyticsPage;
 class ClassAnalyticsPage;
+class KnowledgeGraphWidget;
 
 /**
  * @brief 数据分析报告主界面
@@ -99,6 +100,7 @@ private:
     QWidget *m_overviewPage;
     PersonalAnalyticsPage *m_personalPage;
     ClassAnalyticsPage *m_classPage;
+    KnowledgeGraphWidget *m_knowledgeGraphPage;
 
     // 指标标签（用于动态更新）
     QLabel *m_participationValue;

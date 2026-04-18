@@ -19,9 +19,10 @@ class AnalyticsNavigationBar : public QWidget
 
 public:
     enum ViewType {
-        Overview = 0,   // 概览
-        Personal = 1,   // 个人分析
-        ClassWide = 2   // 班级分析
+        Overview = 0,       // 概览
+        Personal = 1,       // 个人分析
+        ClassWide = 2,      // 班级分析
+        KnowledgeGraph = 3  // 知识图谱
     };
 
     explicit AnalyticsNavigationBar(QWidget *parent = nullptr);

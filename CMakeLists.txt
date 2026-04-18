@@ -128,6 +128,10 @@ set(PROJECT_SOURCES
     src/analytics/ui/ClassAnalyticsPage.h
     src/analytics/ui/RadarChartWidget.cpp
     src/analytics/ui/RadarChartWidget.h
+    src/analytics/ui/KnowledgeGraphWidget.cpp
+    src/analytics/ui/KnowledgeGraphWidget.h
+    src/analytics/models/KnowledgeGraph.cpp
+    src/analytics/models/KnowledgeGraph.h
     # 通知模块
     src/notifications/models/Notification.cpp
     src/notifications/models/Notification.h
@@ -177,6 +181,7 @@ target_link_libraries(AILoginSystem PRIVATE
     Qt${QT_VERSION_MAJOR}::Svg
     Qt${QT_VERSION_MAJOR}::SvgWidgets
     Qt${QT_VERSION_MAJOR}::PrintSupport
+    z
 )
 
 # 设置目标属性
