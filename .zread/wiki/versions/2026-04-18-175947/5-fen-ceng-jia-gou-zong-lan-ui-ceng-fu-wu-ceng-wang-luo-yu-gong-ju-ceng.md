@@ -184,14 +184,14 @@ class XxxService : public QObject {
     Q_OBJECT
 public:
     explicit XxxService(QObject *parent = nullptr);
-    
+
     // 业务方法（异步，无返回值）
     void fetchData();
     void updateData(const Data &data);
-    
+
     // 状态查询（同步，返回缓存）
     QList<Data> cachedData() const;
-    
+
 signals:
     // 数据就绪信号
     void dataReceived(const QList<Data> &data);
@@ -199,11 +199,11 @@ signals:
     void loadingStateChanged(bool isLoading);
     // 错误信号
     void errorOccurred(const QString &error);
-    
+
 private slots:
     // 网络响应回调
     void onReplyFinished();
-    
+
 private:
     QNetworkAccessManager *m_networkManager;
     // 缓存数据
@@ -289,7 +289,7 @@ sequenceDiagram
     Dify->>Net: createDifyRequest(url, apiKey)
     Net-->>Dify: 已配置的 QNetworkRequest
     Dify->>API: POST /chat-messages (SSE)
-    
+
     loop SSE 流式响应
         API-->>Dify: data chunk
         Dify->>Dify: parseStreamResponse(data)
@@ -297,7 +297,7 @@ sequenceDiagram
         Chat-->>UI: streamChunkReceived(chunk)
         UI->>UI: appendChatMessage(chunk)
     end
-    
+
     API-->>Dify: [DONE]
     Dify-->>Chat: messageReceived(fullResponse)
     Chat-->>UI: messageReceived(fullResponse)

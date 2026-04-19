@@ -251,7 +251,7 @@ sequenceDiagram
     LPE->>Editor: setHtml(html)
     LPE->>Editor: 光标移至末尾
     LPE->>LPE: updateWordCount()
-    
+
     Note over Dify,Editor: 以上流程对每个 SSE chunk 重复执行
 ```
 

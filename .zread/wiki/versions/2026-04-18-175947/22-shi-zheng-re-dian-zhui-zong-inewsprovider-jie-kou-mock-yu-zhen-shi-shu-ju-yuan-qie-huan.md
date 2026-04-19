@@ -71,7 +71,7 @@ struct NewsItem {
     QDateTime publishTime;   // 发布时间
     int hotScore;            // 热度评分 (0-100)
     QStringList keywords;    // 关键词标签
-    
+
     bool isValid() const;    // 快速校验：id 和 title 非空
 };
 ```

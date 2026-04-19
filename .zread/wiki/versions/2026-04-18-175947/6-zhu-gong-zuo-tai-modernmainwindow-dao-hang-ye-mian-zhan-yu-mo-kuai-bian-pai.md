@@ -14,25 +14,25 @@ graph TD
         B --> C["contentLayout<br/>(QHBoxLayout)"]
         C --> D["m_sidebarStack<br/>(QStackedWidget)"]
         C --> E["contentStack<br/>(QStackedWidget)"]
-        
+
         D --> D0["sidebar<br/>(导航侧边栏)"]
         D --> D1["m_chatHistoryWidget<br/>(对话历史侧边栏)"]
-        
+
         E --> F["dashboardWidget<br/>(教师中心主页)"]
         E --> G["questionBankWindow"]
         E --> H["m_hotspotWidget<br/>(时政新闻)"]
         E --> I["m_dataAnalyticsWidget<br/>(数据分析)"]
         E --> J["m_attendanceWidget<br/>(考勤管理)"]
         E --> K["aiPreparationWidget"]
-        
+
         F --> L["headerWidget<br/>(顶部工具栏)"]
         F --> M["m_mainStack<br/>(QStackedWidget)"]
         F --> N["m_welcomeInputWidget<br/>(底部输入框)"]
-        
+
         M --> M0["m_welcomePanel<br/>(欢迎面板)"]
         M --> M1["m_chatContainer<br/>(AI 对话容器)"]
     end
-    
+
     style D fill:#FFEBEE,stroke:#E53935
     style E fill:#E3F2FD,stroke:#1976D2
     style M fill:#E8F5E9,stroke:#388E3C
@@ -95,7 +95,7 @@ stateDiagram-v2
         NavSidebar --> HistorySidebar: swapToHistorySidebar()
         HistorySidebar --> NavSidebar: swapToNavSidebar()
     }
-    
+
     NavSidebar: 导航侧边栏 (index=0)\n• 教师中心\n• 时政新闻\n• AI智能备课\n• 试题库\n• 考勤管理\n• 数据分析
     HistorySidebar: 对话历史 (index=1)\n• 新建对话\n• 对话列表\n• 返回按钮
 ```

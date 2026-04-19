@@ -126,7 +126,7 @@ graph TB
     initUI --> B["initToolbar()<br/>格式化工具栏<br/>粗体/斜体/标题/列表/撤销/重做"]
     initUI --> C["initEditor()<br/>QTextEdit 富文本编辑区<br/>占据主布局拉伸因子=1"]
     initUI --> D["initStatusBar()<br/>字数统计 + 状态提示"]
-    
+
     initUI --> E["MarkdownRenderer<br/>MD4C 渲染引擎实例化"]
 ```
 
@@ -176,7 +176,7 @@ flowchart LR
     C --> D["MarkdownRenderer::renderToHtml()"]
     D --> E["m_editor->setHtml(html)"]
     E --> F["QTextCursor 移至末尾<br/>自动滚动"]
-    
+
     A -->|"requestFinished"| G["onAIFinished()"]
     G --> H["恢复按钮状态<br/>设置 m_isModified"]
 ```

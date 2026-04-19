@@ -77,19 +77,19 @@ sequenceDiagram
     participant Cloud as Supabase 云端
 
     Note over S: 搜索队列: [选择题, 判断题, 简答题]
-    
+
     S->>P: searchQuestions(single_choice)
     P->>Cloud: HTTP GET /questions?...
     Cloud-->>P: JSON Response
     P-->>S: searchCompleted(results)
     Note over S: 过滤排除项 → 存入 m_rawCandidates
-    
+
     S->>P: searchQuestions(true_false)
     P->>Cloud: HTTP GET /questions?...
     Cloud-->>P: JSON Response
     P-->>S: searchCompleted(results)
     Note over S: 过滤排除项 → 存入 m_rawCandidates
-    
+
     Note over S: ... 依次搜索所有题型
     Note over S: 队列清空 → 进入 runGreedySelection()
 ```

@@ -132,13 +132,13 @@ sequenceDiagram
     U->>AQG: 输入出题需求 / 点击快捷按钮
     AQG->>AQG: onUserMessageSent()
     AQG->>ZP: POST /chat/completions (stream=true)
-    
+
     loop SSE 流式响应
         ZP-->>AQG: data: {"choices":[{"delta":{"content":"..."}}]}
         AQG->>AQG: processSSEData() 累积拼接
         AQG->>AQG: m_chatWidget->updateLastAIMessage()
     end
-    
+
     ZP-->>AQG: data: [DONE]
     AQG->>AQG: saveCurrentConversation() 持久化到 QSettings
 ```
@@ -245,25 +245,25 @@ flowchart TD
     START[导入入口] --> JSON{JSON 还是 DOCX?}
     JSON -->|JSON| PARSE[parseJSONFile<br/>本地JSON解析]
     JSON -->|DOCX/Directory| PREP[准备文件队列]
-    
+
     PREP --> LOOP{队列是否为空?}
     LOOP -->|否| READ[DocumentReaderService<br/>读取DOCX+提取表格/图片]
     READ --> TMP[创建临时文本文件<br/>含HTML格式表格]
     TMP --> DIFY[QuestionParserService<br/>parseFile→Dify工作流]
     DIFY --> RESULT{解析结果}
-    
+
     RESULT -->|成功| FILTER[过滤：仅保留大题<br/>short_answer/essay/material_essay]
     FILTER --> QC{质量服务已设置?}
     QC -->|是| NORM[标签规范化 + 本地去重快筛]
     QC -->|否| SAVE
     NORM --> SAVE[PaperService::addQuestions<br/>批量写入Supabase]
     SAVE --> LOOP
-    
+
     RESULT -->|失败| FAIL[记录失败文件数]
     FAIL --> LOOP
-    
+
     LOOP -->|是| DONE[importCompleted<br/>返回成功/失败计数]
-    
+
     PARSE --> SAVE
 ```
 

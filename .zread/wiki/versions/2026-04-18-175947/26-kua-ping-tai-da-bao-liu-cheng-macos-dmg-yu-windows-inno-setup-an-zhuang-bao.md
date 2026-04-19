@@ -10,17 +10,17 @@ Sources: [package_app.sh](scripts/package_app.sh#L1-L283), [package_windows.ps1]
 flowchart TD
     A["版本号解析<br/>CMakeLists.txt → normalize_version"] --> B["CMake Release 配置<br/>-DCMAKE_BUILD_TYPE=Release"]
     B --> C{"平台分支"}
-    
+
     C -->|macOS| D["cmake --build<br/>生成 AILoginSystem.app"]
     C -->|Windows| E["cmake --build<br/>生成 AILoginSystem.exe"]
-    
+
     D --> F["macdeployqt<br/>注入 Qt 框架到 .app"]
     E --> G["windeployqt<br/>复制 Qt DLL 到 deploy/"]
-    
+
     F --> H["hdiutil create<br/>生成 .dmg"]
     G --> I["Compress-Archive<br/>生成 .zip"]
     G --> J["iscc (Inno Setup)<br/>生成 Setup.exe"]
-    
+
     H & I & J --> K["config.env 密钥嵌入<br/>(可选)"]
 ```
 
