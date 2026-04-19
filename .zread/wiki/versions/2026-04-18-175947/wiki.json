@@ -1,0 +1,227 @@
+{
+  "id": "2026-04-18-175947",
+  "generated_at": "2026-04-18T09:59:47.86196Z",
+  "language": "zh",
+  "pages": [
+    {
+      "slug": "1-xiang-mu-gai-shu-ai-si-zheng-zhi-hui-ke-tang-xi-tong-quan-jing",
+      "title": "项目概述：AI 思政智慧课堂系统全景",
+      "file": "1-xiang-mu-gai-shu-ai-si-zheng-zhi-hui-ke-tang-xi-tong-quan-jing.md",
+      "section": "入门指南",
+      "level": "Beginner"
+    },
+    {
+      "slug": "2-kuai-su-shang-shou-huan-jing-zhun-bei-yu-shou-ci-gou-jian-yun-xing",
+      "title": "快速上手：环境准备与首次构建运行",
+      "file": "2-kuai-su-shang-shou-huan-jing-zhun-bei-yu-shou-ci-gou-jian-yun-xing.md",
+      "section": "入门指南",
+      "level": "Beginner"
+    },
+    {
+      "slug": "3-xiang-mu-mu-lu-jie-gou-yu-mo-kuai-zhi-ze-su-cha",
+      "title": "项目目录结构与模块职责速查",
+      "file": "3-xiang-mu-mu-lu-jie-gou-yu-mo-kuai-zhi-ze-su-cha.md",
+      "section": "入门指南",
+      "level": "Beginner"
+    },
+    {
+      "slug": "4-huan-jing-bian-liang-yu-mi-yao-pei-zhi-zhi-nan-env-appconfig-embedded_keys",
+      "title": "环境变量与密钥配置指南（.env、AppConfig、embedded_keys）",
+      "file": "4-huan-jing-bian-liang-yu-mi-yao-pei-zhi-zhi-nan-env-appconfig-embedded_keys.md",
+      "section": "入门指南",
+      "level": "Beginner"
+    },
+    {
+      "slug": "5-fen-ceng-jia-gou-zong-lan-ui-ceng-fu-wu-ceng-wang-luo-yu-gong-ju-ceng",
+      "title": "分层架构总览：UI 层 → 服务层 → 网络与工具层",
+      "file": "5-fen-ceng-jia-gou-zong-lan-ui-ceng-fu-wu-ceng-wang-luo-yu-gong-ju-ceng.md",
+      "section": "深入理解",
+      "group": "核心架构与设计理念",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "6-zhu-gong-zuo-tai-modernmainwindow-dao-hang-ye-mian-zhan-yu-mo-kuai-bian-pai",
+      "title": "主工作台 ModernMainWindow：导航、页面栈与模块编排",
+      "file": "6-zhu-gong-zuo-tai-modernmainwindow-dao-hang-ye-mian-zhan-yu-mo-kuai-bian-pai.md",
+      "section": "深入理解",
+      "group": "核心架构与设计理念",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "7-tong-pei-zhi-jia-zai-ji-zhi-appconfig-huan-jing-bian-liang-sui-bao-pei-zhi-kai-fa-pei-zhi",
+      "title": "统一配置加载机制 AppConfig：环境变量 → 随包配置 → 开发配置",
+      "file": "7-tong-pei-zhi-jia-zai-ji-zhi-appconfig-huan-jing-bian-liang-sui-bao-pei-zhi-kai-fa-pei-zhi.md",
+      "section": "深入理解",
+      "group": "核心架构与设计理念",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "8-supabase-ren-zheng-ji-cheng-deng-lu-zhu-ce-mi-ma-zhong-zhi-yu-token-guan-li",
+      "title": "Supabase 认证集成：登录、注册、密码重置与 Token 管理",
+      "file": "8-supabase-ren-zheng-ji-cheng-deng-lu-zhu-ce-mi-ma-zhong-zhi-yu-token-guan-li.md",
+      "section": "深入理解",
+      "group": "用户认证与后端对接",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "9-networkretryhelper-zhi-shu-tui-bi-zhong-shi-ce-lue-yu-ke-pei-zhi-cuo-wu-ma",
+      "title": "NetworkRetryHelper：指数退避重试策略与可配置错误码",
+      "file": "9-networkretryhelper-zhi-shu-tui-bi-zhong-shi-ce-lue-yu-ke-pei-zhi-cuo-wu-ma.md",
+      "section": "深入理解",
+      "group": "用户认证与后端对接",
+      "level": "Advanced"
+    },
+    {
+      "slug": "10-difyservice-sse-liu-shi-dui-hua-duo-shi-jian-lei-xing-chu-li-yu-hui-hua-guan-li",
+      "title": "DifyService：SSE 流式对话、多事件类型处理与会话管理",
+      "file": "10-difyservice-sse-liu-shi-dui-hua-duo-shi-jian-lei-xing-chu-li-yu-hui-hua-guan-li.md",
+      "section": "深入理解",
+      "group": "AI 服务与流式通信",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "11-ssestreamparser-chun-xie-yi-ceng-sse-jie-xi-qi-de-she-ji-yu-shi-yong",
+      "title": "SseStreamParser：纯协议层 SSE 解析器的设计与使用",
+      "file": "11-ssestreamparser-chun-xie-yi-ceng-sse-jie-xi-qi-de-she-ji-yu-shi-yong.md",
+      "section": "深入理解",
+      "group": "AI 服务与流式通信",
+      "level": "Advanced"
+    },
+    {
+      "slug": "12-questionparserservice-wen-dang-jie-xi-yu-ai-gong-zuo-liu-diao-yong",
+      "title": "QuestionParserService：文档解析与 AI 工作流调用",
+      "file": "12-questionparserservice-wen-dang-jie-xi-yu-ai-gong-zuo-liu-diao-yong.md",
+      "section": "深入理解",
+      "group": "AI 服务与流式通信",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "13-shi-ti-ku-guan-li-ti-mu-lu-ru-lan-zi-zhi-liang-jian-cha-yu-pi-liang-dao-ru",
+      "title": "试题库管理：题目录入、篮子、质量检查与批量导入",
+      "file": "13-shi-ti-ku-guan-li-ti-mu-lu-ru-lan-zi-zhi-liang-jian-cha-yu-pi-liang-dao-ru.md",
+      "section": "深入理解",
+      "group": "教学业务模块",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "14-zhi-neng-zu-juan-yin-qing-smartpaperservice-tan-xin-xuan-ti-suan-fa-yu-huan-ti-ji-zhi",
+      "title": "智能组卷引擎 SmartPaperService：贪心选题算法与换题机制",
+      "file": "14-zhi-neng-zu-juan-yin-qing-smartpaperservice-tan-xin-xuan-ti-suan-fa-yu-huan-ti-ji-zhi.md",
+      "section": "深入理解",
+      "group": "教学业务模块",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "15-ai-bei-ke-yu-jiao-an-bian-ji-aipreparationwidget-lessonplaneditor",
+      "title": "AI 备课与教案编辑：AIPreparationWidget、LessonPlanEditor",
+      "file": "15-ai-bei-ke-yu-jiao-an-bian-ji-aipreparationwidget-lessonplaneditor.md",
+      "section": "深入理解",
+      "group": "教学业务模块",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "16-shi-juan-dao-chu-guan-dao-exportservice-de-html-docx-pdf-duo-ge-shi-sheng-cheng",
+      "title": "试卷导出管道：ExportService 的 HTML / DOCX / PDF 多格式生成",
+      "file": "16-shi-juan-dao-chu-guan-dao-exportservice-de-html-docx-pdf-duo-ge-shi-sheng-cheng.md",
+      "section": "深入理解",
+      "group": "教学业务模块",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "17-pptxgenerator-ji-yu-xml-zip-de-yuan-sheng-pptx-wen-jian-gou-jian",
+      "title": "PPTXGenerator：基于 XML + ZIP 的原生 PPTX 文件构建",
+      "file": "17-pptxgenerator-ji-yu-xml-zip-de-yuan-sheng-pptx-wen-jian-gou-jian.md",
+      "section": "深入理解",
+      "group": "PPT 生成能力",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "18-di-san-fang-ppt-ji-cheng-xun-fei-zhi-wen-api-yu-zhi-pu-agent-fu-wu",
+      "title": "第三方 PPT 集成：讯飞智文 API 与智谱 Agent 服务",
+      "file": "18-di-san-fang-ppt-ji-cheng-xun-fei-zhi-wen-api-yu-zhi-pu-agent-fu-wu.md",
+      "section": "深入理解",
+      "group": "PPT 生成能力",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "19-xue-qing-shu-ju-fen-xi-analyticsdataservice-yu-ke-shi-hua-tu-biao-zu-jian",
+      "title": "学情数据分析：AnalyticsDataService 与可视化图表组件",
+      "file": "19-xue-qing-shu-ju-fen-xi-analyticsdataservice-yu-ke-shi-hua-tu-biao-zu-jian.md",
+      "section": "深入理解",
+      "group": "数据与课堂管理",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "20-kao-qin-guan-li-mo-kuai-attendanceservice-de-supabase-crud-mo-shi",
+      "title": "考勤管理模块：AttendanceService 的 Supabase CRUD 模式",
+      "file": "20-kao-qin-guan-li-mo-kuai-attendanceservice-de-supabase-crud-mo-shi.md",
+      "section": "深入理解",
+      "group": "数据与课堂管理",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "21-tong-zhi-zhong-xin-notificationservice-yu-shi-shi-wei-du-ji-shu",
+      "title": "通知中心：NotificationService 与实时未读计数",
+      "file": "21-tong-zhi-zhong-xin-notificationservice-yu-shi-shi-wei-du-ji-shu.md",
+      "section": "深入理解",
+      "group": "数据与课堂管理",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "22-shi-zheng-re-dian-zhui-zong-inewsprovider-jie-kou-mock-yu-zhen-shi-shu-ju-yuan-qie-huan",
+      "title": "时政热点追踪：INewsProvider 接口、Mock 与真实数据源切换",
+      "file": "22-shi-zheng-re-dian-zhui-zong-inewsprovider-jie-kou-mock-yu-zhen-shi-shu-ju-yuan-qie-huan.md",
+      "section": "深入理解",
+      "group": "数据与课堂管理",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "23-networkrequestfactory-tong-qing-qiu-chuang-jian-ssl-ce-lue-yu-http-2-jin-yong-yue-ding",
+      "title": "NetworkRequestFactory：统一请求创建、SSL 策略与 HTTP/2 禁用约定",
+      "file": "23-networkrequestfactory-tong-qing-qiu-chuang-jian-ssl-ce-lue-yu-http-2-jin-yong-yue-ding.md",
+      "section": "深入理解",
+      "group": "网络基础设施",
+      "level": "Advanced"
+    },
+    {
+      "slug": "24-markdown-xuan-ran-yin-qing-ji-yu-md4c-de-fu-wen-ben-zhuan-huan",
+      "title": "Markdown 渲染引擎：基于 MD4C 的富文本转换",
+      "file": "24-markdown-xuan-ran-yin-qing-ji-yu-md4c-de-fu-wen-ben-zhuan-huan.md",
+      "section": "深入理解",
+      "group": "网络基础设施",
+      "level": "Advanced"
+    },
+    {
+      "slug": "25-cmake-gou-jian-pei-zhi-jie-xi-qt-mo-kuai-yi-lai-yu-ping-tai-bundle-she-zhi",
+      "title": "CMake 构建配置解析：Qt 模块依赖与平台 Bundle 设置",
+      "file": "25-cmake-gou-jian-pei-zhi-jie-xi-qt-mo-kuai-yi-lai-yu-ping-tai-bundle-she-zhi.md",
+      "section": "深入理解",
+      "group": "构建、打包与发布",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "26-kua-ping-tai-da-bao-liu-cheng-macos-dmg-yu-windows-inno-setup-an-zhuang-bao",
+      "title": "跨平台打包流程：macOS DMG 与 Windows Inno Setup 安装包",
+      "file": "26-kua-ping-tai-da-bao-liu-cheng-macos-dmg-yu-windows-inno-setup-an-zhuang-bao.md",
+      "section": "深入理解",
+      "group": "构建、打包与发布",
+      "level": "Advanced"
+    },
+    {
+      "slug": "27-github-actions-zi-dong-fa-bu-tag-hong-fa-mi-yao-nei-qian-yu-chan-wu-shang-chuan",
+      "title": "GitHub Actions 自动发布：Tag 触发、密钥内嵌与产物上传",
+      "file": "27-github-actions-zi-dong-fa-bu-tag-hong-fa-mi-yao-nei-qian-yu-chan-wu-shang-chuan.md",
+      "section": "深入理解",
+      "group": "构建、打包与发布",
+      "level": "Advanced"
+    },
+    {
+      "slug": "28-ming-ming-gui-fan-xin-hao-cao-yue-ding-yu-zhong-wen-zhu-shi-feng-ge",
+      "title": "命名规范、信号/槽约定与中文注释风格",
+      "file": "28-ming-ming-gui-fan-xin-hao-cao-yue-ding-yu-zhong-wen-zhu-shi-feng-ge.md",
+      "section": "深入理解",
+      "group": "代码规范与开发约定",
+      "level": "Beginner"
+    }
+  ]
+}
