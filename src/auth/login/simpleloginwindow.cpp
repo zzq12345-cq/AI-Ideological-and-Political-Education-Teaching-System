@@ -27,6 +27,12 @@ SimpleLoginWindow::SimpleLoginWindow(QWidget *parent)
     connect(m_supabaseClient, &SupabaseClient::loginFailed, this, &SimpleLoginWindow::onLoginFailed);
     connect(m_supabaseClient, &SupabaseClient::passwordResetSuccess, this, &SimpleLoginWindow::onPasswordResetSuccess);
     connect(m_supabaseClient, &SupabaseClient::passwordResetFailed, this, &SimpleLoginWindow::onPasswordResetFailed);
+    connect(m_supabaseClient, &SupabaseClient::roleFetched, this, [this](const QString &role) {
+        QString email = m_supabaseClient->currentEmail();
+        QString userId = m_supabaseClient->currentUserId();
+        loginButton->setText("正在进入工作台...");
+        openMainWindow(email, role, userId);
+    });
 
     // 检查是否有记住的凭证
     if (hasRememberedCredentials()) {
@@ -625,13 +631,13 @@ void SimpleLoginWindow::onLoginSuccess(const QString &userId, const QString &ema
     qDebug() << "Supabase登录成功! 用户ID:" << userId << "邮箱:" << email;
 
     loginButton->setEnabled(false);
-    loginButton->setText("正在进入工作台...");
+    loginButton->setText("正在查询角色...");
 
     // 保存记住的凭证
     saveRememberedCredentials();
 
-    // 打开主界面，默认角色为教师
-    openMainWindow(email, "教师", userId);
+    // 查询用户角色后打开主界面
+    m_supabaseClient->fetchUserRole(email);
 }
 
 void SimpleLoginWindow::onLoginFailed(const QString &errorMessage)

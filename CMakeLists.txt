@@ -173,6 +173,12 @@ qt_add_executable(AILoginSystem
     ${APP_ICON_MACOSX}
 )
 
+# zlib 路径 (Windows)
+if(WIN32)
+    target_include_directories(AILoginSystem PRIVATE "D:/develop/msvc_x86_64/include")
+    target_link_directories(AILoginSystem PRIVATE "D:/develop/msvc_x86_64/lib")
+endif()
+
 target_link_libraries(AILoginSystem PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Network
@@ -223,6 +229,8 @@ set(SHARED_SERVICES
     src/services/BulkImportService.h
     src/services/QuestionParserService.cpp
     src/services/QuestionParserService.h
+    src/services/QuestionQualityService.cpp
+    src/services/QuestionQualityService.h
     src/services/DocumentReaderService.cpp
     src/services/DocumentReaderService.h
     src/services/SupabaseStorageService.cpp

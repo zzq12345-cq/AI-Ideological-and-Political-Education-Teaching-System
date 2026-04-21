@@ -30,7 +30,8 @@ public:
         LearningAnalysis = 4,
         DataAnalysis = 5,
         Settings = 6,
-        Help = 7
+        Help = 7,
+        MyClass = 8
     };
     Q_ENUM(PageIndex)
 
@@ -42,6 +43,9 @@ public:
 
     // 设置用户信息
     void setUserInfo(const QString &username, const QString &role);
+
+    // 根据角色更新导航按钮可见性
+    void applyRoleVisibility();
 
     // 高亮选中的导航按钮
     void setActiveNavigation(PageIndex index);
@@ -90,6 +94,7 @@ private:
     QPushButton *m_resourceManagementBtn;
     QPushButton *m_learningAnalysisBtn;
     QPushButton *m_dataAnalysisBtn;
+    QPushButton *m_myClassBtn;
 
     // 底部按钮
     QPushButton *m_settingsBtn;

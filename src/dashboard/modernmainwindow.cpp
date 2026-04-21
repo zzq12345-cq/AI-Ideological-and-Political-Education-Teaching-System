@@ -22,7 +22,11 @@
 #include "../attendance/services/AttendanceService.h"
 #include "../ui/LessonPlanEditor.h"
 #include "../config/embedded_keys.h"
+#include "../config/AppConfig.h"
+#include "../utils/NetworkRequestFactory.h"
 #include <QApplication>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 #include <QMessageBox>
 #include <QFile>
 #include <QRegularExpression>
@@ -764,10 +768,16 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
     , currentUsername(username)
     , currentUserId(userId)
 {
+    // 设置角色和邮箱到 UserSettingsManager
+    UserSettingsManager::instance()->setRole(currentUserRole);
+    if (!currentUsername.contains("teacher01") && !currentUsername.contains("student01") && !currentUsername.contains("admin01")) {
+        UserSettingsManager::instance()->setEmail(currentUsername);  // Supabase 登录时 username 是 email
+    }
+
     qDebug() << "=== ModernMainWindow 构造函数开始 ===";
     qDebug() << "用户角色:" << userRole << "用户名:" << username << "用户ID:" << userId;
 
-    setWindowTitle("思政智慧课堂 - 教师中心");
+    setWindowTitle(currentUserRole == "学生" ? "思政智慧课堂 - 学生端" : "思政智慧课堂 - 教师中心");
     setMinimumSize(1400, 900);
     resize(1600, 1000);
 
@@ -874,7 +884,13 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
 
     // 创建默认页面
     createDashboard();
-    contentStack->setCurrentWidget(dashboardWidget);
+
+    // 学生默认进入时政新闻，教师进入仪表板
+    if (currentUserRole == "学生") {
+        contentStack->setCurrentWidget(m_hotspotWidget);
+    } else {
+        contentStack->setCurrentWidget(dashboardWidget);
+    }
 
     if (!hasApiKey) {
         QTimer::singleShot(0, this, [this]() {
@@ -997,6 +1013,7 @@ void ModernMainWindow::setupCentralWidget()
     resourceManagementBtn = new QPushButton("试题库");
     attendanceBtn = new QPushButton("考勤管理");
     learningAnalysisBtn = new QPushButton("数据分析");
+    myClassBtn = new QPushButton("我的班级");
 
     // 底部按钮
     settingsBtn = new QPushButton("系统设置");
@@ -1021,6 +1038,7 @@ void ModernMainWindow::setupCentralWidget()
     resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    myClassBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
@@ -1031,6 +1049,7 @@ void ModernMainWindow::setupCentralWidget()
     connect(resourceManagementBtn, &QPushButton::clicked, this, [=]() { qDebug() << "试题库按钮被点击"; onResourceManagementClicked(); });
     connect(attendanceBtn, &QPushButton::clicked, this, [=]() { qDebug() << "考勤管理按钮被点击"; onAttendanceClicked(); });
     connect(learningAnalysisBtn, &QPushButton::clicked, this, [=]() { qDebug() << "学情与教评按钮被点击"; onLearningAnalysisClicked(); });
+    connect(myClassBtn, &QPushButton::clicked, this, [=]() { qDebug() << "我的班级按钮被点击"; onMyClassClicked(); });
     connect(settingsBtn, &QPushButton::clicked, this, [=]() { qDebug() << "系统设置按钮被点击"; onSettingsClicked(); });
     connect(helpBtn, &QPushButton::clicked, this, [=]() { qDebug() << "帮助中心按钮被点击"; onHelpClicked(); });
 
@@ -1050,6 +1069,7 @@ void ModernMainWindow::setupCentralWidget()
     sidebarLayout->addWidget(resourceManagementBtn);
     sidebarLayout->addWidget(attendanceBtn);
     sidebarLayout->addWidget(learningAnalysisBtn);
+    sidebarLayout->addWidget(myClassBtn);
     sidebarLayout->addStretch();
     sidebarLayout->addWidget(settingsBtn);
     sidebarLayout->addWidget(helpBtn);
@@ -1115,6 +1135,33 @@ void ModernMainWindow::setupCentralWidget()
     attendanceService->setCurrentUserId(currentUserId.isEmpty() ? "teacher_001" : currentUserId);
     m_attendanceWidget->setAttendanceService(attendanceService);
     contentStack->addWidget(m_attendanceWidget);
+
+    // 创建"我的班级"占位页面
+    myClassPlaceholder = new QWidget();
+    QVBoxLayout *myClassLayout = new QVBoxLayout(myClassPlaceholder);
+    myClassLayout->setAlignment(Qt::AlignCenter);
+    QLabel *myClassLabel = new QLabel("功能开发中...");
+    myClassLabel->setStyleSheet("font-size: 24px; color: #999;");
+    myClassLabel->setAlignment(Qt::AlignCenter);
+    myClassLayout->addWidget(myClassLabel);
+    contentStack->addWidget(myClassPlaceholder);
+
+    // 根据角色设置侧边栏可见性和默认页面
+    bool isStudent = (currentUserRole == "学生");
+    if (isStudent) {
+        teacherCenterBtn->setVisible(false);
+        aiPreparationBtn->setVisible(false);
+        resourceManagementBtn->setVisible(false);
+        attendanceBtn->setVisible(false);
+        learningAnalysisBtn->setVisible(false);
+        myClassBtn->setVisible(true);
+        // 默认选中时政新闻
+        contentStack->setCurrentWidget(m_hotspotWidget);
+        newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+        teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    } else {
+        myClassBtn->setVisible(false);
+    }
 
     // 连接时政热点"生成案例"信号 - 自动切换到AI对话页面并发送请求
     connect(m_hotspotWidget, &HotspotTrackingWidget::teachingContentRequested, this, [this](const NewsItem &news) {
@@ -2005,11 +2052,33 @@ void ModernMainWindow::onAttendanceClicked()
     learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    if (myClassBtn) myClassBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
 
     // 切换到考勤管理页面
     if (m_attendanceWidget) {
         contentStack->setCurrentWidget(m_attendanceWidget);
         this->statusBar()->showMessage("考勤管理");
+    }
+}
+
+void ModernMainWindow::onMyClassClicked()
+{
+    qDebug() << "切换到我的班级页面";
+
+    // 重置所有侧边栏按钮样式
+    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    myClassBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+
+    if (myClassPlaceholder) {
+        contentStack->setCurrentWidget(myClassPlaceholder);
+        this->statusBar()->showMessage("我的班级");
     }
 }
 
@@ -2065,8 +2134,52 @@ void ModernMainWindow::onNewsTrackingClicked()
 
 void ModernMainWindow::onSettingsClicked()
 {
+    QString roleBefore = UserSettingsManager::instance()->role();
+
     UserSettingsDialog dialog(this);
     dialog.exec();
+
+    // dialog 关闭后检查角色是否变更
+    QString roleAfter = UserSettingsManager::instance()->role();
+    if (roleBefore != roleAfter && roleAfter == "教师") {
+        currentUserRole = "教师";
+
+        // 更新 Supabase 数据库
+        QString email = UserSettingsManager::instance()->email();
+        if (email.isEmpty()) email = currentUsername;
+        QNetworkAccessManager *mgr = new QNetworkAccessManager(this);
+        QString url = AppConfig::get("SUPABASE_URL") + "/rest/v1/teachers?email=eq." + email;
+        QNetworkRequest request = NetworkRequestFactory::createSupabaseRequest(url);
+        request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        QJsonObject body;
+        body["role"] = "教师";
+        QNetworkReply *reply = mgr->put(request, QJsonDocument(body).toJson());
+        connect(reply, &QNetworkReply::finished, this, [mgr, reply]() {
+            reply->deleteLater();
+            mgr->deleteLater();
+            if (reply->error() == QNetworkReply::NoError) {
+                qDebug() << "[ModernMainWindow] 角色已更新为教师";
+            } else {
+                qWarning() << "[ModernMainWindow] 角色更新失败:" << reply->errorString();
+            }
+        });
+
+        // 刷新侧边栏
+        teacherCenterBtn->setVisible(true);
+        aiPreparationBtn->setVisible(true);
+        resourceManagementBtn->setVisible(true);
+        attendanceBtn->setVisible(true);
+        learningAnalysisBtn->setVisible(true);
+        myClassBtn->setVisible(false);
+
+        setWindowTitle("思政智慧课堂 - 教师中心");
+
+        if (m_userNameLabel) {
+            m_userNameLabel->setText(UserSettingsManager::instance()->displayName());
+        }
+
+        onTeacherCenterClicked();
+    }
 }
 
 void ModernMainWindow::onHelpClicked()

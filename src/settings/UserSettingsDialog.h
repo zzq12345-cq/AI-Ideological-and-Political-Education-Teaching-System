@@ -24,6 +24,9 @@ public:
     explicit UserSettingsDialog(QWidget *parent = nullptr);
     ~UserSettingsDialog();
 
+signals:
+    void roleUpgraded();
+
 private slots:
     void onSaveClicked();
     void onCancelClicked();
@@ -44,6 +47,7 @@ private:
     QLineEdit *m_nicknameEdit;
     QLineEdit *m_departmentEdit;
     QLineEdit *m_titleEdit;
+    QLineEdit *m_inviteCodeEdit;
 
     // 预览
     QLabel *m_previewLabel;

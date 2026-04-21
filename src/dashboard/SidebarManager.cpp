@@ -19,6 +19,7 @@ SidebarManager::SidebarManager(QWidget *parentWidget, QObject *parent)
     , m_resourceManagementBtn(nullptr)
     , m_learningAnalysisBtn(nullptr)
     , m_dataAnalysisBtn(nullptr)
+    , m_myClassBtn(nullptr)
     , m_settingsBtn(nullptr)
     , m_helpBtn(nullptr)
     , m_activeButton(nullptr)
@@ -97,6 +98,7 @@ void SidebarManager::setupNavButtons()
     m_resourceManagementBtn = createNavButton("资源库管理", "resourceManagement");
     m_learningAnalysisBtn = createNavButton("学情与教评", "learningAnalysis");
     m_dataAnalysisBtn = createNavButton("数据分析报告", "dataAnalysis");
+    m_myClassBtn = createNavButton("我的班级", "myClass");
 
     // 添加到布局
     m_sidebarLayout->addWidget(m_teacherCenterBtn);
@@ -105,6 +107,7 @@ void SidebarManager::setupNavButtons()
     m_sidebarLayout->addWidget(m_resourceManagementBtn);
     m_sidebarLayout->addWidget(m_learningAnalysisBtn);
     m_sidebarLayout->addWidget(m_dataAnalysisBtn);
+    m_sidebarLayout->addWidget(m_myClassBtn);
     m_sidebarLayout->addStretch();
 
     // 连接信号
@@ -114,8 +117,12 @@ void SidebarManager::setupNavButtons()
     connect(m_resourceManagementBtn, &QPushButton::clicked, this, &SidebarManager::onResourceManagementClicked);
     connect(m_learningAnalysisBtn, &QPushButton::clicked, this, &SidebarManager::onLearningAnalysisClicked);
     connect(m_dataAnalysisBtn, &QPushButton::clicked, this, &SidebarManager::onDataAnalysisClicked);
+    connect(m_myClassBtn, &QPushButton::clicked, this, [this]() {
+        updateButtonStyles(m_myClassBtn);
+        emit navigationRequested(MyClass);
+    });
 
-    // 默认选中教师中心
+    // 默认选中教师中心（后续由 applyRoleVisibility 覆盖）
     setActiveNavigation(Dashboard);
 }
 
@@ -227,6 +234,30 @@ void SidebarManager::setUserInfo(const QString &username, const QString &role)
     }
 
     qDebug() << "[SidebarManager] User info set:" << username << role;
+
+    applyRoleVisibility();
+}
+
+void SidebarManager::applyRoleVisibility()
+{
+    bool isStudent = (m_userRole == "学生");
+
+    // 教师按钮：学生隐藏
+    m_teacherCenterBtn->setVisible(!isStudent);
+    m_aiPreparationBtn->setVisible(!isStudent);
+    m_resourceManagementBtn->setVisible(!isStudent);
+    m_learningAnalysisBtn->setVisible(!isStudent);
+    m_dataAnalysisBtn->setVisible(!isStudent);
+
+    // 学生按钮：教师隐藏
+    m_myClassBtn->setVisible(isStudent);
+
+    // 时政新闻始终可见
+
+    // 学生默认选中时政新闻
+    if (isStudent) {
+        setActiveNavigation(NewsTracking);
+    }
 }
 
 void SidebarManager::setActiveNavigation(PageIndex index)
@@ -240,6 +271,7 @@ void SidebarManager::setActiveNavigation(PageIndex index)
         case ResourceManagement: targetBtn = m_resourceManagementBtn; break;
         case LearningAnalysis: targetBtn = m_learningAnalysisBtn; break;
         case DataAnalysis: targetBtn = m_dataAnalysisBtn; break;
+        case MyClass: targetBtn = m_myClassBtn; break;
         default: return;
     }
 

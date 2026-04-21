@@ -120,9 +120,22 @@ void UserSettingsManager::setEmail(const QString &email)
     }
 }
 
+QString UserSettingsManager::role() const
+{
+    return m_role;
+}
+
+void UserSettingsManager::setRole(const QString &role)
+{
+    if (m_role != role) {
+        m_role = role;
+        emit settingsChanged();
+    }
+}
+
 QString UserSettingsManager::displayName() const
 {
-    if (m_honorific.isEmpty()) {
+    if (m_role == "学生" || m_honorific.isEmpty()) {
         return m_nickname;
     }
     return m_nickname + m_honorific;
@@ -130,20 +143,23 @@ QString UserSettingsManager::displayName() const
 
 QString UserSettingsManager::aiUserTitle() const
 {
-    // 艹，老王实现一个智能称呼：取姓 + 称呼
-    // 比如 "周志奇" + "老师" = "周老师"
+    // 学生直接返回昵称
+    if (m_role == "学生") {
+        return m_nickname.isEmpty() ? "同学" : m_nickname;
+    }
+
+    // 教师：取姓 + 称呼，如 "周老师"
     if (m_nickname.isEmpty()) {
         return m_honorific.isEmpty() ? "您" : m_honorific;
     }
 
-    // 取第一个字作为姓
     QString surname = m_nickname.left(1);
 
     if (m_honorific.isEmpty()) {
-        return surname;  // 没有称呼就只返回姓
+        return surname;
     }
 
-    return surname + m_honorific;  // 姓 + 称呼，如 "周老师"
+    return surname + m_honorific;
 }
 
 void UserSettingsManager::save()
@@ -153,6 +169,7 @@ void UserSettingsManager::save()
     m_settings->setValue("user/title", m_title);
     m_settings->setValue("user/honorific", m_honorific);
     m_settings->setValue("user/email", m_email);
+    m_settings->setValue("user/role", m_role);
     m_settings->setValue("ai/greetingTemplate", m_aiGreetingTemplate);
     m_settings->sync();
     qDebug() << "[UserSettingsManager] Settings saved";
@@ -161,9 +178,12 @@ void UserSettingsManager::save()
 void UserSettingsManager::load()
 {
     m_nickname = m_settings->value("user/nickname", "").toString();
-    m_department = m_settings->value("user/department", "思政教研组").toString();
+    m_role = m_settings->value("user/role", "学生").toString();
+    m_department = m_settings->value("user/department",
+        m_role == "学生" ? "" : "思政教研组").toString();
     m_title = m_settings->value("user/title", "").toString();
-    m_honorific = m_settings->value("user/honorific", "老师").toString();
+    m_honorific = m_settings->value("user/honorific",
+        m_role == "学生" ? "" : "老师").toString();
     m_email = m_settings->value("user/email", "").toString();
     m_aiGreetingTemplate = m_settings->value(
         "ai/greetingTemplate",
@@ -171,15 +191,15 @@ void UserSettingsManager::load()
     ).toString();
 
     qDebug() << "[UserSettingsManager] Settings loaded - nickname:" << m_nickname
-             << "department:" << m_department;
+             << "role:" << m_role << "department:" << m_department;
 }
 
 void UserSettingsManager::resetToDefaults()
 {
     m_nickname = "";
-    m_department = "思政教研组";
+    m_department = (m_role == "学生") ? "" : "思政教研组";
     m_title = "";
-    m_honorific = "老师";
+    m_honorific = (m_role == "学生") ? "" : "老师";
     m_aiGreetingTemplate = "{honorific}您好！我是智慧课堂助手，请问有什么可以帮您？";
     emit settingsChanged();
 }

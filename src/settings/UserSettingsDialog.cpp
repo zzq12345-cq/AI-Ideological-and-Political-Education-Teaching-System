@@ -212,7 +212,8 @@ QWidget* UserSettingsDialog::createUserCard()
     QVBoxLayout *infoLayout = new QVBoxLayout();
     infoLayout->setSpacing(3);
 
-    m_previewLabel = new QLabel("用户名老师");
+    m_previewLabel = new QLabel(UserSettingsManager::instance()->displayName().isEmpty()
+                               ? "未设置" : UserSettingsManager::instance()->displayName());
     m_previewLabel->setStyleSheet(
         "color: white;"
         "font-size: 20px;"
@@ -226,7 +227,8 @@ QWidget* UserSettingsDialog::createUserCard()
         "font-size: 13px;"
     );
 
-    QLabel *deptLabel = new QLabel("思政教研组");
+    bool isStudent = (UserSettingsManager::instance()->role() == "学生");
+    QLabel *deptLabel = new QLabel(isStudent ? "未设置班级" : "思政教研组");
     deptLabel->setObjectName("deptLabel");
     deptLabel->setStyleSheet(
         "color: rgba(255, 255, 255, 0.75);"
@@ -342,20 +344,31 @@ QWidget* UserSettingsDialog::createBasicInfoSection()
     connect(m_nicknameEdit, &QLineEdit::textChanged, this, &UserSettingsDialog::updatePreview);
     layout->addWidget(createFormRow(getIconPath("user"), "姓名 / 昵称", m_nicknameEdit));
 
-    // 部门
+    // 部门/班级
+    bool isStudent = (UserSettingsManager::instance()->role() == "学生");
     m_departmentEdit = new QLineEdit();
-    m_departmentEdit->setPlaceholderText("请输入所属部门或教研组");
+    m_departmentEdit->setPlaceholderText(isStudent ? "请输入所属班级" : "请输入所属部门或教研组");
     configureInputWidget(m_departmentEdit);
     m_departmentEdit->setStyleSheet(getInputStyle());
     connect(m_departmentEdit, &QLineEdit::textChanged, this, &UserSettingsDialog::updatePreview);
-    layout->addWidget(createFormRow(getIconPath("building"), "部门", m_departmentEdit));
+    layout->addWidget(createFormRow(getIconPath("building"), isStudent ? "所属班级" : "部门", m_departmentEdit));
 
-    // 职称
+    // 职称/学号
     m_titleEdit = new QLineEdit();
-    m_titleEdit->setPlaceholderText("请输入职称（可选）");
+    m_titleEdit->setPlaceholderText(isStudent ? "请输入学号" : "请输入职称（可选）");
     configureInputWidget(m_titleEdit);
     m_titleEdit->setStyleSheet(getInputStyle());
-    layout->addWidget(createFormRow(getIconPath("award"), "职称", m_titleEdit));
+    layout->addWidget(createFormRow(getIconPath("award"), isStudent ? "学号" : "职称", m_titleEdit));
+
+    // 教师邀请码（仅学生可见）
+    m_inviteCodeEdit = new QLineEdit();
+    m_inviteCodeEdit->setPlaceholderText("输入邀请码升级为教师账号");
+    m_inviteCodeEdit->setEchoMode(QLineEdit::Password);
+    configureInputWidget(m_inviteCodeEdit);
+    m_inviteCodeEdit->setStyleSheet(getInputStyle());
+    QWidget *inviteRow = createFormRow(getIconPath("key"), "教师邀请码（选填）", m_inviteCodeEdit);
+    inviteRow->setVisible(isStudent);
+    layout->addWidget(inviteRow);
 
     return section;
 }
@@ -369,10 +382,7 @@ void UserSettingsDialog::loadSettings()
 
     // 加载邮箱
     QString email = settings->email();
-    if (email.isEmpty()) {
-        email = "未设置邮箱";
-    }
-    m_emailLabel->setText(email);
+    m_emailLabel->setText(email.isEmpty() ? "登录后自动获取" : email);
 
     updatePreview();
 }
@@ -389,14 +399,17 @@ void UserSettingsDialog::updatePreview()
         m_avatarPreview->setText("U");
     }
 
-    // 更新预览文本 - 统一显示"姓名老师"
-    QString displayName = nickname.isEmpty() ? "未设置" : (nickname + "老师");
+    // 更新预览文本
+    bool isStudent = (UserSettingsManager::instance()->role() == "学生");
+    QString displayName = nickname.isEmpty() ? "未设置" : (isStudent ? nickname : nickname + "老师");
     m_previewLabel->setText(displayName);
 
     // 更新部门标签
     QLabel *deptLabel = findChild<QLabel*>("deptLabel");
     if (deptLabel) {
-        deptLabel->setText(department.isEmpty() ? "未设置部门" : department);
+        deptLabel->setText(department.isEmpty()
+            ? (isStudent ? "未设置班级" : "未设置部门")
+            : department);
     }
 }
 
@@ -419,15 +432,50 @@ void UserSettingsDialog::onSaveClicked()
     }
 
     UserSettingsManager *settings = UserSettingsManager::instance();
+
+    // 邀请码验证（仅学生）
+    if (settings->role() == "学生" && m_inviteCodeEdit) {
+        QString code = m_inviteCodeEdit->text().trimmed();
+        if (!code.isEmpty()) {
+            if (code == "AIEDU2024") {
+                settings->setRole("教师");
+                settings->setHonorific("老师");
+                emit roleUpgraded();
+            } else {
+                QMessageBox msgBox(this);
+                msgBox.setWindowTitle("邀请码错误");
+                msgBox.setText("邀请码不正确，请检查后重试。");
+                msgBox.setIcon(QMessageBox::Warning);
+                msgBox.setStyleSheet(QString(
+                    "QMessageBox { background: white; }"
+                    "QLabel { color: %1; }"
+                    "QPushButton { padding: 8px 24px; border-radius: 6px; background: %2; color: white; font-weight: 500; }"
+                ).arg(StyleConfig::TEXT_PRIMARY).arg(StyleConfig::PATRIOTIC_RED));
+                msgBox.exec();
+                m_inviteCodeEdit->setFocus();
+                return;
+            }
+        }
+    }
+
+    // 教师设置 honorific
+    if (settings->role() == "教师") {
+        settings->setHonorific("老师");
+    }
+
     settings->setNickname(nickname);
     settings->setDepartment(m_departmentEdit->text().trimmed());
     settings->setTitle(m_titleEdit->text().trimmed());
-    settings->setHonorific("老师");  // 统一称呼为老师
     settings->save();
+
+    QString successMsg = "设置已保存！";
+    if (settings->role() == "教师" && m_inviteCodeEdit && !m_inviteCodeEdit->text().trimmed().isEmpty()) {
+        successMsg = "恭喜！您的账号已升级为教师身份！";
+    }
 
     QMessageBox msgBox(this);
     msgBox.setWindowTitle("成功");
-    msgBox.setText("设置已保存！");
+    msgBox.setText(successMsg);
     msgBox.setIcon(QMessageBox::Information);
     msgBox.setStyleSheet(QString(
         "QMessageBox { background: white; }"
@@ -445,8 +493,10 @@ void UserSettingsDialog::onCancelClicked()
 
 void UserSettingsDialog::onResetClicked()
 {
+    bool isStudent = (UserSettingsManager::instance()->role() == "学生");
     m_nicknameEdit->clear();
-    m_departmentEdit->setText("思政教研组");
+    m_departmentEdit->setText(isStudent ? "" : "思政教研组");
     m_titleEdit->clear();
+    if (m_inviteCodeEdit) m_inviteCodeEdit->clear();
     updatePreview();
 }

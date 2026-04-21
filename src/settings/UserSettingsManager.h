@@ -41,6 +41,10 @@ public:
     QString aiGreetingTemplate() const;
     void setAIGreetingTemplate(const QString &tmpl);
 
+    // 用户角色（教师/学生）
+    QString role() const;
+    void setRole(const QString &role);
+
     // 用户邮箱（登录后设置）
     QString email() const;
     void setEmail(const QString &email);
@@ -74,6 +78,7 @@ private:
     QString m_honorific;
     QString m_aiGreetingTemplate;
     QString m_email;
+    QString m_role;
 };
 
 #endif // USERSETTINGSMANAGER_H

@@ -37,6 +37,9 @@ public:
     // 密码重置
     void resetPassword(const QString &email);
 
+    // 查询用户角色
+    void fetchUserRole(const QString &email);
+
 signals:
     // 登录相关信号
     void loginSuccess(const QString &userId, const QString &email);
@@ -53,6 +56,9 @@ signals:
     // 密码重置相关信号
     void passwordResetSuccess(const QString &message);
     void passwordResetFailed(const QString &errorMessage);
+
+    // 角色查询信号
+    void roleFetched(const QString &role);
 
 public:
     QString currentUserId() const { return m_currentUserId; }

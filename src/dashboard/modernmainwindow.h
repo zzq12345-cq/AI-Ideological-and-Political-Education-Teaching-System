@@ -66,6 +66,7 @@ private slots:
     void onResourceManagementClicked();
     void onLearningAnalysisClicked();
     void onAttendanceClicked();       // 考勤管理
+    void onMyClassClicked();          // 我的班级
     void onSettingsClicked();
     void onHelpClicked();
     void onQuickPreparationClicked();
@@ -138,6 +139,7 @@ private:
     QPushButton *resourceManagementBtn = nullptr; // 资源库管理
     QPushButton *learningAnalysisBtn = nullptr;   // 学情与教评
     QPushButton *attendanceBtn = nullptr;         // 考勤管理
+    QPushButton *myClassBtn = nullptr;            // 我的班级（学生端）
     QPushButton *dataAnalysisBtn = nullptr;       // 数据分析报告 (新)
 
     // 底部菜单
@@ -163,6 +165,7 @@ private:
 
     // 考勤管理组件
     AttendanceWidget *m_attendanceWidget = nullptr;
+    QWidget *myClassPlaceholder = nullptr;
 
     // 通知系统组件
     NotificationService *m_notificationService = nullptr;

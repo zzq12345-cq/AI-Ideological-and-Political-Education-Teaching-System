@@ -159,6 +159,43 @@ void SupabaseClient::resetPassword(const QString &email)
     sendRequest(endpoint, body, true);
 }
 
+void SupabaseClient::fetchUserRole(const QString &email)
+{
+    qDebug() << "查询用户角色:" << email;
+
+    QUrl endpoint(SupabaseConfig::supabaseUrl() + "/rest/v1/" + SupabaseConfig::USERS_TABLE);
+    QUrlQuery query;
+    query.addQueryItem("select", "role");
+    query.addQueryItem("email", "eq." + email);
+    query.addQueryItem("limit", "1");
+    endpoint.setQuery(query);
+
+    qDebug() << "角色查询 URL:" << endpoint.toString(QUrl::FullyEncoded);
+
+    QNetworkRequest request = NetworkRequestFactory::createAuthRequest(QUrl(endpoint.toString(QUrl::FullyEncoded)));
+    QNetworkReply *reply = m_networkManager->get(request);
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            qWarning() << "角色查询失败:" << reply->errorString();
+            emit roleFetched("学生");  // 查询失败默认学生
+            return;
+        }
+
+        QByteArray data = reply->readAll();
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (doc.isArray() && !doc.array().isEmpty()) {
+            QString role = doc.array()[0].toObject().value("role").toString("学生");
+            qDebug() << "查询到角色:" << role;
+            emit roleFetched(role);
+        } else {
+            qDebug() << "未找到用户记录，默认学生角色";
+            emit roleFetched("学生");
+        }
+    });
+}
+
 void SupabaseClient::sendRequest(const QString &endpoint, const QJsonObject &data, bool isPost)
 {
     const QUrl endpointUrl(endpoint);
