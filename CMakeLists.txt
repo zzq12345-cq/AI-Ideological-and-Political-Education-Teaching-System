@@ -186,6 +186,10 @@ set(PROJECT_SOURCES
     src/student/StudentClassDetailWidget.h
     src/student/StudentMaterialWidget.cpp
     src/student/StudentMaterialWidget.h
+    src/admin/AdminManager.cpp
+    src/admin/AdminManager.h
+    src/admin/AdminDashboard.cpp
+    src/admin/AdminDashboard.h
     src/config/AppConfig.cpp
     src/config/AppConfig.h
     src/config/embedded_keys.h

@@ -1,6 +1,7 @@
 #include "UserSettingsDialog.h"
 #include "UserSettingsManager.h"
 #include "../shared/StyleConfig.h"
+#include "../admin/AdminManager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -438,25 +439,32 @@ void UserSettingsDialog::onSaveClicked()
         QString code = m_inviteCodeEdit->text().trimmed();
         qDebug() << "[SettingsDialog] Invite code entered:" << code << "current role:" << settings->role();
         if (!code.isEmpty()) {
-            if (code == "AIEDU2024") {
-                qDebug() << "[SettingsDialog] Invite code valid, upgrading to 教师";
+            // 动态验证邀请码（查询 invitation_codes 表）
+            QString email = settings->email();
+            connect(AdminManager::instance(), &AdminManager::inviteCodeValid, this,
+                [this, settings](const QString &schoolId, const QString &schoolName) {
+                Q_UNUSED(schoolId)
                 settings->setRole("教师");
                 settings->setHonorific("老师");
+                settings->setNickname(m_nicknameEdit->text().trimmed());
+                settings->setDepartment(m_departmentEdit->text().trimmed());
+                settings->setTitle(m_titleEdit->text().trimmed());
+                settings->save();
+                qDebug() << "[SettingsDialog] 邀请码验证成功，绑定学校:" << schoolName;
+                QMessageBox::information(this, "升级成功",
+                    QString("已升级为教师，绑定学校: %1").arg(schoolName));
                 emit roleUpgraded();
-            } else {
-                QMessageBox msgBox(this);
-                msgBox.setWindowTitle("邀请码错误");
-                msgBox.setText("邀请码不正确，请检查后重试。");
-                msgBox.setIcon(QMessageBox::Warning);
-                msgBox.setStyleSheet(QString(
-                    "QMessageBox { background: white; }"
-                    "QLabel { color: %1; }"
-                    "QPushButton { padding: 8px 24px; border-radius: 6px; background: %2; color: white; font-weight: 500; }"
-                ).arg(StyleConfig::TEXT_PRIMARY).arg(StyleConfig::PATRIOTIC_RED));
-                msgBox.exec();
+                accept();
+            }, Qt::SingleShotConnection);
+
+            connect(AdminManager::instance(), &AdminManager::inviteCodeInvalid, this,
+                [this](const QString &msg) {
+                QMessageBox::warning(this, "邀请码错误", msg);
                 m_inviteCodeEdit->setFocus();
-                return;
-            }
+            }, Qt::SingleShotConnection);
+
+            AdminManager::instance()->validateAndUseInviteCode(code, email);
+            return;  // 异步等回调
         }
     }
 

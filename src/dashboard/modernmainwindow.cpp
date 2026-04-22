@@ -20,6 +20,7 @@
 #include "../notifications/ui/NotificationBadge.h"
 #include "../attendance/ui/AttendanceWidget.h"
 #include "../student/MyClassWidget.h"
+#include "../admin/AdminDashboard.h"
 #include "../student/AttendanceManager.h"
 #include "../attendance/services/AttendanceService.h"
 #include "../ui/LessonPlanEditor.h"
@@ -781,7 +782,8 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
     qDebug() << "=== ModernMainWindow 构造函数开始 ===";
     qDebug() << "用户角色:" << userRole << "用户名:" << username << "用户ID:" << userId;
 
-    setWindowTitle(currentUserRole == "学生" ? "思政智慧课堂 - 学生端" : "思政智慧课堂 - 教师中心");
+    setWindowTitle(currentUserRole == "学生" ? "思政智慧课堂 - 学生端" :
+                   currentUserRole == "管理员" ? "思政智慧课堂 - 管理后台" : "思政智慧课堂 - 教师中心");
     setMinimumSize(1400, 900);
     resize(1600, 1000);
 
@@ -889,10 +891,18 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
     // 创建默认页面
     createDashboard();
 
-    // 学生默认进入时政新闻，教师进入仪表板
+    // 学生默认进入时政新闻，教师进入仪表板，管理员进入管理后台
     if (currentUserRole == "学生") {
         contentStack->setCurrentWidget(m_hotspotWidget);
         m_hotspotWidget->refresh();
+    } else if (currentUserRole == "管理员") {
+        // 管理员：隐藏主窗口侧边栏和顶栏，让 AdminDashboard 占满
+        if (m_sidebarStack) m_sidebarStack->hide();
+        if (headerWidget) headerWidget->hide();
+        contentStack->setContentsMargins(0, 0, 0, 0);
+        m_adminDashboard = new AdminDashboard(this);
+        contentStack->addWidget(m_adminDashboard);
+        contentStack->setCurrentWidget(m_adminDashboard);
     } else {
         contentStack->setCurrentWidget(dashboardWidget);
     }
@@ -2199,6 +2209,14 @@ void ModernMainWindow::onSettingsClicked()
         if (m_userNameLabel) {
             m_userNameLabel->setText(UserSettingsManager::instance()->displayName());
         }
+
+        // 重建班级页面，使用教师角色
+        if (m_myClassWidget) {
+            contentStack->removeWidget(m_myClassWidget);
+            m_myClassWidget->deleteLater();
+        }
+        m_myClassWidget = new MyClassWidget(true, currentUsername);
+        contentStack->addWidget(m_myClassWidget);
 
         onTeacherCenterClicked();
     }

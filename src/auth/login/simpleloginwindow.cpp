@@ -1,4 +1,5 @@
 #include "simpleloginwindow.h"
+#include "../supabase/supabaseconfig.h"
 #include "../../dashboard/modernmainwindow.h"
 #include "../../settings/UserSettingsManager.h"
 #include <QMessageBox>
@@ -528,6 +529,7 @@ void SimpleLoginWindow::onLoginClicked()
             qDebug() << "检测到有效本地会话，直接进入主页";
             m_loginProcessed = true;
             m_isRestoringSession = false;
+            SupabaseConfig::setAccessToken(m_settings->value("savedAccessToken").toString());
             loginButton->setEnabled(false);
             loginButton->setText("正在进入工作台...");
             saveRememberedCredentials();
@@ -630,6 +632,9 @@ void SimpleLoginWindow::onLoginSuccess(const QString &userId, const QString &ema
     m_isRestoringSession = false;
 
     qDebug() << "Supabase登录成功! 用户ID:" << userId << "邮箱:" << email;
+
+    // 设置全局 access token，供所有 Supabase REST API 请求使用
+    SupabaseConfig::setAccessToken(m_supabaseClient->currentAccessToken());
 
     // 同步 Supabase user_metadata.username 到本地设置
     QString username = m_supabaseClient->currentUsername();

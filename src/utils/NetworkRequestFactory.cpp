@@ -151,6 +151,15 @@ QNetworkRequest NetworkRequestFactory::createAuthRequest(const QUrl &url, int ti
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     request.setRawHeader("apikey", SupabaseConfig::supabaseAnonKey().toUtf8());
 
+    // 优先使用用户 JWT token，否则用 anon key
+    QString token = SupabaseConfig::accessToken();
+    if (!token.isEmpty()) {
+        request.setRawHeader("Authorization", QString("Bearer %1").arg(token).toUtf8());
+    } else {
+        request.setRawHeader("Authorization",
+                             QString("Bearer %1").arg(SupabaseConfig::supabaseAnonKey()).toUtf8());
+    }
+
     // 基础配置
     applyBaseConfig(request);
     applySslConfig(request);

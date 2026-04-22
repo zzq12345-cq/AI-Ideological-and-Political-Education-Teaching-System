@@ -24,3 +24,7 @@ QString SupabaseConfig::supabaseServiceKey()
 
 const QString SupabaseConfig::USERS_TABLE = "teachers";
 const QString SupabaseConfig::AUTH_HEADER_NAME = "Authorization";
+QString SupabaseConfig::s_accessToken;
+
+void SupabaseConfig::setAccessToken(const QString &token) { s_accessToken = token; }
+QString SupabaseConfig::accessToken() { return s_accessToken; }
