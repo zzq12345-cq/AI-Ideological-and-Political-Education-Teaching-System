@@ -14,6 +14,7 @@
 #include <QButtonGroup>
 #include <QIcon>
 #include "../models/AttendanceRecord.h"
+#include "../../analytics/models/Student.h"
 
 class AttendanceService;
 
@@ -32,39 +33,38 @@ public:
     // 设置考勤服务
     void setAttendanceService(AttendanceService *service);
 
+    // 加载指定 session 的考勤结果，可指定 classId 自动设置选择器
+    void loadSessionResults(const QString &sessionId, const QString &classId = QString());
+
 signals:
     void backRequested();  // 返回请求
 
 private slots:
     void onClassChanged(int index);
     void onDateChanged(const QDate &date);
-    void onLessonChanged(int index);
-    void onSaveClicked();
+    void onSessionChanged(int index);
     void onRefreshClicked();
-    void onAllPresentClicked();
+    void onSaveChanges();
+    void onResetChanges();
     void onStatusButtonClicked(int studentIndex, AttendanceStatus status);
     void onRemarkClicked(int studentIndex);
-    void onStudentsLoaded();
-    void onAttendanceLoaded();
 
 private:
     void setupUI();
     void setupStyles();
     void setupConnections();
     void createHeaderCard();
-    void createFilterCard();
     void createSummaryCard();
     void createStudentListCard();
-    void createActionCard();
     void applyCardShadow(QWidget *widget, qreal blur = 16, qreal offset = 4);
 
-    // 新增：创建统计卡片
     QWidget* createStatCard(const QString &label, QLabel* &countLabel, const QString &color, const QString &iconPath);
-    // 新增：获取莫兰迪色背景
     QString getMorandiColor(int index);
 
+    void loadAttendanceForCurrentSelection();
     void loadStudentList();
     void updateStatistics();
+    void updateSaveButtonState();
     QWidget* createStudentItem(int index, const QString &name, const QString &studentNo, AttendanceStatus status);
     QWidget* createStatusButtonGroup(int studentIndex, AttendanceStatus currentStatus);
 
@@ -86,7 +86,7 @@ private:
     // 筛选组件
     QComboBox *m_classCombo = nullptr;
     QDateEdit *m_dateEdit = nullptr;
-    QComboBox *m_lessonCombo = nullptr;
+    QComboBox *m_sessionCombo = nullptr;
 
     // 统计标签
     QLabel *m_presentCountLabel = nullptr;
@@ -97,14 +97,20 @@ private:
 
     // 操作按钮
     QPushButton *m_refreshBtn = nullptr;
-    QPushButton *m_allPresentBtn = nullptr;
-    QPushButton *m_saveBtn = nullptr;
-    QPushButton *m_statsBtn = nullptr;
-    QPushButton *m_exportBtn = nullptr;
+    QPushButton *m_saveChangesBtn = nullptr;
+    QPushButton *m_resetBtn = nullptr;
 
     // 数据
     QList<AttendanceRecord> m_records;
+    QList<AttendanceStatus> m_originalStatuses;  // 用于检测变更和重置
     QList<QButtonGroup*> m_statusButtonGroups;
+    QString m_currentSessionId;
+    QString m_currentClassId;
+    QString m_targetSessionId;    // 跳转时需要自动选中的 session
+    QStringList m_recordIds;       // Supabase record IDs
+    QStringList m_studentEmails;   // 对应的邮箱
+    QMap<QString, QString> m_emailToStudentNo; // email → 学号
+    QList<Student> m_students;
 
     // 服务
     AttendanceService *m_service = nullptr;

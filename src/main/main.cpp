@@ -5,8 +5,23 @@
 #include <QTcpSocket>
 #include <QUrl>
 #include <QPalette>
+#include <QFile>
+#include <QTextStream>
+#include <QDateTime>
 #include <iostream>
 #include "../auth/login/simpleloginwindow.h"
+
+// 日志文件输出
+static QFile *g_logFile = nullptr;
+void logToFile(QtMsgType type, const QMessageLogContext &context, const QString &msg)
+{
+    if (g_logFile && g_logFile->isOpen()) {
+        QTextStream stream(g_logFile);
+        const char *level = (type == QtWarningMsg) ? "WARN" : (type == QtCriticalMsg || type == QtFatalMsg) ? "ERROR" : "DEBUG";
+        stream << QDateTime::currentDateTime().toString("HH:mm:ss.zzz") << " [" << level << "] " << msg << "\n";
+        stream.flush();
+    }
+}
 
 namespace {
 QNetworkProxy::ProxyType proxyTypeFromScheme(const QString &scheme)
@@ -68,6 +83,14 @@ void configureApplicationProxy()
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+
+    // 设置日志文件（必须在 QApplication 构造之后）
+    QString logPath = app.applicationDirPath() + "/debug.log";
+    g_logFile = new QFile(logPath);
+    if (g_logFile->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        qInstallMessageHandler(logToFile);
+        qDebug() << "日志文件已打开:" << logPath;
+    }
 
     // 设置应用程序基本信息
     app.setApplicationName("AI思政智慧课堂系统");

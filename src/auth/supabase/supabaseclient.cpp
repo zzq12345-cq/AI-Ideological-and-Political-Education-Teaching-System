@@ -163,6 +163,9 @@ void SupabaseClient::fetchUserRole(const QString &email)
 {
     qDebug() << "查询用户角色:" << email;
 
+    // 保存 email，供 currentEmail() 使用（记住密码快速登录时需要）
+    m_currentEmail = email;
+
     QUrl endpoint(SupabaseConfig::supabaseUrl() + "/rest/v1/" + SupabaseConfig::USERS_TABLE);
     QUrlQuery query;
     query.addQueryItem("select", "role");
@@ -296,9 +299,53 @@ void SupabaseClient::onReplyFinished(QNetworkReply *reply)
     }
 
     if (netError != QNetworkReply::NoError) {
-        const QString networkErrorMessage = mapAuthNetworkError(netError, reply->errorString());
-        qDebug() << "网络错误:" << netError << reply->errorString();
-        qDebug() << "网络错误映射:" << networkErrorMessage;
+        // 尝试从响应体提取更具体的错误信息
+        QByteArray data = reply->readAll();
+        qDebug() << "网络错误:" << netError << "HTTP状态:" << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() << "响应:" << data;
+
+        // 429 频率限制等 HTTP 错误：Supabase 返回的 body 包含具体错误信息
+        int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (httpStatus == 429) {
+            QString msg = "操作过于频繁，请稍后再试";
+            QJsonParseError parseErr;
+            QJsonDocument doc = QJsonDocument::fromJson(data, &parseErr);
+            if (parseErr.error == QJsonParseError::NoError && doc.isObject()) {
+                QJsonObject json = doc.object();
+                if (json.contains("msg")) {
+                    QString supabaseMsg = json["msg"].toString();
+                    if (supabaseMsg.contains("email", Qt::CaseInsensitive) && supabaseMsg.contains("rate", Qt::CaseInsensitive)) {
+                        msg = "邮件发送频率超限，请稍后再试或联系管理员关闭邮件验证";
+                    } else {
+                        msg = supabaseMsg;
+                    }
+                }
+            }
+            if (url.contains("/auth/v1/signup")) {
+                emit signupFailed(msg);
+            } else if (url.contains("/auth/v1/token")) {
+                emit loginFailed(msg);
+            } else {
+                emit loginFailed(msg);
+            }
+            reply->deleteLater();
+            return;
+        }
+
+        QString networkErrorMessage;
+        QJsonParseError parseErr;
+        QJsonDocument doc = QJsonDocument::fromJson(data, &parseErr);
+        if (parseErr.error == QJsonParseError::NoError && doc.isObject()) {
+            QJsonObject json = doc.object();
+            if (json.contains("msg")) {
+                networkErrorMessage = json["msg"].toString();
+            } else if (json.contains("error_description")) {
+                networkErrorMessage = json["error_description"].toString();
+            } else {
+                networkErrorMessage = mapAuthNetworkError(netError, reply->errorString());
+            }
+        } else {
+            networkErrorMessage = mapAuthNetworkError(netError, reply->errorString());
+        }
 
         if (url.contains("/auth/v1/token")) {
             emit loginFailed(networkErrorMessage);
@@ -320,11 +367,8 @@ void SupabaseClient::onReplyFinished(QNetworkReply *reply)
     const bool isAuthEndpoint = url.contains("/auth/v1/token") || url.contains("/auth/v1/signup") || url.contains("/auth/v1/recover");
 
     qDebug() << "HTTP状态码:" << httpStatus << "URL:" << reply->url().path();
-    if (isAuthEndpoint) {
-        qDebug() << "认证接口响应长度:" << data.size();
-    } else {
-        qDebug() << "响应数据:" << data;
-    }
+    // 认证接口也打印完整响应，方便调试
+    qDebug() << "响应数据:" << data;
 
     // 密码重置接口：成功时返回空 body 或简短 JSON
     if (url.contains("/auth/v1/recover")) {
@@ -410,7 +454,11 @@ void SupabaseClient::handleLoginResponse(const QJsonObject &json)
         m_currentRefreshToken = json["refresh_token"].toString();
         m_currentExpiresAt = expiresAt;
 
-        qDebug() << "登录成功! 用户ID:" << userId << "邮箱:" << email;
+        // 从 user_metadata 提取用户名
+        const QJsonObject userMeta = userObject["user_metadata"].toObject();
+        m_currentUsername = userMeta["username"].toString();
+
+        qDebug() << "登录成功! 用户ID:" << userId << "邮箱:" << email << "用户名:" << m_currentUsername;
         emit loginSuccess(userId, email);
     } else if (json.contains("error_description")) {
         QString error = json["error_description"].toString();
@@ -425,16 +473,33 @@ void SupabaseClient::handleLoginResponse(const QJsonObject &json)
 
 void SupabaseClient::handleSignupResponse(const QJsonObject &json)
 {
-    qDebug() << "处理注册响应";
+    qDebug() << "处理注册响应, 完整响应:" << QJsonDocument(json).toJson();
 
     if (json.contains("access_token")) {
         QString userId = json["user"].toObject()["id"].toString();
         qDebug() << "注册成功! 用户ID:" << userId;
         emit signupSuccess("注册成功！请检查您的邮箱进行验证。");
+    } else if (json.contains("user") && !json["user"].isNull()) {
+        // 邮箱验证模式：返回了 user 对象但没有 access_token
+        qDebug() << "注册成功（待邮箱验证）:" << json["user"].toObject()["email"].toString();
+        emit signupSuccess("注册成功！请检查邮箱完成验证后登录。");
+    } else if (json.contains("code") && json.contains("msg")) {
+        // Supabase 错误码（如 429 频率限制、已注册等）
+        QString msg = json["msg"].toString();
+        QString code = json["code"].toString();
+        qDebug() << "注册失败, code:" << code << "msg:" << msg;
+        if (msg.contains("rate limit", Qt::CaseInsensitive)) {
+            emit signupFailed("操作过于频繁，请稍后再试");
+        } else if (msg.contains("already registered", Qt::CaseInsensitive) || msg.contains("already exists", Qt::CaseInsensitive)) {
+            emit signupFailed("该邮箱已注册，请直接登录");
+        } else {
+            emit signupFailed(msg);
+        }
     } else if (json.contains("msg")) {
-        QString error = json["msg"].toString();
-        qDebug() << "注册失败:" << error;
-        emit signupFailed(error);
+        emit signupFailed(json["msg"].toString());
+    } else if (json.contains("user") && json["user"].isNull()) {
+        // Supabase 安全策略：已注册邮箱返回 user=null 但无明确错误
+        emit signupFailed("注册失败，该邮箱可能已注册或密码不符合要求");
     } else {
         QString error = parseError(json);
         qDebug() << "注册失败:" << error;

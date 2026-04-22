@@ -1,5 +1,6 @@
 #include "simpleloginwindow.h"
 #include "../../dashboard/modernmainwindow.h"
+#include "../../settings/UserSettingsManager.h"
 #include <QMessageBox>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -530,7 +531,7 @@ void SimpleLoginWindow::onLoginClicked()
             loginButton->setEnabled(false);
             loginButton->setText("正在进入工作台...");
             saveRememberedCredentials();
-            openMainWindow(username, "教师", rememberedUserId);
+            m_supabaseClient->fetchUserRole(username);
             return;
         }
 
@@ -629,6 +630,13 @@ void SimpleLoginWindow::onLoginSuccess(const QString &userId, const QString &ema
     m_isRestoringSession = false;
 
     qDebug() << "Supabase登录成功! 用户ID:" << userId << "邮箱:" << email;
+
+    // 同步 Supabase user_metadata.username 到本地设置
+    QString username = m_supabaseClient->currentUsername();
+    if (!username.isEmpty()) {
+        UserSettingsManager::instance()->setNickname(username);
+        qDebug() << "同步用户名到本地:" << username;
+    }
 
     loginButton->setEnabled(false);
     loginButton->setText("正在查询角色...");

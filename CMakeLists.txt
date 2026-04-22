@@ -149,6 +149,43 @@ set(PROJECT_SOURCES
     src/attendance/services/AttendanceService.h
     src/attendance/ui/AttendanceWidget.cpp
     src/attendance/ui/AttendanceWidget.h
+    src/student/MyClassWidget.cpp
+    src/student/MyClassWidget.h
+    src/student/JoinClassDialog.cpp
+    src/student/JoinClassDialog.h
+    src/student/ClassInfo.h
+    src/student/ClassManager.cpp
+    src/student/ClassManager.h
+    src/student/CreateClassDialog.cpp
+    src/student/CreateClassDialog.h
+    src/student/ClassDetailWidget.cpp
+    src/student/ClassDetailWidget.h
+    src/student/AttendanceManager.cpp
+    src/student/AttendanceManager.h
+    src/student/AttendanceActiveWidget.cpp
+    src/student/AttendanceActiveWidget.h
+    src/student/AttendanceResultWidget.cpp
+    src/student/AttendanceResultWidget.h
+    src/student/AttendanceSignInDialog.cpp
+    src/student/AttendanceSignInDialog.h
+    src/student/ClassSettingsWidget.cpp
+    src/student/ClassSettingsWidget.h
+    src/student/HomeworkManager.cpp
+    src/student/HomeworkManager.h
+    src/student/HomeworkListWidget.cpp
+    src/student/HomeworkListWidget.h
+    src/student/HomeworkCreateWidget.cpp
+    src/student/HomeworkCreateWidget.h
+    src/student/HomeworkSubmissionsWidget.cpp
+    src/student/HomeworkSubmissionsWidget.h
+    src/student/MaterialManager.cpp
+    src/student/MaterialManager.h
+    src/student/MaterialWidget.cpp
+    src/student/MaterialWidget.h
+    src/student/StudentClassDetailWidget.cpp
+    src/student/StudentClassDetailWidget.h
+    src/student/StudentMaterialWidget.cpp
+    src/student/StudentMaterialWidget.h
     src/config/AppConfig.cpp
     src/config/AppConfig.h
     src/config/embedded_keys.h

@@ -436,8 +436,10 @@ void UserSettingsDialog::onSaveClicked()
     // 邀请码验证（仅学生）
     if (settings->role() == "学生" && m_inviteCodeEdit) {
         QString code = m_inviteCodeEdit->text().trimmed();
+        qDebug() << "[SettingsDialog] Invite code entered:" << code << "current role:" << settings->role();
         if (!code.isEmpty()) {
             if (code == "AIEDU2024") {
+                qDebug() << "[SettingsDialog] Invite code valid, upgrading to 教师";
                 settings->setRole("教师");
                 settings->setHonorific("老师");
                 emit roleUpgraded();

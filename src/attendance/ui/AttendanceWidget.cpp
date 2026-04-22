@@ -1,8 +1,12 @@
 #include "AttendanceWidget.h"
-#include "../services/AttendanceService.h"
+#include "../../student/ClassManager.h"
+#include "../../student/AttendanceManager.h"
 #include "../../utils/LayoutUtils.h"
 #include "../models/AttendanceSummary.h"
 #include "../../analytics/models/Student.h"
+#include "../../settings/UserSettingsManager.h"
+#include "../../auth/supabase/supabaseconfig.h"
+#include "../../utils/NetworkRequestFactory.h"
 #include <QGraphicsDropShadowEffect>
 #include <QScrollBar>
 #include <QDate>
@@ -14,26 +18,180 @@
 #include <QPixmap>
 #include <QInputDialog>
 
-// ============ 高级 UI 设计规范 (iOS/macOS 风格) ============
-static const QString COL_BG = "#F3F4F6";          // 页面底色
-static const QString COL_CARD = "#FFFFFF";        // 卡片底色
-static const QString COL_PRIMARY = "#10B981";     // 品牌主色 (Emerald-500)
-static const QString COL_DANGER = "#EF4444";      // 危险/缺勤 (Rose-500)
-static const QString COL_WARNING = "#F59E0B";     // 警告/迟到 (Amber-500)
-static const QString COL_INFO = "#3B82F6";        // 信息/请假 (Blue-500)
-static const QString COL_PURPLE = "#8B5CF6";      // 紫色/早退 (Violet-500)
+// ============ 高级 UI 设计规范 ============
+static const QString COL_BG = "#F3F4F6";
+static const QString COL_CARD = "#FFFFFF";
+static const QString COL_PRIMARY = "#10B981";
+static const QString COL_DANGER = "#EF4444";
+static const QString COL_WARNING = "#F59E0B";
+static const QString COL_INFO = "#3B82F6";
+static const QString COL_PURPLE = "#8B5CF6";
 
-static const QString COL_TEXT_MAIN = "#111827";   // 标题 (Gray-900)
-static const QString COL_TEXT_SUB = "#6B7280";    // 副标题 (Gray-500)
-static const QString COL_BORDER = "#E5E7EB";      // 边框 (Gray-200)
-static const QString COL_SEGMENT_BG = "#F3F4F6";  // 分段控件背景
+static const QString COL_TEXT_MAIN = "#111827";
+static const QString COL_TEXT_SUB = "#6B7280";
+static const QString COL_BORDER = "#E5E7EB";
+static const QString COL_SEGMENT_BG = "#F3F4F6";
 
 AttendanceWidget::AttendanceWidget(QWidget *parent)
     : QWidget(parent)
 {
     setupUI();
     setupStyles();
-    setupConnections();
+
+    // 连接 ClassManager 加载真实班级
+    connect(ClassManager::instance(), &ClassManager::classesLoaded, this,
+            [this](const QList<ClassInfo> &classes) {
+        m_classCombo->blockSignals(true);
+        m_classCombo->clear();
+        for (const auto &cls : classes) {
+            m_classCombo->addItem(cls.name, cls.id);
+        }
+        m_classCombo->blockSignals(false);
+        if (!classes.isEmpty()) {
+            loadAttendanceForCurrentSelection();
+        }
+    });
+
+    // 连接 AttendanceManager 加载 sessions 列表
+    connect(AttendanceManager::instance(), &AttendanceManager::sessionsLoaded, this,
+            [this](const QList<AttendanceManager::SessionInfo> &sessions) {
+        m_sessionCombo->blockSignals(true);
+        m_sessionCombo->clear();
+        if (sessions.isEmpty()) {
+            m_sessionCombo->addItem("当日无考勤记录");
+        } else {
+            int targetIdx = -1;
+            for (int i = 0; i < sessions.size(); ++i) {
+                const auto &s = sessions[i];
+                QString label = s.name.isEmpty()
+                    ? QString("签到码 %1").arg(s.code)
+                    : s.name;
+                if (s.status == "active") label += " · 进行中";
+                m_sessionCombo->addItem(label, s.id);
+                if (s.id == m_targetSessionId) targetIdx = i;
+            }
+            // 优先选中目标 session，否则选中第一个
+            int selectIdx = (targetIdx >= 0) ? targetIdx : 0;
+            m_sessionCombo->setCurrentIndex(selectIdx);
+            m_currentSessionId = sessions[selectIdx].id;
+            AttendanceManager::instance()->loadSessionRecords(m_currentSessionId);
+            m_targetSessionId.clear();
+        }
+        m_sessionCombo->blockSignals(false);
+    });
+
+    // 连接 ClassManager 获取学号
+    connect(ClassManager::instance(), &ClassManager::membersLoaded, this,
+            [this](const QString &classId, const QList<ClassManager::MemberInfo> &members) {
+        if (classId != m_currentClassId) return;
+        // 构建 email → 学号映射
+        m_emailToStudentNo.clear();
+        for (const auto &m : members) {
+            if (!m.number.isEmpty()) {
+                m_emailToStudentNo[m.email] = m.number;
+            }
+        }
+        // 更新学生学号并重建列表
+        bool changed = false;
+        for (int i = 0; i < m_students.size() && i < m_studentEmails.size(); ++i) {
+            QString no = m_emailToStudentNo.value(m_studentEmails[i], "无学号信息");
+            if (m_students[i].studentNo() != no) {
+                m_students[i].setStudentNo(no);
+                changed = true;
+            }
+        }
+        if (changed && !m_records.isEmpty()) {
+            // 重建列表 UI
+            qDeleteAll(m_statusButtonGroups);
+            m_statusButtonGroups.clear();
+            LayoutUtils::clearLayout(m_listLayout);
+            for (int i = 0; i < m_students.size(); ++i) {
+                m_listLayout->addWidget(createStudentItem(i, m_students[i].name(),
+                    m_students[i].studentNo(), m_records[i].status()));
+            }
+            m_listLayout->addStretch();
+        }
+    });
+
+    // 连接 AttendanceManager 加载记录
+    connect(AttendanceManager::instance(), &AttendanceManager::recordsLoaded, this,
+            [this](const QString &sessionId, const QList<AttendanceManager::RecordInfo> &records) {
+        if (sessionId != m_currentSessionId) return;
+        m_records.clear();
+        m_studentEmails.clear();
+        qDeleteAll(m_statusButtonGroups);
+        m_statusButtonGroups.clear();
+        LayoutUtils::clearLayout(m_listLayout);
+
+        // 构建 Student + AttendanceRecord 列表
+        m_students.clear();
+        m_originalStatuses.clear();
+        int idx = 0;
+        for (const auto &r : records) {
+            Student s;
+            s.setId(idx);
+            s.setName(r.studentName.isEmpty() ? r.studentEmail.split('@')[0] : r.studentName);
+            s.setStudentNo("无学号信息");
+            m_students.append(s);
+            m_studentEmails.append(r.studentEmail);
+
+            AttendanceRecord rec;
+            rec.setId(idx);
+            rec.setStudentId(idx);
+            AttendanceStatus status = AttendanceStatusHelper::fromString(r.status);
+            rec.setStatus(status);
+            m_records.append(rec);
+            m_originalStatuses.append(status);
+
+            m_listLayout->addWidget(createStudentItem(idx, s.name(), s.studentNo(), rec.status()));
+            idx++;
+        }
+        m_listLayout->addStretch();
+
+        // 存储 record id 用于更新
+        m_recordIds.clear();
+        for (const auto &r : records) {
+            m_recordIds.append(r.id);
+        }
+
+        updateStatistics();
+        updateSaveButtonState();
+
+        // 加载班级成员获取学号
+        QString classId = m_classCombo->currentData().toString();
+        if (!classId.isEmpty()) {
+            m_currentClassId = classId;
+            ClassManager::instance()->loadClassMembers(classId);
+        }
+    });
+
+    // 监听状态更新 — 批量保存后更新 originalStatuses
+    connect(AttendanceManager::instance(), &AttendanceManager::recordStatusUpdated, this,
+            [this](const QString &recordId, const QString &status) {
+        Q_UNUSED(status)
+        // 找到对应索引，更新 originalStatuses
+        int idx = m_recordIds.indexOf(recordId);
+        if (idx >= 0 && idx < m_originalStatuses.size()) {
+            m_originalStatuses[idx] = m_records[idx].status();
+        }
+        updateSaveButtonState();
+    });
+
+    // 首次加载：如果班级已缓存，直接填充；否则用邮箱触发加载
+    if (!ClassManager::instance()->cachedClasses().isEmpty()) {
+        m_classCombo->blockSignals(true);
+        m_classCombo->clear();
+        for (const auto &cls : ClassManager::instance()->cachedClasses()) {
+            m_classCombo->addItem(cls.name, cls.id);
+        }
+        m_classCombo->blockSignals(false);
+        loadAttendanceForCurrentSelection();
+    } else {
+        QString email = UserSettingsManager::instance()->email();
+        if (!email.isEmpty()) {
+            ClassManager::instance()->loadTeacherClasses(email);
+        }
+    }
 }
 
 AttendanceWidget::~AttendanceWidget()
@@ -43,21 +201,8 @@ AttendanceWidget::~AttendanceWidget()
 
 void AttendanceWidget::setAttendanceService(AttendanceService *service)
 {
-    m_service = service;
-    if (m_service) {
-        connect(m_service, &AttendanceService::studentsReceived, this, &AttendanceWidget::onStudentsLoaded);
-        connect(m_service, &AttendanceService::attendanceReceived, this, &AttendanceWidget::onAttendanceLoaded);
-        connect(m_service, &AttendanceService::attendanceSubmitted, this, [this](bool success, const QString&) {
-            if (success) {
-                m_saveBtn->setText("✓ 已保存");
-                QTimer::singleShot(2000, this, [this]() { m_saveBtn->setText("保存考勤记录"); });
-            }
-        });
-
-        if (m_records.isEmpty()) {
-            onRefreshClicked();
-        }
-    }
+    Q_UNUSED(service)
+    // 不再使用旧的 mock service，数据由 AttendanceManager 直接提供
 }
 
 void AttendanceWidget::setupUI()
@@ -70,6 +215,7 @@ void AttendanceWidget::setupUI()
     createHeaderCard();
     createSummaryCard();
     createStudentListCard();
+    setupConnections();
 }
 
 void AttendanceWidget::setupStyles()
@@ -81,10 +227,10 @@ void AttendanceWidget::setupConnections()
 {
     connect(m_classCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &AttendanceWidget::onClassChanged);
     connect(m_dateEdit, &QDateEdit::dateChanged, this, &AttendanceWidget::onDateChanged);
-    connect(m_lessonCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &AttendanceWidget::onLessonChanged);
+    connect(m_sessionCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &AttendanceWidget::onSessionChanged);
     connect(m_refreshBtn, &QPushButton::clicked, this, &AttendanceWidget::onRefreshClicked);
-    connect(m_allPresentBtn, &QPushButton::clicked, this, &AttendanceWidget::onAllPresentClicked);
-    connect(m_saveBtn, &QPushButton::clicked, this, &AttendanceWidget::onSaveClicked);
+    connect(m_resetBtn, &QPushButton::clicked, this, &AttendanceWidget::onResetChanges);
+    connect(m_saveChangesBtn, &QPushButton::clicked, this, &AttendanceWidget::onSaveChanges);
 }
 
 void AttendanceWidget::applyCardShadow(QWidget *widget, qreal blur, qreal offset)
@@ -96,38 +242,35 @@ void AttendanceWidget::applyCardShadow(QWidget *widget, qreal blur, qreal offset
     widget->setGraphicsEffect(shadow);
 }
 
-// ============ 1. 纯净头部与极简筛选 ============
+// ============ 1. 头部筛选 ============
 void AttendanceWidget::createHeaderCard()
 {
     auto *header = new QWidget();
     auto *layout = new QHBoxLayout(header);
     layout->setContentsMargins(0, 0, 0, 0);
 
-    // Title Section
     auto *titleSection = new QVBoxLayout();
     titleSection->setSpacing(2);
     auto *title = new QLabel("考勤管理");
     title->setStyleSheet(QString("font-size: 26px; font-weight: 800; color: %1;").arg(COL_TEXT_MAIN));
-    auto *sub = new QLabel("班级日常考勤与数据实时统计");
+    auto *sub = new QLabel("班级考勤记录与数据统计");
     sub->setStyleSheet(QString("font-size: 13px; color: %1;").arg(COL_TEXT_SUB));
     titleSection->addWidget(title);
     titleSection->addWidget(sub);
 
-    // Action Section (Filter + Save)
     auto *actionLayout = new QHBoxLayout();
     actionLayout->setSpacing(12);
 
-    // Filter Toolbar
     auto *toolbar = new QFrame();
     toolbar->setStyleSheet(QString("QFrame { background-color: white; border: 1px solid %1; border-radius: 10px; }").arg(COL_BORDER));
     auto *tbLayout = new QHBoxLayout(toolbar);
     tbLayout->setContentsMargins(12, 6, 12, 6);
     tbLayout->setSpacing(12);
 
-    QString comboStyle = QString("QComboBox { border: none; background: transparent; font-size: 13px; font-weight: 600; color: %1; min-width: 80px; } QComboBox::drop-down { border: none; }").arg(COL_TEXT_MAIN);
+    QString comboStyle = QString("QComboBox { border: none; background: transparent; font-size: 13px; font-weight: 600; color: %1; min-width: 100px; } QComboBox::drop-down { border: none; }").arg(COL_TEXT_MAIN);
 
     m_classCombo = new QComboBox();
-    m_classCombo->addItems({"初二1班", "初二2班", "初三1班"});
+    m_classCombo->addItem("请选择班级");
     m_classCombo->setStyleSheet(comboStyle);
 
     m_dateEdit = new QDateEdit(QDate::currentDate());
@@ -135,30 +278,26 @@ void AttendanceWidget::createHeaderCard()
     m_dateEdit->setFixedWidth(110);
     m_dateEdit->setStyleSheet(QString("QDateEdit { border: none; background: transparent; font-size: 13px; font-weight: 600; color: %1; }").arg(COL_TEXT_MAIN));
 
-    m_lessonCombo = new QComboBox();
-    for(int i=1; i<=8; ++i) m_lessonCombo->addItem(QString("第%1节").arg(i));
-    m_lessonCombo->setStyleSheet(comboStyle);
+    m_sessionCombo = new QComboBox();
+    m_sessionCombo->addItem("请先选择班级和日期");
+    m_sessionCombo->setStyleSheet(comboStyle);
+    m_sessionCombo->setMinimumWidth(280);
 
     m_refreshBtn = new QPushButton();
     m_refreshBtn->setFixedSize(28, 28);
     m_refreshBtn->setCursor(Qt::PointingHandCursor);
-    m_refreshBtn->setStyleSheet("QPushButton { border: none; border-radius: 6px; } QPushButton:hover { background: #E5E7EB; }");
-    setButtonIcon(m_refreshBtn, ":/icons/resources/icons/refresh.svg", COL_TEXT_SUB);
+    m_refreshBtn->setText("↻");
+    m_refreshBtn->setStyleSheet(
+        "QPushButton { border: none; border-radius: 6px; font-size: 16px; color: #6B7280; }"
+        "QPushButton:hover { background: #E5E7EB; }"
+    );
 
     tbLayout->addWidget(m_classCombo);
     tbLayout->addWidget(m_dateEdit);
-    tbLayout->addWidget(m_lessonCombo);
+    tbLayout->addWidget(m_sessionCombo);
     tbLayout->addWidget(m_refreshBtn);
 
-    // Header Save Button
-    m_saveBtn = new QPushButton("保存记录");
-    m_saveBtn->setFixedSize(100, 40);
-    m_saveBtn->setCursor(Qt::PointingHandCursor);
-    m_saveBtn->setStyleSheet(QString("QPushButton { background: %1; color: white; border-radius: 10px; font-size: 13px; font-weight: 700; } QPushButton:hover { background: #374151; } QPushButton:disabled { background: #D1D5DB; }").arg(COL_TEXT_MAIN));
-    setButtonIcon(m_saveBtn, ":/icons/resources/icons/save.svg", "#FFFFFF");
-
     actionLayout->addWidget(toolbar);
-    actionLayout->addWidget(m_saveBtn);
 
     layout->addLayout(titleSection);
     layout->addStretch();
@@ -167,7 +306,7 @@ void AttendanceWidget::createHeaderCard()
     m_mainLayout->addWidget(header);
 }
 
-// ============ 2. 统计仪表盘 Stat Cards ============
+// ============ 2. 统计卡片 ============
 void AttendanceWidget::createSummaryCard()
 {
     auto *dashboard = new QWidget();
@@ -175,7 +314,6 @@ void AttendanceWidget::createSummaryCard()
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(12);
 
-    // 翡翠绿/玫瑰红/琥珀色/蓝色
     layout->addWidget(createStatCard("已出勤", m_presentCountLabel, "#059669", ""));
     layout->addWidget(createStatCard("缺勤", m_absentCountLabel, "#EF4444", ""));
     layout->addWidget(createStatCard("迟到", m_lateCountLabel, "#F59E0B", ""));
@@ -184,44 +322,30 @@ void AttendanceWidget::createSummaryCard()
 
     layout->addStretch();
 
-    // 一键全员签到 - 变得更加克制
-    m_allPresentBtn = new QPushButton("一键全员签到");
-    m_allPresentBtn->setCursor(Qt::PointingHandCursor);
-    m_allPresentBtn->setStyleSheet(QString(
-        "QPushButton { background: %1; color: white; border: none; border-radius: 8px; "
-        "padding: 0 20px; height: 40px; font-size: 13px; font-weight: 700; }"
-        "QPushButton:hover { background: #059669; }"
-    ).arg(COL_PRIMARY));
-    layout->addWidget(m_allPresentBtn, 0, Qt::AlignVCenter);
-
     m_mainLayout->addWidget(dashboard);
 }
 
 QWidget* AttendanceWidget::createStatCard(const QString &label, QLabel* &countLabel, const QString &color, const QString &iconPath)
 {
-    Q_UNUSED(iconPath) // 彻底丢弃图标
+    Q_UNUSED(iconPath)
 
     auto *card = new QFrame();
     card->setFixedWidth(140);
-    card->setFixedHeight(56); // 更加扁平精致
-    card->setStyleSheet(QString(
-        "QFrame { background: white; border-radius: 8px; border: 1px solid %1; }"
-    ).arg(COL_BORDER));
+    card->setFixedHeight(56);
+    card->setStyleSheet(QString("QFrame { background: white; border-radius: 8px; border: 1px solid %1; }").arg(COL_BORDER));
 
     auto *layout = new QHBoxLayout(card);
     layout->setContentsMargins(16, 0, 16, 0);
 
-    // 左侧：状态名称 (中等字号，对应颜色)
     auto *statusLabel = new QLabel(label);
     statusLabel->setStyleSheet(QString(
         "font-size: 14px; font-weight: 600; color: %1; border: none; background: transparent;"
     ).arg(color));
 
-    // 右侧：大号数字 (加粗黑色)
     countLabel = new QLabel("0");
-    countLabel->setStyleSheet(QString(
+    countLabel->setStyleSheet(
         "font-size: 22px; font-weight: 800; color: #000000; border: none; background: transparent;"
-    ));
+    );
 
     layout->addWidget(statusLabel);
     layout->addStretch();
@@ -230,7 +354,7 @@ QWidget* AttendanceWidget::createStatCard(const QString &label, QLabel* &countLa
     return card;
 }
 
-// ============ 3. 学生列表与分段控制 ============
+// ============ 3. 学生列表 ============
 void AttendanceWidget::createStudentListCard()
 {
     m_listCard = new QFrame();
@@ -241,7 +365,6 @@ void AttendanceWidget::createStudentListCard()
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    // List Header
     auto *header = new QFrame();
     header->setFixedHeight(50);
     header->setStyleSheet(QString("background: %1; border-top-left-radius: 20px; border-top-right-radius: 20px; border-bottom: 1px solid %2;")
@@ -280,6 +403,44 @@ void AttendanceWidget::createStudentListCard()
     m_scrollArea->setWidget(m_listContainer);
     layout->addWidget(m_scrollArea);
 
+    // 底部操作栏：重置 + 保存修改
+    auto *bottomBar = new QFrame();
+    bottomBar->setFixedHeight(60);
+    bottomBar->setStyleSheet(QString(
+        "background: %1; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px; "
+        "border-top: 1px solid %2;"
+    ).arg(COL_SEGMENT_BG, COL_BORDER));
+    auto *bLayout = new QHBoxLayout(bottomBar);
+    bLayout->setContentsMargins(32, 0, 32, 0);
+
+    bLayout->addStretch();
+
+    m_resetBtn = new QPushButton("重置");
+    m_resetBtn->setFixedSize(100, 36);
+    m_resetBtn->setCursor(Qt::PointingHandCursor);
+    m_resetBtn->setStyleSheet(QString(
+        "QPushButton { background: white; color: %1; border: 1px solid %2; border-radius: 8px;"
+        "  font-size: 13px; font-weight: 600; }"
+        "QPushButton:hover { background: #F9FAFB; border-color: #9CA3AF; }"
+    ).arg(COL_TEXT_MAIN, COL_BORDER));
+
+    m_saveChangesBtn = new QPushButton("保存修改");
+    m_saveChangesBtn->setFixedSize(120, 36);
+    m_saveChangesBtn->setCursor(Qt::PointingHandCursor);
+    m_saveChangesBtn->setEnabled(false);
+    m_saveChangesBtn->setStyleSheet(QString(
+        "QPushButton { background: %1; color: white; border: none; border-radius: 8px;"
+        "  font-size: 13px; font-weight: 700; }"
+        "QPushButton:hover { background: #374151; }"
+        "QPushButton:disabled { background: #D1D5DB; color: #9CA3AF; }"
+    ).arg(COL_TEXT_MAIN));
+
+    bLayout->addWidget(m_resetBtn);
+    bLayout->addSpacing(12);
+    bLayout->addWidget(m_saveChangesBtn);
+
+    layout->addWidget(bottomBar);
+
     m_mainLayout->addWidget(m_listCard, 1);
 }
 
@@ -293,14 +454,12 @@ QWidget* AttendanceWidget::createStudentItem(int index, const QString &name, con
     layout->setContentsMargins(32, 0, 32, 0);
     layout->setSpacing(24);
 
-    // 头像 (莫兰迪色)
     auto *avatar = new QLabel(name.left(1));
     avatar->setFixedSize(40, 40);
     avatar->setAlignment(Qt::AlignCenter);
     QString avatarCol = getMorandiColor(index);
     avatar->setStyleSheet(QString("background: %1; color: white; border-radius: 20px; font-size: 15px; font-weight: 700;").arg(avatarCol));
 
-    // 信息 - 纯文字排版，移除所有边框背景
     auto *info = new QVBoxLayout();
     info->setSpacing(0);
     auto *nameL = new QLabel(name);
@@ -312,16 +471,17 @@ QWidget* AttendanceWidget::createStudentItem(int index, const QString &name, con
     auto *infoW = new QWidget(); infoW->setLayout(info); infoW->setFixedWidth(140);
     infoW->setStyleSheet("background: transparent; border: none;");
 
-    // Segmented Control (胶囊切换器)
     auto *segment = createStatusButtonGroup(index, status);
 
-    // 备注按钮 - 变得更低调
     auto *remark = new QPushButton();
     remark->setFixedSize(32, 32);
     remark->setCursor(Qt::PointingHandCursor);
-    remark->setStyleSheet("QPushButton { border: 1px solid #E5E7EB; border-radius: 8px; background: white; } QPushButton:hover { background: #F3F4F6; }");
-    setButtonIcon(remark, ":/icons/resources/icons/edit.svg", COL_TEXT_SUB);
-
+    remark->setText("✎");
+    remark->setStyleSheet(
+        "QPushButton { border: 1px solid #E5E7EB; border-radius: 8px; background: white;"
+        "  font-size: 14px; color: #6B7280; }"
+        "QPushButton:hover { background: #F3F4F6; }"
+    );
     connect(remark, &QPushButton::clicked, this, [=](){ onRemarkClicked(index); });
 
     layout->addWidget(avatar);
@@ -346,7 +506,7 @@ QWidget* AttendanceWidget::createStatusButtonGroup(int studentIndex, AttendanceS
     QStringList lbls = {"出勤", "缺勤", "迟到", "请假", "早退"};
     QStringList cols = {COL_PRIMARY, COL_DANGER, COL_WARNING, COL_INFO, COL_PURPLE};
 
-    for(int i=0; i<5; ++i) {
+    for(int i = 0; i < 5; ++i) {
         auto *btn = new QPushButton(lbls[i]);
         btn->setCheckable(true);
         btn->setFixedHeight(36);
@@ -376,49 +536,146 @@ QString AttendanceWidget::getMorandiColor(int index)
     return colors[index % colors.size()];
 }
 
-// ============ 事件处理复用之前的逻辑 ============
-void AttendanceWidget::onClassChanged(int index) { if(m_service) m_service->fetchStudentsByClass(index+1); }
-void AttendanceWidget::onDateChanged(const QDate&) { onRefreshClicked(); }
-void AttendanceWidget::onLessonChanged(int) { onRefreshClicked(); }
-void AttendanceWidget::onRefreshClicked() { if(m_classCombo->currentIndex() >= 0 && m_service) m_service->fetchAttendanceByLesson(m_classCombo->currentIndex()+1, m_dateEdit->date(), m_lessonCombo->currentIndex()+1); }
-void AttendanceWidget::onAllPresentClicked() { for(int i=0; i<m_records.size(); ++i){ m_records[i].setStatus(AttendanceStatus::Present); if(i < m_statusButtonGroups.size()){ auto *b = m_statusButtonGroups[i]->button(0); if(b) b->setChecked(true); } } updateStatistics(); }
-void AttendanceWidget::onSaveClicked() { if(m_service && !m_records.isEmpty()) m_service->submitAttendance(m_records); }
-
-void AttendanceWidget::onStudentsLoaded()
+// ============ 数据加载 ============
+void AttendanceWidget::loadAttendanceForCurrentSelection()
 {
-    if(!m_service) return;
-    m_records.clear();
-    qDeleteAll(m_statusButtonGroups); m_statusButtonGroups.clear();
-    LayoutUtils::clearLayout(m_listLayout);
+    QString classId = m_classCombo->currentData().toString();
+    if (classId.isEmpty()) return;
 
-    const auto &students = m_service->students();
-    for(const Student &s : students) {
-        AttendanceRecord r(s.id(), m_classCombo->currentIndex()+1, m_dateEdit->date(), m_lessonCombo->currentIndex()+1);
-        r.setStatus(AttendanceStatus::Present); m_records.append(r);
+    m_currentClassId = classId;
+    QDate selectedDate = m_dateEdit->date();
+    AttendanceManager::instance()->loadSessionsByClassAndDate(classId, selectedDate);
+}
+
+void AttendanceWidget::loadSessionResults(const QString &sessionId, const QString &classId)
+{
+    m_currentSessionId = sessionId;
+
+    // 先直接加载记录
+    AttendanceManager::instance()->loadSessionRecords(sessionId);
+
+    if (!classId.isEmpty()) {
+        m_currentClassId = classId;
+
+        // 设置班级选择器到目标班级
+        m_classCombo->blockSignals(true);
+        for (int i = 0; i < m_classCombo->count(); ++i) {
+            if (m_classCombo->itemData(i).toString() == classId) {
+                m_classCombo->setCurrentIndex(i);
+                break;
+            }
+        }
+        m_classCombo->blockSignals(false);
+
+        // 设置日期为今天
+        m_dateEdit->blockSignals(true);
+        m_dateEdit->setDate(QDate::currentDate());
+        m_dateEdit->blockSignals(false);
+
+        // 记住目标 session
+        m_targetSessionId = sessionId;
+
+        // 后台加载 session 列表填充选择器
+        AttendanceManager::instance()->loadSessionsByClassAndDate(classId, QDate::currentDate());
     }
-    loadStudentList(); updateStatistics(); m_saveBtn->setEnabled(true);
 }
 
-void AttendanceWidget::onAttendanceLoaded()
+// ============ 事件处理 ============
+void AttendanceWidget::onClassChanged(int index)
 {
-    if(!m_service) return;
-    m_records = m_service->attendanceRecords();
-    loadStudentList(); updateStatistics(); m_saveBtn->setEnabled(true);
+    Q_UNUSED(index)
+    m_currentSessionId.clear();
+    m_sessionCombo->clear();
+    m_sessionCombo->addItem("加载中...");
+    loadAttendanceForCurrentSelection();
 }
 
-void AttendanceWidget::loadStudentList()
+void AttendanceWidget::onDateChanged(const QDate &)
 {
-    LayoutUtils::clearLayout(m_listLayout);
-    qDeleteAll(m_statusButtonGroups); m_statusButtonGroups.clear();
+    m_currentSessionId.clear();
+    m_sessionCombo->clear();
+    m_sessionCombo->addItem("加载中...");
+    loadAttendanceForCurrentSelection();
+}
 
-    const auto &students = m_service->students();
-    for(int i=0; i<students.size() && i<m_records.size(); ++i) {
-        m_listLayout->addWidget(createStudentItem(i, students[i].name(), students[i].studentNo(), m_records[i].status()));
+void AttendanceWidget::onSessionChanged(int index)
+{
+    if (index < 0) return;
+    QString sessionId = m_sessionCombo->currentData().toString();
+    if (sessionId.isEmpty()) return;
+    m_currentSessionId = sessionId;
+    AttendanceManager::instance()->loadSessionRecords(sessionId);
+}
+
+void AttendanceWidget::onRefreshClicked()
+{
+    if (!m_currentSessionId.isEmpty()) {
+        AttendanceManager::instance()->loadSessionRecords(m_currentSessionId);
+    } else {
+        loadAttendanceForCurrentSelection();
     }
-    m_listLayout->addStretch();
 }
 
-void AttendanceWidget::onStatusButtonClicked(int studentIndex, AttendanceStatus status) { if(studentIndex>=0 && studentIndex<m_records.size()){ m_records[studentIndex].setStatus(status); updateStatistics(); } }
+void AttendanceWidget::updateSaveButtonState()
+{
+    if (!m_saveChangesBtn) return;
+    bool hasChanges = false;
+    for (int i = 0; i < m_records.size() && i < m_originalStatuses.size(); ++i) {
+        if (m_records[i].status() != m_originalStatuses[i]) {
+            hasChanges = true;
+            break;
+        }
+    }
+    m_saveChangesBtn->setEnabled(hasChanges);
+}
+
+void AttendanceWidget::onSaveChanges()
+{
+    int changedCount = 0;
+    for (int i = 0; i < m_records.size() && i < m_recordIds.size() && i < m_originalStatuses.size(); ++i) {
+        if (m_records[i].status() != m_originalStatuses[i]) {
+            AttendanceManager::instance()->updateRecordStatus(
+                m_recordIds[i],
+                AttendanceStatusHelper::toString(m_records[i].status()));
+            changedCount++;
+        }
+    }
+    if (changedCount == 0) return;
+
+    m_saveChangesBtn->setText("保存中...");
+    m_saveChangesBtn->setEnabled(false);
+
+    // 延迟显示保存成功（等网络请求完成）
+    QTimer::singleShot(1000, this, [this]() {
+        // 更新 originalStatuses 与当前状态同步
+        m_originalStatuses.clear();
+        for (const auto &r : m_records) {
+            m_originalStatuses.append(r.status());
+        }
+        m_saveChangesBtn->setText("✓ 已保存");
+        QTimer::singleShot(1500, this, [this]() {
+            m_saveChangesBtn->setText("保存修改");
+            updateSaveButtonState();
+        });
+    });
+}
+
+void AttendanceWidget::onResetChanges()
+{
+    // 重置为原始状态，重新加载记录
+    if (!m_currentSessionId.isEmpty()) {
+        AttendanceManager::instance()->loadSessionRecords(m_currentSessionId);
+    }
+}
+
+void AttendanceWidget::onStatusButtonClicked(int studentIndex, AttendanceStatus status)
+{
+    if (studentIndex >= 0 && studentIndex < m_records.size()) {
+        m_records[studentIndex].setStatus(status);
+        updateStatistics();
+        updateSaveButtonState();
+    }
+}
 
 void AttendanceWidget::onRemarkClicked(int studentIndex)
 {
@@ -426,20 +683,20 @@ void AttendanceWidget::onRemarkClicked(int studentIndex)
 
     bool ok;
     QString currentRemark = m_records[studentIndex].remark();
-    QString text = QInputDialog::getText(this, "添加备注",
-                                         QString("为学生 %1 添加考勤备注:").arg(m_service->students()[studentIndex].name()),
+    QString text = QInputDialog::getText(this,
+                                         "添加备注",
+                                         QString("为学生 %1 添加考勤备注:").arg(m_students[studentIndex].name()),
                                          QLineEdit::Normal,
                                          currentRemark, &ok);
     if (ok) {
         m_records[studentIndex].setRemark(text);
-        qDebug() << "备注已更新:" << text;
     }
 }
 
 void AttendanceWidget::updateStatistics()
 {
-    int p=0, a=0, l=0, lv=0, e=0;
-    for(const auto &r : m_records) {
+    int p = 0, a = 0, l = 0, lv = 0, e = 0;
+    for (const auto &r : m_records) {
         switch(r.status()){
             case AttendanceStatus::Present: p++; break;
             case AttendanceStatus::Absent: a++; break;
@@ -455,7 +712,6 @@ void AttendanceWidget::updateStatistics()
     if(m_earlyCountLabel) m_earlyCountLabel->setText(QString::number(e));
 }
 
-// ============ SVG 辅助 ============
 QIcon AttendanceWidget::loadSvgIcon(const QString &path, const QString &color) {
     QFile file(path); if(!file.open(QIODevice::ReadOnly)) return QIcon();
     QString svg = QString::fromUtf8(file.readAll()); file.close();
@@ -463,4 +719,7 @@ QIcon AttendanceWidget::loadSvgIcon(const QString &path, const QString &color) {
     QSvgRenderer renderer(svg.toUtf8()); QPixmap pix(24, 24); pix.fill(Qt::transparent);
     QPainter p(&pix); renderer.render(&p); p.end(); return QIcon(pix);
 }
-void AttendanceWidget::setButtonIcon(QPushButton *btn, const QString &path, const QString &col) { btn->setIcon(loadSvgIcon(path, col)); btn->setIconSize(QSize(18, 18)); }
+
+void AttendanceWidget::setButtonIcon(QPushButton *btn, const QString &path, const QString &col) {
+    btn->setIcon(loadSvgIcon(path, col)); btn->setIconSize(QSize(18, 18));
+}

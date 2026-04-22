@@ -46,6 +46,7 @@ class NotificationService;
 class NotificationWidget;
 class NotificationBadge;
 class AttendanceWidget;  // 考勤管理组件
+class MyClassWidget;     // 学生我的班级
 class LessonPlanEditor;
 
 class ModernMainWindow : public QMainWindow
@@ -58,6 +59,9 @@ public:
                      const QString &userId = QString(),
                      QWidget *parent = nullptr);
     ~ModernMainWindow();
+
+    // 跳转到考勤管理并加载指定 session
+    void switchToAttendanceWithSession(const QString &sessionId, const QString &classId);
 
 private slots:
     void onTeacherCenterClicked();
@@ -165,7 +169,7 @@ private:
 
     // 考勤管理组件
     AttendanceWidget *m_attendanceWidget = nullptr;
-    QWidget *myClassPlaceholder = nullptr;
+    MyClassWidget *m_myClassWidget = nullptr;
 
     // 通知系统组件
     NotificationService *m_notificationService = nullptr;

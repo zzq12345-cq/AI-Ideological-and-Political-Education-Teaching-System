@@ -1,5 +1,11 @@
 #include "signupwindow.h"
 #include "../login/simpleloginwindow.h"
+#include "../supabase/supabaseconfig.h"
+#include "../../utils/NetworkRequestFactory.h"
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 #include <QFontDatabase>
 #include <QFile>
@@ -571,6 +577,20 @@ bool SignUpWindow::validateInput()
 void SignUpWindow::onSignupSuccess(const QString &message)
 {
     QString email = emailEdit->text().trimmed();
+
+    // 注册成功后自动在 teachers 表创建记录
+    QNetworkAccessManager *mgr = new QNetworkAccessManager(this);
+    QUrl url(SupabaseConfig::supabaseUrl() + "/rest/v1/rpc/update_user_role");
+    QNetworkRequest request = NetworkRequestFactory::createAuthRequest(url);
+    QJsonObject body;
+    body["user_email"] = email;
+    body["new_role"] = "学生";
+    QNetworkReply *reply = mgr->post(request, QJsonDocument(body).toJson());
+    connect(reply, &QNetworkReply::finished, this, [mgr, reply]() {
+        reply->deleteLater();
+        mgr->deleteLater();
+    });
+
     showMessage(cn("注册成功"),
                 cn("账户创建成功！\n\n邮箱: %1\n请检查您的邮箱并点击验证链接以激活账户。\n\n即将跳转到登录页面...")
                     .arg(email),

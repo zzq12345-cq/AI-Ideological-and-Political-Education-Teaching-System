@@ -19,14 +19,18 @@
 #include "../notifications/ui/NotificationWidget.h"
 #include "../notifications/ui/NotificationBadge.h"
 #include "../attendance/ui/AttendanceWidget.h"
+#include "../student/MyClassWidget.h"
+#include "../student/AttendanceManager.h"
 #include "../attendance/services/AttendanceService.h"
 #include "../ui/LessonPlanEditor.h"
 #include "../config/embedded_keys.h"
 #include "../config/AppConfig.h"
+#include "../auth/supabase/supabaseconfig.h"
 #include "../utils/NetworkRequestFactory.h"
 #include <QApplication>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QUrlQuery>
 #include <QMessageBox>
 #include <QFile>
 #include <QRegularExpression>
@@ -888,6 +892,7 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
     // 学生默认进入时政新闻，教师进入仪表板
     if (currentUserRole == "学生") {
         contentStack->setCurrentWidget(m_hotspotWidget);
+        m_hotspotWidget->refresh();
     } else {
         contentStack->setCurrentWidget(dashboardWidget);
     }
@@ -1026,7 +1031,7 @@ void ModernMainWindow::setupCentralWidget()
     resourceManagementBtn->setVisible(true);
     attendanceBtn->setVisible(true);
     learningAnalysisBtn->setVisible(true);
-    settingsBtn->setVisible(true);
+    settingsBtn->setVisible(false);  // 隐藏侧边栏设置按钮，用头像旁边的入口
     helpBtn->setVisible(true);
 
     applySidebarIcons();
@@ -1136,15 +1141,15 @@ void ModernMainWindow::setupCentralWidget()
     m_attendanceWidget->setAttendanceService(attendanceService);
     contentStack->addWidget(m_attendanceWidget);
 
-    // 创建"我的班级"占位页面
-    myClassPlaceholder = new QWidget();
-    QVBoxLayout *myClassLayout = new QVBoxLayout(myClassPlaceholder);
-    myClassLayout->setAlignment(Qt::AlignCenter);
-    QLabel *myClassLabel = new QLabel("功能开发中...");
-    myClassLabel->setStyleSheet("font-size: 24px; color: #999;");
-    myClassLabel->setAlignment(Qt::AlignCenter);
-    myClassLayout->addWidget(myClassLabel);
-    contentStack->addWidget(myClassPlaceholder);
+    // 考勤结束后自动跳转到考勤管理页
+    connect(AttendanceManager::instance(), &AttendanceManager::attendanceEnded, this,
+            [this](const QString &sessionId, const QString &classId) {
+        switchToAttendanceWithSession(sessionId, classId);
+    });
+
+    // 创建"我的班级"页面（学生端）
+    m_myClassWidget = new MyClassWidget(currentUserRole == "教师", currentUsername);
+    contentStack->addWidget(m_myClassWidget);
 
     // 根据角色设置侧边栏可见性和默认页面
     bool isStudent = (currentUserRole == "学生");
@@ -1160,7 +1165,7 @@ void ModernMainWindow::setupCentralWidget()
         newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
         teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     } else {
-        myClassBtn->setVisible(false);
+        myClassBtn->setVisible(true);  // 教师也能看到我的班级
     }
 
     // 连接时政热点"生成案例"信号 - 自动切换到AI对话页面并发送请求
@@ -1340,8 +1345,7 @@ void ModernMainWindow::createSidebarProfile()
         "}"
     ).arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED_TINT));
     connect(profileSettingsBtn, &QPushButton::clicked, this, [this]() {
-        UserSettingsDialog dialog(this);
-        dialog.exec();
+        onSettingsClicked();
     });
     avatarLayout->addWidget(profileSettingsBtn);
 
@@ -2061,6 +2065,15 @@ void ModernMainWindow::onAttendanceClicked()
     }
 }
 
+void ModernMainWindow::switchToAttendanceWithSession(const QString &sessionId, const QString &classId)
+{
+    qDebug() << "跳转到考勤管理, session:" << sessionId << "class:" << classId;
+    onAttendanceClicked();
+    if (m_attendanceWidget) {
+        m_attendanceWidget->loadSessionResults(sessionId, classId);
+    }
+}
+
 void ModernMainWindow::onMyClassClicked()
 {
     qDebug() << "切换到我的班级页面";
@@ -2076,8 +2089,8 @@ void ModernMainWindow::onMyClassClicked()
     helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
     myClassBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
 
-    if (myClassPlaceholder) {
-        contentStack->setCurrentWidget(myClassPlaceholder);
+    if (m_myClassWidget) {
+        contentStack->setCurrentWidget(m_myClassWidget);
         this->statusBar()->showMessage("我的班级");
     }
 }
@@ -2141,28 +2154,37 @@ void ModernMainWindow::onSettingsClicked()
 
     // dialog 关闭后检查角色是否变更
     QString roleAfter = UserSettingsManager::instance()->role();
+    qDebug() << "[Settings] roleBefore:" << roleBefore << "roleAfter:" << roleAfter;
+
+    // 同步 nickname 到数据库
+    QString nickname = UserSettingsManager::instance()->nickname();
+    QString email = UserSettingsManager::instance()->email();
+    if (email.isEmpty()) email = currentUsername;
+    qDebug() << "[Settings] email:" << email << "nickname:" << nickname;
+
+    if (!email.isEmpty() && !nickname.isEmpty()) {
+        QNetworkAccessManager *nameMgr = new QNetworkAccessManager(this);
+        QUrl nameUrl(SupabaseConfig::supabaseUrl() + "/rest/v1/rpc/update_user_role");
+        QNetworkRequest nameReq = NetworkRequestFactory::createAuthRequest(nameUrl);
+        QJsonObject nameBody;
+        nameBody["user_email"] = email;
+        nameBody["new_role"] = roleAfter;
+        nameBody["new_nickname"] = nickname;
+        QNetworkReply *nameReply = nameMgr->post(nameReq, QJsonDocument(nameBody).toJson());
+        connect(nameReply, &QNetworkReply::finished, this, [nameMgr, nameReply]() {
+            QByteArray resp = nameReply->readAll();
+            if (nameReply->error() != QNetworkReply::NoError) {
+                qWarning() << "[ModernMainWindow] 同步失败:" << nameReply->errorString() << "resp:" << resp;
+            } else {
+                qDebug() << "[ModernMainWindow] 数据库同步成功, resp:" << resp;
+            }
+            nameReply->deleteLater();
+            nameMgr->deleteLater();
+        });
+    }
+
     if (roleBefore != roleAfter && roleAfter == "教师") {
         currentUserRole = "教师";
-
-        // 更新 Supabase 数据库
-        QString email = UserSettingsManager::instance()->email();
-        if (email.isEmpty()) email = currentUsername;
-        QNetworkAccessManager *mgr = new QNetworkAccessManager(this);
-        QString url = AppConfig::get("SUPABASE_URL") + "/rest/v1/teachers?email=eq." + email;
-        QNetworkRequest request = NetworkRequestFactory::createSupabaseRequest(url);
-        request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-        QJsonObject body;
-        body["role"] = "教师";
-        QNetworkReply *reply = mgr->put(request, QJsonDocument(body).toJson());
-        connect(reply, &QNetworkReply::finished, this, [mgr, reply]() {
-            reply->deleteLater();
-            mgr->deleteLater();
-            if (reply->error() == QNetworkReply::NoError) {
-                qDebug() << "[ModernMainWindow] 角色已更新为教师";
-            } else {
-                qWarning() << "[ModernMainWindow] 角色更新失败:" << reply->errorString();
-            }
-        });
 
         // 刷新侧边栏
         teacherCenterBtn->setVisible(true);
@@ -2170,7 +2192,7 @@ void ModernMainWindow::onSettingsClicked()
         resourceManagementBtn->setVisible(true);
         attendanceBtn->setVisible(true);
         learningAnalysisBtn->setVisible(true);
-        myClassBtn->setVisible(false);
+        myClassBtn->setVisible(true);
 
         setWindowTitle("思政智慧课堂 - 教师中心");
 

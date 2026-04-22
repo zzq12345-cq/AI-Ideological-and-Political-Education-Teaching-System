@@ -63,6 +63,7 @@ signals:
 public:
     QString currentUserId() const { return m_currentUserId; }
     QString currentEmail() const { return m_currentEmail; }
+    QString currentUsername() const { return m_currentUsername; }
     QString currentAccessToken() const { return m_currentAccessToken; }
     QString currentRefreshToken() const { return m_currentRefreshToken; }
     qint64 currentExpiresAt() const { return m_currentExpiresAt; }
@@ -96,6 +97,7 @@ private:
 
     QString m_currentUserId;
     QString m_currentEmail;
+    QString m_currentUsername;
     QString m_currentAccessToken;
     QString m_currentRefreshToken;
     qint64 m_currentExpiresAt = 0;
