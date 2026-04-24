@@ -44,6 +44,12 @@ public:
     void updateLastAIMessage(const QString &text);
 
     /**
+     * @brief 以纯文本更新最后一条 AI 消息（用于流式打字阶段）
+     * @param text 新的消息内容
+     */
+    void updateLastAIMessagePlain(const QString &text);
+
+    /**
      * @brief 更新最后一条 AI 消息的思考过程
      * @param thought 思考内容
      */

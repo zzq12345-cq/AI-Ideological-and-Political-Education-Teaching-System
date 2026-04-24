@@ -812,20 +812,12 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
     m_pptTypingIndex = 0;
     connect(m_pptTypingTimer, &QTimer::timeout, this, &ModernMainWindow::onPPTTypingStep);
 
-    // 初始化流式更新节流定时器（每100ms最多更新一次UI）
+    // 初始化流式输出打字机定时器，避免长回复反复重渲染造成卡顿
     m_streamUpdateTimer = new QTimer(this);
-    m_streamUpdateTimer->setSingleShot(true);
+    m_streamUpdateTimer->setInterval(25);
     m_streamUpdatePending = false;
     connect(m_streamUpdateTimer, &QTimer::timeout, this, [this]() {
-        if (m_streamUpdatePending && m_bubbleChatWidget) {
-            // 过滤 Markdown 格式符号
-            QString displayText = m_currentAIResponse;
-            displayText.remove(QRegularExpression("^##\\s*", QRegularExpression::MultilineOption));
-            displayText.remove(QRegularExpression("//+\\s*"));
-            displayText.remove(QRegularExpression("\\*\\*"));
-            m_bubbleChatWidget->updateLastAIMessage(displayText);
-            m_streamUpdatePending = false;
-        }
+        flushAIStreamBuffer(false);
     });
 
     const QString apiKey = AppConfig::get(QStringLiteral("DIFY_API_KEY"));
@@ -2768,8 +2760,47 @@ void ModernMainWindow::onSendChatMessage()
     }
 }
 
+QString ModernMainWindow::formatAIStreamDisplay(const QString &text) const
+{
+    QString displayText = text;
+    displayText.remove(QRegularExpression("^##\\s*", QRegularExpression::MultilineOption));
+    displayText.remove(QRegularExpression("//+\\s*"));
+    displayText.remove(QRegularExpression("\\*\\*"));
+    return displayText;
+}
+
+void ModernMainWindow::flushAIStreamBuffer(bool flushAll)
+{
+    if (!m_bubbleChatWidget) {
+        return;
+    }
+
+    if (m_streamPendingText.isEmpty()) {
+        if (m_streamUpdateTimer) {
+            m_streamUpdateTimer->stop();
+        }
+        m_streamUpdatePending = false;
+        return;
+    }
+
+    const int pendingLength = m_streamPendingText.length();
+    const int takeCount = flushAll
+        ? pendingLength
+        : qMin(pendingLength, pendingLength > 160 ? 18 : pendingLength > 60 ? 10 : 4);
+    m_streamDisplayedResponse += m_streamPendingText.left(takeCount);
+    m_streamPendingText.remove(0, takeCount);
+
+    m_bubbleChatWidget->updateLastAIMessagePlain(
+        formatAIStreamDisplay(m_streamDisplayedResponse));
+    m_streamUpdatePending = !m_streamPendingText.isEmpty();
+}
+
 void ModernMainWindow::onAIStreamChunk(const QString &chunk)
 {
+    if (m_lessonPlanEditor && m_lessonPlanEditor->isGenerating()) {
+        return;
+    }
+
     if (!m_bubbleChatWidget) {
         qDebug() << "[ModernMainWindow] Error: m_bubbleChatWidget is null!";
         return;
@@ -2777,25 +2808,17 @@ void ModernMainWindow::onAIStreamChunk(const QString &chunk)
 
     // 累积响应
     m_currentAIResponse += chunk;
+    m_streamPendingText += chunk;
 
-    // 过滤 Markdown 格式符号用于显示
-    QString displayText = m_currentAIResponse;
-    displayText.remove(QRegularExpression("^##\\s*", QRegularExpression::MultilineOption));
-    displayText.remove(QRegularExpression("//+\\s*"));
-    displayText.remove(QRegularExpression("\\*\\*"));
-
-    // 如果是第一个 chunk，先添加一个空的 AI 消息
-    if (m_currentAIResponse.length() == chunk.length()) {
+    if (!m_streamPlaceholderAdded) {
         qDebug() << "[ModernMainWindow] Adding first AI message placeholder";
-        m_bubbleChatWidget->addMessage("", false); // 添加空的 AI 消息占位
-        // 第一个 chunk 立即更新
-        m_bubbleChatWidget->updateLastAIMessage(displayText);
-    } else {
-        // 使用节流机制：标记有待更新，如果定时器没在运行则启动
-        m_streamUpdatePending = true;
-        if (!m_streamUpdateTimer->isActive()) {
-            m_streamUpdateTimer->start(80);  // 80ms 节流间隔
-        }
+        m_bubbleChatWidget->addMessage("", false);
+        m_streamPlaceholderAdded = true;
+    }
+
+    flushAIStreamBuffer(false);
+    if (m_streamUpdateTimer && !m_streamUpdateTimer->isActive() && !m_streamPendingText.isEmpty()) {
+        m_streamUpdateTimer->start();
     }
 }
 
@@ -2825,6 +2848,7 @@ void ModernMainWindow::onAIResponseReceived(const QString &response)
         // 更新最后的 AI 消息为完整响应
         if (m_bubbleChatWidget) {
             qDebug() << "[ModernMainWindow] Updating final AI message";
+            flushAIStreamBuffer(true);
             m_bubbleChatWidget->updateLastAIMessage(response);
         } else {
             qDebug() << "[ModernMainWindow] Error: m_bubbleChatWidget is null!";
@@ -2852,6 +2876,13 @@ void ModernMainWindow::onAIRequestStarted()
 {
     // 添加调试输出
     qDebug() << "[ModernMainWindow] AI Request started";
+    m_streamPendingText.clear();
+    m_streamDisplayedResponse.clear();
+    m_streamPlaceholderAdded = false;
+    m_streamUpdatePending = false;
+    if (m_streamUpdateTimer) {
+        m_streamUpdateTimer->stop();
+    }
 
     // 通过 ChatWidget 的公共方法来控制状态
     if (m_bubbleChatWidget) {
@@ -2865,6 +2896,11 @@ void ModernMainWindow::onAIRequestStarted()
 
 void ModernMainWindow::onAIRequestFinished()
 {
+    if (!m_currentAIResponse.isEmpty() && m_bubbleChatWidget && m_streamPlaceholderAdded) {
+        flushAIStreamBuffer(true);
+        m_bubbleChatWidget->updateLastAIMessage(m_currentAIResponse);
+    }
+
     // 通过 ChatWidget 的公共方法来控制状态
     if (m_bubbleChatWidget) {
         m_bubbleChatWidget->setInputEnabled(true);

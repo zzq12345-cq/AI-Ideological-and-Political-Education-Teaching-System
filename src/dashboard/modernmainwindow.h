@@ -114,6 +114,8 @@ private:
     void createQuickAccessCard();   // 快捷入口卡片
     void createAIChatWidget();      // AI 对话组件
     void appendChatMessage(const QString &sender, const QString &message, bool isUser);
+    QString formatAIStreamDisplay(const QString &text) const;
+    void flushAIStreamBuffer(bool flushAll = false);
     void swapToHistorySidebar();    // 切换到历史记录侧边栏
     void swapToNavSidebar();        // 切换回导航侧边栏
 
@@ -209,8 +211,11 @@ private:
     QLineEdit *m_chatInput = nullptr;
     QPushButton *m_sendBtn = nullptr;
     QString m_currentAIResponse;  // 累积流式响应
+    QString m_streamPendingText;   // 等待平滑显示的流式文本
+    QString m_streamDisplayedResponse; // 已显示的流式文本
     QTimer *m_streamUpdateTimer = nullptr;  // 流式更新节流定时器
     bool m_streamUpdatePending = false;   // 是否有待处理的更新
+    bool m_streamPlaceholderAdded = false; // 是否已创建 AI 占位气泡
     PPTXGenerator *m_pptxGenerator = nullptr;  // PPTX 生成器
 
     // PPT 模拟生成相关

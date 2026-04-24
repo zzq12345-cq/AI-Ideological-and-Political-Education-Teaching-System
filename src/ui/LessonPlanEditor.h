@@ -50,6 +50,7 @@ public:
     void setDifyService(DifyService *service);
     void setConversationId(const QString &conversationId);
     QString conversationId() const;
+    bool isGenerating() const { return m_isGenerating; }
 
 signals:
     // 内容变化信号
@@ -100,6 +101,7 @@ private:
     void loadCurriculum();
     void updateWordCount();
     QString buildAIPrompt() const;
+    void flushPendingAIText(bool flushAll = false);
 
     // 教案结构化章节
     struct LessonPlanSections {
@@ -164,10 +166,12 @@ private:
     bool m_isGenerating;
     bool m_isModified;
     QString m_accumulatedMarkdown;  // AI生成时累积的Markdown内容
+    QString m_pendingMarkdown;      // 等待平滑显示的AI文本
     QString m_currentConversationId;
 
     // 自动保存
     QTimer *m_autoSaveTimer;
+    QTimer *m_streamRenderTimer;
     void autoSave();
     void checkAndRestoreDraft();
     void clearAutoSaveDraft();

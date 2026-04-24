@@ -71,6 +71,7 @@ LessonPlanEditor::LessonPlanEditor(QWidget *parent)
     , m_isGenerating(false)
     , m_isModified(false)
     , m_autoSaveTimer(nullptr)
+    , m_streamRenderTimer(nullptr)
 {
     initUI();
     connectSignals();
@@ -81,6 +82,12 @@ LessonPlanEditor::LessonPlanEditor(QWidget *parent)
     m_autoSaveTimer->setInterval(30000);  // 30秒
     m_autoSaveTimer->setSingleShot(true);
     connect(m_autoSaveTimer, &QTimer::timeout, this, &LessonPlanEditor::autoSave);
+
+    m_streamRenderTimer = new QTimer(this);
+    m_streamRenderTimer->setInterval(25);
+    connect(m_streamRenderTimer, &QTimer::timeout, this, [this]() {
+        flushPendingAIText(false);
+    });
 
     // 检查是否有未保存的草稿
     QTimer::singleShot(500, this, &LessonPlanEditor::checkAndRestoreDraft);
@@ -767,6 +774,10 @@ void LessonPlanEditor::onAIGenerateClicked()
 
     m_isGenerating = true;
     m_accumulatedMarkdown.clear();
+    m_pendingMarkdown.clear();
+    if (m_streamRenderTimer) {
+        m_streamRenderTimer->stop();
+    }
     m_editor->clear();
     m_aiGenerateBtn->setEnabled(false);
     m_aiGenerateBtn->setIcon(QIcon(":/icons/resources/icons/loading-spinner.svg"));
@@ -855,16 +866,33 @@ void LessonPlanEditor::onAIStreamChunk(const QString &chunk)
         return;
     }
 
-    // 累积Markdown内容
-    m_accumulatedMarkdown += chunk;
+    m_pendingMarkdown += chunk;
+    flushPendingAIText(false);
+    if (m_streamRenderTimer && !m_streamRenderTimer->isActive()) {
+        m_streamRenderTimer->start();
+    }
+}
 
-    // 实时渲染并显示
-    QString html = m_markdownRenderer->renderToHtml(m_accumulatedMarkdown);
-    m_editor->setHtml(html);
+void LessonPlanEditor::flushPendingAIText(bool flushAll)
+{
+    if (m_pendingMarkdown.isEmpty()) {
+        if (m_streamRenderTimer) {
+            m_streamRenderTimer->stop();
+        }
+        return;
+    }
 
-    // 滚动到底部
+    const int pendingLength = m_pendingMarkdown.length();
+    const int takeCount = flushAll
+        ? pendingLength
+        : qMin(pendingLength, pendingLength > 160 ? 18 : pendingLength > 60 ? 10 : 4);
+    const QString nextText = m_pendingMarkdown.left(takeCount);
+    m_pendingMarkdown.remove(0, takeCount);
+    m_accumulatedMarkdown += nextText;
+
     QTextCursor cursor = m_editor->textCursor();
     cursor.movePosition(QTextCursor::End);
+    cursor.insertText(nextText);
     m_editor->setTextCursor(cursor);
 
     updateWordCount();
@@ -875,6 +903,18 @@ void LessonPlanEditor::onAIFinished()
     if (!m_isGenerating) {
         return;
     }
+
+    flushPendingAIText(true);
+    if (m_streamRenderTimer) {
+        m_streamRenderTimer->stop();
+    }
+
+    const QString html = m_markdownRenderer->renderToHtml(m_accumulatedMarkdown);
+    m_editor->setHtml(html);
+    QTextCursor cursor = m_editor->textCursor();
+    cursor.movePosition(QTextCursor::End);
+    m_editor->setTextCursor(cursor);
+    updateWordCount();
 
     m_isGenerating = false;
     m_aiGenerateBtn->setEnabled(true);
@@ -894,6 +934,10 @@ void LessonPlanEditor::onAIError(const QString &error)
         return;
     }
 
+    if (m_streamRenderTimer) {
+        m_streamRenderTimer->stop();
+    }
+    m_pendingMarkdown.clear();
     m_isGenerating = false;
     m_aiGenerateBtn->setEnabled(true);
     m_aiGenerateBtn->setIcon(QIcon(":/icons/resources/icons/ai-sparkle.svg"));

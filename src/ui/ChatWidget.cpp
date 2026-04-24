@@ -434,6 +434,17 @@ void ChatWidget::updateLastAIMessage(const QString &text)
     }
 }
 
+void ChatWidget::updateLastAIMessagePlain(const QString &text)
+{
+    if (!m_lastAIMessageLabel) {
+        return;
+    }
+
+    m_lastAIMessageLabel->setTextFormat(Qt::PlainText);
+    m_lastAIMessageLabel->setText(text);
+    scrollToBottom();
+}
+
 void ChatWidget::updateLastAIThinking(const QString &thought)
 {
     qDebug() << "[ChatWidget] updateLastAIThinking called with thought length:" << thought.length();
