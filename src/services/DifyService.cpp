@@ -534,7 +534,11 @@ void DifyService::parseStreamResponse(const QByteArray &data)
                     }
                 }
             }
-            handleStreamText(result);
+            if (!result.isEmpty() && m_fullResponse.isEmpty()) {
+                handleStreamText(result);
+            } else if (!result.isEmpty()) {
+                qDebug() << "[DifyService] workflow_finished output skipped because message stream already emitted";
+            }
 
         } else if (event == "workflow_started" || event == "node_started" || event == "node_finished") {
             return;
