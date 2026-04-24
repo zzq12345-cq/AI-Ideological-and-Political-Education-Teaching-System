@@ -44,7 +44,7 @@ public:
 
     /**
      * @brief 设置要使用的模型
-     * @param model 模型名称（如 "glm-4", "gpt-4", "claude-3" 等）
+     * @param model 模型名称（默认 MiniMax-M2.7）
      */
     void setModel(const QString &model);
 
@@ -151,6 +151,8 @@ private:
     void parseStreamResponse(const QByteArray &data);
     QString filterThinkTagsStreaming(const QString &text);
     void resetStreamFilters();
+    bool usesDifyApi() const;
+    QString extractOpenAiContent(const QJsonObject &obj) const;
 
     // 统一处理流式文本（消除 message/agent_message/text_chunk 重复逻辑）
     void handleStreamText(const QString &text);
@@ -165,6 +167,7 @@ private:
     QString m_model;
     QString m_conversationId;
     QString m_userId;
+    QJsonArray m_openAiMessages;
     QString m_fullResponse;  // 累积完整响应
     QString m_streamBuffer;  // SSE 残留缓冲
     QString m_sseEvent;      // SSE event 跨包缓存

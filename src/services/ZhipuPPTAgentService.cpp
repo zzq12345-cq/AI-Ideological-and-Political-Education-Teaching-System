@@ -1,4 +1,5 @@
 #include "ZhipuPPTAgentService.h"
+#include "../config/AiConfig.h"
 #include "../utils/NetworkRequestFactory.h"
 #include <QJsonDocument>
 #include <QJsonParseError>
@@ -14,7 +15,7 @@
 ZhipuPPTAgentService::ZhipuPPTAgentService(QObject *parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
-    , m_baseUrl("https://open.bigmodel.cn/api/coding/paas/v4")
+    , m_baseUrl(AiConfig::baseUrl())
 {
     qDebug() << "[PPTAgent] Service initialized";
 }
@@ -41,7 +42,7 @@ void ZhipuPPTAgentService::setBaseUrl(const QString &baseUrl)
 void ZhipuPPTAgentService::generate(const QMap<QString, QString> &params)
 {
     if (m_apiKey.isEmpty()) {
-        emit errorOccurred("智谱 API Key 未设置");
+        emit errorOccurred("MiniMax API Key 未设置");
         return;
     }
 
@@ -149,9 +150,7 @@ QNetworkRequest ZhipuPPTAgentService::createRequest(const QString &baseUrlOverri
     // 超时
     request.setTransferTimeout(180000); // 3 分钟
 
-    // SSL 配置：始终放宽验证
-    // 智谱 API (open.bigmodel.cn) 是可信端点，macOS SecureTransport 可能
-    // 对其证书链报 SSL 错误，导致 handleSslErrors() 调用 abort() 中止请求
+    // SSL 配置：始终放宽验证，兼容本地代理和自定义 OpenAI-compatible 端点。
     {
         QSslConfiguration sslConfig = QSslConfiguration::defaultConfiguration();
         sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
@@ -559,8 +558,8 @@ void ZhipuPPTAgentService::onPlanReplyFinished()
 
 void ZhipuPPTAgentService::startSvgGeneration()
 {
-    // 始终使用 glm-5v-turbo 逐页 AI 生成 SVG
-    qDebug() << "[PPTAgent] Using AI-driven SVG generation (glm-5v-turbo)";
+    // 始终使用 MiniMax 逐页 AI 生成 SVG
+    qDebug() << "[PPTAgent] Using AI-driven SVG generation (MiniMax)";
     generateNextSvg();
 }
 
@@ -599,8 +598,7 @@ void ZhipuPPTAgentService::generateNextSvg()
         "- 只输出 <svg>...</svg> 代码，不要输出其他内容"
     ).arg(pageContent);
 
-    // 将系统约束与页面内容合并为单条 text-part user 消息，
-    // 这是 glm-5v-turbo 更稳妥的调用方式，也方便 400 时切端点重试。
+    // 将系统约束与页面内容合并为单条 text-part user 消息。
     m_currentSvgPrompt = svgSystemPrompt() + "\n\n任务输入：\n" + userMsg;
     requestCurrentSvgPage(false);
 }

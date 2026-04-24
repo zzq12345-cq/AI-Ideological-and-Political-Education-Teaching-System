@@ -146,11 +146,14 @@ generate_config_env() {
 # 此文件包含 API 密钥，请勿公开分享
 
 DIFY_API_KEY=${DIFY_API_KEY:-}
+MINIMAX_API_KEY=${MINIMAX_API_KEY:-}
+MINIMAX_API_BASE_URL=${MINIMAX_API_BASE_URL:-https://api.zzqloveca.online/v1}
+MINIMAX_MODEL=${MINIMAX_MODEL:-MiniMax-M2.7}
 TIANXING_API_KEY=${TIANXING_API_KEY:-}
 SUPABASE_URL=${SUPABASE_URL:-}
 SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
 ZHIPU_API_KEY=${ZHIPU_API_KEY:-}
-ZHIPU_BASE_URL=${ZHIPU_BASE_URL:-}
+ZHIPU_BASE_URL=${ZHIPU_BASE_URL:-https://api.zzqloveca.online/v1}
 EOF
 
     echo_info "已生成发布版 config.env"

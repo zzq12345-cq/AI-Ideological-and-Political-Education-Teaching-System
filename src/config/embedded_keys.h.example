@@ -6,7 +6,12 @@
 
 namespace EmbeddedKeys {
 
-// Dify AI 对话 API Key
+// MiniMax / OpenAI-compatible AI 配置
+inline const char* MINIMAX_API_KEY = "";
+inline const char* MINIMAX_API_BASE_URL = "https://api.zzqloveca.online/v1";
+inline const char* MINIMAX_MODEL = "MiniMax-M2.7";
+
+// Dify 工作流 API Key（仅保留给仍使用 Dify 工作流的解析链路）
 inline const char* DIFY_API_KEY = "";
 
 // 天行数据 API Key（时政新闻）

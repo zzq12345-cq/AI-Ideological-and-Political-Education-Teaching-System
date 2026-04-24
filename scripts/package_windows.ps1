@@ -6,6 +6,9 @@ param(
     [switch]$SkipInstaller,
     [switch]$EmbedReleaseKeys,
     [string]$DifyApiKey = "",
+    [string]$MinimaxApiKey = "",
+    [string]$MinimaxBaseUrl = "",
+    [string]$MinimaxModel = "",
     [string]$TianxingApiKey = "",
     [string]$SupabaseUrl = "",
     [string]$SupabaseAnonKey = "",
@@ -104,6 +107,9 @@ function Ensure-ConfigEnv {
 
     $configEnvPath = Join-Path $deployDir 'config.env'
     $difyApiKey = Get-ResolvedSecretValue -ExplicitValue $DifyApiKey -EnvironmentKey 'DIFY_API_KEY'
+    $minimaxApiKey = Get-ResolvedSecretValue -ExplicitValue $MinimaxApiKey -EnvironmentKey 'MINIMAX_API_KEY'
+    $minimaxBaseUrl = Get-ResolvedSecretValue -ExplicitValue $MinimaxBaseUrl -EnvironmentKey 'MINIMAX_API_BASE_URL'
+    $minimaxModel = Get-ResolvedSecretValue -ExplicitValue $MinimaxModel -EnvironmentKey 'MINIMAX_MODEL'
     $tianxingApiKey = Get-ResolvedSecretValue -ExplicitValue $TianxingApiKey -EnvironmentKey 'TIANXING_API_KEY'
     $supabaseUrl = Get-ResolvedSecretValue -ExplicitValue $SupabaseUrl -EnvironmentKey 'SUPABASE_URL'
     $supabaseAnonKey = Get-ResolvedSecretValue -ExplicitValue $SupabaseAnonKey -EnvironmentKey 'SUPABASE_ANON_KEY'
@@ -115,11 +121,14 @@ function Ensure-ConfigEnv {
 # 此文件包含 API 密钥，请勿公开分享
 
 DIFY_API_KEY=$difyApiKey
+MINIMAX_API_KEY=$minimaxApiKey
+MINIMAX_API_BASE_URL=$(if ([string]::IsNullOrWhiteSpace($minimaxBaseUrl)) { 'https://api.zzqloveca.online/v1' } else { $minimaxBaseUrl })
+MINIMAX_MODEL=$(if ([string]::IsNullOrWhiteSpace($minimaxModel)) { 'MiniMax-M2.7' } else { $minimaxModel })
 TIANXING_API_KEY=$tianxingApiKey
 SUPABASE_URL=$supabaseUrl
 SUPABASE_ANON_KEY=$supabaseAnonKey
 ZHIPU_API_KEY=$zhipuApiKey
-ZHIPU_BASE_URL=$zhipuBaseUrl
+ZHIPU_BASE_URL=$(if ([string]::IsNullOrWhiteSpace($zhipuBaseUrl)) { 'https://api.zzqloveca.online/v1' } else { $zhipuBaseUrl })
 "@
 
     Set-Content -Path $configEnvPath -Value $content -Encoding UTF8

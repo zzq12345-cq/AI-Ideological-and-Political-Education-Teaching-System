@@ -129,7 +129,7 @@ public:
     /**
      * @brief 本地解析 Markdown 格式的试题文本为 PaperQuestion 列表
      * 
-     * 直接在本地使用正则表达式解析 AI（智谱等）生成的 Markdown 试题，
+     * 直接在本地使用正则表达式解析 AI 生成的 Markdown 试题，
      * 无需调用 Dify 工作流 API。支持的格式：
      * - 题目编号 + 题干
      * - A/B/C/D 选项

@@ -16,7 +16,7 @@ class PaperService;
 /**
  * @brief AI 对话式出题组件
  *
- * 直接调用智谱 GLM-5.1 API（OpenAI 兼容格式），通过自然语言对话生成试题。
+ * 直接调用 MiniMax API（OpenAI 兼容格式），通过自然语言对话生成试题。
  * 支持流式 SSE 响应、多轮对话上下文、历史持久化和 DOCX 导出。
  */
 class AIQuestionGenWidget : public QWidget
@@ -71,7 +71,7 @@ private slots:
 
 private:
     void setupUI();
-    void setupZhipuService();
+    void setupAiService();
     void showWelcome();
     void setupCurriculumBar(QVBoxLayout *mainLayout);
     void refreshChapterOptions(bool preserveSelection = false);
@@ -82,8 +82,8 @@ private:
     QString currentSystemPrompt() const;
     void ensureAssistantMessagePlaceholder();
 
-    // 智谱 API 调用（流式 SSE）
-    void sendToZhipu(const QString &userMessage);
+    // MiniMax API 调用（流式 SSE）
+    void sendToMiniMax(const QString &userMessage);
     void processSSEData(const QByteArray &data);
 
     // 持久化
@@ -126,7 +126,7 @@ private:
     bool m_isUpdatingCurriculumUi = false;
 
     // 常量
-    static constexpr const char* MODEL_NAME = "glm-5.1";
+    static constexpr const char* MODEL_NAME = "MiniMax-M2.7";
     static QString buildSystemPrompt(const QString &gradeSemester,
                                      const QString &chapter,
                                      const QStringList &knowledgePoints);

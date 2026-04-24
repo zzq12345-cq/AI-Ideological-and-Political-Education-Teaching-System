@@ -1,6 +1,7 @@
 #include "AIQuestionGenWidget.h"
 #include "CurriculumData.h"
 #include "../ui/ChatWidget.h"
+#include "../config/AiConfig.h"
 #include "../config/AppConfig.h"
 #include "../config/embedded_keys.h"
 #include "../utils/NetworkRequestFactory.h"
@@ -37,7 +38,7 @@ AIQuestionGenWidget::AIQuestionGenWidget(QWidget *parent)
     : QWidget(parent)
 {
     setupUI();
-    setupZhipuService();
+    setupAiService();
 
     // 初始分配一个新会话 ID
     m_conversationId = QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -275,17 +276,14 @@ void AIQuestionGenWidget::setupCurriculumBar(QVBoxLayout *mainLayout)
     mainLayout->addWidget(m_curriculumBar);
 }
 
-void AIQuestionGenWidget::setupZhipuService()
+void AIQuestionGenWidget::setupAiService()
 {
     m_networkManager = new QNetworkAccessManager(this);
 
-    m_apiKey = AppConfig::get("ZHIPU_QUESTION_API_KEY");
-    if (m_apiKey.isEmpty()) {
-        m_apiKey = AppConfig::get("ZHIPU_API_KEY", EmbeddedKeys::ZHIPU_API_KEY);
-    }
-    m_baseUrl = AppConfig::get("ZHIPU_BASE_URL", EmbeddedKeys::ZHIPU_BASE_URL);
+    m_apiKey = AiConfig::apiKey();
+    m_baseUrl = AiConfig::baseUrl();
 
-    qDebug() << "[AIQuestionGen] 智谱 API 配置:"
+    qDebug() << "[AIQuestionGen] MiniMax API 配置:"
              << "Key长度:" << m_apiKey.length()
              << "Base URL:" << m_baseUrl
              << "Model:" << MODEL_NAME;
@@ -628,7 +626,7 @@ void AIQuestionGenWidget::deleteConversation(const QString &id)
     qDebug() << "[AIQuestionGen] 对话已删除:" << id;
 }
 
-// ===================== 智谱 API 调用 =====================
+// ===================== MiniMax API 调用 =====================
 
 QString AIQuestionGenWidget::buildSystemPrompt(const QString &gradeSemester,
                                                const QString &chapter,
@@ -688,11 +686,11 @@ QString AIQuestionGenWidget::buildSystemPrompt(const QString &gradeSemester,
     return prompt;
 }
 
-void AIQuestionGenWidget::sendToZhipu(const QString &userMessage)
+void AIQuestionGenWidget::sendToMiniMax(const QString &userMessage)
 {
     if (m_apiKey.isEmpty()) {
         ensureAssistantMessagePlaceholder();
-        m_chatWidget->updateLastAIMessage("⚠️ 出题失败：API Key 未设置\n\n请在 .env.local 中配置 ZHIPU_API_KEY。");
+        m_chatWidget->updateLastAIMessage("⚠️ 出题失败：API Key 未设置\n\n请在 .env.local 中配置 MINIMAX_API_KEY。");
         m_isGenerating = false;
         m_chatWidget->setInputEnabled(true);
         m_chatWidget->hideTypingIndicator();
@@ -777,7 +775,7 @@ void AIQuestionGenWidget::sendToZhipu(const QString &userMessage)
             int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
             QString errMsg;
             if (httpStatus == 401) {
-                errMsg = "⚠️ 出题失败：API Key 无效\n\n请检查 ZHIPU_API_KEY 配置。";
+                errMsg = "⚠️ 出题失败：API Key 无效\n\n请检查 MINIMAX_API_KEY 配置。";
             } else if (httpStatus == 429) {
                 errMsg = "⚠️ 出题失败：请求频率超限\n\n请稍后重试。";
             } else {
@@ -883,7 +881,7 @@ void AIQuestionGenWidget::onUserMessageSent(const QString &message)
     // 显示 AI 正在思考，而不是空白占位气泡
     m_chatWidget->showTypingIndicator();
 
-    sendToZhipu(message);
+    sendToMiniMax(message);
 }
 
 // ===================== 操作按钮 =====================

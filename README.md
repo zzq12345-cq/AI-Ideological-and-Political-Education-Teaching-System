@@ -68,7 +68,9 @@ SimpleLoginWindow → SupabaseClient → ModernMainWindow
 可参考 `.env.example`：
 
 ```bash
-DIFY_API_KEY=app-your-api-key-here
+MINIMAX_API_KEY=sk-your-minimax-key-here
+MINIMAX_API_BASE_URL=https://api.zzqloveca.online/v1
+MINIMAX_MODEL=MiniMax-M2.7
 PARSER_API_KEY=app-your-parser-key-here
 SUPABASE_URL=https://your-project-id.supabase.co
 SUPABASE_ANON_KEY=your-supabase-anon-key
@@ -221,12 +223,12 @@ git push origin v2.1.7
 - 系统时间是否正确
 - 是否存在 SSL 证书拦截
 
-### 2. Dify 无法响应
+### 2. AI 模型无法响应
 
 检查：
 
-- `DIFY_API_KEY` 是否配置
-- Dify 服务端点是否可访问
+- `MINIMAX_API_KEY` 是否配置
+- `MINIMAX_API_BASE_URL` 是否可访问
 - 当前网络是否允许流式连接
 
 ### 3. macOS 打包失败

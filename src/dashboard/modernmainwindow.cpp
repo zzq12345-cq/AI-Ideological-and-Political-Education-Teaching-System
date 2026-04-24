@@ -26,6 +26,7 @@
 #include "../ui/LessonPlanEditor.h"
 #include "../config/embedded_keys.h"
 #include "../config/AppConfig.h"
+#include "../config/AiConfig.h"
 #include "../auth/supabase/supabaseconfig.h"
 #include "../utils/NetworkRequestFactory.h"
 #include <QApplication>
@@ -827,41 +828,20 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
         }
     });
 
-    // API Key 获取优先级：环境变量 > 本地配置文件 > 内嵌Key
-    QString apiKey = qgetenv("DIFY_API_KEY");
-
-    if (apiKey.isEmpty()) {
-        // 尝试从本地配置文件读取（此文件不提交到 Git）
-        // macOS: .app/Contents/MacOS/ -> 需要往上 4 级到项目根目录
-        QString configPath = QCoreApplication::applicationDirPath() + "/../../../../.env.local";
-        QFile envFile(configPath);
-        if (envFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            while (!envFile.atEnd()) {
-                QString line = QString::fromUtf8(envFile.readLine()).trimmed();
-                if (line.startsWith("DIFY_API_KEY=")) {
-                    apiKey = line.mid(13);  // 跳过 "DIFY_API_KEY="
-                    qDebug() << "[Info] Dify API Key loaded from .env.local";
-                    break;
-                }
-            }
-            envFile.close();
-        }
-    } else {
-        qDebug() << "[Info] Dify API Key loaded from environment variable.";
-    }
-
-    // 如果仍为空，使用内嵌的 API Key（发布版本用）
-    if (apiKey.isEmpty() && strlen(EmbeddedKeys::DIFY_API_KEY) > 0) {
-        apiKey = QString::fromUtf8(EmbeddedKeys::DIFY_API_KEY);
-        qDebug() << "[Info] Dify API Key loaded from embedded keys.";
-    }
+    const QString apiKey = AiConfig::apiKey();
+    m_difyService->setBaseUrl(AiConfig::baseUrl());
+    m_difyService->setModel(AiConfig::model());
 
     const bool hasApiKey = !apiKey.isEmpty();
     if (hasApiKey) {
         m_difyService->setApiKey(apiKey);
+        qDebug() << "[Info] AI API configured."
+                 << "Base URL:" << AiConfig::baseUrl()
+                 << "Model:" << AiConfig::model()
+                 << "Key length:" << apiKey.length();
     } else {
         qDebug() << "[Warning] No API Key found. AI features will be disabled.";
-        qDebug() << "[Info] Create .env.local file with: DIFY_API_KEY=your-key";
+        qDebug() << "[Info] Create .env.local file with: MINIMAX_API_KEY=your-key";
     }
 
     // 不再使用独立的 AI 对话框，直接在主页面显示
@@ -910,7 +890,7 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
     if (!hasApiKey) {
         QTimer::singleShot(0, this, [this]() {
             if (statusBar()) {
-                statusBar()->showMessage("未设置 DIFY_API_KEY：AI 功能暂不可用（可正常使用其他页面）", 8000);
+                statusBar()->showMessage("未设置 MINIMAX_API_KEY：AI 功能暂不可用（可正常使用其他页面）", 8000);
             }
         });
     }

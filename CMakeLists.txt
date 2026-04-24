@@ -192,6 +192,7 @@ set(PROJECT_SOURCES
     src/admin/AdminDashboard.h
     src/config/AppConfig.cpp
     src/config/AppConfig.h
+    src/config/AiConfig.h
     src/config/embedded_keys.h
     src/utils/FailedTaskTracker.cpp
     src/utils/FailedTaskTracker.h
@@ -266,6 +267,8 @@ install(TARGETS AILoginSystem
 set(SHARED_SERVICES
     src/services/PaperService.cpp
     src/services/PaperService.h
+    src/services/DifyService.cpp
+    src/services/DifyService.h
     src/services/BulkImportService.cpp
     src/services/BulkImportService.h
     src/services/QuestionParserService.cpp
@@ -280,6 +283,7 @@ set(SHARED_SERVICES
     src/auth/supabase/supabaseconfig.h
     src/config/AppConfig.cpp
     src/config/AppConfig.h
+    src/config/AiConfig.h
     src/utils/FailedTaskTracker.cpp
     src/utils/FailedTaskTracker.h
     src/utils/NetworkRequestFactory.cpp
