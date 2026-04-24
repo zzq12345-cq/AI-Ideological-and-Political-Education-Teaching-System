@@ -1,12 +1,18 @@
 #include "NetworkRequestFactory.h"
 #include "../auth/supabase/supabaseconfig.h"
+#include "../config/AppConfig.h"
 #include <QDebug>
+#include <QHostAddress>
 
 // ===== 公共辅助方法 =====
 
 bool NetworkRequestFactory::allowInsecureSslForDebug()
 {
-    const QString value = qEnvironmentVariable("ALLOW_INSECURE_SSL").trimmed().toLower();
+    QString value = qEnvironmentVariable("ALLOW_INSECURE_SSL").trimmed();
+    if (value.isEmpty()) {
+        value = AppConfig::get(QStringLiteral("ALLOW_INSECURE_SSL")).trimmed();
+    }
+    value = value.toLower();
     return value == "1" || value == "true" || value == "yes";
 }
 
@@ -48,6 +54,26 @@ void NetworkRequestFactory::applySslConfig(QNetworkRequest &request)
     }
 }
 
+void NetworkRequestFactory::applyHostOverride(QNetworkRequest &request)
+{
+    const QString overrideHost = AppConfig::get(QStringLiteral("MINIMAX_API_HOST")).trimmed();
+    if (overrideHost.isEmpty()) {
+        return;
+    }
+
+    QHostAddress address;
+    if (!address.setAddress(request.url().host())) {
+        return;
+    }
+
+    request.setRawHeader("Host", overrideHost.toUtf8());
+
+    request.setPeerVerifyName(overrideHost);
+
+    qDebug() << "[NetworkRequestFactory] Host override:"
+             << request.url().host() << "->" << overrideHost;
+}
+
 // ===== 工厂方法 =====
 
 QNetworkRequest NetworkRequestFactory::createDifyRequest(const QUrl &url,
@@ -63,6 +89,7 @@ QNetworkRequest NetworkRequestFactory::createDifyRequest(const QUrl &url,
     // 基础配置
     applyBaseConfig(request);
     applySslConfig(request);
+    applyHostOverride(request);
 
     // 超时
     request.setTransferTimeout(timeout);

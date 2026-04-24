@@ -45,7 +45,7 @@ public:
     /// 设置 API Key
     void setApiKey(const QString &apiKey);
 
-    /// 设置 API 基础 URL（默认 https://api.zzqloveca.online/v1）
+    /// 设置 API 基础 URL（默认 https://api.minimaxi.com/v1）
     void setBaseUrl(const QString &baseUrl);
 
     /**
@@ -163,7 +163,7 @@ private:
     // 模型名称
     static constexpr const char* MODEL_TEXT = "MiniMax-M2.7";   // 文本生成
     static constexpr const char* MODEL_CODE = "MiniMax-M2.7";   // SVG 代码生成
-    static constexpr const char* STANDARD_PAASE_URL = "https://api.zzqloveca.online/v1";
+    static constexpr const char* STANDARD_PAASE_URL = "https://api.minimaxi.com/v1";
 
     // 生成过程中的数据
     QString m_topic;               // 用户主题

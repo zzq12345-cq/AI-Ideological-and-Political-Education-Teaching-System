@@ -9,6 +9,7 @@
 #include <QTextStream>
 #include <QDateTime>
 #include <iostream>
+#include "../config/AppConfig.h"
 #include "../auth/login/simpleloginwindow.h"
 
 // 日志文件输出
@@ -58,7 +59,12 @@ void configureApplicationProxy()
     if (proxyUrl.isEmpty()) proxyUrl = qEnvironmentVariable("HTTPS_PROXY").trimmed();
     if (proxyUrl.isEmpty()) proxyUrl = qEnvironmentVariable("http_proxy").trimmed();
     if (proxyUrl.isEmpty()) proxyUrl = qEnvironmentVariable("HTTP_PROXY").trimmed();
+    if (proxyUrl.isEmpty()) proxyUrl = AppConfig::get(QStringLiteral("https_proxy")).trimmed();
+    if (proxyUrl.isEmpty()) proxyUrl = AppConfig::get(QStringLiteral("HTTPS_PROXY")).trimmed();
+    if (proxyUrl.isEmpty()) proxyUrl = AppConfig::get(QStringLiteral("http_proxy")).trimmed();
+    if (proxyUrl.isEmpty()) proxyUrl = AppConfig::get(QStringLiteral("HTTP_PROXY")).trimmed();
     if (proxyUrl.isEmpty()) {
+        qDebug() << "[Proxy] 未配置全局代理";
         return;
     }
 

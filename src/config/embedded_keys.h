@@ -10,13 +10,13 @@ namespace EmbeddedKeys {
 
 inline const char* DIFY_API_KEY = "";
 inline const char* MINIMAX_API_KEY = "";
-inline const char* MINIMAX_API_BASE_URL = "https://api.zzqloveca.online/v1";
+inline const char* MINIMAX_API_BASE_URL = "https://api.minimaxi.com/v1";
 inline const char* MINIMAX_MODEL = "MiniMax-M2.7";
 inline const char* TIANXING_API_KEY = "";
 inline const char* SUPABASE_URL = "";
 inline const char* SUPABASE_ANON_KEY = "";
 inline const char* ZHIPU_API_KEY = "";
-inline const char* ZHIPU_BASE_URL = "https://api.zzqloveca.online/v1";
+inline const char* ZHIPU_BASE_URL = "https://api.minimaxi.com/v1";
 
 }  // namespace EmbeddedKeys
 

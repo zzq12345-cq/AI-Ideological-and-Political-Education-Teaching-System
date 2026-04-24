@@ -9,7 +9,7 @@
 
 namespace AiConfig {
 
-inline constexpr const char* DEFAULT_BASE_URL = "https://api.zzqloveca.online/v1";
+inline constexpr const char* DEFAULT_BASE_URL = "https://api.minimaxi.com/v1";
 inline constexpr const char* DEFAULT_MODEL = "MiniMax-M2.7";
 
 inline QString firstConfiguredValue(std::initializer_list<QString> keys,

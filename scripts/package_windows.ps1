@@ -122,13 +122,13 @@ function Ensure-ConfigEnv {
 
 DIFY_API_KEY=$difyApiKey
 MINIMAX_API_KEY=$minimaxApiKey
-MINIMAX_API_BASE_URL=$(if ([string]::IsNullOrWhiteSpace($minimaxBaseUrl)) { 'https://api.zzqloveca.online/v1' } else { $minimaxBaseUrl })
+MINIMAX_API_BASE_URL=$(if ([string]::IsNullOrWhiteSpace($minimaxBaseUrl)) { 'https://api.minimaxi.com/v1' } else { $minimaxBaseUrl })
 MINIMAX_MODEL=$(if ([string]::IsNullOrWhiteSpace($minimaxModel)) { 'MiniMax-M2.7' } else { $minimaxModel })
 TIANXING_API_KEY=$tianxingApiKey
 SUPABASE_URL=$supabaseUrl
 SUPABASE_ANON_KEY=$supabaseAnonKey
 ZHIPU_API_KEY=$zhipuApiKey
-ZHIPU_BASE_URL=$(if ([string]::IsNullOrWhiteSpace($zhipuBaseUrl)) { 'https://api.zzqloveca.online/v1' } else { $zhipuBaseUrl })
+ZHIPU_BASE_URL=$(if ([string]::IsNullOrWhiteSpace($zhipuBaseUrl)) { 'https://api.minimaxi.com/v1' } else { $zhipuBaseUrl })
 "@
 
     Set-Content -Path $configEnvPath -Value $content -Encoding UTF8

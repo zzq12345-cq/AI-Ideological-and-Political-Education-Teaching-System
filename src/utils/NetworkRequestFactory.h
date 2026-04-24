@@ -116,6 +116,9 @@ private:
 
     /** 如果调试开关开启，配置不安全 SSL */
     static void applySslConfig(QNetworkRequest &request);
+
+    /** 为使用真实 IP 直连的 MiniMax 请求设置 Host/SNI */
+    static void applyHostOverride(QNetworkRequest &request);
 };
 
 #endif // NETWORKREQUESTFACTORY_H

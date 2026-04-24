@@ -168,14 +168,30 @@ void DifyService::onReplyFinished()
 
     // 对于流式响应，RemoteHostClosedError 是正常的（服务器完成发送后关闭连接）
     QNetworkReply::NetworkError error = m_currentReply->error();
-    if (error != QNetworkReply::NoError && error != QNetworkReply::RemoteHostClosedError) {
+    QByteArray responseData = m_currentReply->readAll();
+    const int httpStatus = m_currentReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    const bool hasStreamData = !m_fullResponse.isEmpty()
+        || !m_streamBuffer.isEmpty()
+        || !m_sseEvent.isEmpty()
+        || !m_sseDataLines.isEmpty();
+    const bool emptyRemoteClose = error == QNetworkReply::RemoteHostClosedError
+        && responseData.isEmpty()
+        && !hasStreamData;
+
+    qDebug() << "[DifyService] Network error code:" << error
+             << "HTTP status:" << httpStatus
+             << "Response data length:" << responseData.length();
+
+    if ((error != QNetworkReply::NoError && error != QNetworkReply::RemoteHostClosedError)
+        || emptyRemoteClose) {
         if (!m_streamBuffer.isEmpty() || !m_sseEvent.isEmpty() || !m_sseDataLines.isEmpty()) {
             qDebug() << "[DifyService] Flush pending stream on error";
             parseStreamResponse(QByteArray());
         }
         QString errorMsg = m_currentReply->errorString();
-        int httpStatus = m_currentReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        QByteArray responseData = m_currentReply->readAll();
+        if (emptyRemoteClose) {
+            errorMsg = QStringLiteral("连接被服务器或代理提前关闭，未收到模型响应");
+        }
 
         qDebug() << "[DifyService] HTTP Error:" << httpStatus << "Error:" << errorMsg;
         qDebug() << "[DifyService] Network error code:" << m_currentReply->error();
@@ -198,7 +214,6 @@ void DifyService::onReplyFinished()
         emit errorOccurred(errorMsg);
     } else {
         // 发送完整响应
-        QByteArray responseData = m_currentReply->readAll();
         qDebug() << "[DifyService] Request successful, response data length:" << responseData.length();
 
         if (!m_streamBuffer.isEmpty() || !m_sseEvent.isEmpty() || !m_sseDataLines.isEmpty()) {
@@ -243,6 +258,9 @@ void DifyService::onReplyFinished()
             }
         } else {
             qDebug() << "[DifyService] Warning: Response data is empty!";
+            if (m_fullResponse.isEmpty()) {
+                emit errorOccurred(QStringLiteral("AI 服务返回空响应，请检查 MiniMax 地址、密钥或网络代理"));
+            }
         }
     }
 

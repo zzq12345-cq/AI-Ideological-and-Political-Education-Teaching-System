@@ -69,7 +69,7 @@ SimpleLoginWindow → SupabaseClient → ModernMainWindow
 
 ```bash
 MINIMAX_API_KEY=sk-your-minimax-key-here
-MINIMAX_API_BASE_URL=https://api.zzqloveca.online/v1
+MINIMAX_API_BASE_URL=https://api.minimaxi.com/v1
 MINIMAX_MODEL=MiniMax-M2.7
 PARSER_API_KEY=app-your-parser-key-here
 SUPABASE_URL=https://your-project-id.supabase.co
