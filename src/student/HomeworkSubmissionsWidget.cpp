@@ -58,11 +58,7 @@ void HomeworkSubmissionsWidget::setupUI()
         "#subListCard { background: %1; border: 1px solid %2; border-radius: 12px; }"
     ).arg(StyleConfig::BG_CARD, StyleConfig::BORDER_LIGHT));
 
-    auto *shadow = new QGraphicsDropShadowEffect(listCard);
-    shadow->setBlurRadius(8);
-    shadow->setColor(QColor(0, 0, 0, 12));
-    shadow->setOffset(0, 2);
-    listCard->setGraphicsEffect(shadow);
+    // 不使用 QGraphicsDropShadowEffect，避免阴影渲染到子控件文字上
 
     auto *cardLayout = new QVBoxLayout(listCard);
     cardLayout->setContentsMargins(0, 0, 0, 0);

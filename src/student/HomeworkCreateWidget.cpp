@@ -38,11 +38,7 @@ void HomeworkCreateWidget::setupUI()
         "#hwCreateCard { background: %1; border: 1px solid %2; border-radius: 12px; }"
     ).arg(StyleConfig::BG_CARD, StyleConfig::BORDER_LIGHT));
 
-    auto *shadow = new QGraphicsDropShadowEffect(card);
-    shadow->setBlurRadius(12);
-    shadow->setColor(QColor(0, 0, 0, 15));
-    shadow->setOffset(0, 2);
-    card->setGraphicsEffect(shadow);
+    // 不使用 QGraphicsDropShadowEffect，避免阴影渲染到子控件文字上
 
     auto *formLayout = new QVBoxLayout(card);
     formLayout->setContentsMargins(24, 20, 24, 24);

@@ -20,6 +20,10 @@ public:
 
     void setClassInfo(const ClassInfo &info);
 
+    // 现代风格弹窗辅助方法（供其他模块复用）
+    static bool showModernConfirm(QWidget *parent, const QString &title, const QString &message);
+    static void showModernInfo(QWidget *parent, const QString &title, const QString &message);
+
 signals:
     void backRequested();
 
@@ -36,6 +40,8 @@ private:
     void showMaterials();
     void showMemberList();
 
+    void setActiveNavButton(int index);
+
     ClassInfo m_classInfo;
     QLabel *m_codeLabel;
     QLabel *m_classNameLabel;
@@ -45,6 +51,7 @@ private:
     QWidget *m_memberSection;
     QStackedWidget *m_rightStack;
     QList<ClassManager::MemberInfo> m_cachedMembers;
+    QList<QPushButton*> m_navButtons;
 };
 
 #endif

@@ -14,10 +14,11 @@
 #include <QDebug>
 #include <iostream>
 
-SimpleLoginWindow::SimpleLoginWindow(QWidget *parent)
+SimpleLoginWindow::SimpleLoginWindow(QWidget *parent, bool autoRestoreRememberedLogin)
     : QWidget(parent)
     , m_supabaseClient(new SupabaseClient(this))
     , m_settings(new QSettings(this))
+    , m_autoRestoreRememberedLogin(autoRestoreRememberedLogin)
     , m_eyeShowIcon(QIcon(QStringLiteral(":/images/眼睛_显示.png")))
     , m_eyeHideIcon(QIcon(QStringLiteral(":/images/眼睛_隐藏.png")))
 {
@@ -43,6 +44,7 @@ SimpleLoginWindow::SimpleLoginWindow(QWidget *parent)
         updateLoginButtonState();
     });
     updateLoginButtonState();
+    restoreRememberedLoginIfPossible();
 }
 
 SimpleLoginWindow::~SimpleLoginWindow()
@@ -521,6 +523,15 @@ void SimpleLoginWindow::onLoginClicked()
 
     qDebug() << "用户名:" << username;
 
+    if (rememberMeCheck->isChecked() && hasRememberedTestAccountForUser(username)) {
+        const QString role = m_settings->value("savedRole").toString();
+        qDebug() << "检测到已记住的测试账号，直接进入主页，角色:" << role;
+        loginButton->setEnabled(false);
+        loginButton->setText("正在进入工作台...");
+        openMainWindow(username, role);
+        return;
+    }
+
     if (rememberMeCheck->isChecked() && hasRememberedSessionForUser(username)) {
         const QString rememberedUserId = m_settings->value("savedUserId").toString();
         if (isRememberedSessionStillValid(username) && !rememberedUserId.isEmpty()) {
@@ -533,7 +544,7 @@ void SimpleLoginWindow::onLoginClicked()
             m_pendingLoginEmail = username;
             m_pendingUserId = rememberedUserId;
             saveRememberedCredentials();
-            m_supabaseClient->fetchUserRole(username);
+            fetchRoleWithFallback(username, rememberedUserId);
             return;
         }
 
@@ -625,6 +636,10 @@ void SimpleLoginWindow::openMainWindow(const QString &username, const QString &r
 
 void SimpleLoginWindow::enterMainWindowAfterRoleFetched(const QString &role)
 {
+    if (m_roleFetchCompleted && !m_roleFetchUsingFallback) {
+        return;
+    }
+
     QString email = m_supabaseClient->currentEmail();
     QString userId = m_supabaseClient->currentUserId();
 
@@ -635,6 +650,21 @@ void SimpleLoginWindow::enterMainWindowAfterRoleFetched(const QString &role)
     }
     if (userId.isEmpty()) {
         userId = m_pendingUserId;
+    }
+
+    if (m_roleFetchCompleted && m_roleFetchUsingFallback) {
+        if (rememberMeCheck && rememberMeCheck->isChecked() && !role.isEmpty()) {
+            m_settings->setValue("savedRole", role);
+            m_settings->sync();
+            qDebug() << "已保存延迟返回的真实角色:" << role;
+        }
+        return;
+    }
+    m_roleFetchCompleted = true;
+
+    if (rememberMeCheck && rememberMeCheck->isChecked() && !role.isEmpty()) {
+        m_settings->setValue("savedRole", role);
+        m_settings->sync();
     }
 
     loginButton->setText("正在进入工作台...");
@@ -671,8 +701,8 @@ void SimpleLoginWindow::onLoginSuccess(const QString &userId, const QString &ema
     m_pendingLoginEmail = email;
     m_pendingUserId = userId;
 
-    // 查询用户角色后打开主界面
-    m_supabaseClient->fetchUserRole(email);
+    // 查询用户角色后打开主界面，网络异常时走兜底角色
+    fetchRoleWithFallback(email, userId);
 }
 
 void SimpleLoginWindow::onLoginFailed(const QString &errorMessage)
@@ -788,9 +818,37 @@ bool SimpleLoginWindow::canRefreshRememberedSession(const QString &username) con
            !m_settings->value("savedRefreshToken").toString().isEmpty();
 }
 
+bool SimpleLoginWindow::hasRememberedTestAccountForUser(const QString &username) const
+{
+    const QString normalizedUsername = username.trimmed();
+    const QString role = testAccountRoleForUsername(normalizedUsername);
+    return m_settings->value("rememberMe", false).toBool() &&
+           m_settings->value("savedAuthType").toString() == "testAccount" &&
+           normalizedUsername == m_settings->value("savedUsername").toString().trimmed() &&
+           !role.isEmpty() &&
+           role == m_settings->value("savedRole").toString();
+}
+
+QString SimpleLoginWindow::testAccountRoleForUsername(const QString &username) const
+{
+    const QString normalizedUsername = username.trimmed();
+    if (normalizedUsername == "teacher01") {
+        return "教师";
+    }
+    if (normalizedUsername == "student01") {
+        return "学生";
+    }
+    if (normalizedUsername == "admin01") {
+        return "管理员";
+    }
+    return QString();
+}
+
 bool SimpleLoginWindow::hasUsableRememberedSession(const QString &username) const
 {
-    return isRememberedSessionStillValid(username) || canRefreshRememberedSession(username);
+    return hasRememberedTestAccountForUser(username) ||
+           isRememberedSessionStillValid(username) ||
+           canRefreshRememberedSession(username);
 }
 
 void SimpleLoginWindow::updateLoginButtonState()
@@ -800,7 +858,7 @@ void SimpleLoginWindow::updateLoginButtonState()
     }
 
     const QString username = usernameEdit ? usernameEdit->text().trimmed() : QString();
-    if (isRememberedSessionStillValid(username)) {
+    if (hasRememberedTestAccountForUser(username) || isRememberedSessionStillValid(username)) {
         loginButton->setText("直接进入");
         loginButton->setToolTip("已记住登录状态，点击后可直接进入主页");
     } else if (canRefreshRememberedSession(username)) {
@@ -819,28 +877,98 @@ void SimpleLoginWindow::loadRememberedCredentials()
     if (!username.isEmpty()) {
         usernameEdit->setText(username);
         passwordEdit->clear();
-        rememberMeCheck->setChecked(hasUsableRememberedSession(username));
+        rememberMeCheck->setChecked(m_settings->value("rememberMe", false).toBool());
         qDebug() << "已加载记住的登录信息:" << username;
     }
 
     updateLoginButtonState();
 }
 
+void SimpleLoginWindow::restoreRememberedLoginIfPossible()
+{
+    if (!m_autoRestoreRememberedLogin) {
+        return;
+    }
+
+    const QString username = usernameEdit ? usernameEdit->text().trimmed() : QString();
+    if (username.isEmpty() ||
+        !rememberMeCheck ||
+        !rememberMeCheck->isChecked() ||
+        !hasUsableRememberedSession(username)) {
+        return;
+    }
+
+    QTimer::singleShot(0, this, [this, username]() {
+        if (!usernameEdit ||
+            usernameEdit->text().trimmed() != username ||
+            !rememberMeCheck ||
+            !rememberMeCheck->isChecked() ||
+            !hasUsableRememberedSession(username)) {
+            return;
+        }
+
+        qDebug() << "检测到已记住的登录状态，自动恢复登录";
+        onLoginClicked();
+    });
+}
+
+void SimpleLoginWindow::fetchRoleWithFallback(const QString &email, const QString &userId)
+{
+    m_roleFetchCompleted = false;
+    m_roleFetchUsingFallback = false;
+    m_pendingLoginEmail = email;
+    m_pendingUserId = userId;
+    m_supabaseClient->fetchUserRole(email);
+
+    QTimer::singleShot(15000, this, [this, email, userId]() {
+        if (m_roleFetchCompleted ||
+            m_pendingLoginEmail != email ||
+            m_pendingUserId != userId) {
+            return;
+        }
+
+        QString fallbackRole = m_settings->value("savedRole").toString();
+        if (fallbackRole.isEmpty()) {
+            fallbackRole = "教师";
+        }
+        qWarning() << "角色查询超时，使用兜底角色进入:" << fallbackRole;
+        m_roleFetchUsingFallback = true;
+        enterMainWindowAfterRoleFetched(fallbackRole);
+    });
+}
+
 void SimpleLoginWindow::saveRememberedCredentials()
 {
     if (rememberMeCheck->isChecked()) {
+        const QString username = usernameEdit->text().trimmed();
+        const QString testRole = testAccountRoleForUsername(username);
+
         m_settings->setValue("rememberMe", true);
-        m_settings->setValue("savedUsername", usernameEdit->text().trimmed());
+        m_settings->setValue("savedUsername", username);
         m_settings->remove("savedPassword");
 
-        if (!m_supabaseClient->currentUserId().isEmpty()) {
+        if (!testRole.isEmpty() && m_supabaseClient->currentUserId().isEmpty()) {
+            m_settings->setValue("savedAuthType", "testAccount");
+            m_settings->setValue("savedRole", testRole);
+            m_settings->remove("savedUserId");
+            m_settings->remove("savedEmail");
+            m_settings->remove("savedAccessToken");
+            m_settings->remove("savedRefreshToken");
+            m_settings->remove("savedSessionExpiresAt");
+        } else if (!m_supabaseClient->currentUserId().isEmpty()) {
+            m_settings->setValue("savedAuthType", "supabase");
             m_settings->setValue("savedUserId", m_supabaseClient->currentUserId());
             m_settings->setValue("savedEmail", m_supabaseClient->currentEmail());
             m_settings->setValue("savedAccessToken", m_supabaseClient->currentAccessToken());
             m_settings->setValue("savedRefreshToken", m_supabaseClient->currentRefreshToken());
             m_settings->setValue("savedSessionExpiresAt", m_supabaseClient->currentExpiresAt());
+            m_settings->remove("savedRole");
+        } else if (hasRememberedSessionForUser(username)) {
+            m_settings->setValue("savedAuthType", "supabase");
+            m_settings->remove("savedRole");
         }
 
+        m_settings->sync();
         qDebug() << "已保存记住我登录状态";
     }
 }
@@ -848,12 +976,15 @@ void SimpleLoginWindow::saveRememberedCredentials()
 void SimpleLoginWindow::clearRememberedCredentials()
 {
     m_settings->remove("rememberMe");
+    m_settings->remove("savedAuthType");
     m_settings->remove("savedUsername");
     m_settings->remove("savedPassword");
+    m_settings->remove("savedRole");
     m_settings->remove("savedUserId");
     m_settings->remove("savedEmail");
     m_settings->remove("savedAccessToken");
     m_settings->remove("savedRefreshToken");
     m_settings->remove("savedSessionExpiresAt");
+    m_settings->sync();
     qDebug() << "已清除记住的登录状态";
 }

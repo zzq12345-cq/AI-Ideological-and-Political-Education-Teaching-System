@@ -26,7 +26,7 @@ class SimpleLoginWindow : public QWidget
     Q_OBJECT
 
 public:
-    explicit SimpleLoginWindow(QWidget *parent = nullptr);
+    explicit SimpleLoginWindow(QWidget *parent = nullptr, bool autoRestoreRememberedLogin = true);
     ~SimpleLoginWindow();
 
 protected:
@@ -53,6 +53,10 @@ private:
     bool canRefreshRememberedSession(const QString &username) const;
     void updateLoginButtonState();
     bool hasUsableRememberedSession(const QString &username) const;
+    bool hasRememberedTestAccountForUser(const QString &username) const;
+    QString testAccountRoleForUsername(const QString &username) const;
+    void restoreRememberedLoginIfPossible();
+    void fetchRoleWithFallback(const QString &email, const QString &userId);
     void enterMainWindowAfterRoleFetched(const QString &role);
 
     // Supabase回调
@@ -66,6 +70,9 @@ private:
 
     bool m_loginProcessed = false;  // 防止重复处理登录
     bool m_isRestoringSession = false;
+    bool m_autoRestoreRememberedLogin = true;
+    bool m_roleFetchCompleted = false;
+    bool m_roleFetchUsingFallback = false;
     QString m_pendingLoginEmail;
     QString m_pendingUserId;
 

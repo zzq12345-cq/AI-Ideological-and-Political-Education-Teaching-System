@@ -1,4 +1,5 @@
 #include "MaterialWidget.h"
+#include "ClassDetailWidget.h"
 #include "../shared/StyleConfig.h"
 #include <QGraphicsDropShadowEffect>
 #include <QInputDialog>
@@ -10,6 +11,8 @@
 #include <QDir>
 #include <QDirIterator>
 #include <QDebug>
+#include <QDialog>
+#include <QLineEdit>
 
 static const int GRID_COLS = 4;
 static const int CARD_W = 160;
@@ -51,7 +54,7 @@ MaterialWidget::MaterialWidget(const QString &classId, const QString &uploaderEm
     connect(MaterialManager::instance(), &MaterialManager::materialDeleted, this,
             [this](const QString &) { refreshCurrentFolder(); });
     connect(MaterialManager::instance(), &MaterialManager::error, this,
-            [this](const QString &msg) { QMessageBox::warning(this, "操作失败", msg); });
+            [this](const QString &msg) { ClassDetailWidget::showModernInfo(this, "操作失败", msg); });
 
     // 加载根目录
     loadFolder(QString());
@@ -226,11 +229,7 @@ QWidget* MaterialWidget::createMaterialCard(const MaterialManager::MaterialInfo 
         "#matCard:hover { border-color: %3; }"
     ).arg(bgColor, StyleConfig::BORDER_LIGHT, StyleConfig::PATRIOTIC_RED));
 
-    auto *shadow = new QGraphicsDropShadowEffect(card);
-    shadow->setBlurRadius(8);
-    shadow->setColor(QColor(0, 0, 0, 10));
-    shadow->setOffset(0, 2);
-    card->setGraphicsEffect(shadow);
+    // 不使用 QGraphicsDropShadowEffect，避免阴影渲染到子控件文字上
 
     auto *layout = new QVBoxLayout(card);
     layout->setContentsMargins(12, 20, 12, 8);
@@ -273,11 +272,11 @@ QWidget* MaterialWidget::createMaterialCard(const MaterialManager::MaterialInfo 
 
     QString matId = info.id;
     QString matName = info.name;
-    connect(deleteBtn, &QPushButton::clicked, this, [this, matId, matName, card]() {
-        auto ret = QMessageBox::question(card, "确认删除",
-            QString("确定删除 \"%1\" 吗？").arg(matName),
-            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
-        if (ret == QMessageBox::Yes) {
+    connect(deleteBtn, &QPushButton::clicked, this, [this, matId, matName]() {
+        bool confirmed = ClassDetailWidget::showModernConfirm(
+            this, "确认删除",
+            QString("确定删除 \"%1\" 吗？").arg(matName));
+        if (confirmed) {
             MaterialManager::instance()->deleteMaterial(matId);
         }
     });
@@ -298,12 +297,83 @@ QWidget* MaterialWidget::createMaterialCard(const MaterialManager::MaterialInfo 
 
 void MaterialWidget::onCreateFolderClicked()
 {
-    bool ok;
-    QString name = QInputDialog::getText(this, "新建文件夹",
-        "文件夹名称:", QLineEdit::Normal, "新建文件夹", &ok);
-    if (ok && !name.trimmed().isEmpty()) {
-        MaterialManager::instance()->createFolder(m_classId, m_currentFolderId, name.trimmed(), m_uploaderEmail);
+    // ── 现代风格新建文件夹弹窗 ──
+    QDialog *dlg = new QDialog(this);
+    dlg->setWindowTitle("新建文件夹");
+    dlg->setFixedSize(520, 280);
+    dlg->setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+    dlg->setAttribute(Qt::WA_TranslucentBackground);
+
+    QFrame *card = new QFrame(dlg);
+    card->setObjectName("folderDlgCard");
+    card->setStyleSheet("#folderDlgCard { background: #FFFFFF; border-radius: 20px; }");
+    card->setGeometry(16, 16, 488, 248);
+
+    auto *shadow = new QGraphicsDropShadowEffect(card);
+    shadow->setBlurRadius(40);
+    shadow->setOffset(0, 10);
+    shadow->setColor(QColor(15, 23, 42, 50));
+    card->setGraphicsEffect(shadow);
+
+    QVBoxLayout *cardLayout = new QVBoxLayout(card);
+    cardLayout->setContentsMargins(36, 32, 36, 28);
+    cardLayout->setSpacing(16);
+
+    QLabel *dlgTitle = new QLabel("新建文件夹");
+    dlgTitle->setStyleSheet("font-size: 18px; font-weight: 700; color: #0F172A;");
+
+    QLabel *dlgHint = new QLabel("请输入文件夹名称");
+    dlgHint->setStyleSheet("font-size: 13px; color: #64748B; font-weight: 400;");
+
+    QLineEdit *dlgInput = new QLineEdit();
+    dlgInput->setText("新建文件夹");
+    dlgInput->selectAll();
+    dlgInput->setStyleSheet(
+        "QLineEdit { padding: 10px 14px; border: 1.5px solid #E2E8F0;"
+        "  border-radius: 12px; font-size: 14px; color: #1E293B;"
+        "  background: #F8FAFC; }"
+        "QLineEdit:focus { border-color: #6366F1; background: #FFFFFF; }");
+
+    QHBoxLayout *btnRow = new QHBoxLayout();
+    btnRow->setSpacing(10);
+    btnRow->addStretch();
+
+    QPushButton *cancelBtn = new QPushButton("取消");
+    cancelBtn->setCursor(Qt::PointingHandCursor);
+    cancelBtn->setFixedSize(100, 40);
+    cancelBtn->setStyleSheet(
+        "QPushButton { background: #F1F5F9; color: #64748B; border: none;"
+        "  border-radius: 10px; font-size: 14px; font-weight: 600; }"
+        "QPushButton:hover { background: #E2E8F0; color: #475569; }");
+    connect(cancelBtn, &QPushButton::clicked, dlg, &QDialog::reject);
+
+    QPushButton *okBtn = new QPushButton("创建");
+    okBtn->setCursor(Qt::PointingHandCursor);
+    okBtn->setFixedSize(100, 40);
+    okBtn->setStyleSheet(
+        "QPushButton { background: #6366F1; color: white; border: none;"
+        "  border-radius: 10px; font-size: 14px; font-weight: 600; }"
+        "QPushButton:hover { background: #4F46E5; }"
+        "QPushButton:pressed { background: #4338CA; }");
+    connect(okBtn, &QPushButton::clicked, dlg, &QDialog::accept);
+    connect(dlgInput, &QLineEdit::returnPressed, dlg, &QDialog::accept);
+
+    btnRow->addWidget(cancelBtn);
+    btnRow->addWidget(okBtn);
+
+    cardLayout->addWidget(dlgTitle);
+    cardLayout->addWidget(dlgHint);
+    cardLayout->addWidget(dlgInput);
+    cardLayout->addStretch();
+    cardLayout->addLayout(btnRow);
+
+    if (dlg->exec() == QDialog::Accepted) {
+        QString name = dlgInput->text().trimmed();
+        if (!name.isEmpty()) {
+            MaterialManager::instance()->createFolder(m_classId, m_currentFolderId, name, m_uploaderEmail);
+        }
     }
+    dlg->deleteLater();
 }
 
 void MaterialWidget::onUploadFileClicked()
@@ -325,7 +395,7 @@ void MaterialWidget::onUploadFileClicked()
         for (const auto &filePath : files) {
             qint64 size = QFileInfo(filePath).size();
             if (size > 50 * 1024 * 1024) {
-                QMessageBox::warning(this, "文件过大",
+                ClassDetailWidget::showModernInfo(this, "文件过大",
                     QString("文件 \"%1\" 大小为 %2MB，超过 50MB 上传限制。\n"
                             "大文件建议压缩后上传或使用外部链接。")
                     .arg(QFileInfo(filePath).fileName())

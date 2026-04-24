@@ -610,7 +610,7 @@ void SignUpWindow::onSignupFailed(const QString &errorMessage)
 void SignUpWindow::openLoginWindow()
 {
     this->close();
-    SimpleLoginWindow *loginWindow = new SimpleLoginWindow();
+    SimpleLoginWindow *loginWindow = new SimpleLoginWindow(nullptr, false);
     loginWindow->setAttribute(Qt::WA_DeleteOnClose);
     loginWindow->show();
     loginWindow->raise();

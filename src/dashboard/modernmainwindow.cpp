@@ -949,7 +949,7 @@ void ModernMainWindow::setupMenuBar()
             "确定要注销当前账户吗？",
             QMessageBox::Yes | QMessageBox::No);
         if (reply == QMessageBox::Yes) {
-            SimpleLoginWindow *loginWindow = new SimpleLoginWindow();
+            SimpleLoginWindow *loginWindow = new SimpleLoginWindow(nullptr, false);
             loginWindow->show();
             this->close();
         }

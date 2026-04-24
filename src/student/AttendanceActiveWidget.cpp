@@ -77,11 +77,7 @@ void AttendanceActiveWidget::setupUI()
         "}"
     ).arg(StyleConfig::PATRIOTIC_RED));
 
-    QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect(codeCard);
-    shadow->setBlurRadius(20);
-    shadow->setColor(QColor(229, 57, 53, 50));
-    shadow->setOffset(0, 4);
-    codeCard->setGraphicsEffect(shadow);
+    // 不使用 QGraphicsDropShadowEffect，避免阴影渲染到子控件文字上
 
     QVBoxLayout *codeLayout = new QVBoxLayout(codeCard);
     codeLayout->setContentsMargins(28, 24, 28, 24);

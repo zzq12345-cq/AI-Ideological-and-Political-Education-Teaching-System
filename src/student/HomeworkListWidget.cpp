@@ -99,11 +99,7 @@ QWidget* HomeworkListWidget::createAssignmentCard(const HomeworkManager::Assignm
         "#hwCard:hover { border-color: %3; }"
     ).arg(StyleConfig::BG_CARD, StyleConfig::BORDER_LIGHT, StyleConfig::PATRIOTIC_RED));
 
-    auto *shadow = new QGraphicsDropShadowEffect(card);
-    shadow->setBlurRadius(8);
-    shadow->setColor(QColor(0, 0, 0, 12));
-    shadow->setOffset(0, 2);
-    card->setGraphicsEffect(shadow);
+    // 不使用 QGraphicsDropShadowEffect，避免阴影渲染到子控件文字上
 
     auto *layout = new QVBoxLayout(card);
     layout->setContentsMargins(20, 16, 20, 16);
