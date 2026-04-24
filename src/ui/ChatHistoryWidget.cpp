@@ -118,7 +118,9 @@ ChatHistoryWidget::ChatHistoryWidget(QWidget *parent)
 
 void ChatHistoryWidget::setupUI()
 {
-    setFixedWidth(300); //加宽侧边栏适应内容
+    setMinimumWidth(220);
+    setMaximumWidth(520);
+    setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     // 整体背景色 #F7F7F8，右侧边框
     setStyleSheet("ChatHistoryWidget { background-color: #F7F7F8; border-right: 1px solid #E5E5E5; }");
 

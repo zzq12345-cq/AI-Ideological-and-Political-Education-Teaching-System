@@ -1,5 +1,5 @@
 #include "DifyService.h"
-#include "../config/AiConfig.h"
+#include "../config/AppConfig.h"
 #include "../utils/NetworkRequestFactory.h"
 #include <QNetworkRequest>
 #include <QJsonArray>
@@ -14,8 +14,8 @@ DifyService::DifyService(QObject *parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
     , m_currentReply(nullptr)
-    , m_baseUrl(AiConfig::baseUrl())
-    , m_model(AiConfig::model())
+    , m_baseUrl(AppConfig::get(QStringLiteral("DIFY_API_BASE_URL"),
+                               QStringLiteral("https://api.dify.ai/v1")))
 {
     // 从 QSettings 读取持久化的用户 ID，如果不存在则生成新的并保存
     QSettings settings(QCoreApplication::organizationName(), QCoreApplication::applicationName());
@@ -64,7 +64,6 @@ QString DifyService::currentConversationId() const
 void DifyService::clearConversation()
 {
     m_conversationId.clear();
-    m_openAiMessages = QJsonArray();
 }
 
 void DifyService::setCurrentConversationId(const QString &conversationId)
@@ -98,32 +97,22 @@ void DifyService::sendMessage(const QString &message, const QString &conversatio
     m_sseDataLines.clear();
     resetStreamFilters();
 
-    if (m_conversationId.isEmpty()) {
-        m_conversationId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-        emit conversationCreated(m_conversationId);
-    }
-
-    QJsonObject userMsg;
-    userMsg["role"] = "user";
-    userMsg["content"] = message;
-    m_openAiMessages.append(userMsg);
-
-    // 构建 OpenAI-compatible 请求 URL
-    QUrl url(m_baseUrl + "/chat/completions");
+    // 构建 Dify 请求 URL
+    QUrl url(m_baseUrl + "/chat-messages");
     QNetworkRequest request = createConfiguredRequest(url, 120000);
 
-    // MiniMax 使用 OpenAI-compatible chat completions 协议
+    // Dify 对话应用使用 streaming 模式；模型由 Dify 后台配置。
     QJsonObject body;
-    body["model"] = m_model.isEmpty() ? AiConfig::model() : m_model;
-    body["messages"] = m_openAiMessages;
-    body["stream"] = true;
-    body["temperature"] = 0.7;
-    body["max_tokens"] = 4096;
+    body["query"] = message;
+    body["response_mode"] = "streaming";
+    body["user"] = m_userId;
+    body["inputs"] = QJsonObject();
 
     const bool useStreaming = true;  // Agent 应用强制使用 streaming 模式
 
-    if (!conversationId.isEmpty() && conversationId != m_conversationId) {
-        m_conversationId = conversationId;
+    QString convId = conversationId.isEmpty() ? m_conversationId : conversationId;
+    if (!convId.isEmpty()) {
+        body["conversation_id"] = convId;
     }
 
     QJsonDocument doc(body);
@@ -227,22 +216,15 @@ void DifyService::onReplyFinished()
             QJsonDocument responseDoc = QJsonDocument::fromJson(responseData);
             if (!responseDoc.isNull() && responseDoc.isObject()) {
                 QJsonObject responseObj = responseDoc.object();
-                QString answer = extractOpenAiContent(responseObj);
-                if (answer.isEmpty()) {
-                    const QString convId = responseObj["conversation_id"].toString();
-                    if (!convId.isEmpty() && convId != m_conversationId) {
-                        m_conversationId = convId;
-                        emit conversationCreated(convId);
-                    }
-                    answer = responseObj["answer"].toString();
+                const QString convId = responseObj["conversation_id"].toString();
+                if (!convId.isEmpty() && convId != m_conversationId) {
+                    m_conversationId = convId;
+                    emit conversationCreated(convId);
                 }
+                QString answer = responseObj["answer"].toString();
                 if (!answer.isEmpty()) {
                     // 过滤 think/analysis 标签
                     QString filteredAnswer = filterThinkTagsStreaming(answer);
-                    QJsonObject assistantMsg;
-                    assistantMsg["role"] = "assistant";
-                    assistantMsg["content"] = filteredAnswer;
-                    m_openAiMessages.append(assistantMsg);
                     qDebug() << "[DifyService] Emitting messageReceived with content:" << filteredAnswer.left(100) + "...";
                     emit messageReceived(filteredAnswer);
                 } else {
@@ -259,16 +241,9 @@ void DifyService::onReplyFinished()
         } else {
             qDebug() << "[DifyService] Warning: Response data is empty!";
             if (m_fullResponse.isEmpty()) {
-                emit errorOccurred(QStringLiteral("AI 服务返回空响应，请检查 MiniMax 地址、密钥或网络代理"));
+                emit errorOccurred(QStringLiteral("Dify 返回空响应，请检查 Dify 地址、密钥或网络代理"));
             }
         }
-    }
-
-    if (!m_fullResponse.isEmpty()) {
-        QJsonObject assistantMsg;
-        assistantMsg["role"] = "assistant";
-        assistantMsg["content"] = m_fullResponse;
-        m_openAiMessages.append(assistantMsg);
     }
 
     emit requestFinished();
@@ -525,7 +500,32 @@ void DifyService::parseStreamResponse(const QByteArray &data)
             }
             handleStreamText(text);
 
-        } else if (event == "workflow_started" || event == "node_started" || event == "node_finished" || event == "workflow_finished") {
+        } else if (event == "workflow_finished") {
+            QJsonObject dataObj = obj["data"].toObject();
+            QJsonObject outputs = dataObj["outputs"].toObject();
+            QString result = outputs["answer"].toString();
+            if (result.isEmpty()) {
+                result = outputs["result"].toString();
+            }
+            if (result.isEmpty()) {
+                result = outputs["text"].toString();
+            }
+            if (result.isEmpty()) {
+                result = outputs["output"].toString();
+            }
+            if (result.isEmpty()) {
+                for (const QString &key : outputs.keys()) {
+                    const QJsonValue value = outputs[key];
+                    if (value.isString() && !value.toString().isEmpty()) {
+                        result = value.toString();
+                        qDebug() << "[DifyService] workflow_finished using output key:" << key;
+                        break;
+                    }
+                }
+            }
+            handleStreamText(result);
+
+        } else if (event == "workflow_started" || event == "node_started" || event == "node_finished") {
             return;
         }
     };
@@ -636,25 +636,7 @@ void DifyService::fetchMessages(const QString &conversationId, int limit)
 {
     if (!usesDifyApi()) {
         Q_UNUSED(limit);
-        QJsonArray messages;
-        QString pendingQuery;
-        for (const QJsonValue &value : m_openAiMessages) {
-            const QJsonObject msg = value.toObject();
-            const QString role = msg["role"].toString();
-            const QString content = msg["content"].toString();
-            if (role == QStringLiteral("user")) {
-                pendingQuery = content;
-                continue;
-            }
-            if (role == QStringLiteral("assistant")) {
-                messages.append(QJsonObject{
-                    {QStringLiteral("query"), pendingQuery},
-                    {QStringLiteral("answer"), content}
-                });
-                pendingQuery.clear();
-            }
-        }
-        emit messagesReceived(messages, conversationId);
+        emit messagesReceived(QJsonArray(), conversationId);
         return;
     }
 

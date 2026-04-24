@@ -26,7 +26,6 @@
 #include "../ui/LessonPlanEditor.h"
 #include "../config/embedded_keys.h"
 #include "../config/AppConfig.h"
-#include "../config/AiConfig.h"
 #include "../auth/supabase/supabaseconfig.h"
 #include "../utils/NetworkRequestFactory.h"
 #include <QApplication>
@@ -40,6 +39,7 @@
 #include <QVBoxLayout>
 #include <QGridLayout>
 #include <QStackedLayout>
+#include <QSplitter>
 #include <QScrollArea>
 #include <QLabel>
 #include <QPushButton>
@@ -828,20 +828,20 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
         }
     });
 
-    const QString apiKey = AiConfig::apiKey();
-    m_difyService->setBaseUrl(AiConfig::baseUrl());
-    m_difyService->setModel(AiConfig::model());
+    const QString apiKey = AppConfig::get(QStringLiteral("DIFY_API_KEY"));
+    const QString difyBaseUrl = AppConfig::get(QStringLiteral("DIFY_API_BASE_URL"),
+                                               QStringLiteral("https://api.dify.ai/v1"));
+    m_difyService->setBaseUrl(difyBaseUrl);
 
     const bool hasApiKey = !apiKey.isEmpty();
     if (hasApiKey) {
         m_difyService->setApiKey(apiKey);
-        qDebug() << "[Info] AI API configured."
-                 << "Base URL:" << AiConfig::baseUrl()
-                 << "Model:" << AiConfig::model()
+        qDebug() << "[Info] Dify API configured."
+                 << "Base URL:" << difyBaseUrl
                  << "Key length:" << apiKey.length();
     } else {
         qDebug() << "[Warning] No API Key found. AI features will be disabled.";
-        qDebug() << "[Info] Create .env.local file with: MINIMAX_API_KEY=your-key";
+        qDebug() << "[Info] Create .env.local file with: DIFY_API_KEY=your-key";
     }
 
     // 不再使用独立的 AI 对话框，直接在主页面显示
@@ -890,7 +890,7 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
     if (!hasApiKey) {
         QTimer::singleShot(0, this, [this]() {
             if (statusBar()) {
-                statusBar()->showMessage("未设置 MINIMAX_API_KEY：AI 功能暂不可用（可正常使用其他页面）", 8000);
+                statusBar()->showMessage("未设置 DIFY_API_KEY：AI 功能暂不可用（可正常使用其他页面）", 8000);
             }
         });
     }
@@ -989,8 +989,8 @@ void ModernMainWindow::setupCentralWidget()
 
     // 创建侧边栏 - 使用白色背景
     sidebar = new QFrame();
-    sidebar->setMinimumWidth(240);  // 设置最小宽度
-    sidebar->setMaximumWidth(300);  // 设置最大宽度
+    sidebar->setMinimumWidth(220);
+    sidebar->setMaximumWidth(520);
     sidebar->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     sidebar->setStyleSheet("QFrame { background: " + CARD_WHITE + "; border-right: 1px solid " + SEPARATOR + "; }");
 
@@ -1071,8 +1071,8 @@ void ModernMainWindow::setupCentralWidget()
 
     // 创建侧边栏堆栈（用于在导航和历史记录之间切换）
     m_sidebarStack = new QStackedWidget();
-    m_sidebarStack->setMinimumWidth(240);
-    m_sidebarStack->setMaximumWidth(300);
+    m_sidebarStack->setMinimumWidth(220);
+    m_sidebarStack->setMaximumWidth(520);
     m_sidebarStack->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     m_sidebarStack->addWidget(sidebar);  // 页面0：导航侧边栏
     
@@ -1223,9 +1223,22 @@ void ModernMainWindow::setupCentralWidget()
         }
     });
 
-    // 添加到主布局
-    contentLayout->addWidget(m_sidebarStack);  // 使用侧边栏堆栈
-    contentLayout->addWidget(contentStack);
+    // 添加到可拖拽分隔器，允许用户自行调整侧边栏宽度
+    auto *contentSplitter = new QSplitter(Qt::Horizontal, centralWidget);
+    contentSplitter->setChildrenCollapsible(false);
+    contentSplitter->setHandleWidth(8);
+    contentSplitter->addWidget(m_sidebarStack);
+    contentSplitter->addWidget(contentStack);
+    contentSplitter->setStretchFactor(0, 0);
+    contentSplitter->setStretchFactor(1, 1);
+    contentSplitter->setSizes({300, 1300});
+    contentSplitter->setStyleSheet(QStringLiteral(
+        "QSplitter::handle { background: #F3F4F6; }"
+        "QSplitter::handle:hover { background: #CBD5E1; }"
+        "QSplitter::handle:pressed { background: #94A3B8; }"
+    ));
+
+    contentLayout->addWidget(contentSplitter);
 
     mainLayout->addLayout(contentLayout);
 }

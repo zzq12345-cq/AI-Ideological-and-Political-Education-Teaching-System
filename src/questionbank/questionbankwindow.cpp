@@ -5,7 +5,6 @@
 #include "QuestionBasketWidget.h"
 #include "QualityCheckDialog.h"
 #include "../config/AppConfig.h"
-#include "../config/AiConfig.h"
 #include "../shared/StyleConfig.h"
 #include "../smartpaper/SmartPaperWidget.h"
 #include "../services/DifyService.h"
@@ -329,9 +328,9 @@ QWidget *QuestionBankWindow::buildHeader()
     );
     connect(qualityCheckBtn, &QPushButton::clicked, this, [this]() {
         auto *difyService = new DifyService(this);
-        difyService->setApiKey(AiConfig::apiKey());
-        difyService->setBaseUrl(AiConfig::baseUrl());
-        difyService->setModel(AiConfig::model());
+        difyService->setApiKey(AppConfig::get(QStringLiteral("DIFY_API_KEY")));
+        difyService->setBaseUrl(AppConfig::get(QStringLiteral("DIFY_API_BASE_URL"),
+                                               QStringLiteral("https://api.dify.ai/v1")));
         auto *paperService = new PaperService(this);
         auto *qualityService = new QuestionQualityService(paperService, difyService, this);
         QualityCheckDialog dialog(qualityService, paperService, this);
