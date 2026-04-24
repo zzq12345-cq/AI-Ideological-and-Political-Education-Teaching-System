@@ -49,44 +49,43 @@ ClassDetailWidget::ClassDetailWidget(const ClassInfo &info, QWidget *parent)
 void ClassDetailWidget::setupUI()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(32, 28, 32, 28);
-    mainLayout->setSpacing(20);
+    mainLayout->setContentsMargins(36, 32, 36, 32);
+    mainLayout->setSpacing(24);
 
-    // 顶部：返回 + 班级名
+    // ── 顶部：返回 + 班级名 ──
     QHBoxLayout *headerLayout = new QHBoxLayout();
-    headerLayout->setSpacing(12);
+    headerLayout->setSpacing(16);
 
-    QPushButton *backBtn = new QPushButton("< 返回");
+    QPushButton *backBtn = new QPushButton("← 返回");
     backBtn->setCursor(Qt::PointingHandCursor);
     backBtn->setStyleSheet(
-        "QPushButton { background: transparent; border: none; color: #6B7280;"
-        "  font-size: 14px; padding: 4px 8px; }"
-        "QPushButton:hover { color: #E53935; }"
+        "QPushButton { background: transparent; border: none; color: #9CA3AF;"
+        "  font-size: 13px; font-weight: 500; padding: 4px; }"
+        "QPushButton:hover { color: #4B5563; }"
     );
     connect(backBtn, &QPushButton::clicked, this, &ClassDetailWidget::backRequested);
 
     m_classNameLabel = new QLabel(m_classInfo.name);
-    m_classNameLabel->setStyleSheet(QString(
-        "font-size: 24px; font-weight: 700; color: %1;"
-    ).arg(StyleConfig::TEXT_PRIMARY));
+    m_classNameLabel->setStyleSheet("font-size: 24px; font-weight: 700; color: #111827;");
+
+    // 状态徽标
+    QLabel *statusBadge = new QLabel("● 活跃中");
+    statusBadge->setStyleSheet(
+        "font-size: 12px; color: #059669; font-weight: 500; padding-top: 4px;");
 
     headerLayout->addWidget(backBtn);
     headerLayout->addWidget(m_classNameLabel);
+    headerLayout->addSpacing(8);
+    headerLayout->addWidget(statusBadge);
     headerLayout->addStretch();
     mainLayout->addLayout(headerLayout);
 
-    // 分隔线
-    QFrame *line = new QFrame();
-    line->setFrameShape(QFrame::HLine);
-    line->setStyleSheet(QString("background: %1; max-height: 1px;").arg(StyleConfig::BORDER_LIGHT));
-    mainLayout->addWidget(line);
-
-    // 班级码区域
+    // ── 班级码区域 ──
     mainLayout->addWidget(createCodeSection());
 
-    // 下半区：左侧按钮始终可见 + 右侧 QStackedWidget 切换
+    // ── 下半区：左侧导航 + 右侧内容 ──
     QHBoxLayout *contentLayout = new QHBoxLayout();
-    contentLayout->setSpacing(20);
+    contentLayout->setSpacing(24);
     contentLayout->addWidget(createActionButtons());
 
     m_rightStack = new QStackedWidget();
@@ -100,66 +99,72 @@ QWidget* ClassDetailWidget::createCodeSection()
 {
     QFrame *section = new QFrame();
     section->setObjectName("codeSection");
-    section->setStyleSheet(QString(
-        "#codeSection {"
-        "  background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 %1, stop:1 #EF5350);"
-        "  border-radius: 16px;"
-        "}"
-    ).arg(StyleConfig::PATRIOTIC_RED));
+    section->setStyleSheet(
+        "#codeSection { background: #F8FAFC; border: none; border-radius: 8px; }");
 
-    QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect(section);
-    shadow->setBlurRadius(20);
-    shadow->setColor(QColor(229, 57, 53, 50));
-    shadow->setOffset(0, 4);
-    section->setGraphicsEffect(shadow);
+    QHBoxLayout *layout = new QHBoxLayout(section);
+    layout->setContentsMargins(24, 20, 24, 20);
+    layout->setSpacing(32);
 
-    QVBoxLayout *layout = new QVBoxLayout(section);
-    layout->setContentsMargins(28, 24, 28, 24);
-    layout->setSpacing(12);
+    // 左侧：加课码
+    QVBoxLayout *codeCol = new QVBoxLayout();
+    codeCol->setSpacing(4);
 
-    // 标题行
-    QHBoxLayout *titleRow = new QHBoxLayout();
-    QLabel *titleLabel = new QLabel("班级加课码");
-    titleLabel->setStyleSheet("color: rgba(255,255,255,0.85); font-size: 14px; background: transparent;");
+    QLabel *titleLabel = new QLabel("加课码");
+    titleLabel->setStyleSheet("font-size: 12px; color: #6B7280; font-weight: 500;");
 
-    m_codeCountLabel = new QLabel("加载中...");
-    m_codeCountLabel->setStyleSheet("color: rgba(255,255,255,0.7); font-size: 12px; background: transparent;");
-
-    titleRow->addWidget(titleLabel);
-    titleRow->addStretch();
-    titleRow->addWidget(m_codeCountLabel);
-    layout->addLayout(titleRow);
-
-    // 班级码显示
-    QHBoxLayout *codeRow = new QHBoxLayout();
     m_codeLabel = new QLabel(m_classInfo.code);
     m_codeLabel->setStyleSheet(
-        "color: white; font-size: 36px; font-weight: 700; letter-spacing: 8px; background: transparent;"
+        "font-size: 28px; font-weight: 700; color: #111827; letter-spacing: 4px;"
     );
-    codeRow->addWidget(m_codeLabel);
-    codeRow->addStretch();
-    layout->addLayout(codeRow);
 
-    // 按钮行
-    QHBoxLayout *btnRow = new QHBoxLayout();
-    btnRow->addStretch();
+    codeCol->addWidget(titleLabel);
+    codeCol->addWidget(m_codeLabel);
+    layout->addLayout(codeCol);
+
+    // 竖分隔线
+    QFrame *vLine = new QFrame();
+    vLine->setFrameShape(QFrame::VLine);
+    vLine->setStyleSheet("background: #E5E7EB; max-width: 1px; border: none; margin: 4px 0;");
+    layout->addWidget(vLine);
+
+    // 中间：学生数信息
+    QVBoxLayout *infoCol = new QVBoxLayout();
+    infoCol->setSpacing(4);
+    QLabel *infoTitle = new QLabel("学生人数");
+    infoTitle->setStyleSheet("font-size: 12px; color: #6B7280; font-weight: 500;");
+    m_codeCountLabel = new QLabel("加载中...");
+    m_codeCountLabel->setStyleSheet("font-size: 16px; color: #374151; font-weight: 600;");
+    infoCol->addWidget(infoTitle);
+    infoCol->addWidget(m_codeCountLabel);
+    layout->addLayout(infoCol);
+
+    layout->addStretch();
+
+    // 右侧：操作按钮
+    QVBoxLayout *btnCol = new QVBoxLayout();
+    btnCol->setSpacing(8);
 
     QPushButton *copyBtn = new QPushButton("复制");
     copyBtn->setCursor(Qt::PointingHandCursor);
     copyBtn->setStyleSheet(
-        "QPushButton { padding: 6px 20px; border: 1px solid rgba(255,255,255,0.4);"
-        "  border-radius: 6px; background: rgba(255,255,255,0.15); color: white; font-size: 13px; }"
-        "QPushButton:hover { background: rgba(255,255,255,0.3); }"
+        "QPushButton { padding: 6px 16px; border: 1px solid #D1D5DB;"
+        "  border-radius: 6px; background: white; color: #374151; font-size: 13px; font-weight: 500; }"
+        "QPushButton:hover { background: #F9FAFB; border-color: #9CA3AF; }"
     );
     connect(copyBtn, &QPushButton::clicked, this, [this, copyBtn]() {
         QApplication::clipboard()->setText(m_classInfo.code);
-        copyBtn->setText("已复制!");
+        copyBtn->setText("已复制 ✓");
         QTimer::singleShot(1500, this, [copyBtn]() { copyBtn->setText("复制"); });
     });
 
-    QPushButton *refreshBtn = new QPushButton("刷新码");
+    QPushButton *refreshBtn = new QPushButton("刷新");
     refreshBtn->setCursor(Qt::PointingHandCursor);
-    refreshBtn->setStyleSheet(copyBtn->styleSheet());
+    refreshBtn->setStyleSheet(
+        "QPushButton { padding: 6px 16px; border: 1px solid transparent;"
+        "  border-radius: 6px; background: transparent; color: #6B7280; font-size: 13px; font-weight: 500; }"
+        "QPushButton:hover { background: #F3F4F6; color: #374151; }"
+    );
     connect(refreshBtn, &QPushButton::clicked, this, [this]() {
         ClassManager::instance()->refreshCode(m_classInfo.id);
     });
@@ -171,9 +176,9 @@ QWidget* ClassDetailWidget::createCodeSection()
         }
     });
 
-    btnRow->addWidget(copyBtn);
-    btnRow->addWidget(refreshBtn);
-    layout->addLayout(btnRow);
+    btnCol->addWidget(copyBtn);
+    btnCol->addWidget(refreshBtn);
+    layout->addLayout(btnCol);
 
     return section;
 }
@@ -181,55 +186,62 @@ QWidget* ClassDetailWidget::createCodeSection()
 QWidget* ClassDetailWidget::createActionButtons()
 {
     QWidget *container = new QWidget();
+    container->setObjectName("navPanel");
     container->setFixedWidth(200);
-    container->setStyleSheet("background: transparent;");
+    container->setStyleSheet("#navPanel { background: transparent; }");
     QVBoxLayout *layout = new QVBoxLayout(container);
-    layout->setSpacing(12);
+    layout->setSpacing(2);
     layout->setContentsMargins(0, 0, 0, 0);
 
-    struct Action { QString name; QString desc; QString icon; };
+    struct Action { QString name; QString svgPath; };
     QList<Action> actions = {
-        {"班级成员", "查看班级学生", "👥"},
-        {"考勤", "查看出勤记录", "📋"},
-        {"发布作业", "布置课后作业", "📝"},
-        {"课程资料", "管理课程文件", "📂"},
-        {"课程设置", "修改班级信息", "⚙"},
+        {"班级成员", ":/icons/resources/icons/users.svg"},
+        {"考勤",     ":/icons/resources/icons/attendance.svg"},
+        {"发布作业", ":/icons/resources/icons/document.svg"},
+        {"课程资料", ":/icons/resources/icons/folder.svg"},
+        {"课程设置", ":/icons/resources/icons/settings.svg"},
     };
 
+    bool isFirst = true;
     for (const auto &act : actions) {
         QPushButton *btn = new QPushButton();
         btn->setCursor(Qt::PointingHandCursor);
-        btn->setFixedHeight(64);
-        btn->setStyleSheet(QString(
-            "QPushButton {"
-            "  background: %1; border: 1px solid %2; border-radius: 12px;"
-            "  padding: 12px 16px; text-align: left;"
-            "}"
-            "QPushButton:hover { border-color: %3; background: #FFF5F5; }"
-        ).arg(StyleConfig::BG_CARD, StyleConfig::BORDER_LIGHT, StyleConfig::PATRIOTIC_RED));
+        btn->setFixedHeight(36);
+
+        if (isFirst) {
+            btn->setStyleSheet(
+                "QPushButton {"
+                "  background: #E5E7EB; border: none;"
+                "  border-radius: 6px; padding: 4px 12px; text-align: left;"
+                "}");
+            isFirst = false;
+        } else {
+            btn->setStyleSheet(
+                "QPushButton {"
+                "  background: transparent; border: none;"
+                "  border-radius: 6px; padding: 4px 12px; text-align: left;"
+                "}"
+                "QPushButton:hover { background: #F3F4F6; }");
+        }
 
         QHBoxLayout *row = new QHBoxLayout(btn);
-        row->setSpacing(10);
+        row->setSpacing(8);
+        row->setContentsMargins(8, 0, 8, 0);
 
-        QLabel *iconLabel = new QLabel(act.icon);
-        iconLabel->setStyleSheet("font-size: 18px; background: transparent; border: none;");
-
-        QVBoxLayout *textCol = new QVBoxLayout();
-        textCol->setSpacing(2);
+        QLabel *iconLabel = new QLabel();
+        QIcon svgIcon(act.svgPath);
+        iconLabel->setPixmap(svgIcon.pixmap(16, 16));
+        iconLabel->setFixedSize(16, 16);
+        iconLabel->setAlignment(Qt::AlignCenter);
+        iconLabel->setStyleSheet("background: transparent; border: none;");
 
         QLabel *nameLabel = new QLabel(act.name);
         nameLabel->setStyleSheet(QString(
-            "font-size: 14px; font-weight: 600; color: %1; background: transparent;"
-        ).arg(StyleConfig::TEXT_PRIMARY));
-
-        QLabel *descLabel = new QLabel(act.desc);
-        descLabel->setStyleSheet("font-size: 11px; color: #9CA3AF; background: transparent;");
-
-        textCol->addWidget(nameLabel);
-        textCol->addWidget(descLabel);
+            "font-size: 13px; font-weight: %1; color: %2; background: transparent; border: none;"
+        ).arg(isFirst ? "600" : "500", isFirst ? "#111827" : "#4B5563"));
 
         row->addWidget(iconLabel);
-        row->addLayout(textCol);
+        row->addWidget(nameLabel);
         row->addStretch();
 
         QString actName = act.name;
@@ -266,39 +278,37 @@ QWidget* ClassDetailWidget::createMemberList()
 {
     m_memberSection = new QFrame();
     m_memberSection->setObjectName("memberSection");
-    m_memberSection->setStyleSheet(QString(
-        "#memberSection {"
-        "  background: %1; border: 1px solid %2; border-radius: 12px;"
-        "}"
-    ).arg(StyleConfig::BG_CARD, StyleConfig::BORDER_LIGHT));
+    m_memberSection->setStyleSheet(
+        "#memberSection { background: white; border: 1px solid #E5E7EB; border-radius: 12px; }");
 
     m_memberLayout = new QVBoxLayout(m_memberSection);
     m_memberLayout->setContentsMargins(20, 16, 20, 16);
-    m_memberLayout->setSpacing(8);
+    m_memberLayout->setSpacing(0);
 
     // 标题行
     QHBoxLayout *headerRow = new QHBoxLayout();
     QLabel *titleLabel = new QLabel("班级成员");
-    titleLabel->setStyleSheet(QString(
-        "font-size: 15px; font-weight: 600; color: %1; background: transparent;"
-    ).arg(StyleConfig::TEXT_PRIMARY));
+    titleLabel->setStyleSheet("font-size: 15px; font-weight: 600; color: #1E293B; background: transparent;");
 
     m_memberCountLabel = new QLabel("加载中...");
-    m_memberCountLabel->setStyleSheet("font-size: 12px; color: #9CA3AF; background: transparent;");
+    m_memberCountLabel->setStyleSheet(
+        "font-size: 12px; color: #94A3B8; background: transparent;");
 
     headerRow->addWidget(titleLabel);
     headerRow->addStretch();
     headerRow->addWidget(m_memberCountLabel);
     m_memberLayout->addLayout(headerRow);
 
+    // 分隔线
     QFrame *line = new QFrame();
     line->setFrameShape(QFrame::HLine);
-    line->setStyleSheet(QString("background: %1; max-height: 1px;").arg(StyleConfig::SEPARATOR));
+    line->setStyleSheet("background: #F1F5F9; max-height: 1px; border: none;");
     m_memberLayout->addWidget(line);
+    m_memberLayout->addSpacing(4);
 
     QLabel *placeholder = new QLabel("加载中...");
     placeholder->setAlignment(Qt::AlignCenter);
-    placeholder->setStyleSheet("font-size: 13px; color: #9CA3AF; padding: 32px; background: transparent;");
+    placeholder->setStyleSheet("font-size: 13px; color: #94A3B8; padding: 40px; background: transparent;");
     m_memberLayout->addWidget(placeholder);
     m_memberLayout->addStretch();
 
@@ -307,7 +317,7 @@ QWidget* ClassDetailWidget::createMemberList()
 
 void ClassDetailWidget::updateMemberList(const QList<ClassManager::MemberInfo> &members)
 {
-    while (m_memberLayout->count() > 2) {
+    while (m_memberLayout->count() > 3) {
         QLayoutItem *item = m_memberLayout->takeAt(m_memberLayout->count() - 1);
         delete item->widget();
         delete item;
@@ -316,29 +326,31 @@ void ClassDetailWidget::updateMemberList(const QList<ClassManager::MemberInfo> &
     m_memberCountLabel->setText(QString("共 %1 人").arg(members.size()));
 
     if (members.isEmpty()) {
-        QLabel *emptyLabel = new QLabel("暂无学生加入，分享班级码邀请学生");
+        QLabel *emptyLabel = new QLabel("暂无学生加入\n将加课码分享给学生即可邀请加入");
         emptyLabel->setAlignment(Qt::AlignCenter);
-        emptyLabel->setStyleSheet("font-size: 13px; color: #9CA3AF; padding: 32px; background: transparent;");
+        emptyLabel->setStyleSheet("font-size: 13px; color: #9CA3AF; padding: 40px;"
+                                  "background: transparent; line-height: 1.6;");
         m_memberLayout->addWidget(emptyLabel);
     } else {
         for (int i = 0; i < members.size(); ++i) {
             const auto &m = members[i];
             auto *rowFrame = new QFrame();
-            rowFrame->setObjectName("memberRow");
-            rowFrame->setStyleSheet(
-                "#memberRow { background: transparent; border: none; border-bottom: 1px solid #F3F4F6; }"
-                "#memberRow:hover { background: #FAFAFA; }");
+            rowFrame->setObjectName(QString("memberRow_%1").arg(i));
+            rowFrame->setStyleSheet(QString(
+                "#memberRow_%1 { background: transparent; border: none;"
+                "  border-bottom: 1px solid #F3F4F6; border-radius: 0; }"
+                "#memberRow_%1:hover { background: #F8FAFC; }").arg(i));
             QHBoxLayout *row = new QHBoxLayout(rowFrame);
-            row->setSpacing(10);
-            row->setContentsMargins(4, 8, 4, 8);
+            row->setSpacing(12);
+            row->setContentsMargins(8, 10, 8, 10);
 
+            // 极简灰色序号圆
             QLabel *avatarLabel = new QLabel(QString::number(i + 1));
             avatarLabel->setFixedSize(28, 28);
             avatarLabel->setAlignment(Qt::AlignCenter);
             avatarLabel->setStyleSheet(
-                "background: #F3F4F6; color: #6B7280; font-size: 12px; font-weight: 600;"
-                "border-radius: 14px; border: none;"
-            );
+                "background: #F3F4F6; color: #4B5563; font-size: 12px; font-weight: 600;"
+                "border-radius: 14px; border: none;");
 
             QString displayName = m.name.isEmpty() ? m.email.split('@')[0] : m.name;
             if (!m.number.isEmpty()) {
@@ -346,18 +358,25 @@ void ClassDetailWidget::updateMemberList(const QList<ClassManager::MemberInfo> &
             }
 
             QLabel *nameLabel = new QLabel(displayName);
-            nameLabel->setStyleSheet(QString(
-                "font-size: 13px; font-weight: 500; color: %1; background: transparent; border: none;"
-            ).arg(StyleConfig::TEXT_PRIMARY));
+            nameLabel->setStyleSheet(
+                "font-size: 13px; font-weight: 500; color: #111827; background: transparent; border: none;");
+
+            // 角色标签：线框/极简灰
+            bool isTeacher = m.name.contains("老师") || m.name.contains("教师");
+            QLabel *roleTag = new QLabel(isTeacher ? "教师" : "学生");
+            roleTag->setStyleSheet(QString(
+                "font-size: 11px; color: %1; background: transparent; padding: 2px 6px;"
+                "border: 1px solid %2; border-radius: 4px; font-weight: 500;")
+                .arg(isTeacher ? "#4B5563" : "#9CA3AF",
+                     isTeacher ? "#D1D5DB" : "#E5E7EB"));
 
             QPushButton *removeBtn = new QPushButton("移除");
             removeBtn->setCursor(Qt::PointingHandCursor);
-            removeBtn->setFixedSize(48, 24);
+            removeBtn->setFixedSize(48, 26);
             removeBtn->setStyleSheet(
                 "QPushButton { font-size: 11px; color: #9CA3AF; background: transparent;"
-                "  border: 1px solid #E5E7EB; border-radius: 4px; }"
-                "QPushButton:hover { color: #EF4444; border-color: #FCA5A5; background: #FEF2F2; }"
-            );
+                "  border: none; border-radius: 4px; }"
+                "QPushButton:hover { color: #EF4444; background: #FEF2F2; }");
 
             QString email = m.email;
             QString name = displayName;
@@ -374,6 +393,7 @@ void ClassDetailWidget::updateMemberList(const QList<ClassManager::MemberInfo> &
             row->addWidget(avatarLabel);
             row->addWidget(nameLabel);
             row->addStretch();
+            row->addWidget(roleTag);
             row->addWidget(removeBtn);
             m_memberLayout->addWidget(rowFrame);
         }

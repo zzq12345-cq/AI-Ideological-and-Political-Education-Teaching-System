@@ -47,6 +47,7 @@ private:
     QWidget *m_listPage;
     ClassDetailWidget *m_detailWidget = nullptr;
     StudentClassDetailWidget *m_studentDetailWidget = nullptr;
+    QLabel *m_countLabel = nullptr;
     QList<ClassInfo> m_classes;
 
 protected:

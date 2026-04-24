@@ -49,17 +49,17 @@ StudentClassDetailWidget::StudentClassDetailWidget(const ClassInfo &info, QWidge
             auto *rowFrame = new QFrame();
             rowFrame->setObjectName("teacherRow");
             rowFrame->setStyleSheet(
-                "#teacherRow { background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 10px; }");
+                "#teacherRow { background: transparent; border: none; border-bottom: 1px solid #F3F4F6; border-radius: 0; }");
             auto *row = new QHBoxLayout(rowFrame); row->setSpacing(12);
-            row->setContentsMargins(12, 10, 12, 10);
+            row->setContentsMargins(8, 10, 8, 10);
 
             auto *avatar = new QLabel(m_classInfo.teacher.left(1));
-            avatar->setFixedSize(36, 36); avatar->setAlignment(Qt::AlignCenter);
-            avatar->setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #FDE68A,stop:1 #FBBF24); color: #92400E; font-size: 14px; font-weight: 700; border-radius: 18px; border: none;");
+            avatar->setFixedSize(28, 28); avatar->setAlignment(Qt::AlignCenter);
+            avatar->setStyleSheet("background: #F3F4F6; color: #4B5563; font-size: 13px; font-weight: 600; border-radius: 14px; border: none;");
             auto *nameL = new QLabel(m_classInfo.teacher);
-            nameL->setStyleSheet(QString("font-size: 14px; font-weight: 600; color: %1; background: transparent; border: none;").arg(StyleConfig::TEXT_PRIMARY));
+            nameL->setStyleSheet("font-size: 13px; font-weight: 500; color: #111827; background: transparent; border: none;");
             auto *tag = new QLabel("教师");
-            tag->setStyleSheet("font-size: 11px; font-weight: 600; color: #92400E; background: #FEF3C7; padding: 3px 10px; border-radius: 10px; border: none;");
+            tag->setStyleSheet("font-size: 11px; color: #4B5563; background: transparent; padding: 2px 6px; border: 1px solid #D1D5DB; border-radius: 4px; font-weight: 500;");
             row->addWidget(avatar); row->addWidget(nameL); row->addStretch(); row->addWidget(tag);
             m_memberLayout->addWidget(rowFrame);
         }
@@ -70,20 +70,20 @@ StudentClassDetailWidget::StudentClassDetailWidget(const ClassInfo &info, QWidge
             if (m.email == m_classInfo.teacherEmail) continue;
 
             auto *rowFrame = new QFrame();
-            rowFrame->setObjectName("stuRow");
-            rowFrame->setStyleSheet(
-                "#stuRow { background: transparent; border: none; border-bottom: 1px solid #F3F4F6; }"
-                "#stuRow:hover { background: #FAFAFA; }");
+            rowFrame->setObjectName(QString("stuRow_%1").arg(i));
+            rowFrame->setStyleSheet(QString(
+                "#stuRow_%1 { background: transparent; border: none; border-bottom: 1px solid #F3F4F6; border-radius: 0; }"
+                "#stuRow_%1:hover { background: #F8FAFC; }").arg(i));
             auto *row = new QHBoxLayout(rowFrame); row->setSpacing(12);
-            row->setContentsMargins(8, 8, 8, 8);
+            row->setContentsMargins(8, 10, 8, 10);
 
             auto *avatar = new QLabel(QString::number(i + 1));
-            avatar->setFixedSize(32, 32); avatar->setAlignment(Qt::AlignCenter);
-            avatar->setStyleSheet("background: #F3F4F6; color: #6B7280; font-size: 12px; font-weight: 600; border-radius: 16px; border: none;");
+            avatar->setFixedSize(28, 28); avatar->setAlignment(Qt::AlignCenter);
+            avatar->setStyleSheet("background: #F3F4F6; color: #4B5563; font-size: 12px; font-weight: 600; border-radius: 14px; border: none;");
             QString display = m.name.isEmpty() ? m.email.split('@')[0] : m.name;
             if (!m.number.isEmpty()) display += "  (" + m.number + ")";
             auto *nameL = new QLabel(display);
-            nameL->setStyleSheet(QString("font-size: 13px; font-weight: 500; color: %1; background: transparent; border: none;").arg(StyleConfig::TEXT_PRIMARY));
+            nameL->setStyleSheet("font-size: 13px; font-weight: 500; color: #111827; background: transparent; border: none;");
             row->addWidget(avatar); row->addWidget(nameL); row->addStretch();
             m_memberLayout->addWidget(rowFrame);
         }
@@ -497,7 +497,7 @@ void StudentClassDetailWidget::setupUI()
 
     // 内容区
     QHBoxLayout *contentLayout = new QHBoxLayout();
-    contentLayout->setSpacing(20);
+    contentLayout->setSpacing(24);
     contentLayout->addWidget(createActionButtons());
 
     m_rightStack = new QStackedWidget();
@@ -513,36 +513,61 @@ QWidget* StudentClassDetailWidget::createActionButtons()
 {
     auto *container = new QWidget();
     container->setFixedWidth(200);
-    container->setStyleSheet("background: transparent;");
+    container->setStyleSheet("#navPanel { background: transparent; }");
     auto *layout = new QVBoxLayout(container);
-    layout->setSpacing(12);
+    layout->setSpacing(2);
     layout->setContentsMargins(0, 0, 0, 0);
 
-    struct Action { QString name; QString desc; QString icon; };
+    struct Action { QString name; QString svgPath; };
     QList<Action> actions = {
-        {"班级成员", "查看师生列表", ""},
-        {"考勤明细", "查看考勤记录", ""},
-        {"我的作业", "查看提交作业", ""},
-        {"课程资料", "浏览下载资料", ""},
+        {"班级成员", ":/icons/resources/icons/users.svg"},
+        {"考勤明细", ":/icons/resources/icons/attendance.svg"},
+        {"我的作业", ":/icons/resources/icons/document.svg"},
+        {"课程资料", ":/icons/resources/icons/folder.svg"},
     };
 
+    bool isFirst = true;
     for (int i = 0; i < actions.size(); ++i) {
         const auto &act = actions[i];
         auto *btn = new QPushButton();
         btn->setCursor(Qt::PointingHandCursor);
-        btn->setFixedHeight(64);
-        btn->setStyleSheet(QString(
-            "QPushButton { background: %1; border: 1px solid %2; border-radius: 12px; padding: 12px 16px; text-align: left; }"
-            "QPushButton:hover { border-color: %3; background: #FFF5F5; }"
-        ).arg(StyleConfig::BG_CARD, StyleConfig::BORDER_LIGHT, StyleConfig::PATRIOTIC_RED));
+        btn->setFixedHeight(36);
 
-        auto *row = new QHBoxLayout(btn); row->setSpacing(10);
-        auto *iconLabel = new QLabel(act.icon); iconLabel->setStyleSheet("font-size: 18px; background: transparent; border: none;");
-        auto *textCol = new QVBoxLayout(); textCol->setSpacing(2);
-        auto *nameL = new QLabel(act.name); nameL->setStyleSheet(QString("font-size: 14px; font-weight: 600; color: %1; background: transparent; border: none;").arg(StyleConfig::TEXT_PRIMARY));
-        auto *descL = new QLabel(act.desc); descL->setStyleSheet("font-size: 11px; color: #9CA3AF; background: transparent; border: none;");
-        textCol->addWidget(nameL); textCol->addWidget(descL);
-        row->addWidget(iconLabel); row->addLayout(textCol); row->addStretch();
+        if (isFirst) {
+            btn->setStyleSheet(
+                "QPushButton {"
+                "  background: #E5E7EB; border: none;"
+                "  border-radius: 6px; padding: 4px 12px; text-align: left;"
+                "}");
+            isFirst = false;
+        } else {
+            btn->setStyleSheet(
+                "QPushButton {"
+                "  background: transparent; border: none;"
+                "  border-radius: 6px; padding: 4px 12px; text-align: left;"
+                "}"
+                "QPushButton:hover { background: #F3F4F6; }");
+        }
+
+        auto *row = new QHBoxLayout(btn);
+        row->setSpacing(8);
+        row->setContentsMargins(8, 0, 8, 0);
+
+        auto *iconLabel = new QLabel();
+        QIcon svgIcon(act.svgPath);
+        iconLabel->setPixmap(svgIcon.pixmap(16, 16));
+        iconLabel->setFixedSize(16, 16);
+        iconLabel->setAlignment(Qt::AlignCenter);
+        iconLabel->setStyleSheet("background: transparent; border: none;");
+
+        auto *nameL = new QLabel(act.name);
+        nameL->setStyleSheet(QString(
+            "font-size: 13px; font-weight: %1; color: %2; background: transparent; border: none;"
+        ).arg(i == 0 ? "600" : "500", i == 0 ? "#111827" : "#4B5563"));
+
+        row->addWidget(iconLabel);
+        row->addWidget(nameL);
+        row->addStretch();
 
         int pageIdx = i;
         QString actName = act.name;
@@ -563,6 +588,7 @@ QWidget* StudentClassDetailWidget::createActionButtons()
 
         layout->addWidget(btn);
     }
+
     layout->addStretch();
     return container;
 }

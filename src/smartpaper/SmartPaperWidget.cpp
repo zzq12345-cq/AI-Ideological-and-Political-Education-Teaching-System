@@ -553,7 +553,7 @@ void SmartPaperWidget::refreshKnowledgePointList()
     }
 
     const QStringList previousChecked = selectedKnowledgePoints();
-    const QList<KnowledgePoint> knowledgePoints =
+    const QList<CurriculumData::KnowledgePoint> knowledgePoints =
         CurriculumData::knowledgePointsFor(m_gradeCombo->currentText(), selectedChapter());
 
     m_knowledgePointList->clear();

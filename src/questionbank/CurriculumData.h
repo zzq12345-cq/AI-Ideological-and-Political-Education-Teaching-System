@@ -6,6 +6,8 @@
 #include <QString>
 #include <QStringList>
 
+namespace CurriculumData {
+
 struct KnowledgePoint {
     QString id;
     QString name;
@@ -20,8 +22,6 @@ struct ChapterGuide {
     QString chapter;
     QStringList highFrequencyPatterns;
 };
-
-namespace CurriculumData {
 
 inline QString displayQuestionType(const QString &type)
 {

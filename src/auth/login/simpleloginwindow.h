@@ -52,6 +52,8 @@ private:
     bool isRememberedSessionStillValid(const QString &username) const;
     bool canRefreshRememberedSession(const QString &username) const;
     void updateLoginButtonState();
+    bool hasUsableRememberedSession(const QString &username) const;
+    void enterMainWindowAfterRoleFetched(const QString &role);
 
     // Supabase回调
     void onLoginSuccess(const QString &userId, const QString &email);
@@ -64,6 +66,8 @@ private:
 
     bool m_loginProcessed = false;  // 防止重复处理登录
     bool m_isRestoringSession = false;
+    QString m_pendingLoginEmail;
+    QString m_pendingUserId;
 
     QHBoxLayout *mainLayout;
     QFrame *leftPanel;
