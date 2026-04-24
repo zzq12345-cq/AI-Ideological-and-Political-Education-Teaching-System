@@ -57,7 +57,8 @@ namespace {
             padding: 10px 14px;
             font-size: 14px;
             color: #1A1A2E;
-            selection-background-color: #FFEBEE;
+            selection-background-color: #E5E7EB;
+            selection-color: #111827;
         }
         QLineEdit:focus, QComboBox:focus, QSpinBox:focus {
             border-color: #D32F2F;

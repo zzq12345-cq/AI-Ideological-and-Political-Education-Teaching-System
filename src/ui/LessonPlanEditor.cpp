@@ -222,8 +222,8 @@ void LessonPlanEditor::initCourseSelector()
         "  border: 1px solid %1;"
         "  border-radius: 8px;"
         "  padding: 4px;"
-        "  selection-background-color: %5;"
-        "  selection-color: %6;"
+        "  selection-background-color: #E5E7EB;"
+        "  selection-color: #111827;"
         "}"
     ).arg(BORDER_COLOR, CARD_BACKGROUND, PRIMARY_TEXT,
           BORDER_FOCUS, PATRIOTIC_RED_BG, PATRIOTIC_RED);
@@ -512,8 +512,8 @@ void LessonPlanEditor::initEditor()
         "  font-size: 15px;"
         "  line-height: 1.8;"
         "  color: %2;"
-        "  selection-background-color: #B4D5FE;"
-        "  selection-color: #1A1A1A;"
+        "  selection-background-color: #E5E7EB;"
+        "  selection-color: #111827;"
         "}"
         "QTextEdit:focus {"
         "  outline: none;"

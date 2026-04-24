@@ -63,7 +63,8 @@ QLineEdit {
     font-size: 15px;
     font-weight: 500;
     color: #1A1A2E;
-    selection-background-color: #FFCC80;
+    selection-background-color: #E5E7EB;
+    selection-color: #111827;
 }
 
 QLineEdit:hover {
@@ -93,7 +94,8 @@ QTableWidget {
     border-radius: 12px;
     outline: none;
     gridline-color: transparent;
-    selection-background-color: transparent;
+    selection-background-color: #E5E7EB;
+    selection-color: #111827;
 }
 
 QTableWidget:focus {

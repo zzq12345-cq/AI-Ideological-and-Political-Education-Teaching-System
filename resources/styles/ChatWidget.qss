@@ -84,6 +84,8 @@ QLineEdit#chatInputEdit {
     padding: 0 12px;
     font-size: 15px;
     color: #2d3748;
+    selection-background-color: #E5E7EB;
+    selection-color: #111827;
 }
 
 QLineEdit#chatInputEdit::placeholder {

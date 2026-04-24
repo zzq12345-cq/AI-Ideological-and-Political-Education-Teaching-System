@@ -145,7 +145,7 @@ void AttendanceResultWidget::updateResultList(const QList<AttendanceManager::Rec
             "QComboBox { padding: 4px 8px; border: 1px solid #E5E7EB; border-radius: 6px;"
             "  font-size: 12px; background: white; }"
             "QComboBox::drop-down { border: none; }"
-            "QComboBox QAbstractItemView { selection-background-color: #FEE2E2; }"
+            "QComboBox QAbstractItemView { selection-background-color: #E5E7EB; selection-color: #111827; }"
         );
 
         // 中文映射

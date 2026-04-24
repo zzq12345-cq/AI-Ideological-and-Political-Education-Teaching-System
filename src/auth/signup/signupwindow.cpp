@@ -259,7 +259,7 @@ void SignUpWindow::buildFormPanel()
     usernameEdit->setPlaceholderText(cn("请输入用户名"));
     usernameEdit->setFixedHeight(50);
     usernameEdit->setStyleSheet(
-        "QLineEdit { border: 1px solid #CFD7E7; border-radius: 8px; padding: 0 16px; font-size: 16px; color: #0F172A; selection-color: #FFFFFF; selection-background-color: #C62828; background-color: #F6F6F8; }"
+        "QLineEdit { border: 1px solid #CFD7E7; border-radius: 8px; padding: 0 16px; font-size: 16px; color: #0F172A; selection-color: #111827; selection-background-color: #E5E7EB; background-color: #F6F6F8; }"
         "QLineEdit:focus { border: 2px solid #C62828; color: #0F172A; outline: none; }"
         "QLineEdit::placeholder { color: #9CA3AF; }"
     );
@@ -278,7 +278,7 @@ void SignUpWindow::buildFormPanel()
     emailEdit->setPlaceholderText(cn("请输入电子邮箱"));
     emailEdit->setFixedHeight(50);
     emailEdit->setStyleSheet(
-        "QLineEdit { border: 1px solid #CFD7E7; border-radius: 8px; padding: 0 16px; font-size: 16px; color: #0F172A; selection-color: #FFFFFF; selection-background-color: #C62828; background-color: #F6F6F8; }"
+        "QLineEdit { border: 1px solid #CFD7E7; border-radius: 8px; padding: 0 16px; font-size: 16px; color: #0F172A; selection-color: #111827; selection-background-color: #E5E7EB; background-color: #F6F6F8; }"
         "QLineEdit:focus { border: 2px solid #C62828; color: #0F172A; outline: none; }"
         "QLineEdit::placeholder { color: #9CA3AF; }"
     );
@@ -335,7 +335,7 @@ void SignUpWindow::buildFormPanel()
     passwordEdit1->setPlaceholderText(cn("请输入密码 (至少8位)"));
     passwordEdit1->setFixedHeight(50);
     passwordEdit1->setStyleSheet(
-        "QLineEdit { border: 1px solid #CFD7E7; border-radius: 8px; padding: 0 50px 0 16px; font-size: 16px; color: #0F172A; selection-color: #FFFFFF; selection-background-color: #C62828; background-color: #F6F6F8; }"
+        "QLineEdit { border: 1px solid #CFD7E7; border-radius: 8px; padding: 0 50px 0 16px; font-size: 16px; color: #0F172A; selection-color: #111827; selection-background-color: #E5E7EB; background-color: #F6F6F8; }"
         "QLineEdit:focus { border: 2px solid #C62828; color: #0F172A; outline: none; }"
         "QLineEdit::placeholder { color: #9CA3AF; }"
     );
@@ -365,7 +365,7 @@ void SignUpWindow::buildFormPanel()
     passwordEdit2->setPlaceholderText(cn("请再次输入密码"));
     passwordEdit2->setFixedHeight(50);
     passwordEdit2->setStyleSheet(
-        "QLineEdit { border: 1px solid #CFD7E7; border-radius: 8px; padding: 0 50px 0 16px; font-size: 16px; color: #0F172A; selection-color: #FFFFFF; selection-background-color: #C62828; background-color: #F6F6F8; }"
+        "QLineEdit { border: 1px solid #CFD7E7; border-radius: 8px; padding: 0 50px 0 16px; font-size: 16px; color: #0F172A; selection-color: #111827; selection-background-color: #E5E7EB; background-color: #F6F6F8; }"
         "QLineEdit:focus { border: 2px solid #C62828; color: #0F172A; outline: none; }"
         "QLineEdit::placeholder { color: #9CA3AF; }"
     );

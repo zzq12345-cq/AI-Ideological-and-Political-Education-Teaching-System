@@ -252,8 +252,8 @@ void SimpleLoginWindow::setupUI()
         "  padding: 16px 16px;"  // 明确设置左右padding
         "  font-size: 16px;"
         "  color: #0F172A;"
-        "  selection-color: #FFFFFF;"
-        "  selection-background-color: #C62828;"
+        "  selection-color: #111827;"
+        "  selection-background-color: #E5E7EB;"
         "  background-color: #F6F6F8;"
         "}"
         "QLineEdit:focus {"
@@ -284,8 +284,8 @@ void SimpleLoginWindow::setupUI()
         "  padding: 16px 50px 16px 16px;"  // 右侧留出50px给眼睛按钮
         "  font-size: 16px;"
         "  color: #0F172A;"
-        "  selection-color: #FFFFFF;"
-        "  selection-background-color: #C62828;"
+        "  selection-color: #111827;"
+        "  selection-background-color: #E5E7EB;"
         "  background-color: #F6F6F8;"
         "}"
         "QLineEdit:focus {"

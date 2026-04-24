@@ -200,8 +200,8 @@ QComboBox QAbstractItemView {
     color: #424242;
     border: 1px solid #e8eaf6;
     border-radius: 6px;
-    selection-background-color: #ffebee;
-    selection-color: #c62828;
+    selection-background-color: #E5E7EB;
+    selection-color: #111827;
 }
 
 /* ===== 复选框样式 ===== */
