@@ -2643,6 +2643,7 @@ void ModernMainWindow::createAIChatWidget()
 
     // 标签页2: 教案编辑器 - 使用SVG图标
     m_lessonPlanEditor = new LessonPlanEditor();
+    m_lessonPlanEditor->setDifyService(m_difyService);
     m_aiTabWidget->addTab(m_lessonPlanEditor, QIcon(":/icons/resources/icons/document-edit.svg"), "教案编辑");
 
     // 连接教案编辑器的保存信号
