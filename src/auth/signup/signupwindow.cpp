@@ -6,6 +6,7 @@
 #include <QNetworkReply>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include "../../shared/ModernDialogHelper.h"
 
 #include <QFontDatabase>
 #include <QFile>
@@ -619,18 +620,11 @@ void SignUpWindow::openLoginWindow()
 
 void SignUpWindow::showMessage(const QString &title, const QString &message, QMessageBox::Icon icon)
 {
-    QMessageBox msgBox(this);
-    enforceChineseFont(&msgBox, 14, QFont::Normal);
-    msgBox.setWindowTitle(title);
-    msgBox.setText(message);
-    msgBox.setIcon(icon);
-    msgBox.setStyleSheet(
-        "QMessageBox { background-color: white; }"
-        "QMessageBox QLabel { color: #0F172A; font-size: 14px; }"
-        "QMessageBox QPushButton { background-color: #C62828; color: white; border: none; padding: 8px 24px; border-radius: 6px; font-size: 14px; }"
-        "QMessageBox QPushButton:hover { background-color: #B71C1C; }"
-    );
-    msgBox.exec();
+    if (icon == QMessageBox::Warning || icon == QMessageBox::Critical) {
+        ModernDialogHelper::warning(this, title, message);
+    } else {
+        ModernDialogHelper::info(this, title, message);
+    }
 }
 
 bool SignUpWindow::eventFilter(QObject *watched, QEvent *event)

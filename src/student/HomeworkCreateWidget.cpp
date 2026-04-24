@@ -8,6 +8,7 @@
 #include <QFrame>
 #include <QMessageBox>
 #include <QGraphicsDropShadowEffect>
+#include "../shared/ModernDialogHelper.h"
 
 HomeworkCreateWidget::HomeworkCreateWidget(const QString &classId, const QString &teacherEmail, QWidget *parent)
     : QWidget(parent)
@@ -160,7 +161,7 @@ void HomeworkCreateWidget::onPublishClicked()
 
     connect(HomeworkManager::instance(), &HomeworkManager::assignmentCreated, this,
             [this](const HomeworkManager::AssignmentInfo &) {
-        QMessageBox::information(this, "成功", "作业已发布！");
+        ModernDialogHelper::info(this, "成功", "作业已发布！");
         emit created();
     }, Qt::SingleShotConnection);
 
@@ -168,6 +169,6 @@ void HomeworkCreateWidget::onPublishClicked()
             [this](const QString &msg) {
         m_publishBtn->setEnabled(true);
         m_publishBtn->setText("发布作业");
-        QMessageBox::warning(this, "失败", msg);
+        ModernDialogHelper::warning(this, "失败", msg);
     }, Qt::SingleShotConnection);
 }

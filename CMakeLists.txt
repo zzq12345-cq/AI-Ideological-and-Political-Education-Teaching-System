@@ -200,6 +200,8 @@ set(PROJECT_SOURCES
     src/utils/NetworkRetryHelper.h
     src/utils/SimpleZipWriter.cpp
     src/utils/SimpleZipWriter.h
+    src/shared/ModernDialogHelper.cpp
+    src/shared/ModernDialogHelper.h
     resources.qrc
     resources/QtTheme/QtTheme.qrc
 )

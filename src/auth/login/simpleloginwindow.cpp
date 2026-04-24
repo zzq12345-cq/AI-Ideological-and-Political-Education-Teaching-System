@@ -3,6 +3,7 @@
 #include "../../dashboard/modernmainwindow.h"
 #include "../../settings/UserSettingsManager.h"
 #include <QMessageBox>
+#include "../../shared/ModernDialogHelper.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QIcon>
@@ -517,7 +518,7 @@ void SimpleLoginWindow::onLoginClicked()
     QString password = passwordEdit->text();
 
     if (username.isEmpty()) {
-        QMessageBox::warning(this, "提示", "请输入用户名或邮箱！");
+        ModernDialogHelper::warning(this, "提示", "请输入用户名或邮箱！");
         return;
     }
 
@@ -574,7 +575,7 @@ void SimpleLoginWindow::onLoginClicked()
         saveRememberedCredentials();
 
         qDebug() << "准备显示登录成功提示...";
-        QMessageBox::information(this, "登录成功", "欢迎 " + username + "！\n\n正在进入" + role + "端...");
+        ModernDialogHelper::info(this, "登录成功", "欢迎 " + username + "！\n\n正在进入" + role + "端...");
         qDebug() << "登录成功提示已关闭";
 
         // 打开主界面
@@ -584,7 +585,7 @@ void SimpleLoginWindow::onLoginClicked()
     }
 
     if (password.isEmpty()) {
-        QMessageBox::warning(this, "提示", "请输入密码。");
+        ModernDialogHelper::warning(this, "提示", "请输入密码。");
         return;
     }
 
@@ -598,7 +599,7 @@ void SimpleLoginWindow::onLoginClicked()
 
         m_supabaseClient->login(username, password);
     } else {
-        QMessageBox::warning(this, "登录失败", "请使用正确的用户名或邮箱！\n\n提示：\n• 测试账号：teacher01\n• 或使用邮箱登录");
+        ModernDialogHelper::warning(this, "登录失败", "请使用正确的用户名或邮箱！\n\n提示：\n• 测试账号：teacher01\n• 或使用邮箱登录");
     }
 }
 
@@ -715,11 +716,11 @@ void SimpleLoginWindow::onLoginFailed(const QString &errorMessage)
         if (rememberMeCheck) {
             rememberMeCheck->setChecked(false);
         }
-        QMessageBox::warning(this,
+        ModernDialogHelper::warning(this,
                              "登录状态失效",
                              "已保存的登录状态不可用了，请重新输入密码登录。\n\n" + errorMessage);
     } else {
-        QMessageBox::warning(this, "登录失败", errorMessage);
+        ModernDialogHelper::warning(this, "登录失败", errorMessage);
     }
 
     loginButton->setEnabled(true);
@@ -733,25 +734,20 @@ void SimpleLoginWindow::onForgotPasswordClicked()
     // 预填用户名框中的邮箱（如果有的话）
     QString defaultEmail = usernameEdit->text().contains("@") ? usernameEdit->text() : "";
 
-    bool ok = false;
-    QString email = QInputDialog::getText(
+    QString email = ModernDialogHelper::input(
         this,
         "忘记密码",
         "请输入您的注册邮箱，我们将发送密码重置链接：",
-        QLineEdit::Normal,
-        defaultEmail,
-        &ok
+        defaultEmail
     );
 
-    if (!ok || email.trimmed().isEmpty()) {
+    if (email.isEmpty()) {
         return;
     }
 
-    email = email.trimmed();
-
     // 简单的邮箱格式校验
     if (!email.contains("@") || !email.contains(".")) {
-        QMessageBox::warning(this, "提示", "请输入有效的邮箱地址。");
+        ModernDialogHelper::warning(this, "提示", "请输入有效的邮箱地址。");
         return;
     }
 
@@ -765,7 +761,7 @@ void SimpleLoginWindow::onPasswordResetSuccess(const QString &message)
     forgotPasswordBtn->setEnabled(true);
     forgotPasswordBtn->setText("忘记密码？");
 
-    QMessageBox::information(this, "密码重置", message + "\n\n请查收邮件并按指引重置密码。");
+    ModernDialogHelper::info(this, "密码重置", message + "\n\n请查收邮件并按指引重置密码。");
 }
 
 void SimpleLoginWindow::onPasswordResetFailed(const QString &errorMessage)
@@ -773,7 +769,7 @@ void SimpleLoginWindow::onPasswordResetFailed(const QString &errorMessage)
     forgotPasswordBtn->setEnabled(true);
     forgotPasswordBtn->setText("忘记密码？");
 
-    QMessageBox::warning(this, "密码重置失败", "无法发送重置邮件：\n" + errorMessage);
+    ModernDialogHelper::warning(this, "密码重置失败", "无法发送重置邮件：\n" + errorMessage);
 }
 
 void SimpleLoginWindow::onRememberMeToggled(bool checked)

@@ -13,6 +13,7 @@
 #include <QSvgWidget>
 #include <QTextEdit>
 #include <QMessageBox>
+#include "../shared/ModernDialogHelper.h"
 #include <QClipboard>
 #include <QApplication>
 #include <QPrinter>
@@ -804,7 +805,7 @@ void DataAnalyticsWidget::createAIReportArea(QVBoxLayout *layout)
           StyleConfig::PATRIOTIC_RED_TINT, StyleConfig::PATRIOTIC_RED));
     connect(copyBtn, &QPushButton::clicked, this, [this]() {
         QApplication::clipboard()->setText(m_aiReportContent->text());
-        QMessageBox::information(this, "提示", "报告已复制到剪贴板");
+        ModernDialogHelper::info(this, "提示", "报告已复制到剪贴板");
     });
 
     titleRow->addWidget(aiIcon);
@@ -870,7 +871,7 @@ void DataAnalyticsWidget::onExportClicked()
 
     QPainter painter(&printer);
     if (!painter.isActive()) {
-        QMessageBox::warning(this, "导出失败", "无法创建 PDF 文件");
+        ModernDialogHelper::warning(this, "导出失败", "无法创建 PDF 文件");
         return;
     }
 
@@ -989,14 +990,14 @@ void DataAnalyticsWidget::onExportClicked()
 
     painter.end();
 
-    QMessageBox::information(this, "导出成功",
+    ModernDialogHelper::info(this, "导出成功",
                              QString("报告已导出到:\n%1").arg(fileName));
 }
 
 void DataAnalyticsWidget::onGenerateReportClicked()
 {
     if (!m_difyService) {
-        QMessageBox::warning(this, "提示", "AI 服务未就绪，请稍后重试");
+        ModernDialogHelper::warning(this, "提示", "AI 服务未就绪，请稍后重试");
         return;
     }
 

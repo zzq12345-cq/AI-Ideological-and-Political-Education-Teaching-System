@@ -10,6 +10,7 @@
 #include <QNetworkRequest>
 #include <QDesktopServices>
 #include <QMessageBox>
+#include "../shared/ModernDialogHelper.h"
 #include <QTextEdit>
 #include <QDialogButtonBox>
 #include <QSvgRenderer>
@@ -1158,7 +1159,7 @@ void HotspotTrackingWidget::onGenerateTeachingClicked(const NewsItem &news)
     qDebug() << "[HotspotTrackingWidget] Generate teaching content for:" << news.title;
 
     if (!m_difyService) {
-        QMessageBox::warning(this, "提示", "AI服务未就绪，请稍后重试");
+        ModernDialogHelper::warning(this, "提示", "AI服务未就绪，请稍后重试");
         return;
     }
 

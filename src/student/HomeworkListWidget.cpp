@@ -7,6 +7,7 @@
 #include <QScrollArea>
 #include <QMessageBox>
 #include <QGraphicsDropShadowEffect>
+#include "../shared/ModernDialogHelper.h"
 
 HomeworkListWidget::HomeworkListWidget(const QString &classId, QWidget *parent)
     : QWidget(parent)
@@ -158,10 +159,8 @@ QWidget* HomeworkListWidget::createAssignmentCard(const HomeworkManager::Assignm
         "QPushButton:hover { color: #EF4444; border-color: #FCA5A5; background: #FEF2F2; }"
     );
     connect(deleteBtn, &QPushButton::clicked, this, [this, info]() {
-        auto ret = QMessageBox::question(this, "确认删除",
-            QString("确定删除作业 \"%1\" 吗？").arg(info.title),
-            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
-        if (ret == QMessageBox::Yes) {
+        if (ModernDialogHelper::confirm(this, "确认删除",
+                QString("确定删除作业 \"%1\" 吗？").arg(info.title))) {
             HomeworkManager::instance()->deleteAssignment(info.id);
             connect(HomeworkManager::instance(), &HomeworkManager::assignmentDeleted, this,
                     [this](const QString &) { refreshList(); }, Qt::SingleShotConnection);

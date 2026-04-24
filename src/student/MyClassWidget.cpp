@@ -11,6 +11,7 @@
 #include <QMessageBox>
 #include <QGraphicsDropShadowEffect>
 #include <QTimer>
+#include "../shared/ModernDialogHelper.h"
 #include <QEvent>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -42,10 +43,10 @@ MyClassWidget::MyClassWidget(bool isTeacher, const QString &userEmail, QWidget *
     });
     connect(mgr, &ClassManager::joinResult, this, [this](bool ok, const QString &msg, const QString &) {
         if (ok) {
-            QMessageBox::information(this, "加入成功", msg);
+            ModernDialogHelper::info(this, "加入成功", msg);
             reloadClasses();
         } else {
-            QMessageBox::warning(this, "加入失败", msg);
+            ModernDialogHelper::warning(this, "加入失败", msg);
         }
     });
 
@@ -414,9 +415,9 @@ void MyClassWidget::onSignAttendance()
 void MyClassWidget::onSignResult(bool success, const QString &message)
 {
     if (success) {
-        QMessageBox::information(this, "签到成功", message);
+        ModernDialogHelper::info(this, "签到成功", message);
     } else {
-        QMessageBox::warning(this, "签到失败", message);
+        ModernDialogHelper::warning(this, "签到失败", message);
     }
 }
 

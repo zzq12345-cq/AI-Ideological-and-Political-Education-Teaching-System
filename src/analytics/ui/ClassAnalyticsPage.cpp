@@ -11,6 +11,7 @@
 #include <QGraphicsDropShadowEffect>
 #include <QFileDialog>
 #include <QMessageBox>
+#include "../../shared/ModernDialogHelper.h"
 #include <QIcon>
 #include <QDir>
 #include <QDateTime>
@@ -715,7 +716,7 @@ void ClassAnalyticsPage::onAIRequestFinished()
 void ClassAnalyticsPage::onExportClicked()
 {
     if (!m_dataSource || m_currentClassId < 0) {
-        QMessageBox::warning(this, "提示", "暂无班级数据可导出");
+        ModernDialogHelper::warning(this, "提示", "暂无班级数据可导出");
         return;
     }
 
@@ -741,7 +742,7 @@ void ClassAnalyticsPage::onExportClicked()
 
     QPainter painter(&printer);
     if (!painter.isActive()) {
-        QMessageBox::warning(this, "导出失败", "无法创建 PDF 文件");
+        ModernDialogHelper::warning(this, "导出失败", "无法创建 PDF 文件");
         return;
     }
 
@@ -904,6 +905,6 @@ void ClassAnalyticsPage::onExportClicked()
 
     painter.end();
 
-    QMessageBox::information(this, "导出成功",
+    ModernDialogHelper::info(this, "导出成功",
                              QString("班级分析报告已导出到:\n%1").arg(fileName));
 }

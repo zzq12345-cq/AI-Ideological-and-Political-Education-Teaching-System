@@ -8,6 +8,7 @@
 #include <QFrame>
 #include <QMessageBox>
 #include <QGraphicsDropShadowEffect>
+#include "../shared/ModernDialogHelper.h"
 
 ClassSettingsWidget::ClassSettingsWidget(const ClassInfo &info, QWidget *parent)
     : QWidget(parent)
@@ -179,12 +180,11 @@ void ClassSettingsWidget::onSaveClicked()
 
 void ClassSettingsWidget::onDeleteClicked()
 {
-    auto ret = QMessageBox::warning(this, "确认删除",
+    bool confirmed = ModernDialogHelper::confirm(this, "确认删除",
         QString("确定要删除班级 \"%1\" 吗？\n删除后所有成员和考勤记录将被清除，此操作不可撤销。")
-            .arg(m_classInfo.name),
-        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+            .arg(m_classInfo.name));
 
-    if (ret == QMessageBox::Yes) {
+    if (confirmed) {
         emit deleteRequested(m_classInfo.id);
     }
 }

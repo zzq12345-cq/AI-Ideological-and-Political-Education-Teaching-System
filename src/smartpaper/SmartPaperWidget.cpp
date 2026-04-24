@@ -11,6 +11,7 @@
 #include <QScrollBar>
 #include <QGroupBox>
 #include <QMessageBox>
+#include "../shared/ModernDialogHelper.h"
 #include <QDebug>
 #include <QApplication>
 #include <QGraphicsDropShadowEffect>
@@ -1311,7 +1312,7 @@ void SmartPaperWidget::onSwapQuestion(const QString &questionId, const QString &
         m_currentResult = m_smartPaperService->currentResult();
         buildResultPreview();
     } else {
-        QMessageBox::information(this, "提示", "候选池已空，无法换题");
+        ModernDialogHelper::info(this, "提示", "候选池已空，无法换题");
     }
 }
 
@@ -1353,7 +1354,7 @@ void SmartPaperWidget::onPaperCreated(const Paper &paper)
     m_paperService->addQuestions(m_pendingSaveQuestions);
     m_pendingSaveQuestions.clear();
 
-    QMessageBox::information(this, "保存成功",
+    ModernDialogHelper::info(this, "保存成功",
         QString("试卷「%1」已保存到云端（共 %2 题）")
             .arg(paper.title)
             .arg(m_currentResult.selectedQuestions.size()));
@@ -1369,7 +1370,7 @@ void SmartPaperWidget::onImportToBasket()
         basket->setQuestionScore(q.id, q.score);
     }
 
-    QMessageBox::information(this, "导入成功",
+    ModernDialogHelper::info(this, "导入成功",
         QString("已将 %1 道题导入试题篮").arg(m_currentResult.selectedQuestions.size()));
 }
 

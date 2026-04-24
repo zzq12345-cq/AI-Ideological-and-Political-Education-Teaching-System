@@ -8,6 +8,7 @@
 #include <QMessageBox>
 #include <QFrame>
 #include <QGraphicsDropShadowEffect>
+#include "../shared/ModernDialogHelper.h"
 #include <QScrollArea>
 #include <QtSvgWidgets/QSvgWidget>
 #include <QFile>
@@ -418,16 +419,7 @@ void UserSettingsDialog::onSaveClicked()
 {
     QString nickname = m_nicknameEdit->text().trimmed();
     if (nickname.isEmpty()) {
-        QMessageBox msgBox(this);
-        msgBox.setWindowTitle("提示");
-        msgBox.setText("请输入您的姓名或昵称！");
-        msgBox.setIcon(QMessageBox::Warning);
-        msgBox.setStyleSheet(QString(
-            "QMessageBox { background: white; }"
-            "QLabel { color: %1; }"
-            "QPushButton { padding: 8px 24px; border-radius: 6px; background: %2; color: white; font-weight: 500; }"
-        ).arg(StyleConfig::TEXT_PRIMARY).arg(StyleConfig::PATRIOTIC_RED));
-        msgBox.exec();
+        ModernDialogHelper::warning(this, "提示", "请输入您的姓名或昵称！");
         m_nicknameEdit->setFocus();
         return;
     }
@@ -451,7 +443,7 @@ void UserSettingsDialog::onSaveClicked()
                 settings->setTitle(m_titleEdit->text().trimmed());
                 settings->save();
                 qDebug() << "[SettingsDialog] 邀请码验证成功，绑定学校:" << schoolName;
-                QMessageBox::information(this, "升级成功",
+                ModernDialogHelper::info(this, "升级成功",
                     QString("已升级为教师，绑定学校: %1").arg(schoolName));
                 emit roleUpgraded();
                 accept();
@@ -459,7 +451,7 @@ void UserSettingsDialog::onSaveClicked()
 
             connect(AdminManager::instance(), &AdminManager::inviteCodeInvalid, this,
                 [this](const QString &msg) {
-                QMessageBox::warning(this, "邀请码错误", msg);
+                ModernDialogHelper::warning(this, "邀请码错误", msg);
                 m_inviteCodeEdit->setFocus();
             }, Qt::SingleShotConnection);
 
@@ -483,16 +475,7 @@ void UserSettingsDialog::onSaveClicked()
         successMsg = "恭喜！您的账号已升级为教师身份！";
     }
 
-    QMessageBox msgBox(this);
-    msgBox.setWindowTitle("成功");
-    msgBox.setText(successMsg);
-    msgBox.setIcon(QMessageBox::Information);
-    msgBox.setStyleSheet(QString(
-        "QMessageBox { background: white; }"
-        "QLabel { color: %1; }"
-        "QPushButton { padding: 8px 24px; border-radius: 6px; background: %2; color: white; font-weight: 500; }"
-    ).arg(StyleConfig::TEXT_PRIMARY).arg(StyleConfig::SUCCESS_GREEN));
-    msgBox.exec();
+    ModernDialogHelper::info(this, "成功", successMsg);
     accept();
 }
 

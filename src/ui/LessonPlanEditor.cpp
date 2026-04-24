@@ -14,6 +14,7 @@
 #include <QTextCharFormat>
 #include <QTextBlockFormat>
 #include <QMessageBox>
+#include "../shared/ModernDialogHelper.h"
 #include <QDebug>
 #include <QFile>
 #include <QFileDialog>
@@ -765,11 +766,9 @@ void LessonPlanEditor::onAIGenerateClicked()
 
     // 确认覆盖现有内容
     if (!m_editor->toPlainText().isEmpty()) {
-        QMessageBox::StandardButton reply = QMessageBox::question(
-            this, "确认", "AI生成将覆盖当前内容，是否继续？",
-            QMessageBox::Yes | QMessageBox::No
-        );
-        if (reply != QMessageBox::Yes) return;
+        if (!ModernDialogHelper::confirm(this, "确认", "AI生成将覆盖当前内容，是否继续？")) {
+            return;
+        }
     }
 
     m_isGenerating = true;
@@ -786,7 +785,7 @@ void LessonPlanEditor::onAIGenerateClicked()
     emit aiGenerationStarted();
 
     if (!m_difyService) {
-        QMessageBox::warning(this, "提示", "AI 服务未就绪，请稍后重试");
+        ModernDialogHelper::warning(this, "提示", "AI 服务未就绪，请稍后重试");
         m_isGenerating = false;
         m_aiGenerateBtn->setEnabled(true);
         m_aiGenerateBtn->setIcon(QIcon(":/icons/resources/icons/ai-sparkle.svg"));
@@ -944,7 +943,7 @@ void LessonPlanEditor::onAIError(const QString &error)
     m_aiGenerateBtn->setText(" AI生成教案");
     m_statusLabel->setText("生成失败");
 
-    QMessageBox::warning(this, "AI生成失败", QString("生成教案时出错：%1").arg(error));
+    ModernDialogHelper::warning(this, "AI生成失败", QString("生成教案时出错：%1").arg(error));
     qWarning() << "[LessonPlanEditor] AI生成失败：" << error;
 }
 
@@ -956,7 +955,7 @@ void LessonPlanEditor::onSaveClicked()
     QString plainText = m_editor->toPlainText();
 
     if (content.isEmpty() || plainText.trimmed().isEmpty()) {
-        QMessageBox::warning(this, "保存失败", "教案内容不能为空");
+        ModernDialogHelper::warning(this, "保存失败", "教案内容不能为空");
         return;
     }
 
@@ -1004,7 +1003,7 @@ void LessonPlanEditor::onSaveClicked()
         // 其他文本格式
         QFile file(filePath);
         if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            QMessageBox::critical(this, "保存失败",
+            ModernDialogHelper::warning(this, "保存失败",
                 QString("无法打开文件：%1").arg(file.errorString()));
             return;
         }
@@ -1038,17 +1037,13 @@ void LessonPlanEditor::onSaveClicked()
 
         qDebug() << "[LessonPlanEditor] 教案已保存到：" << filePath;
 
-        QMessageBox::StandardButton reply = QMessageBox::question(
-            this, "保存成功",
-            QString("教案已保存到：\n%1\n\n是否立即打开？").arg(filePath),
-            QMessageBox::Yes | QMessageBox::No
-        );
-
-        if (reply == QMessageBox::Yes) {
+        if (ModernDialogHelper::confirm(
+                this, "保存成功",
+                QString("教案已保存到：\n%1\n\n是否立即打开？").arg(filePath))) {
             QDesktopServices::openUrl(QUrl::fromLocalFile(filePath));
         }
     } else {
-        QMessageBox::critical(this, "保存失败", errorMsg);
+        ModernDialogHelper::warning(this, "保存失败", errorMsg);
     }
 }
 
@@ -1334,11 +1329,9 @@ void LessonPlanEditor::checkAndRestoreDraft()
     if (savedContent.isEmpty() || !savedTime.isValid()) return;
 
     // 草稿存在，询问用户是否恢复
-    auto result = QMessageBox::question(this, "恢复草稿",
-        QString("发现 %1 的未保存草稿，是否恢复？")
-            .arg(savedTime.toString("yyyy-MM-dd HH:mm:ss")),
-        QMessageBox::Yes | QMessageBox::No);
-    if (result == QMessageBox::Yes) {
+    if (ModernDialogHelper::confirm(this, "恢复草稿",
+            QString("发现 %1 的未保存草稿，是否恢复？")
+                .arg(savedTime.toString("yyyy-MM-dd HH:mm:ss")))) {
         m_editor->setHtml(savedContent);
         m_statusLabel->setText("已恢复草稿");
         qDebug() << "[LessonPlanEditor] 已恢复自动保存草稿";

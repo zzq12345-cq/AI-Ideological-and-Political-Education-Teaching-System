@@ -15,6 +15,7 @@
 #include <QGraphicsDropShadowEffect>
 #include <QDebug>
 #include <QMessageBox>
+#include "../shared/ModernDialogHelper.h"
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -62,7 +63,7 @@ void AIQuestionGenWidget::setSavingToBank(bool saving)
 void AIQuestionGenWidget::showSaveSuccessMessage(int savedCount, bool directInsert)
 {
     setSavingToBank(false);
-    QMessageBox::information(
+    ModernDialogHelper::info(
         this, "保存成功",
         directInsert
             ? QString("AI 生成的试题已通过工作流直接入库（共 %1 题）。").arg(savedCount)
@@ -73,7 +74,7 @@ void AIQuestionGenWidget::showSaveSuccessMessage(int savedCount, bool directInse
 void AIQuestionGenWidget::showSaveErrorMessage(const QString &error)
 {
     setSavingToBank(false);
-    QMessageBox::warning(this, "保存失败", error);
+    ModernDialogHelper::warning(this, "保存失败", error);
 }
 
 void AIQuestionGenWidget::setExportAvailable(bool available, const QString &reason)

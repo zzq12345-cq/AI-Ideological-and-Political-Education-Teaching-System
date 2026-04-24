@@ -33,6 +33,7 @@
 #include <QNetworkReply>
 #include <QUrlQuery>
 #include <QMessageBox>
+#include "../shared/ModernDialogHelper.h"
 #include <QFile>
 #include <QRegularExpression>
 #include <QHBoxLayout>
@@ -922,10 +923,7 @@ void ModernMainWindow::setupMenuBar()
     logoutAction = fileMenu->addAction("注销(&L)");
     logoutAction->setShortcut(QKeySequence("Ctrl+L"));
     connect(logoutAction, &QAction::triggered, this, [this]() {
-        QMessageBox::StandardButton reply = QMessageBox::question(this, "注销",
-            "确定要注销当前账户吗？",
-            QMessageBox::Yes | QMessageBox::No);
-        if (reply == QMessageBox::Yes) {
+        if (ModernDialogHelper::confirm(this, "注销", "确定要注销当前账户吗？")) {
             SimpleLoginWindow *loginWindow = new SimpleLoginWindow(nullptr, false);
             loginWindow->show();
             this->close();
@@ -944,7 +942,7 @@ void ModernMainWindow::setupMenuBar()
 
     helpMenu->addSeparator();
     aboutAction = helpMenu->addAction("关于(&A)");
-    connect(aboutAction, &QAction::triggered, this, [](){ QMessageBox::about(nullptr, "关于", "思政智慧课堂 - 教师中心"); });
+    connect(aboutAction, &QAction::triggered, this, [this](){ ModernDialogHelper::info(this, "关于", "思政智慧课堂 - 教师中心"); });
 }
 
 void ModernMainWindow::setupStatusBar()
@@ -2214,22 +2212,22 @@ void ModernMainWindow::onSettingsClicked()
 
 void ModernMainWindow::onHelpClicked()
 {
-    QMessageBox::information(this, "帮助中心", "帮助中心功能正在开发中...");
+    ModernDialogHelper::info(this, "帮助中心", "帮助中心功能正在开发中...");
 }
 
 void ModernMainWindow::onQuickPreparationClicked()
 {
-    QMessageBox::information(this, "快速备课", "快速备课功能正在开发中...");
+    ModernDialogHelper::info(this, "快速备课", "快速备课功能正在开发中...");
 }
 
 void ModernMainWindow::onStartClassClicked()
 {
-    QMessageBox::information(this, "开始授课", "开始授课功能正在开发中...");
+    ModernDialogHelper::info(this, "开始授课", "开始授课功能正在开发中...");
 }
 
 void ModernMainWindow::onEnterClassClicked()
 {
-    QMessageBox::information(this, "进入课堂", "进入课堂功能正在开发中...");
+    ModernDialogHelper::info(this, "进入课堂", "进入课堂功能正在开发中...");
 }
 
 // ==================== 新版 UI 组件实现 ====================
@@ -2933,18 +2931,18 @@ void ModernMainWindow::onAIRequestFinished()
             defaultName += ".pptx";
             
             QString filePath = QFileDialog::getSaveFileName(
-                this, 
-                "保存 PPT 文件", 
+                this,
+                "保存 PPT 文件",
                 QDir::homePath() + "/Desktop/" + defaultName,
                 "PowerPoint 文件 (*.pptx)"
             );
-            
+
             if (!filePath.isEmpty()) {
                 if (m_pptxGenerator->generateFromJson(pptJson, filePath)) {
-                    QMessageBox::information(this, "成功", 
+                    ModernDialogHelper::info(this, "成功",
                         QString("PPT 已生成！\n\n文件位置：%1").arg(filePath));
                 } else {
-                    QMessageBox::warning(this, "生成失败", 
+                    ModernDialogHelper::warning(this, "生成失败",
                         QString("PPT 生成失败：%1").arg(m_pptxGenerator->lastError()));
                 }
             }
@@ -3200,7 +3198,7 @@ void ModernMainWindow::onPPTSimulationStep()
                             "PPT生成：爱国主义精神传承", timeStr);
                     }
                 } else {
-                    QMessageBox::warning(this, "生成失败", "文件保存失败，请检查权限或磁盘空间。");
+                    ModernDialogHelper::warning(this, "生成失败", "文件保存失败，请检查权限或磁盘空间。");
                 }
             }
             // 重置问答状态，允许下次继续生成

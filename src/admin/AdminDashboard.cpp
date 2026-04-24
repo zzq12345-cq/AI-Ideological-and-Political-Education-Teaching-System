@@ -8,6 +8,7 @@
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QMessageBox>
+#include "../shared/ModernDialogHelper.h"
 #include <QSpinBox>
 #include <QComboBox>
 #include <QTextEdit>
@@ -343,9 +344,8 @@ void AdminDashboard::refreshSchools()
 
             auto *delBtn = mkBtn("删除", 48, "#EF4444");
             connect(delBtn, &QPushButton::clicked, this, [this, sId, sName]() {
-                auto ret = QMessageBox::question(this, "确认删除",
-                    QString("确定删除学校 \"%1\" 吗？").arg(sName));
-                if (ret == QMessageBox::Yes) {
+                if (ModernDialogHelper::confirm(this, "确认删除",
+                    QString("确定删除学校 \"%1\" 吗？").arg(sName))) {
                     connect(AdminManager::instance(), &AdminManager::schoolDeleted, this,
                         [this](const QString &) { refreshSchools(); }, Qt::SingleShotConnection);
                     AdminManager::instance()->deleteSchool(sId);
@@ -606,7 +606,7 @@ void AdminDashboard::refreshTeachers()
             auto *delBtn = new QPushButton("删除"); delBtn->setCursor(Qt::PointingHandCursor); delBtn->setFixedSize(40, 24);
             delBtn->setStyleSheet("QPushButton { background: transparent; border: 1px solid #E5E7EB; border-radius: 4px; font-size: 11px; color: #9CA3AF; } QPushButton:hover { border-color: #EF4444; color: #EF4444; background: #FEF2F2; }");
             connect(delBtn, &QPushButton::clicked, this, [this, email]() {
-                if (QMessageBox::question(this, "确认", QString("确定删除教师 %1？").arg(email)) == QMessageBox::Yes) {
+                if (ModernDialogHelper::confirm(this, "确认", QString("确定删除教师 %1？").arg(email))) {
                     connect(AdminManager::instance(), &AdminManager::teacherDeleted, this,
                         [this](const QString &) { refreshTeachers(); }, Qt::SingleShotConnection);
                     AdminManager::instance()->deleteTeacher(email);
@@ -711,7 +711,7 @@ void AdminDashboard::refreshClasses()
             auto *delBtn = new QPushButton("删除"); delBtn->setCursor(Qt::PointingHandCursor); delBtn->setFixedSize(40, 24);
             delBtn->setStyleSheet("QPushButton { background: transparent; border: 1px solid #E5E7EB; border-radius: 4px; font-size: 11px; color: #9CA3AF; } QPushButton:hover { border-color: #EF4444; color: #EF4444; background: #FEF2F2; }");
             connect(delBtn, &QPushButton::clicked, this, [this, classId, className]() {
-                if (QMessageBox::question(this, "确认", QString("确定删除班级 \"%1\"？").arg(className)) == QMessageBox::Yes) {
+                if (ModernDialogHelper::confirm(this, "确认", QString("确定删除班级 \"%1\"？").arg(className))) {
                     connect(AdminManager::instance(), &AdminManager::classDeleted, this,
                         [this](const QString &) { refreshClasses(); }, Qt::SingleShotConnection);
                     AdminManager::instance()->deleteClass(classId);
@@ -762,17 +762,17 @@ void AdminDashboard::showResetPasswordDialog(const QString &email)
     connect(okBtn, &QPushButton::clicked, this, [this, dialog, email, pwdEdit]() {
         QString pwd = pwdEdit->text().trimmed();
         if (pwd.length() < 6) {
-            QMessageBox::warning(this, "提示", "密码至少6位");
+            ModernDialogHelper::warning(this, "提示", "密码至少6位");
             return;
         }
         dialog->accept();
         connect(AdminManager::instance(), &AdminManager::passwordReset, this,
             [this, email](const QString &e) {
-            QMessageBox::information(this, "成功", QString("已重置 %1 的密码").arg(e));
+            ModernDialogHelper::info(this, "成功", QString("已重置 %1 的密码").arg(e));
             refreshTeachers();
         }, Qt::SingleShotConnection);
         connect(AdminManager::instance(), &AdminManager::error, this,
-            [this](const QString &msg) { QMessageBox::warning(this, "失败", msg); }, Qt::SingleShotConnection);
+            [this](const QString &msg) { ModernDialogHelper::warning(this, "失败", msg); }, Qt::SingleShotConnection);
         AdminManager::instance()->resetTeacherPassword(email, pwd);
     });
     btnRow->addStretch(); btnRow->addWidget(cancelBtn); btnRow->addWidget(okBtn);

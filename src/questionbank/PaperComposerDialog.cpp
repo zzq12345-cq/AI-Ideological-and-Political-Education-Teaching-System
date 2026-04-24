@@ -10,6 +10,7 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QMessageBox>
+#include "../shared/ModernDialogHelper.h"
 #include <QRegularExpression>
 #include <QScrollArea>
 #include <QStandardPaths>
@@ -620,7 +621,7 @@ void PaperComposerDialog::onExportPaper()
         m_titleEdit->setFocus();
 
         // 可选：显示提示
-        QMessageBox::warning(this, "提示", "请输入试卷标题");
+        ModernDialogHelper::warning(this, "提示", "请输入试卷标题");
         return;
     }
 
@@ -654,7 +655,7 @@ void PaperComposerDialog::onExportPaper()
     const QList<PaperQuestion> &questions = QuestionBasket::instance()->questions();
 
     if (questions.isEmpty()) {
-        QMessageBox::warning(this, "导出失败", "试题篮为空，请先添加题目");
+        ModernDialogHelper::warning(this, "导出失败", "试题篮为空，请先添加题目");
         return;
     }
 
@@ -663,18 +664,13 @@ void PaperComposerDialog::onExportPaper()
     bool success = generator.generatePaper(fileName, title, questions);
 
     if (!success) {
-        QMessageBox::warning(this, "导出失败", generator.lastError());
+        ModernDialogHelper::warning(this, "导出失败", generator.lastError());
         return;
     }
 
-    QMessageBox::StandardButton reply = QMessageBox::question(
-        this,
-        "导出成功",
-        QString("试卷已导出到:\n%1\n\n是否立即打开?").arg(fileName),
-        QMessageBox::Yes | QMessageBox::No
-    );
-
-    if (reply == QMessageBox::Yes) {
+    if (ModernDialogHelper::confirm(
+            this, "导出成功",
+            QString("试卷已导出到:\n%1\n\n是否立即打开?").arg(fileName))) {
         QDesktopServices::openUrl(QUrl::fromLocalFile(fileName));
     }
 

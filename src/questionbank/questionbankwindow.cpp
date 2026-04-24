@@ -35,6 +35,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QMessageBox>
+#include "../shared/ModernDialogHelper.h"
 
 QuestionBankWindow::QuestionBankWindow(QWidget *parent)
     : QWidget(parent)
@@ -572,16 +573,13 @@ void QuestionBankWindow::onExportToDocx(const QString &content)
     m_isExporting = false;
 
     if (success) {
-        QMessageBox::StandardButton btn = QMessageBox::information(
-            this, "导出成功",
-            QString("试卷已导出到：\n%1\n\n是否打开文件？").arg(filePath),
-            QMessageBox::Yes | QMessageBox::No,
-            QMessageBox::Yes);
-        if (btn == QMessageBox::Yes) {
+        if (ModernDialogHelper::confirm(
+                this, "导出成功",
+                QString("试卷已导出到：\n%1\n\n是否打开文件？").arg(filePath))) {
             QDesktopServices::openUrl(QUrl::fromLocalFile(filePath));
         }
     } else {
-        QMessageBox::warning(this, "导出失败",
+        ModernDialogHelper::warning(this, "导出失败",
             "DOCX 文件生成失败：" + m_docxGenerator->lastError());
     }
 }
