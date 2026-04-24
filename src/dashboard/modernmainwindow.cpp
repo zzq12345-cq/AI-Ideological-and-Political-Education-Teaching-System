@@ -794,6 +794,9 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
 
     // 初始化 Dify AI 服务
     m_difyService = new DifyService(this);
+    m_difyService->setUserScope(QStringLiteral("chat"));
+    m_lessonDifyService = new DifyService(this);
+    m_lessonDifyService->setUserScope(QStringLiteral("lesson"));
     
     // 初始化 PPTX 生成器
     m_pptxGenerator = new PPTXGenerator(this);
@@ -824,10 +827,12 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
     const QString difyBaseUrl = AppConfig::get(QStringLiteral("DIFY_API_BASE_URL"),
                                                QStringLiteral("https://api.dify.ai/v1"));
     m_difyService->setBaseUrl(difyBaseUrl);
+    m_lessonDifyService->setBaseUrl(difyBaseUrl);
 
     const bool hasApiKey = !apiKey.isEmpty();
     if (hasApiKey) {
         m_difyService->setApiKey(apiKey);
+        m_lessonDifyService->setApiKey(apiKey);
         qDebug() << "[Info] Dify API configured."
                  << "Base URL:" << difyBaseUrl
                  << "Key length:" << apiKey.length();
@@ -2540,6 +2545,11 @@ void ModernMainWindow::createAIChatWidget()
             QJsonObject conv = val.toObject();
             QString id = conv["id"].toString();
             QString name = conv["name"].toString();
+            if (name.startsWith(QStringLiteral("教案"))
+                || name.contains(QStringLiteral("教案编写"))
+                || name.contains(QStringLiteral("生成教案"))) {
+                continue;
+            }
             if (name.isEmpty()) {
                 // 如果没有名称，使用对话ID的前几个字符
                 name = QString("对话 %1").arg(id.left(8));
@@ -2635,7 +2645,7 @@ void ModernMainWindow::createAIChatWidget()
 
     // 标签页2: 教案编辑器 - 使用SVG图标
     m_lessonPlanEditor = new LessonPlanEditor();
-    m_lessonPlanEditor->setDifyService(m_difyService);
+    m_lessonPlanEditor->setDifyService(m_lessonDifyService);
     m_aiTabWidget->addTab(m_lessonPlanEditor, QIcon(":/icons/resources/icons/document-edit.svg"), "教案编辑");
 
     // 连接教案编辑器的保存信号

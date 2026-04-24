@@ -19,15 +19,16 @@ DifyService::DifyService(QObject *parent)
 {
     // 从 QSettings 读取持久化的用户 ID，如果不存在则生成新的并保存
     QSettings settings(QCoreApplication::organizationName(), QCoreApplication::applicationName());
-    m_userId = settings.value("dify/userId").toString();
+    m_baseUserId = settings.value("dify/userId").toString();
 
-    if (m_userId.isEmpty()) {
-        m_userId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-        settings.setValue("dify/userId", m_userId);
-        qDebug() << "[DifyService] Created new persistent userId:" << m_userId;
+    if (m_baseUserId.isEmpty()) {
+        m_baseUserId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        settings.setValue("dify/userId", m_baseUserId);
+        qDebug() << "[DifyService] Created new persistent userId:" << m_baseUserId;
     } else {
-        qDebug() << "[DifyService] Loaded existing userId:" << m_userId;
+        qDebug() << "[DifyService] Loaded existing userId:" << m_baseUserId;
     }
+    m_userId = m_baseUserId;
 }
 
 DifyService::~DifyService()
@@ -69,6 +70,16 @@ void DifyService::clearConversation()
 void DifyService::setCurrentConversationId(const QString &conversationId)
 {
     m_conversationId = conversationId;
+}
+
+void DifyService::setUserScope(const QString &scope)
+{
+    const QString normalizedScope = scope.trimmed();
+    m_userId = normalizedScope.isEmpty()
+        ? m_baseUserId
+        : QString("%1_%2").arg(m_baseUserId, normalizedScope);
+    m_conversationId.clear();
+    qDebug() << "[DifyService] User scope set:" << normalizedScope << "User:" << m_userId;
 }
 
 void DifyService::sendMessage(const QString &message, const QString &conversationId)

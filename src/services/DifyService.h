@@ -64,6 +64,11 @@ public:
     void setCurrentConversationId(const QString &conversationId);
 
     /**
+     * @brief 设置 Dify user 命名空间，用于隔离不同功能的会话历史
+     */
+    void setUserScope(const QString &scope);
+
+    /**
      * @brief 获取对话列表
      * @param limit 返回数量限制（默认20）
      */
@@ -166,6 +171,7 @@ private:
     QString m_baseUrl;
     QString m_model;
     QString m_conversationId;
+    QString m_baseUserId;
     QString m_userId;
     QString m_fullResponse;  // 累积完整响应
     QString m_streamBuffer;  // SSE 残留缓冲
