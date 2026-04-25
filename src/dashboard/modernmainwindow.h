@@ -74,6 +74,7 @@ private slots:
     void onMyClassClicked();          // 我的班级
     void onSettingsClicked();
     void onHelpClicked();
+    void logoutToLogin();
     void onQuickPreparationClicked();
     void onStartClassClicked();
     void onEnterClassClicked();
@@ -115,6 +116,7 @@ private:
     void createQuickAccessCard();   // 快捷入口卡片
     void createAIChatWidget();      // AI 对话组件
     void appendChatMessage(const QString &sender, const QString &message, bool isUser);
+    QString sanitizeAIResponseText(const QString &text) const;
     QString formatAIStreamDisplay(const QString &text) const;
     void flushAIStreamBuffer(bool flushAll = false);
     void swapToHistorySidebar();    // 切换到历史记录侧边栏
@@ -152,6 +154,7 @@ private:
 
     // 底部菜单
     QPushButton *settingsBtn = nullptr;           // 系统设置
+    QPushButton *logoutBtn = nullptr;             // 退出登录
     QPushButton *helpBtn = nullptr;               // 帮助中心
 
     // 主内容区域

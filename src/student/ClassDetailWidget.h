@@ -52,6 +52,14 @@ private:
     QStackedWidget *m_rightStack;
     QList<ClassManager::MemberInfo> m_cachedMembers;
     QList<QPushButton*> m_navButtons;
+
+    // 分页相关
+    int m_currentPage = 1;
+    const int m_itemsPerPage = 10;
+    QLabel *m_pageLabel = nullptr;
+    QPushButton *m_prevPageBtn = nullptr;
+    QPushButton *m_nextPageBtn = nullptr;
+    void renderCurrentPage();
 };
 
 #endif

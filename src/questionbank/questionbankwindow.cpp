@@ -32,6 +32,7 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QSettings>
+#include <QStandardPaths>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -506,7 +507,7 @@ void QuestionBankWindow::onExportToDocx(const QString &content)
     QString defaultName = "AI出题_" + QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss") + ".docx";
     QString filePath = QFileDialog::getSaveFileName(
         this, "导出试卷",
-        QDir::homePath() + "/Desktop/" + defaultName,
+        QStandardPaths::writableLocation(QStandardPaths::DesktopLocation) + "/" + defaultName,
         "Word 文档 (*.docx)");
 
     if (filePath.isEmpty()) {

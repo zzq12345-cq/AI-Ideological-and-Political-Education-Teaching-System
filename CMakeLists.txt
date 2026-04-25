@@ -11,6 +11,7 @@ set(CMAKE_AUTORCC ON)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network QuickWidgets Svg SvgWidgets PrintSupport)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Charts QuickWidgets Svg SvgWidgets PrintSupport)
+find_package(ZLIB REQUIRED)
 
 set(PROJECT_SOURCES
     src/main/main.cpp
@@ -207,21 +208,28 @@ set(PROJECT_SOURCES
 )
 list(TRANSFORM PROJECT_SOURCES PREPEND "${CMAKE_SOURCE_DIR}/")
 
-# macOS 应用图标
-set(MACOSX_BUNDLE_ICON_FILE AppIcon.icns)
-set(APP_ICON_MACOSX ${CMAKE_SOURCE_DIR}/resources/AppIcon.icns)
-set_source_files_properties(${APP_ICON_MACOSX} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+if(APPLE)
+    # macOS 应用图标
+    set(MACOSX_BUNDLE_ICON_FILE AppIcon.icns)
+    set(APP_ICON_MACOSX ${CMAKE_SOURCE_DIR}/resources/AppIcon.icns)
+    set_source_files_properties(${APP_ICON_MACOSX} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+endif()
+
+if(WIN32)
+    set(WINDOWS_ICON_FILE "${CMAKE_SOURCE_DIR}/resources/AppIcon_transparent.ico")
+    configure_file(
+        "${CMAKE_SOURCE_DIR}/resources/windows_app_icon.rc"
+        "${CMAKE_CURRENT_BINARY_DIR}/windows_app_icon.rc"
+        @ONLY
+    )
+    set(APP_ICON_WINDOWS "${CMAKE_CURRENT_BINARY_DIR}/windows_app_icon.rc")
+endif()
 
 qt_add_executable(AILoginSystem
     ${PROJECT_SOURCES}
     ${APP_ICON_MACOSX}
+    ${APP_ICON_WINDOWS}
 )
-
-# zlib 路径 (Windows)
-if(WIN32)
-    target_include_directories(AILoginSystem PRIVATE "D:/develop/msvc_x86_64/include")
-    target_link_directories(AILoginSystem PRIVATE "D:/develop/msvc_x86_64/lib")
-endif()
 
 target_link_libraries(AILoginSystem PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
@@ -231,7 +239,7 @@ target_link_libraries(AILoginSystem PRIVATE
     Qt${QT_VERSION_MAJOR}::Svg
     Qt${QT_VERSION_MAJOR}::SvgWidgets
     Qt${QT_VERSION_MAJOR}::PrintSupport
-    z
+    ZLIB::ZLIB
 )
 
 # 设置目标属性
@@ -253,6 +261,16 @@ if(APPLE)
             "${CMAKE_SOURCE_DIR}/resources/ppt/爱国主义精神传承.pptx"
             "$<TARGET_BUNDLE_DIR:AILoginSystem>/Contents/Resources/ppt/"
         COMMENT "Copying PPT resources to app bundle"
+    )
+endif()
+
+if(WIN32)
+    add_custom_command(TARGET AILoginSystem POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:AILoginSystem>/ppt"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/resources/ppt/爱国主义精神传承.pptx"
+            "$<TARGET_FILE_DIR:AILoginSystem>/ppt/"
+        COMMENT "Copying PPT resources next to Windows executable"
     )
 endif()
 

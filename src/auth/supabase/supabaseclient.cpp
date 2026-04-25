@@ -1,5 +1,6 @@
 #include "supabaseclient.h"
 #include "supabaseconfig.h"
+#include "../../settings/UserSettingsManager.h"
 #include "../../utils/NetworkRequestFactory.h"
 #include "../../utils/NetworkRetryHelper.h"
 #include <QDebug>
@@ -168,7 +169,7 @@ void SupabaseClient::fetchUserRole(const QString &email)
 
     QUrl endpoint(SupabaseConfig::supabaseUrl() + "/rest/v1/" + SupabaseConfig::USERS_TABLE);
     QUrlQuery query;
-    query.addQueryItem("select", "role");
+    query.addQueryItem("select", "*");
     query.addQueryItem("email", "eq." + email);
     query.addQueryItem("limit", "1");
     endpoint.setQuery(query);
@@ -189,7 +190,24 @@ void SupabaseClient::fetchUserRole(const QString &email)
         QByteArray data = reply->readAll();
         QJsonDocument doc = QJsonDocument::fromJson(data);
         if (doc.isArray() && !doc.array().isEmpty()) {
-            QString role = doc.array()[0].toObject().value("role").toString("学生");
+            const QJsonObject profile = doc.array()[0].toObject();
+            QString role = profile.value("role").toString("学生");
+            QString nickname = profile.value("nickname").toString().trimmed();
+            if (nickname.isEmpty()) {
+                nickname = profile.value("username").toString().trimmed();
+            }
+            if (nickname.isEmpty()) {
+                nickname = profile.value("name").toString().trimmed();
+            }
+
+            UserSettingsManager *settings = UserSettingsManager::instance();
+            settings->setEmail(m_currentEmail);
+            settings->setRole(role);
+            if (!nickname.isEmpty()) {
+                settings->setNickname(nickname);
+            }
+            settings->save();
+
             qDebug() << "查询到角色:" << role;
             emit roleFetched(role);
         } else {

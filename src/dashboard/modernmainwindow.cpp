@@ -68,6 +68,7 @@
 #include <QFileDialog>
 #include <QEvent>
 #include <QMouseEvent>
+#include <QStandardPaths>
 #include <QPropertyAnimation>
 #include <QEasingCurve>
 #include <QSvgRenderer>
@@ -922,13 +923,7 @@ void ModernMainWindow::setupMenuBar()
     fileMenu->addSeparator();
     logoutAction = fileMenu->addAction("注销(&L)");
     logoutAction->setShortcut(QKeySequence("Ctrl+L"));
-    connect(logoutAction, &QAction::triggered, this, [this]() {
-        if (ModernDialogHelper::confirm(this, "注销", "确定要注销当前账户吗？")) {
-            SimpleLoginWindow *loginWindow = new SimpleLoginWindow(nullptr, false);
-            loginWindow->show();
-            this->close();
-        }
-    });
+    connect(logoutAction, &QAction::triggered, this, &ModernMainWindow::logoutToLogin);
 
     // 工具菜单
     QMenu *toolsMenu = mainMenuBar->addMenu("工具(&T)");
@@ -1007,6 +1002,7 @@ void ModernMainWindow::setupCentralWidget()
 
     // 底部按钮
     settingsBtn = new QPushButton("系统设置");
+    logoutBtn = new QPushButton("退出登录");
     helpBtn = new QPushButton("帮助中心");
 
     // 确保所有按钮都可见
@@ -1017,12 +1013,28 @@ void ModernMainWindow::setupCentralWidget()
     attendanceBtn->setVisible(true);
     learningAnalysisBtn->setVisible(true);
     settingsBtn->setVisible(false);  // 隐藏侧边栏设置按钮，用头像旁边的入口
+    logoutBtn->setVisible(true);
     helpBtn->setVisible(true);
 
     applySidebarIcons();
 
     // 设置侧边栏按钮样式 - 同一时间仅保留一个激活态
     setActiveSidebarButton(teacherCenterBtn);
+    logoutBtn->setStyleSheet(
+        "QPushButton {"
+        "  background-color: transparent;"
+        "  color: #64748B;"
+        "  border: none;"
+        "  border-radius: 12px;"
+        "  padding: 12px 16px;"
+        "  font-size: 14px;"
+        "  text-align: left;"
+        "}"
+        "QPushButton:hover {"
+        "  background-color: rgba(239,68,68,0.08);"
+        "  color: #EF4444;"
+        "}"
+    );
 
     // 连接信号
     connect(teacherCenterBtn, &QPushButton::clicked, this, [=]() { qDebug() << "教师中心按钮被点击"; onTeacherCenterClicked(); });
@@ -1033,6 +1045,7 @@ void ModernMainWindow::setupCentralWidget()
     connect(learningAnalysisBtn, &QPushButton::clicked, this, [=]() { qDebug() << "学情与教评按钮被点击"; onLearningAnalysisClicked(); });
     connect(myClassBtn, &QPushButton::clicked, this, [=]() { qDebug() << "我的班级按钮被点击"; onMyClassClicked(); });
     connect(settingsBtn, &QPushButton::clicked, this, [=]() { qDebug() << "系统设置按钮被点击"; onSettingsClicked(); });
+    connect(logoutBtn, &QPushButton::clicked, this, &ModernMainWindow::logoutToLogin);
     connect(helpBtn, &QPushButton::clicked, this, [=]() { qDebug() << "帮助中心按钮被点击"; onHelpClicked(); });
 
     // 调试按钮状态
@@ -1054,6 +1067,7 @@ void ModernMainWindow::setupCentralWidget()
     sidebarLayout->addWidget(myClassBtn);
     sidebarLayout->addStretch();
     sidebarLayout->addWidget(settingsBtn);
+    sidebarLayout->addWidget(logoutBtn);
     sidebarLayout->addWidget(helpBtn);
 
     // 创建侧边栏堆栈（用于在导航和历史记录之间切换）
@@ -1254,6 +1268,7 @@ void ModernMainWindow::applySidebarIcons()
     setIcon(learningAnalysisBtn, "view-list-details", QStyle::SP_FileDialogDetailedView);
     setIcon(myClassBtn, "system-users", QStyle::SP_DirHomeIcon);
     setIcon(settingsBtn, "settings-configure", QStyle::SP_FileDialogDetailedView);
+    setIcon(logoutBtn, "application-exit", QStyle::SP_DialogCloseButton);
     setIcon(helpBtn, "help-browser", QStyle::SP_MessageBoxQuestion);
 }
 
@@ -2190,6 +2205,22 @@ void ModernMainWindow::onSettingsClicked()
     }
 }
 
+void ModernMainWindow::logoutToLogin()
+{
+    if (!ModernDialogHelper::confirm(this, "退出登录", "确定要退出当前账户并返回登录页面吗？")) {
+        return;
+    }
+
+    SupabaseConfig::setAccessToken(QString());
+
+    SimpleLoginWindow *loginWindow = new SimpleLoginWindow(nullptr, false);
+    loginWindow->setAttribute(Qt::WA_DeleteOnClose);
+    loginWindow->show();
+    loginWindow->raise();
+    loginWindow->activateWindow();
+    close();
+}
+
 void ModernMainWindow::onHelpClicked()
 {
     ModernDialogHelper::info(this, "帮助中心", "帮助中心功能正在开发中...");
@@ -2881,11 +2912,17 @@ void ModernMainWindow::onSendChatMessage()
     }
 }
 
-QString ModernMainWindow::formatAIStreamDisplay(const QString &text) const
+QString ModernMainWindow::sanitizeAIResponseText(const QString &text) const
 {
     QString displayText = text;
+    displayText.remove(QRegularExpression("\\s*//+\\s*$"));
+    return displayText;
+}
+
+QString ModernMainWindow::formatAIStreamDisplay(const QString &text) const
+{
+    QString displayText = sanitizeAIResponseText(text);
     displayText.remove(QRegularExpression("^##\\s*", QRegularExpression::MultilineOption));
-    displayText.remove(QRegularExpression("//+\\s*"));
     displayText.remove(QRegularExpression("\\*\\*"));
     return displayText;
 }
@@ -2964,13 +3001,13 @@ void ModernMainWindow::onAIResponseReceived(const QString &response)
     // 如果没有累积的响应，直接显示
     if (m_currentAIResponse.isEmpty()) {
         qDebug() << "[ModernMainWindow] No accumulated response, adding new message";
-        appendChatMessage("AI 助手", response, false);
+        appendChatMessage("AI 助手", sanitizeAIResponseText(response), false);
     } else {
         // 更新最后的 AI 消息为完整响应
         if (m_bubbleChatWidget) {
             qDebug() << "[ModernMainWindow] Updating final AI message";
             flushAIStreamBuffer(true);
-            m_bubbleChatWidget->updateLastAIMessage(response);
+            m_bubbleChatWidget->updateLastAIMessage(sanitizeAIResponseText(response));
         } else {
             qDebug() << "[ModernMainWindow] Error: m_bubbleChatWidget is null!";
         }
@@ -3019,7 +3056,7 @@ void ModernMainWindow::onAIRequestFinished()
 {
     if (!m_currentAIResponse.isEmpty() && m_bubbleChatWidget && m_streamPlaceholderAdded) {
         flushAIStreamBuffer(true);
-        m_bubbleChatWidget->updateLastAIMessage(m_currentAIResponse);
+        m_bubbleChatWidget->updateLastAIMessage(sanitizeAIResponseText(m_currentAIResponse));
     }
 
     // 通过 ChatWidget 的公共方法来控制状态
@@ -3046,7 +3083,7 @@ void ModernMainWindow::onAIRequestFinished()
             QString filePath = QFileDialog::getSaveFileName(
                 this,
                 "保存 PPT 文件",
-                QDir::homePath() + "/Desktop/" + defaultName,
+                QStandardPaths::writableLocation(QStandardPaths::DesktopLocation) + "/" + defaultName,
                 "PowerPoint 文件 (*.pptx)"
             );
 
@@ -3192,14 +3229,25 @@ void ModernMainWindow::startPPTSimulation(const QString &userMessage)
 {
     Q_UNUSED(userMessage);
 
-    // 设置预制 PPT 路径（从 App Bundle 的 Resources 目录读取）
+    // 设置预制 PPT 路径：Windows 部署目录优先，macOS App Bundle 其次。
     QString appPath = QCoreApplication::applicationDirPath();
-    // macOS: appPath 是 .app/Contents/MacOS/，需要回到上级找 Resources
-    m_pendingPPTPath = appPath + "/../Resources/ppt/爱国主义精神传承.pptx";
+    const QString pptFileName = "爱国主义精神传承.pptx";
+    const QStringList pptCandidates = {
+        appPath + "/ppt/" + pptFileName,
+        appPath + "/../Resources/ppt/" + pptFileName,
+        appPath + "/../ppt/" + pptFileName
+    };
+    m_pendingPPTPath.clear();
+    for (const QString &candidate : pptCandidates) {
+        if (QFile::exists(candidate)) {
+            m_pendingPPTPath = candidate;
+            break;
+        }
+    }
 
     // 检查文件是否存在
-    if (!QFile::exists(m_pendingPPTPath)) {
-        qDebug() << "[PPT] Resource not found at:" << m_pendingPPTPath;
+    if (m_pendingPPTPath.isEmpty()) {
+        qDebug() << "[PPT] Resource not found. Tried:" << pptCandidates;
         if (m_bubbleChatWidget) {
             m_bubbleChatWidget->addMessage("抱歉，PPT 资源文件未找到，请稍后再试。", false);
         }
@@ -3278,7 +3326,7 @@ void ModernMainWindow::onPPTSimulationStep()
             QString savePath = QFileDialog::getSaveFileName(
                 this,
                 "保存 PPT 文件",
-                QDir::homePath() + "/Desktop/爱国主义精神传承.pptx",
+                QStandardPaths::writableLocation(QStandardPaths::DesktopLocation) + "/爱国主义精神传承.pptx",
                 "PowerPoint 文件 (*.pptx)"
             );
 

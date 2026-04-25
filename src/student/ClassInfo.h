@@ -37,14 +37,14 @@ struct ClassInfo {
         ClassInfo info;
         info.id = json["id"].toString();
         info.name = json["name"].toString();
-        info.teacher = json["teacher"].toString();
-        info.teacherEmail = json["teacherEmail"].toString();
+        info.teacher = json["teacher"].toString(json["teacher_name"].toString());
+        info.teacherEmail = json["teacherEmail"].toString(json["teacher_email"].toString());
         info.code = json["code"].toString();
         info.status = json["status"].toString("active");
         info.description = json["description"].toString();
         info.isPublic = json["is_public"].toBool(false);
-        info.colorIndex = json["colorIndex"].toInt(0);
-        info.studentCount = json["studentCount"].toInt(0);
+        info.colorIndex = json["colorIndex"].toInt(json["color_index"].toInt(0));
+        info.studentCount = json["studentCount"].toInt(json["student_count"].toInt(0));
         return info;
     }
 };

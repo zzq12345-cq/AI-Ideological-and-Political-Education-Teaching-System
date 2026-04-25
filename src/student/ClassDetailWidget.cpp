@@ -63,10 +63,12 @@ void ClassDetailWidget::setupUI()
 
     QPushButton *backBtn = new QPushButton("← 返回");
     backBtn->setCursor(Qt::PointingHandCursor);
+    backBtn->setMinimumHeight(36);
     backBtn->setStyleSheet(
-        "QPushButton { background: transparent; border: none; color: #9CA3AF;"
-        "  font-size: 13px; font-weight: 500; padding: 6px 10px; border-radius: 8px; }"
-        "QPushButton:hover { color: #374151; background: rgba(0,0,0,0.04); }"
+        "QPushButton { background: #FFFFFF; border: 1px solid #E2E8F0; color: #475569;"
+        "  font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 10px; }"
+        "QPushButton:hover { color: #0F172A; background: #F8FAFC; border-color: #CBD5E1; }"
+        "QPushButton:pressed { background: #EEF2F7; }"
     );
     connect(backBtn, &QPushButton::clicked, this, &ClassDetailWidget::backRequested);
 
@@ -536,9 +538,9 @@ QWidget* ClassDetailWidget::createMemberList()
 
     // 不使用 QGraphicsDropShadowEffect，避免阴影渲染到子控件文字上
 
-    m_memberLayout = new QVBoxLayout(m_memberSection);
-    m_memberLayout->setContentsMargins(24, 20, 24, 20);
-    m_memberLayout->setSpacing(0);
+    QVBoxLayout *outerLayout = new QVBoxLayout(m_memberSection);
+    outerLayout->setContentsMargins(24, 20, 24, 20);
+    outerLayout->setSpacing(0);
 
     // 标题行
     QHBoxLayout *headerRow = new QHBoxLayout();
@@ -553,14 +555,24 @@ QWidget* ClassDetailWidget::createMemberList()
     headerRow->addWidget(titleLabel);
     headerRow->addStretch();
     headerRow->addWidget(m_memberCountLabel);
-    m_memberLayout->addLayout(headerRow);
+    outerLayout->addLayout(headerRow);
 
     // 分隔线
     QFrame *line = new QFrame();
     line->setFrameShape(QFrame::HLine);
     line->setStyleSheet("background: #F1F5F9; max-height: 1px; border: none;");
-    m_memberLayout->addWidget(line);
-    m_memberLayout->addSpacing(8);
+    outerLayout->addWidget(line);
+    outerLayout->addSpacing(8);
+
+    QScrollArea *scrollArea = new QScrollArea();
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setStyleSheet("QScrollArea { border: none; background: transparent; }");
+
+    QWidget *scrollContent = new QWidget();
+    scrollContent->setStyleSheet("background: transparent;");
+    m_memberLayout = new QVBoxLayout(scrollContent);
+    m_memberLayout->setContentsMargins(0, 0, 0, 0);
+    m_memberLayout->setSpacing(0);
 
     QLabel *placeholder = new QLabel("加载中...");
     placeholder->setAlignment(Qt::AlignCenter);
@@ -569,93 +581,155 @@ QWidget* ClassDetailWidget::createMemberList()
     m_memberLayout->addWidget(placeholder);
     m_memberLayout->addStretch();
 
+    scrollArea->setWidget(scrollContent);
+    outerLayout->addWidget(scrollArea);
+
+    // 分页控件
+    QHBoxLayout *paginationRow = new QHBoxLayout();
+    m_prevPageBtn = new QPushButton("上一页");
+    m_prevPageBtn->setCursor(Qt::PointingHandCursor);
+    m_prevPageBtn->setStyleSheet("QPushButton { padding: 4px 12px; border-radius: 6px; background: #F1F5F9; color: #475569; border: none; font-size: 12px; } QPushButton:hover { background: #E2E8F0; } QPushButton:disabled { background: #F8FAFC; color: #CBD5E1; }");
+
+    m_nextPageBtn = new QPushButton("下一页");
+    m_nextPageBtn->setCursor(Qt::PointingHandCursor);
+    m_nextPageBtn->setStyleSheet("QPushButton { padding: 4px 12px; border-radius: 6px; background: #F1F5F9; color: #475569; border: none; font-size: 12px; } QPushButton:hover { background: #E2E8F0; } QPushButton:disabled { background: #F8FAFC; color: #CBD5E1; }");
+
+    m_pageLabel = new QLabel("1 / 1");
+    m_pageLabel->setStyleSheet("font-size: 12px; color: #64748B; background: transparent;");
+
+    paginationRow->addStretch();
+    paginationRow->addWidget(m_prevPageBtn);
+    paginationRow->addWidget(m_pageLabel);
+    paginationRow->addWidget(m_nextPageBtn);
+    paginationRow->addStretch();
+
+    connect(m_prevPageBtn, &QPushButton::clicked, this, [this]() {
+        if (m_currentPage > 1) {
+            m_currentPage--;
+            renderCurrentPage();
+        }
+    });
+
+    connect(m_nextPageBtn, &QPushButton::clicked, this, [this]() {
+        int totalPages = qMax(1, (m_cachedMembers.size() + m_itemsPerPage - 1) / m_itemsPerPage);
+        if (m_currentPage < totalPages) {
+            m_currentPage++;
+            renderCurrentPage();
+        }
+    });
+
+    outerLayout->addLayout(paginationRow);
+
     return m_memberSection;
 }
 
 void ClassDetailWidget::updateMemberList(const QList<ClassManager::MemberInfo> &members)
 {
-    while (m_memberLayout->count() > 3) {
-        QLayoutItem *item = m_memberLayout->takeAt(m_memberLayout->count() - 1);
-        delete item->widget();
+    m_cachedMembers = members;
+    m_currentPage = 1;
+    m_memberCountLabel->setText(QString("共 %1 人").arg(members.size()));
+    renderCurrentPage();
+}
+
+void ClassDetailWidget::renderCurrentPage()
+{
+    while (QLayoutItem *item = m_memberLayout->takeAt(0)) {
+        if (item->widget()) {
+            delete item->widget();
+        }
         delete item;
     }
 
-    m_memberCountLabel->setText(QString("共 %1 人").arg(members.size()));
-
-    if (members.isEmpty()) {
+    if (m_cachedMembers.isEmpty()) {
         QLabel *emptyLabel = new QLabel("暂无学生加入\n将加课码分享给学生即可邀请加入");
         emptyLabel->setAlignment(Qt::AlignCenter);
         emptyLabel->setStyleSheet("font-size: 13px; color: #94A3B8; padding: 40px;"
                                   "background: transparent; line-height: 1.6;");
         m_memberLayout->addWidget(emptyLabel);
-    } else {
-        for (int i = 0; i < members.size(); ++i) {
-            const auto &m = members[i];
-            auto *rowFrame = new QFrame();
-            rowFrame->setObjectName(QString("memberRow_%1").arg(i));
-            rowFrame->setStyleSheet(QString(
-                "#memberRow_%1 { background: transparent; border: none;"
-                "  border-radius: 10px; }"
-                "#memberRow_%1:hover { background: #F8FAFC; }").arg(i));
-            QHBoxLayout *row = new QHBoxLayout(rowFrame);
-            row->setSpacing(14);
-            row->setContentsMargins(10, 10, 10, 10);
 
-            // 序号圆圈 — 柔和底色 + 微立体感
-            QLabel *avatarLabel = new QLabel(QString::number(i + 1));
-            avatarLabel->setFixedSize(32, 32);
-            avatarLabel->setAlignment(Qt::AlignCenter);
-            avatarLabel->setStyleSheet(
-                "background: qlineargradient(x1:0,y1:0,x2:0,y2:1,"
-                "stop:0 #F8FAFC, stop:1 #EEF2F7);"
-                "color: #475569; font-size: 12px; font-weight: 700;"
-                "border-radius: 16px; border: none;");
+        if (m_pageLabel) m_pageLabel->setText("1 / 1");
+        if (m_prevPageBtn) m_prevPageBtn->setEnabled(false);
+        if (m_nextPageBtn) m_nextPageBtn->setEnabled(false);
 
-            QString displayName = m.name.isEmpty() ? m.email.split('@')[0] : m.name;
-            if (!m.number.isEmpty()) {
-                displayName += " (" + m.number + ")";
-            }
+        m_memberLayout->addStretch();
+        return;
+    }
 
-            QLabel *nameLabel = new QLabel(displayName);
-            nameLabel->setStyleSheet(
-                "font-size: 13px; font-weight: 600; color: #1E293B;"
-                "background: transparent; border: none;");
+    int totalPages = qMax(1, (m_cachedMembers.size() + m_itemsPerPage - 1) / m_itemsPerPage);
+    if (m_currentPage > totalPages) m_currentPage = totalPages;
+    if (m_currentPage < 1) m_currentPage = 1;
 
-            // 角色标签 — 半透明主题色底色，无边框
-            bool isTeacher = m.name.contains("老师") || m.name.contains("教师");
-            QLabel *roleTag = new QLabel(isTeacher ? "教师" : "学生");
-            roleTag->setStyleSheet(QString(
-                "font-size: 11px; color: %1; background: %2; padding: 3px 10px;"
-                "border: none; border-radius: 8px; font-weight: 600;")
-                .arg(isTeacher ? "#B91C1C" : "#475569",
-                     isTeacher ? "rgba(185,28,28,0.06)" : "rgba(71,85,105,0.06)"));
+    if (m_pageLabel) m_pageLabel->setText(QString("%1 / %2").arg(m_currentPage).arg(totalPages));
+    if (m_prevPageBtn) m_prevPageBtn->setEnabled(m_currentPage > 1);
+    if (m_nextPageBtn) m_nextPageBtn->setEnabled(m_currentPage < totalPages);
 
-            QPushButton *removeBtn = new QPushButton("移除");
-            removeBtn->setCursor(Qt::PointingHandCursor);
-            removeBtn->setFixedSize(52, 28);
-            removeBtn->setStyleSheet(
-                "QPushButton { font-size: 11px; color: #CBD5E1; background: transparent;"
-                "  border: none; border-radius: 6px; font-weight: 500; }"
-                "QPushButton:hover { color: #EF4444; background: rgba(239,68,68,0.06); }");
+    int startIdx = (m_currentPage - 1) * m_itemsPerPage;
+    int endIdx = qMin(startIdx + m_itemsPerPage, m_cachedMembers.size());
 
-            QString email = m.email;
-            QString name = displayName;
-            connect(removeBtn, &QPushButton::clicked, this, [this, email, name]() {
-                bool confirmed = showModernConfirm(
-                    this, "确认移除",
-                    QString("确定要将 \"%1\" 移出班级吗？").arg(name));
-                if (confirmed) {
-                    ClassManager::instance()->removeMember(m_classInfo.id, email);
-                }
-            });
+    for (int i = startIdx; i < endIdx; ++i) {
+        const auto &m = m_cachedMembers[i];
+        auto *rowFrame = new QFrame();
+        rowFrame->setObjectName(QString("memberRow_%1").arg(i));
+        rowFrame->setStyleSheet(QString(
+            "#memberRow_%1 { background: transparent; border: none;"
+            "  border-radius: 10px; }"
+            "#memberRow_%1:hover { background: #F8FAFC; }").arg(i));
+        QHBoxLayout *row = new QHBoxLayout(rowFrame);
+        row->setSpacing(14);
+        row->setContentsMargins(10, 10, 10, 10);
 
-            row->addWidget(avatarLabel);
-            row->addWidget(nameLabel);
-            row->addStretch();
-            row->addWidget(roleTag);
-            row->addWidget(removeBtn);
-            m_memberLayout->addWidget(rowFrame);
+        QLabel *avatarLabel = new QLabel(QString::number(i + 1));
+        avatarLabel->setFixedSize(32, 32);
+        avatarLabel->setAlignment(Qt::AlignCenter);
+        avatarLabel->setStyleSheet(
+            "background: qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+            "stop:0 #F8FAFC, stop:1 #EEF2F7);"
+            "color: #475569; font-size: 12px; font-weight: 700;"
+            "border-radius: 16px; border: none;");
+
+        QString displayName = m.name.isEmpty() ? m.email.split('@')[0] : m.name;
+        if (!m.number.isEmpty()) {
+            displayName += " (" + m.number + ")";
         }
+
+        QLabel *nameLabel = new QLabel(displayName);
+        nameLabel->setStyleSheet(
+            "font-size: 13px; font-weight: 600; color: #1E293B;"
+            "background: transparent; border: none;");
+
+        bool isTeacher = m.name.contains("老师") || m.name.contains("教师");
+        QLabel *roleTag = new QLabel(isTeacher ? "教师" : "学生");
+        roleTag->setStyleSheet(QString(
+            "font-size: 11px; color: %1; background: %2; padding: 3px 10px;"
+            "border: none; border-radius: 8px; font-weight: 600;")
+            .arg(isTeacher ? "#B91C1C" : "#475569",
+                 isTeacher ? "rgba(185,28,28,0.06)" : "rgba(71,85,105,0.06)"));
+
+        QPushButton *removeBtn = new QPushButton("移除");
+        removeBtn->setCursor(Qt::PointingHandCursor);
+        removeBtn->setFixedSize(52, 28);
+        removeBtn->setStyleSheet(
+            "QPushButton { font-size: 11px; color: #CBD5E1; background: transparent;"
+            "  border: none; border-radius: 6px; font-weight: 500; }"
+            "QPushButton:hover { color: #EF4444; background: rgba(239,68,68,0.06); }");
+
+        QString email = m.email;
+        QString name = displayName;
+        connect(removeBtn, &QPushButton::clicked, this, [this, email, name]() {
+            bool confirmed = showModernConfirm(
+                this, "确认移除",
+                QString("确定要将 \"%1\" 移出班级吗？").arg(name));
+            if (confirmed) {
+                ClassManager::instance()->removeMember(m_classInfo.id, email);
+            }
+        });
+
+        row->addWidget(avatarLabel);
+        row->addWidget(nameLabel);
+        row->addStretch();
+        row->addWidget(roleTag);
+        row->addWidget(removeBtn);
+        m_memberLayout->addWidget(rowFrame);
     }
 
     m_memberLayout->addStretch();

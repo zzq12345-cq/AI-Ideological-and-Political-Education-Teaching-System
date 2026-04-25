@@ -3,6 +3,7 @@ param(
     [string]$BuildDir = "build",
     [string]$OutputDir = "",
     [string]$QtBinDir = "",
+    [string]$CMakeToolchainFile = "",
     [switch]$SkipInstaller,
     [switch]$EmbedReleaseKeys,
     [string]$DifyApiKey = "",
@@ -170,6 +171,14 @@ New-Item -ItemType Directory -Path $resolvedOutputDir -Force | Out-Null
 
 Write-Info '配置 CMake Release 构建'
 $cmakeConfigureArgs = @('-S', $repoRoot, '-B', $resolvedBuildDir, '-DCMAKE_BUILD_TYPE=Release')
+if ($resolvedQtBinDir) {
+    $qtRootDir = Split-Path -Parent $resolvedQtBinDir
+    $cmakeConfigureArgs += @("-DCMAKE_PREFIX_PATH=$qtRootDir")
+}
+if (-not [string]::IsNullOrWhiteSpace($CMakeToolchainFile)) {
+    $resolvedToolchainFile = Resolve-LocalPath $CMakeToolchainFile
+    $cmakeConfigureArgs += @("-DCMAKE_TOOLCHAIN_FILE=$resolvedToolchainFile")
+}
 if (Get-Command 'ninja' -ErrorAction SilentlyContinue) {
     $cmakeConfigureArgs += @('-G', 'Ninja')
 }
