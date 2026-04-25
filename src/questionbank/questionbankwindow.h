@@ -24,6 +24,9 @@ class QuestionBankWindow : public QWidget
 public:
     explicit QuestionBankWindow(QWidget *parent = nullptr);
 
+    // 获取出题历史侧边栏组件（供 ModernMainWindow 嵌入全局侧边栏）
+    ChatHistoryWidget *questionHistoryWidget() const { return m_questionHistoryWidget; }
+
 signals:
     void backRequested();  // 请求返回主界面
 

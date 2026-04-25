@@ -25,20 +25,27 @@ public:
         // 设置鼠标穿透，让 QListWidget 处理悬停和点击选中效果
         setAttribute(Qt::WA_TransparentForMouseEvents);
 
-        QHBoxLayout *layout = new QHBoxLayout(this);
+        QVBoxLayout *mainLayout = new QVBoxLayout(this);
+        mainLayout->setContentsMargins(4, 4, 4, 4); // 左右留出小间距防止卡片贴边
+
+        m_bgFrame = new QFrame(this);
+        m_bgFrame->setObjectName("historyItemBg");
+        // 默认卡片样式
+        m_bgFrame->setStyleSheet("QFrame#historyItemBg { background-color: #F2F2F7; border: 1px solid transparent; border-radius: 12px; }");
+
+        QHBoxLayout *layout = new QHBoxLayout(m_bgFrame);
         layout->setContentsMargins(0, 10, 12, 10);
         layout->setSpacing(12);
 
-        m_accentBar = new QFrame(this);
+        m_accentBar = new QFrame(m_bgFrame);
         m_accentBar->setFixedWidth(4);
         m_accentBar->setStyleSheet(QStringLiteral("background: transparent; border-radius: 2px;"));
         m_accentBar->setAttribute(Qt::WA_TransparentForMouseEvents);
         layout->addWidget(m_accentBar);
 
         // 1. 图标区域 - 圆形箭头图标
-        m_iconLabel = new QLabel(this);
+        m_iconLabel = new QLabel(m_bgFrame);
         m_iconLabel->setFixedSize(20, 20);
-        // 使用类似圆形箭头的 Unicode 字符，或者用 emoji
         m_iconLabel->setText(QStringLiteral("↻"));
         m_iconLabel->setAlignment(Qt::AlignCenter);
         m_iconLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -50,11 +57,9 @@ public:
         
         m_titleLabel = new QLabel();
         m_titleLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
-        m_titleLabel->setMaximumWidth(212);
-        // 使用省略号显示过长的文字
-        QFontMetrics fm(m_titleLabel->font());
-        QString elidedTitle = fm.elidedText(title, Qt::ElideRight, 212);
-        m_titleLabel->setText(elidedTitle);
+        m_titleLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        m_titleLabel->setWordWrap(false);
+        m_titleLabel->setText(title);
         
         m_timeLabel = new QLabel(timeStr);
         m_timeLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -63,19 +68,25 @@ public:
         textLayout->addWidget(m_timeLabel);
         
         layout->addWidget(m_iconLabel);
-        layout->addLayout(textLayout);
-        layout->addStretch();
+        layout->addLayout(textLayout, 1);  // stretch factor = 1，让文字区域自适应
 
+        mainLayout->addWidget(m_bgFrame);
         updateAppearance();
     }
 
     void setSelected(bool selected)
     {
-        if (m_selected == selected) {
-            return;
-        }
-
+        if (m_selected == selected) return;
         m_selected = selected;
+        updateAppearance();
+    }
+
+    void setThemeColors(const QString &accent, const QString &accentDark, const QString &selectedBg, const QString &selectedBorder)
+    {
+        m_themeAccent = accent;
+        m_themeAccentDark = accentDark;
+        m_themeSelectedBg = selectedBg;
+        m_themeSelectedBorder = selectedBorder;
         updateAppearance();
     }
 
@@ -84,10 +95,10 @@ private:
     {
         const bool selected = m_selected;
 
-        const QString accentColor = selected ? kHistoryAccentColor : QStringLiteral("transparent");
-        const QString iconColor = selected ? kHistoryAccentColor : kHistorySecondaryColor;
-        const QString titleColor = selected ? kHistoryAccentDarkColor : kHistoryTitleColor;
-        const QString timeColor = selected ? kHistoryAccentColor : kHistorySecondaryColor;
+        const QString accentColor = selected ? m_themeAccent : QStringLiteral("transparent");
+        const QString iconColor = selected ? m_themeAccent : kHistorySecondaryColor;
+        const QString titleColor = selected ? m_themeAccentDark : kHistoryTitleColor;
+        const QString timeColor = selected ? m_themeAccent : kHistorySecondaryColor;
         const QString titleWeight = selected ? QStringLiteral("600") : QStringLiteral("500");
 
         m_accentBar->setStyleSheet(QStringLiteral(
@@ -102,12 +113,25 @@ private:
         m_timeLabel->setStyleSheet(QStringLiteral(
             "color: %1; font-size: 12px; border: none; background: transparent;"
         ).arg(timeColor));
+
+        // 更新背景卡片
+        const QString bgColor = selected ? m_themeSelectedBg : "#F2F2F7";
+        const QString borderColor = selected ? m_themeSelectedBorder : "transparent";
+        m_bgFrame->setStyleSheet(QString(
+            "QFrame#historyItemBg { background-color: %1; border: 1px solid %2; border-radius: 12px; }"
+        ).arg(bgColor, borderColor));
     }
+
+    QFrame *m_bgFrame = nullptr;
     QFrame *m_accentBar = nullptr;
     QLabel *m_iconLabel = nullptr;
     QLabel *m_titleLabel = nullptr;
     QLabel *m_timeLabel = nullptr;
     bool m_selected = false;
+    QString m_themeAccent = kHistoryAccentColor;
+    QString m_themeAccentDark = kHistoryAccentDarkColor;
+    QString m_themeSelectedBg = "#FFF4F4";
+    QString m_themeSelectedBorder = "#F3C4C4";
 };
 
 ChatHistoryWidget::ChatHistoryWidget(QWidget *parent)
@@ -187,31 +211,32 @@ void ChatHistoryWidget::setupUI()
 
     // 2. 历史记录列表 - 卡片样式
     m_listWidget = new QListWidget();
+    m_listWidget->setObjectName("chatHistoryList");
     m_listWidget->setFrameShape(QFrame::NoFrame);
     m_listWidget->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     m_listWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_listWidget->setSpacing(8);
+    m_listWidget->setSpacing(4);
     m_listWidget->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_listWidget->setResizeMode(QListView::Adjust);  // 宽度随容器自适应
+    m_listWidget->setWordWrap(true);  // 允许 item 换行以获取正确宽度
     
     m_listWidget->setStyleSheet(
-        "QListWidget {"
+        "QListWidget#chatHistoryList {"
         "   background: transparent;"
         "   outline: none;"
         "   border: none;"
         "}"
-        "QListWidget::item {"
-        "   background-color: #F2F2F7;"
-        "   border: 1px solid transparent;"
-        "   border-radius: 12px;"
+        "QListWidget#chatHistoryList::item {"
+        "   background: transparent;"
+        "   border: none;"
         "   padding: 0px;"
-        "   min-height: 64px;"
+        "   min-height: 72px;"
         "}"
-        "QListWidget::item:hover {"
-        "   background-color: #ECECF1;"
+        "QListWidget#chatHistoryList::item:hover {"
+        "   background: transparent;"
         "}"
-        "QListWidget::item:selected {"
-        "   background-color: #FFF4F4;"
-        "   border: 1px solid #F3C4C4;"
+        "QListWidget#chatHistoryList::item:selected {"
+        "   background: transparent;"
         "}"
     );
     
@@ -257,9 +282,10 @@ void ChatHistoryWidget::addHistoryItem(const QString &id, const QString &title, 
     item->setData(Qt::UserRole, id);
     
     HistoryItemWidget *widget = new HistoryItemWidget(title, timeStr);
+    widget->setThemeColors(m_accentColor, m_accentDarkColor, m_selectedBgColor, m_selectedBorderColor);
     
-    // 设置item大小提示
-    item->setSizeHint(widget->sizeHint());
+    // 设置item大小提示（仅设置高度，宽度由列表自适应）
+    item->setSizeHint(QSize(0, widget->sizeHint().height()));
     
     m_listWidget->addItem(item);
     m_listWidget->setItemWidget(item, widget);
@@ -275,9 +301,10 @@ void ChatHistoryWidget::insertHistoryItem(int index, const QString &id, const QS
     item->setData(Qt::UserRole, id);
     
     HistoryItemWidget *widget = new HistoryItemWidget(title, timeStr);
+    widget->setThemeColors(m_accentColor, m_accentDarkColor, m_selectedBgColor, m_selectedBorderColor);
     
-    // 设置item大小提示
-    item->setSizeHint(widget->sizeHint());
+    // 设置item大小提示（仅设置高度，宽度由列表自适应）
+    item->setSizeHint(QSize(0, widget->sizeHint().height()));
     
     // 在指定位置插入
     m_listWidget->insertItem(index, item);
@@ -369,5 +396,48 @@ void ChatHistoryWidget::applySelectionState()
         const bool isSelected = item->data(Qt::UserRole).toString() == m_selectedConversationId;
         item->setSelected(isSelected);
         historyWidget->setSelected(isSelected);
+    }
+}
+
+void ChatHistoryWidget::setThemeColors(const QString &accentColor, const QString &accentDarkColor,
+                                       const QString &selectedBgColor, const QString &selectedBorderColor)
+{
+    m_accentColor = accentColor;
+    m_accentDarkColor = accentDarkColor;
+    m_selectedBgColor = selectedBgColor;
+    m_selectedBorderColor = selectedBorderColor;
+
+    // 更新列表样式
+    if (m_listWidget) {
+        m_listWidget->setStyleSheet(
+            "QListWidget#chatHistoryList {"
+            "   background: transparent;"
+            "   outline: none;"
+            "   border: none;"
+            "}"
+            "QListWidget#chatHistoryList::item {"
+            "   background: transparent;"
+            "   border: none;"
+            "   padding: 0px;"
+            "   min-height: 72px;"
+            "}"
+            "QListWidget#chatHistoryList::item:hover {"
+            "   background: transparent;"
+            "}"
+            "QListWidget#chatHistoryList::item:selected {"
+            "   background: transparent;"
+            "}"
+        );
+    }
+
+    // 更新已有的列表项
+    if (m_listWidget) {
+        for (int i = 0; i < m_listWidget->count(); ++i) {
+            QListWidgetItem *item = m_listWidget->item(i);
+            QWidget *widget = m_listWidget->itemWidget(item);
+            if (auto *historyWidget = static_cast<HistoryItemWidget *>(widget)) {
+                historyWidget->setThemeColors(m_accentColor, m_accentDarkColor, m_selectedBgColor, m_selectedBorderColor);
+            }
+        }
     }
 }

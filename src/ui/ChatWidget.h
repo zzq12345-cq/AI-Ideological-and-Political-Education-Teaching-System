@@ -151,8 +151,8 @@ private:
     QVBoxLayout *m_messageLayout;
     QLineEdit *m_inputEdit;
     QPushButton *m_sendBtn;
-    QWidget *m_quickReplyContainer;
-    QGridLayout *m_quickReplyLayout;
+    QScrollArea *m_quickReplyContainer;
+    QHBoxLayout *m_quickReplyLayout;
     QWidget *m_typingIndicatorRow;
 
     // 用于流式更新的最后一条 AI 消息

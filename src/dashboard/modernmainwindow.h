@@ -203,7 +203,8 @@ private:
     DifyService *m_lessonDifyService = nullptr;
     AIChatDialog *m_chatDialog = nullptr;  // AI 对话框（备用）
     class ChatWidget *m_bubbleChatWidget = nullptr;  // 气泡样式聊天组件（主面板用）
-    ChatHistoryWidget *m_chatHistoryWidget = nullptr;  // 历史记录侧边栏
+    ChatHistoryWidget *m_chatHistoryWidget = nullptr;  // AI对话历史记录侧边栏
+    ChatHistoryWidget *m_lessonHistoryWidget = nullptr; // 教案编辑历史记录侧边栏
     QTabWidget *m_aiTabWidget = nullptr;           // AI智能备课标签页容器
     LessonPlanEditor *m_lessonPlanEditor = nullptr; // 教案编辑器
     QWidget *m_chatContainer = nullptr;  // 聊天容器

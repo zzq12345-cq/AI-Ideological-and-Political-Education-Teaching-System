@@ -38,6 +38,10 @@ public:
     void setHeaderTitle(const QString &title);
     void setNewButtonText(const QString &text);
 
+    // 设置主题色（以适配不同模块的主题）
+    void setThemeColors(const QString &accentColor, const QString &accentDarkColor,
+                        const QString &selectedBgColor, const QString &selectedBorderColor);
+
 signals:
     // 新建对话请求
     void newChatRequested();
@@ -59,6 +63,10 @@ private:
     QPushButton *m_newChatBtn = nullptr;
     QListWidget *m_listWidget = nullptr;
     QString m_selectedConversationId;
+    QString m_accentColor = "#C62828";
+    QString m_accentDarkColor = "#8E0000";
+    QString m_selectedBgColor = "#FFF4F4";
+    QString m_selectedBorderColor = "#F3C4C4";
 };
 
 #endif // CHATHISTORYWIDGET_H

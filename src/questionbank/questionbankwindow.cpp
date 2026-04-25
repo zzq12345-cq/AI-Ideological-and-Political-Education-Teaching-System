@@ -25,6 +25,7 @@
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QStackedWidget>
+#include <QSplitter>
 #include <QVBoxLayout>
 #include <QPainter>
 #include <QFileDialog>
@@ -126,12 +127,16 @@ void QuestionBankWindow::setupLayout()
     pageLayout->setContentsMargins(0, 0, 0, 0);
     pageLayout->setSpacing(0);
 
+    // 提前创建内容组件，以便 header 能获取它们的子组件
+    m_aiQuestionGenWidget = new AIQuestionGenWidget(this);
+    m_smartPaperWidget = new SmartPaperWidget(this);
+
     // ====== Header 悬浮卡片 ======
     auto *headerWrapper = new QWidget(pageContainer);
     headerWrapper->setObjectName("headerWrapper");
     headerWrapper->setStyleSheet("QWidget#headerWrapper { background: transparent; }");
     auto *headerWrapperLayout = new QVBoxLayout(headerWrapper);
-    headerWrapperLayout->setContentsMargins(20, 16, 20, 0);
+    headerWrapperLayout->setContentsMargins(12, 8, 12, 4);
     headerWrapperLayout->setSpacing(0);
     headerWrapperLayout->addWidget(buildHeader());
 
@@ -140,26 +145,27 @@ void QuestionBankWindow::setupLayout()
     // ====== 内容区域：AI出题 / 智能组卷 ======
     m_modeStack = new QStackedWidget();
 
-    // page 0: AI 出题（包裹层：history sidebar + chat area）
+    // page 0: AI 出题（历史侧边栏已迁移到全局 m_sidebarStack）
     m_aiGenPageWrapper = new QWidget();
     auto *aiGenLayout = new QHBoxLayout(m_aiGenPageWrapper);
     aiGenLayout->setContentsMargins(0, 0, 0, 0);
     aiGenLayout->setSpacing(0);
 
-    // 左侧历史侧边栏
+    // 创建历史侧边栏（不再放入此处的布局，由 ModernMainWindow 统一管理）
     m_questionHistoryWidget = new ChatHistoryWidget();
     m_questionHistoryWidget->setHeaderTitle("出题历史");
     m_questionHistoryWidget->setNewButtonText("➕ 新建出题");
-    aiGenLayout->addWidget(m_questionHistoryWidget);
+    m_questionHistoryWidget->setMinimumWidth(240);
+    m_questionHistoryWidget->setMaximumWidth(400);
+    // 适配试题库的绿色主题
+    m_questionHistoryWidget->setThemeColors("#2E7D32", "#1B5E20", "#E8F5E9", "#A5D6A7");
 
-    // 右侧聊天区域
-    m_aiQuestionGenWidget = new AIQuestionGenWidget(this);
-    aiGenLayout->addWidget(m_aiQuestionGenWidget, 1);
+    // 右侧聊天区域（直接填满整个内容区）
+    aiGenLayout->addWidget(m_aiQuestionGenWidget);
 
     m_modeStack->addWidget(m_aiGenPageWrapper);
 
     // page 1: 智能组卷
-    m_smartPaperWidget = new SmartPaperWidget(this);
     m_modeStack->addWidget(m_smartPaperWidget);
 
     pageLayout->addWidget(m_modeStack, 1);
@@ -191,129 +197,68 @@ QWidget *QuestionBankWindow::buildHeader()
 {
     auto *header = new QFrame(this);
     header->setObjectName("pageHeader");
-    header->setFixedHeight(120);
+    header->setFixedHeight(56);
 
     header->setStyleSheet(
         "QFrame#pageHeader {"
-        "    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, "
-        "        stop:0 #2E7D32, stop:0.3 #388E3C, stop:0.7 #43A047, stop:1 #1B5E20);"
-        "    border-radius: 20px;"
-        "    border: 1px solid rgba(255,255,255,0.15);"
+        "    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+        "        stop:0 #2E7D32, stop:1 #43A047);"
+        "    border-radius: 14px;"
         "}"
     );
 
-    QGraphicsDropShadowEffect *headerShadow = new QGraphicsDropShadowEffect(header);
-    headerShadow->setBlurRadius(20);
-    headerShadow->setOffset(0, 6);
-    headerShadow->setColor(QColor(46, 125, 50, 80));
-    header->setGraphicsEffect(headerShadow);
-
     auto *layout = new QHBoxLayout(header);
-    layout->setContentsMargins(32, 20, 32, 20);
-    layout->setSpacing(20);
+    layout->setContentsMargins(16, 0, 16, 0);
+    layout->setSpacing(12);
 
-    // 返回按钮
-    auto *backButton = new QPushButton(header);
+    // 返回按钮（精简）
+    auto *backButton = new QPushButton("← 返回", header);
     backButton->setObjectName("backButton");
     backButton->setCursor(Qt::PointingHandCursor);
-    backButton->setFixedHeight(40);
-    backButton->setMinimumWidth(110);
-    backButton->setIcon(QIcon(":/QtTheme/icon/chevron_left/#e0e0e0.svg"));
-    backButton->setIconSize(QSize(18, 18));
-    backButton->setText(QStringLiteral("< 返回"));
     backButton->setStyleSheet(
         "QPushButton#backButton {"
-        "    background: rgba(255,255,255,0.15);"
-        "    border: 1px solid rgba(255,255,255,0.25);"
-        "    border-radius: 20px;"
-        "    padding: 8px 16px;"
-        "    font-size: 14px;"
-        "    font-weight: 600;"
-        "    color: white;"
+        "    background: transparent;"
+        "    border: none;"
+        "    padding: 4px 8px;"
+        "    font-size: 13px;"
+        "    font-weight: 500;"
+        "    color: rgba(255,255,255,0.8);"
         "}"
         "QPushButton#backButton:hover {"
-        "    background: rgba(255,255,255,0.25);"
-        "    border: 1px solid rgba(255,255,255,0.4);"
-        "}"
-        "QPushButton#backButton:pressed {"
-        "    background: rgba(255,255,255,0.1);"
+        "    color: white;"
         "}"
     );
     connect(backButton, &QPushButton::clicked, this, &QuestionBankWindow::backRequested);
 
-    // 装饰图标
-    QLabel *iconDecor = new QLabel(header);
-    iconDecor->setFixedSize(52, 52);
-    iconDecor->setStyleSheet(
-        "background: rgba(255,255,255,0.15);"
-        "border-radius: 14px;"
-        "border: 1px solid rgba(255,255,255,0.2);"
-    );
-    iconDecor->setAlignment(Qt::AlignCenter);
-    QPixmap bookIcon(":/icons/resources/icons/book.svg");
-    if (!bookIcon.isNull()) {
-        QPixmap whiteIcon(bookIcon.size());
-        whiteIcon.fill(Qt::transparent);
-        QPainter painter(&whiteIcon);
-        painter.setCompositionMode(QPainter::CompositionMode_Source);
-        painter.drawPixmap(0, 0, bookIcon);
-        painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
-        painter.fillRect(whiteIcon.rect(), Qt::white);
-        painter.end();
-        iconDecor->setPixmap(whiteIcon.scaled(26, 26, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    }
-
-    // 标题区域
-    auto *titleWrapper = new QWidget(header);
-    titleWrapper->setStyleSheet("background: transparent;");
-    auto *titleLayout = new QVBoxLayout(titleWrapper);
-    titleLayout->setContentsMargins(0, 0, 0, 0);
-    titleLayout->setSpacing(6);
-
-    m_headerTitle = new QLabel(QStringLiteral("AI 智能备课 · 试题中心"), titleWrapper);
+    // 标题
+    m_headerTitle = new QLabel(QStringLiteral("AI 出题中心"), header);
     m_headerTitle->setObjectName("pageTitle");
     m_headerTitle->setStyleSheet(
-        "font-size: 26px; font-weight: 800; color: white; background: transparent;"
-        "letter-spacing: 2px;"
+        "font-size: 16px; font-weight: 700; color: white; background: transparent;"
     );
 
-    m_headerSubtitle = new QLabel(QStringLiteral("◆ AI 出题  ◆ 智能组卷  ◆ 一键导出"), titleWrapper);
-    m_headerSubtitle->setObjectName("pageSubtitle");
-    m_headerSubtitle->setStyleSheet(
-        "font-size: 13px; color: rgba(255,255,255,0.8); background: transparent;"
-        "font-weight: 500; letter-spacing: 1px;"
-    );
+    // 隐藏副标题（不再使用，但保留成员变量避免空指针）
+    m_headerSubtitle = new QLabel("", header);
+    m_headerSubtitle->hide();
 
-    titleLayout->addWidget(m_headerTitle);
-    titleLayout->addWidget(m_headerSubtitle);
-
-    // 右侧分段控制
-    auto *rightControls = new QWidget(header);
-    rightControls->setStyleSheet("background: transparent;");
-    auto *rightLayout = new QVBoxLayout(rightControls);
-    rightLayout->setContentsMargins(0, 0, 0, 0);
-    rightLayout->setSpacing(8);
-
-    auto *tabRow = new QHBoxLayout();
-    tabRow->setSpacing(0);
-
+    // 右侧：标签页切换
     const QString TAB_ACTIVE_STYLE =
         "QPushButton { background: rgba(255,255,255,0.9); color: #2E7D32; "
-        "border: none; padding: 8px 20px; font-size: 13px; font-weight: 700; "
+        "border: none; padding: 5px 16px; font-size: 12px; font-weight: 700; "
         "border-radius: %1; }";
     const QString TAB_NORMAL_STYLE =
         "QPushButton { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.85); "
-        "border: none; padding: 8px 20px; font-size: 13px; font-weight: 500; "
+        "border: none; padding: 5px 16px; font-size: 12px; font-weight: 500; "
         "border-radius: %1; }"
         "QPushButton:hover { background: rgba(255,255,255,0.25); }";
 
     m_aiGenTabBtn = new QPushButton("AI 出题");
     m_aiGenTabBtn->setCursor(Qt::PointingHandCursor);
-    m_aiGenTabBtn->setStyleSheet(TAB_ACTIVE_STYLE.arg("16px 0 0 16px"));
+    m_aiGenTabBtn->setStyleSheet(TAB_ACTIVE_STYLE.arg("10px 0 0 10px"));
 
     m_smartPaperTabBtn = new QPushButton("智能组卷");
     m_smartPaperTabBtn->setCursor(Qt::PointingHandCursor);
-    m_smartPaperTabBtn->setStyleSheet(TAB_NORMAL_STYLE.arg("0 16px 16px 0"));
+    m_smartPaperTabBtn->setStyleSheet(TAB_NORMAL_STYLE.arg("0 10px 10px 0"));
 
     connect(m_aiGenTabBtn, &QPushButton::clicked, this, [this]() { switchMode(0); });
     connect(m_smartPaperTabBtn, &QPushButton::clicked, this, [this]() { switchMode(1); });
@@ -323,8 +268,8 @@ QWidget *QuestionBankWindow::buildHeader()
     qualityCheckBtn->setCursor(Qt::PointingHandCursor);
     qualityCheckBtn->setStyleSheet(
         "QPushButton { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.85); "
-        "border: 1px solid rgba(255,255,255,0.25); padding: 8px 16px; font-size: 12px; "
-        "font-weight: 500; border-radius: 16px; margin-left: 12px; }"
+        "border: 1px solid rgba(255,255,255,0.25); padding: 5px 12px; font-size: 11px; "
+        "font-weight: 500; border-radius: 10px; margin-left: 8px; }"
         "QPushButton:hover { background: rgba(255,255,255,0.25); }"
     );
     connect(qualityCheckBtn, &QPushButton::clicked, this, [this]() {
@@ -341,16 +286,22 @@ QWidget *QuestionBankWindow::buildHeader()
         paperService->deleteLater();
     });
 
-    tabRow->addStretch();
-    tabRow->addWidget(m_aiGenTabBtn);
-    tabRow->addWidget(m_smartPaperTabBtn);
-    tabRow->addWidget(qualityCheckBtn);
-    rightLayout->addLayout(tabRow);
+    layout->addWidget(backButton);
+    layout->addWidget(m_headerTitle, 1);
 
-    layout->addWidget(backButton, 0, Qt::AlignLeft | Qt::AlignVCenter);
-    layout->addWidget(iconDecor, 0, Qt::AlignVCenter);
-    layout->addWidget(titleWrapper, 1, Qt::AlignVCenter);
-    layout->addWidget(rightControls, 0, Qt::AlignRight | Qt::AlignVCenter);
+    // 将 AI 侧边栏的下拉筛选组件嵌入到 Header 中
+    if (m_aiQuestionGenWidget) {
+        QWidget *filterWidget = m_aiQuestionGenWidget->curriculumFilterWidget();
+        if (filterWidget) {
+            layout->addWidget(filterWidget);
+            // 添加一些间距，与右侧选项卡隔开
+            layout->addSpacing(16);
+        }
+    }
+
+    layout->addWidget(m_aiGenTabBtn);
+    layout->addWidget(m_smartPaperTabBtn);
+    layout->addWidget(qualityCheckBtn);
 
     return header;
 }
@@ -421,25 +372,21 @@ void QuestionBankWindow::switchMode(int mode)
 
     const QString TAB_ACTIVE =
         "QPushButton { background: rgba(255,255,255,0.9); color: #2E7D32; "
-        "border: none; padding: 8px 20px; font-size: 13px; font-weight: 700; "
+        "border: none; padding: 5px 16px; font-size: 12px; font-weight: 700; "
         "border-radius: %1; }";
     const QString TAB_NORMAL =
         "QPushButton { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.85); "
-        "border: none; padding: 8px 20px; font-size: 13px; font-weight: 500; "
+        "border: none; padding: 5px 16px; font-size: 12px; font-weight: 500; "
         "border-radius: %1; }"
         "QPushButton:hover { background: rgba(255,255,255,0.25); }";
 
     if (mode == 0) {
-        if (m_aiGenTabBtn) m_aiGenTabBtn->setStyleSheet(TAB_ACTIVE.arg("16px 0 0 16px"));
-        if (m_smartPaperTabBtn) m_smartPaperTabBtn->setStyleSheet(TAB_NORMAL.arg("0 16px 16px 0"));
-        if (m_headerTitle) m_headerTitle->setText("AI 智能备课 · AI 出题");
-        if (m_headerSubtitle) m_headerSubtitle->setText("◆ 对话出题  ◆ 智能生成  ◆ 一键导出");
+        if (m_aiGenTabBtn) m_aiGenTabBtn->setStyleSheet(TAB_ACTIVE.arg("10px 0 0 10px"));
+        if (m_smartPaperTabBtn) m_smartPaperTabBtn->setStyleSheet(TAB_NORMAL.arg("0 10px 10px 0"));
         if (m_basketWidget) m_basketWidget->setVisible(false);
     } else {
-        if (m_aiGenTabBtn) m_aiGenTabBtn->setStyleSheet(TAB_NORMAL.arg("16px 0 0 16px"));
-        if (m_smartPaperTabBtn) m_smartPaperTabBtn->setStyleSheet(TAB_ACTIVE.arg("0 16px 16px 0"));
-        if (m_headerTitle) m_headerTitle->setText("AI 智能备课 · 智能组卷");
-        if (m_headerSubtitle) m_headerSubtitle->setText("◆ 智能选题  ◆ 约束优化  ◆ 一键成卷");
+        if (m_aiGenTabBtn) m_aiGenTabBtn->setStyleSheet(TAB_NORMAL.arg("10px 0 0 10px"));
+        if (m_smartPaperTabBtn) m_smartPaperTabBtn->setStyleSheet(TAB_ACTIVE.arg("0 10px 10px 0"));
         if (m_basketWidget) m_basketWidget->setVisible(true);
     }
 }

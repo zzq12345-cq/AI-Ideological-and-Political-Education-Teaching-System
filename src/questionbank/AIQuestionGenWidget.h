@@ -8,7 +8,7 @@
 
 class ChatWidget;
 class QVBoxLayout;
-class QFrame;
+#include <QFrame>
 class QPushButton;
 class QComboBox;
 class PaperService;
@@ -54,6 +54,9 @@ public:
 
     /// 设置 DOCX 导出是否可用
     void setExportAvailable(bool available, const QString &reason = QString());
+
+    /// 获取用于放入 Header 的课标筛选组件
+    QWidget* curriculumFilterWidget() const { return m_curriculumBar; }
 
 signals:
     /// 请求将 AI 生成的内容保存到题库

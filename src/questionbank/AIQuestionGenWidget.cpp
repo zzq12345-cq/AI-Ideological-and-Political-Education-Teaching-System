@@ -12,6 +12,7 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QComboBox>
+#include <QListView>
 #include <QGraphicsDropShadowEffect>
 #include <QDebug>
 #include <QMessageBox>
@@ -23,6 +24,7 @@
 #include <QUuid>
 #include <QSettings>
 #include <QDateTime>
+#include <QRegularExpression>
 
 namespace {
 // 绿色教育风格配色（与 SmartPaperWidget / QuestionBankWindow 统一）
@@ -104,78 +106,37 @@ void AIQuestionGenWidget::setupUI()
     connect(m_chatWidget, &ChatWidget::messageSent,
             this, &AIQuestionGenWidget::onUserMessageSent);
 
-    // ====== 底部操作栏 ======
+    // ====== 操作按钮栏（仅在 AI 回复完成后显示） ======
     m_bottomBar = new QFrame(this);
-    m_bottomBar->setObjectName("aiGenBottomBar");
-    m_bottomBar->setStyleSheet(
-        "QFrame#aiGenBottomBar {"
-        "    background-color: #FFFFFF;"
-        "    border-top: 1px solid " + BORDER_SUBTLE + ";"
-        "    border-radius: 0px;"
-        "}"
-    );
-    m_bottomBar->setFixedHeight(56);
-
-    auto *barShadow = new QGraphicsDropShadowEffect(m_bottomBar);
-    barShadow->setBlurRadius(12);
-    barShadow->setOffset(0, -2);
-    barShadow->setColor(QColor(0, 0, 0, 15));
-    m_bottomBar->setGraphicsEffect(barShadow);
+    m_bottomBar->setObjectName("aiGenActionBar");
+    m_bottomBar->setStyleSheet("QFrame#aiGenActionBar { background-color: transparent; border: none; }");
+    m_bottomBar->setFixedHeight(44);
+    m_bottomBar->setVisible(false); // 默认隐藏
 
     auto *barLayout = new QHBoxLayout(m_bottomBar);
-    barLayout->setContentsMargins(20, 8, 20, 8);
+    barLayout->setContentsMargins(20, 0, 20, 8);
     barLayout->setSpacing(12);
 
-    // 新对话按钮
-    m_newChatBtn = new QPushButton(" 新对话");
-    m_newChatBtn->setIcon(QIcon(":/icons/resources/icons/refresh.svg"));
-    m_newChatBtn->setIconSize(QSize(18, 18));
-    m_newChatBtn->setStyleSheet(QString(
-        "QPushButton {"
-        "    background-color: transparent;"
-        "    color: %1;"
-        "    border: 1.5px solid %2;"
-        "    border-radius: 10px;"
-        "    padding: 8px 20px;"
-        "    font-size: 13px;"
-        "    font-weight: 600;"
-        "}"
-        "QPushButton:hover { background-color: #F5F5F5; }"
-    ).arg(TEXT_SECONDARY, BORDER_SUBTLE));
-    m_newChatBtn->setCursor(Qt::PointingHandCursor);
-    connect(m_newChatBtn, &QPushButton::clicked,
-            this, &AIQuestionGenWidget::startNewConversation);
-
-    barLayout->addWidget(m_newChatBtn);
     barLayout->addStretch();
 
     // 导出试卷按钮
     m_exportBtn = new QPushButton(" 导出试卷");
     m_exportBtn->setIcon(QIcon(":/icons/resources/icons/export-white.svg"));
-    m_exportBtn->setIconSize(QSize(18, 18));
+    m_exportBtn->setIconSize(QSize(16, 16));
     m_exportBtn->setStyleSheet(QString(
         "QPushButton {"
         "    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
         "        stop:0 %1, stop:1 #1976D2);"
         "    color: white;"
         "    border: none;"
-        "    border-radius: 10px;"
-        "    padding: 8px 24px;"
-        "    font-size: 13px;"
-        "    font-weight: 700;"
-        "    letter-spacing: 0.3px;"
+        "    border-radius: 8px;"
+        "    padding: 6px 16px;"
+        "    font-size: 12px;"
+        "    font-weight: 600;"
         "}"
-        "QPushButton:hover {"
-        "    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
-        "        stop:0 %2, stop:1 #1565C0);"
-        "}"
-        "QPushButton:disabled {"
-        "    background-color: #E5E7EB;"
-        "    color: #9CA3AF;"
-        "}"
+        "QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 %2, stop:1 #1565C0); }"
     ).arg(ACCENT_BLUE, ACCENT_BLUE_HOVER));
     m_exportBtn->setCursor(Qt::PointingHandCursor);
-    m_exportBtn->setEnabled(false);
     connect(m_exportBtn, &QPushButton::clicked, this, [this]() {
         if (m_exportAvailable && !m_lastAIResponse.trimmed().isEmpty()) {
             emit exportRequested(m_lastAIResponse);
@@ -186,32 +147,22 @@ void AIQuestionGenWidget::setupUI()
     // 保存到题库按钮
     m_saveBtn = new QPushButton(" 保存到题库");
     m_saveBtn->setIcon(QIcon(":/icons/resources/icons/save-white.svg"));
-    m_saveBtn->setIconSize(QSize(18, 18));
+    m_saveBtn->setIconSize(QSize(16, 16));
     m_saveBtn->setStyleSheet(QString(
         "QPushButton {"
         "    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
         "        stop:0 %1, stop:1 #388E3C);"
         "    color: white;"
         "    border: none;"
-        "    border-radius: 10px;"
-        "    padding: 8px 24px;"
-        "    font-size: 13px;"
-        "    font-weight: 700;"
-        "    letter-spacing: 0.3px;"
+        "    border-radius: 8px;"
+        "    padding: 6px 16px;"
+        "    font-size: 12px;"
+        "    font-weight: 600;"
         "}"
-        "QPushButton:hover {"
-        "    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
-        "        stop:0 %2, stop:1 #2E7D32);"
-        "}"
-        "QPushButton:disabled {"
-        "    background-color: #E5E7EB;"
-        "    color: #9CA3AF;"
-        "}"
+        "QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 %2, stop:1 #2E7D32); }"
     ).arg(ACCENT_GREEN, ACCENT_GREEN_HOVER));
     m_saveBtn->setCursor(Qt::PointingHandCursor);
-    m_saveBtn->setEnabled(false);
-    connect(m_saveBtn, &QPushButton::clicked,
-            this, &AIQuestionGenWidget::onSaveToBank);
+    connect(m_saveBtn, &QPushButton::clicked, this, &AIQuestionGenWidget::onSaveToBank);
     barLayout->addWidget(m_saveBtn);
 
     mainLayout->addWidget(m_bottomBar);
@@ -223,40 +174,54 @@ void AIQuestionGenWidget::setupCurriculumBar(QVBoxLayout *mainLayout)
     m_curriculumBar->setObjectName("aiCurriculumBar");
     m_curriculumBar->setStyleSheet(
         "QFrame#aiCurriculumBar {"
-        "    background-color: #FFFFFF;"
-        "    border-bottom: 1px solid " + BORDER_SUBTLE + ";"
+        "    background-color: transparent;"
         "}"
         "QComboBox {"
-        "    background-color: #F9FAFB;"
-        "    border: 1px solid #D1D5DB;"
-        "    border-radius: 10px;"
-        "    padding: 8px 12px;"
+        "    background-color: rgba(255,255,255,0.18);"
+        "    border: 1px solid rgba(255,255,255,0.3);"
+        "    border-radius: 12px;"
+        "    padding: 2px 10px;"
         "    min-height: 20px;"
-        "    color: #111827;"
-        "    font-size: 13px;"
+        "    color: white;"
+        "    font-size: 11px;"
         "}"
-        "QComboBox:hover { border-color: #9CA3AF; background-color: #FFFFFF; }"
-        "QComboBox:focus { border-color: #2E7D32; background-color: #FFFFFF; }"
+        "QComboBox:hover { background-color: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.5); }"
+        "QComboBox:focus { background-color: rgba(255,255,255,0.25); border-color: white; }"
+        "QComboBox::drop-down { border: none; width: 20px; }"
+        "QComboBox::down-arrow { image: url(:/QtTheme/icon/arrow_drop_down/#ffffff.svg); width: 14px; height: 14px; }"
+        "QComboBox QAbstractItemView {"
+        "    background-color: white;"
+        "    color: #111827;"
+        "    border: 1px solid #E5E7EB;"
+        "    border-radius: 8px;"
+        "    outline: none;"
+        "}"
+        "QComboBox QAbstractItemView::item {"
+        "    color: #111827;"
+        "    min-height: 30px;"
+        "    padding-left: 8px;"
+        "}"
+        "QComboBox QAbstractItemView::item:selected {"
+        "    background-color: #E8F5E9;"
+        "    color: #2E7D32;"
+        "}"
     );
 
     auto *layout = new QHBoxLayout(m_curriculumBar);
-    layout->setContentsMargins(20, 14, 20, 14);
-    layout->setSpacing(12);
-
-    auto *scopeLabel = new QLabel("课标范围");
-    scopeLabel->setStyleSheet("QLabel { font-size: 13px; font-weight: 700; color: #111827; }");
-    layout->addWidget(scopeLabel);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(8);
 
     m_gradeCombo = new QComboBox(m_curriculumBar);
-    m_gradeCombo->addItem("不限年级册别");
+    m_gradeCombo->setView(new QListView()); // 强制不使用原生菜单以支持样式
+    m_gradeCombo->addItem("不限年级");
     for (const auto &grade : CurriculumData::gradeSemesters()) {
         m_gradeCombo->addItem(grade);
     }
-    layout->addWidget(m_gradeCombo, 1);
+    layout->addWidget(m_gradeCombo);
 
     m_chapterCombo = new QComboBox(m_curriculumBar);
-    layout->addWidget(m_chapterCombo, 2);
-    layout->addStretch();
+    m_chapterCombo->setView(new QListView()); // 强制不使用原生菜单以支持样式
+    layout->addWidget(m_chapterCombo);
 
     connect(m_gradeCombo, &QComboBox::currentTextChanged, this, [this]() {
         if (m_isUpdatingCurriculumUi) {
@@ -274,7 +239,7 @@ void AIQuestionGenWidget::setupCurriculumBar(QVBoxLayout *mainLayout)
     });
 
     refreshChapterOptions(false);
-    mainLayout->addWidget(m_curriculumBar);
+    // 不再添加到 mainLayout，而是通过 curriculumFilterWidget() 供外部使用
 }
 
 void AIQuestionGenWidget::setupAiService()
@@ -300,42 +265,27 @@ void AIQuestionGenWidget::showWelcome()
     const QString chapter = selectedChapter();
     const QStringList knowledgePoints = selectedKnowledgePoints();
 
-    QString welcome =
-        "你好！我是 **AI 出题助手** 💡\n\n"
-        "我会根据你当前选择的课标范围生成更贴教材、更贴章节的思政试题。";
+    QString welcome = "**AI 出题助手** 已就绪。请直接输入需求，或点击下方选项开始 👇";
 
     if (!gradeSemester.isEmpty() && !chapter.isEmpty()) {
         welcome += QString(
             "\n\n**当前范围**：%1 · %2\n"
-            "**核心考点**：%3\n"
-            "**高频考法**：%4"
+            "**考点提示**：%3"
         ).arg(
             gradeSemester,
             chapter,
-            knowledgePoints.isEmpty() ? QStringLiteral("本单元核心内容") : knowledgePoints.join("、"),
-            CurriculumData::highFrequencyPatternsFor(gradeSemester, chapter).join("；")
+            knowledgePoints.isEmpty() ? QStringLiteral("本单元核心内容") : knowledgePoints.join("、")
         );
         m_chatWidget->setPlaceholderText(
-            QString("例如：为%1 %2出3道材料分析题，难度中等...")
-                .arg(gradeSemester, chapter));
+            QString("为%1 %2出3道选择题...").arg(gradeSemester, chapter));
     } else if (!gradeSemester.isEmpty()) {
-        welcome += QString(
-            "\n\n**当前范围**：%1\n"
-            "**核心考点示例**：%2"
-        ).arg(
-            gradeSemester,
-            knowledgePoints.isEmpty() ? QStringLiteral("请继续选择章节以缩小范围") : knowledgePoints.join("、")
-        );
+        welcome += QString("\n\n**当前范围**：%1").arg(gradeSemester);
         m_chatWidget->setPlaceholderText(
-            QString("例如：围绕%1核心内容出5道选择题...").arg(gradeSemester));
+            QString("围绕%1核心出5道题...").arg(gradeSemester));
     } else {
-        welcome +=
-            "\n\n你可以先在上方选择 **年级册别 + 章节**，再生成更精准的题目。"
-            "\n也可以直接输入需求，我会按通用课程范围出题。";
-        m_chatWidget->setPlaceholderText("输入出题需求，例如：帮我出5道关于宪法的选择题...");
+        m_chatWidget->setPlaceholderText("帮我出5道关于宪法的选择题...");
     }
 
-    welcome += "\n\n直接输入需求，或点击下方快捷按钮开始 👇";
     m_chatWidget->addMessage(welcome, false);
     m_chatWidget->addQuickReplyOptions(CurriculumData::quickPromptsFor(gradeSemester, chapter));
 }
@@ -435,15 +385,95 @@ void AIQuestionGenWidget::ensureAssistantMessagePlaceholder()
 
 QString AIQuestionGenWidget::currentConversationTitle() const
 {
-    // 从首条用户消息提取标题（前 20 字）
+    // 从首条用户消息智能提取精炼标题
     for (const auto &msg : m_conversationHistory) {
-        if (msg.role == "user") {
-            QString title = msg.content.left(20).trimmed();
-            if (title.length() < msg.content.length()) {
-                title += "...";
-            }
-            return title;
+        if (msg.role != "user") continue;
+
+        const QString &text = msg.content;
+
+        // 如果原始消息本身就很短（≤8字），直接用
+        if (text.length() <= 8) {
+            return text.trimmed();
         }
+
+        // ---- 智能提取关键信息 ----
+        QString topic;      // 主题
+        QString qType;      // 题型
+        QString count;       // 数量
+        QString grade;       // 年级
+
+        // 1. 提取主题：匹配 "主题：XXX" 或 "关于XXX" 或 '引号内容'
+        static const QRegularExpression topicRe(
+            R"(主题[：:]\s*(.{1,8})|关于[""「]?(.{1,8})[""」]?|围绕[''「](.{1,6})[''」])");
+        QRegularExpressionMatch topicMatch = topicRe.match(text);
+        if (topicMatch.hasMatch()) {
+            topic = topicMatch.captured(1);
+            if (topic.isEmpty()) topic = topicMatch.captured(2);
+            if (topic.isEmpty()) topic = topicMatch.captured(3);
+            topic = topic.trimmed();
+            // 清理尾部标点
+            topic.remove(QRegularExpression(R"([。，,.、\s]+$)"));
+        }
+
+        // 2. 提取题型
+        static const QRegularExpression typeRe(
+            R"((选择题|判断题|填空题|简答题|论述题|材料分析题|材料论述题|判断说理题|辨析题|综合练习|考卷|试卷|期中考卷|期末考卷|模拟卷))");
+        QRegularExpressionMatch typeMatch = typeRe.match(text);
+        if (typeMatch.hasMatch()) {
+            qType = typeMatch.captured(1);
+        }
+
+        // 3. 提取数量
+        static const QRegularExpression countRe(
+            R"((\d+)\s*(?:道|题|份|个|条))");
+        QRegularExpressionMatch countMatch = countRe.match(text);
+        if (countMatch.hasMatch()) {
+            count = countMatch.captured(1);
+        }
+
+        // 4. 提取年级
+        static const QRegularExpression gradeRe(
+            R"((初[一二三]|高[一二三]|[一二三四五六七八九]年级|小学|初中|高中))");
+        QRegularExpressionMatch gradeMatch = gradeRe.match(text);
+        if (gradeMatch.hasMatch()) {
+            grade = gradeMatch.captured(1);
+        }
+
+        // ---- 组装精炼标题 ----
+        QStringList parts;
+
+        // 年级放在最前面
+        if (!grade.isEmpty()) {
+            parts << grade;
+        }
+
+        // 主题
+        if (!topic.isEmpty()) {
+            parts << topic;
+        }
+
+        // 题型 + 数量
+        if (!qType.isEmpty()) {
+            if (!count.isEmpty()) {
+                parts << QString("%1×%2").arg(qType, count);
+            } else {
+                parts << qType;
+            }
+        } else if (!count.isEmpty()) {
+            parts << QString("%1题").arg(count);
+        }
+
+        // 如果成功提取到了信息，用 · 连接
+        if (!parts.isEmpty()) {
+            return parts.join(" · ");
+        }
+
+        // 兜底：截取前 12 个字
+        QString fallback = text.left(12).trimmed();
+        if (fallback.length() < text.length()) {
+            fallback += "…";
+        }
+        return fallback;
     }
     return QStringLiteral("新对话");
 }
@@ -467,6 +497,10 @@ void AIQuestionGenWidget::cancelCurrentReply()
 void AIQuestionGenWidget::updateActionButtons()
 {
     const bool hasResponse = !m_lastAIResponse.trimmed().isEmpty();
+
+    if (m_bottomBar) {
+        m_bottomBar->setVisible(hasResponse && !m_isGenerating);
+    }
 
     if (m_saveBtn) {
         m_saveBtn->setEnabled(hasResponse && !m_isSavingToBank);
@@ -788,6 +822,12 @@ void AIQuestionGenWidget::sendToMiniMax(const QString &userMessage)
         } else {
             // AI 回复完成 — 添加到历史、保存、通知外部
             if (!m_lastAIResponse.isEmpty()) {
+                // 过滤 <think>...</think> 思考内容后再保存
+                static const QRegularExpression thinkRe(
+                    QStringLiteral("<think>[\\s\\S]*?</think>\\s*"),
+                    QRegularExpression::MultilineOption);
+                m_lastAIResponse.remove(thinkRe);
+                m_lastAIResponse = m_lastAIResponse.trimmed();
                 m_conversationHistory.append({QStringLiteral("assistant"), m_lastAIResponse});
             }
             updateActionButtons();
@@ -804,6 +844,22 @@ void AIQuestionGenWidget::sendToMiniMax(const QString &userMessage)
 void AIQuestionGenWidget::processSSEData(const QByteArray &data)
 {
     m_sseBuffer.append(data);
+
+    // 辅助：过滤 <think>...</think> 标签（支持流式中间状态）
+    auto stripThinkTags = [](const QString &text) -> QString {
+        QString result = text;
+        // 移除已完成的 <think>...</think> 块
+        static const QRegularExpression thinkRe(
+            QStringLiteral("<think>[\\s\\S]*?</think>\\s*"),
+            QRegularExpression::MultilineOption);
+        result.remove(thinkRe);
+        // 移除流式中尚未闭合的 <think>... 块
+        static const QRegularExpression thinkOpenRe(
+            QStringLiteral("<think>[\\s\\S]*$"),
+            QRegularExpression::MultilineOption);
+        result.remove(thinkOpenRe);
+        return result.trimmed();
+    };
 
     while (true) {
         int endIdx = m_sseBuffer.indexOf("\n\n");
@@ -826,7 +882,10 @@ void AIQuestionGenWidget::processSSEData(const QByteArray &data)
                             if (!content.isEmpty()) {
                                 ensureAssistantMessagePlaceholder();
                                 m_lastAIResponse += content;
-                                m_chatWidget->updateLastAIMessage(m_lastAIResponse);
+                                QString display = stripThinkTags(m_lastAIResponse);
+                                if (!display.isEmpty()) {
+                                    m_chatWidget->updateLastAIMessage(display);
+                                }
                             }
                         }
                     }
@@ -852,7 +911,10 @@ void AIQuestionGenWidget::processSSEData(const QByteArray &data)
                         if (!content.isEmpty()) {
                             ensureAssistantMessagePlaceholder();
                             m_lastAIResponse += content;
-                            m_chatWidget->updateLastAIMessage(m_lastAIResponse);
+                            QString display = stripThinkTags(m_lastAIResponse);
+                            if (!display.isEmpty()) {
+                                m_chatWidget->updateLastAIMessage(display);
+                            }
                         }
                     }
                 }

@@ -1071,9 +1071,15 @@ void ModernMainWindow::setupCentralWidget()
     m_sidebarStack->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     m_sidebarStack->addWidget(sidebar);  // 页面0：导航侧边栏
     
-    // 创建历史记录侧边栏（将在createAIChatWidget中配置信号）
+    // 创建AI对话历史记录侧边栏（将在createAIChatWidget中配置信号）
     m_chatHistoryWidget = new ChatHistoryWidget();
-    m_sidebarStack->addWidget(m_chatHistoryWidget);  // 页面1：历史记录侧边栏
+    m_sidebarStack->addWidget(m_chatHistoryWidget);  // 页面1：AI对话历史
+
+    // 创建教案历史记录侧边栏
+    m_lessonHistoryWidget = new ChatHistoryWidget();
+    m_lessonHistoryWidget->setHeaderTitle("教案历史");
+    m_lessonHistoryWidget->setNewButtonText("新建教案");
+    m_sidebarStack->addWidget(m_lessonHistoryWidget);  // 页面2：教案历史
     
     // 确保初始显示导航侧边栏
     m_sidebarStack->setCurrentIndex(0);
@@ -1092,6 +1098,11 @@ void ModernMainWindow::setupCentralWidget()
     // 创建试题库页面
     questionBankWindow = new QuestionBankWindow(this);
     contentStack->addWidget(questionBankWindow);
+
+    // 将试题库出题历史侧边栏加入全局侧边栏堆栈（页面3）
+    if (questionBankWindow->questionHistoryWidget()) {
+        m_sidebarStack->addWidget(questionBankWindow->questionHistoryWidget());
+    }
 
     // 创建时政新闻页面
     m_hotspotService = new HotspotService(this);
@@ -2036,6 +2047,11 @@ void ModernMainWindow::onResourceManagementClicked()
         qDebug() << "切换到试题库页面";
         contentStack->setCurrentWidget(questionBankWindow);
         this->statusBar()->showMessage("试题库");
+
+        // 切换侧边栏为出题历史（页面3），隐藏导航栏
+        if (m_sidebarStack) {
+            m_sidebarStack->setCurrentIndex(3);
+        }
     } else {
         qDebug() << "错误：questionBankWindow为空";
     }
@@ -2543,9 +2559,14 @@ void ModernMainWindow::createAIChatWidget()
             QJsonObject conv = val.toObject();
             QString id = conv["id"].toString();
             QString name = conv["name"].toString();
-            if (name.startsWith(QStringLiteral("教案"))
-                || name.contains(QStringLiteral("教案编写"))
-                || name.contains(QStringLiteral("生成教案"))) {
+            // 过滤教案生成对话（由 m_lessonDifyService 产生，不属于 AI 对话历史）
+            if (name.contains(QStringLiteral("教案"))
+                || name.contains(QStringLiteral("教学目标"))
+                || name.contains(QStringLiteral("教学过程"))
+                || name.contains(QStringLiteral("教学设计"))
+                || name.contains(QStringLiteral("教学重难点"))
+                || name.contains(QStringLiteral("课时"))
+                || name.contains(QStringLiteral("板书设计"))) {
                 continue;
             }
             if (name.isEmpty()) {
@@ -2653,6 +2674,128 @@ void ModernMainWindow::createAIChatWidget()
         // 可在此处理保存到数据库等逻辑
     });
 
+    // 监听标签页切换 — 同步切换历史记录侧边栏
+    connect(m_aiTabWidget, &QTabWidget::currentChanged, this, [this](int index) {
+        // 仅在已经进入对话页面时才切换侧边栏
+        if (m_sidebarStack && m_sidebarStack->currentIndex() >= 1) {
+            if (index == 1) {
+                m_sidebarStack->setCurrentIndex(2);  // 教案历史
+                // 首次切换到教案标签页时加载历史列表
+                if (m_lessonDifyService && m_lessonHistoryWidget && m_lessonHistoryWidget->itemCount() == 0) {
+                    m_lessonDifyService->fetchConversations();
+                }
+            } else {
+                m_sidebarStack->setCurrentIndex(1);  // AI对话历史
+            }
+        }
+    });
+
+    // ========== 教案历史侧边栏信号连接 ==========
+    connect(m_lessonHistoryWidget, &ChatHistoryWidget::newChatRequested, this, [this]() {
+        // 新建教案：清空编辑器并重置会话
+        if (m_lessonPlanEditor) {
+            m_lessonPlanEditor->clear();
+            m_lessonPlanEditor->setConversationId(QString());
+        }
+        if (m_lessonDifyService) {
+            m_lessonDifyService->clearConversation();
+            m_lessonDifyService->fetchConversations();  // 刷新列表
+        }
+        if (m_lessonHistoryWidget) {
+            m_lessonHistoryWidget->clearSelection();
+        }
+    });
+
+    connect(m_lessonHistoryWidget, &ChatHistoryWidget::backRequested, this, [this]() {
+        // 返回欢迎页面
+        if (m_mainStack && m_welcomePanel) {
+            m_mainStack->setCurrentWidget(m_welcomePanel);
+            if (m_welcomeInputWidget) m_welcomeInputWidget->show();
+        }
+        swapToNavSidebar();
+        m_isConversationStarted = false;
+    });
+
+    connect(m_lessonHistoryWidget, &ChatHistoryWidget::historyItemSelected, this, [this](const QString &id) {
+        // 确保在教案标签页
+        if (m_aiTabWidget) {
+            m_aiTabWidget->setCurrentIndex(1);
+        }
+        // 加载教案对话的消息到编辑器
+        if (m_lessonDifyService) {
+            m_lessonDifyService->setCurrentConversationId(id);
+            m_lessonDifyService->fetchMessages(id);
+        }
+        if (m_lessonPlanEditor) {
+            m_lessonPlanEditor->setConversationId(id);
+        }
+    });
+
+    // 连接教案 DifyService 的对话列表接收信号
+    connect(m_lessonDifyService, &DifyService::conversationsReceived, this, [this](const QJsonArray &conversations) {
+        if (!m_lessonHistoryWidget) return;
+        m_lessonHistoryWidget->clearHistory();
+
+        for (const QJsonValue &val : conversations) {
+            QJsonObject conv = val.toObject();
+            QString id = conv["id"].toString();
+            QString name = conv["name"].toString();
+            if (name.isEmpty()) {
+                name = QString("教案 %1").arg(id.left(8));
+            }
+
+            qint64 updatedAt = conv["updated_at"].toVariant().toLongLong();
+            QString timeStr;
+            if (updatedAt > 0) {
+                QDateTime dt = QDateTime::fromSecsSinceEpoch(updatedAt);
+                timeStr = dt.toString("M月d日 HH:mm");
+            } else {
+                timeStr = "未知时间";
+            }
+
+            m_lessonHistoryWidget->addHistoryItem(id, name, timeStr);
+        }
+        qDebug() << "[ModernMainWindow] 教案历史加载完成，共" << conversations.size() << "条";
+    });
+
+    // 连接教案 DifyService 的消息历史接收信号 — 还原教案内容到编辑器
+    connect(m_lessonDifyService, &DifyService::messagesReceived, this, [this](const QJsonArray &messages, const QString &conversationId) {
+        if (!m_lessonPlanEditor) return;
+
+        // 找到最后一条 AI 回复的内容（教案全文）
+        QString lastAIContent;
+        for (const QJsonValue &val : messages) {
+            QJsonObject msg = val.toObject();
+            QString role = msg["role"].toString();
+            if (role != "user") {
+                // Dify 的 answer 字段
+                QString answer = msg["answer"].toString();
+                if (!answer.isEmpty()) {
+                    lastAIContent = answer;
+                    // messages 是按时间倒序排列，第一条非user就是最新的AI回复
+                    break;
+                }
+            }
+        }
+
+        if (!lastAIContent.isEmpty()) {
+            m_lessonPlanEditor->setConversationId(conversationId);
+            // 将 Markdown 教案内容设置到编辑器
+            m_lessonPlanEditor->setContent(lastAIContent);
+            qDebug() << "[ModernMainWindow] 教案内容已还原，长度:" << lastAIContent.length();
+        }
+    });
+
+    // 连接教案生成完成信号 — 自动刷新教案历史列表
+    connect(m_lessonPlanEditor, &LessonPlanEditor::aiGenerationFinished, this, [this]() {
+        if (m_lessonDifyService) {
+            // 延迟刷新，等 Dify 后台保存完成
+            QTimer::singleShot(1500, this, [this]() {
+                m_lessonDifyService->fetchConversations();
+            });
+        }
+    });
+
     // 添加标签页容器到主布局
     containerLayout->addWidget(m_aiTabWidget, 1);
 
@@ -2723,7 +2866,13 @@ void ModernMainWindow::createAIChatWidget()
 void ModernMainWindow::swapToHistorySidebar()
 {
     if (m_sidebarStack) {
-        m_sidebarStack->setCurrentIndex(1);  // 历史记录侧边栏
+        // 根据当前标签页决定显示哪个历史侧边栏
+        int tabIndex = m_aiTabWidget ? m_aiTabWidget->currentIndex() : 0;
+        if (tabIndex == 1) {
+            m_sidebarStack->setCurrentIndex(2);  // 教案历史侧边栏
+        } else {
+            m_sidebarStack->setCurrentIndex(1);  // AI对话历史侧边栏
+        }
     }
 }
 

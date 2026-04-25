@@ -85,13 +85,22 @@ void ChatWidget::setupUI()
     bottomLayout->setContentsMargins(20, 10, 20, 5);
     bottomLayout->setSpacing(4);
 
-    m_quickReplyContainer = new QWidget();
+    m_quickReplyContainer = new QScrollArea();
     m_quickReplyContainer->setObjectName("quickReplyContainer");
     m_quickReplyContainer->setVisible(false);
-    m_quickReplyLayout = new QGridLayout(m_quickReplyContainer);
+    m_quickReplyContainer->setWidgetResizable(true);
+    m_quickReplyContainer->setFixedHeight(46);
+    m_quickReplyContainer->setStyleSheet("QScrollArea { background: transparent; border: none; }");
+    m_quickReplyContainer->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_quickReplyContainer->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    QWidget *scrollContent = new QWidget();
+    scrollContent->setStyleSheet("background: transparent;");
+    m_quickReplyLayout = new QHBoxLayout(scrollContent);
     m_quickReplyLayout->setContentsMargins(0, 0, 0, 6);
-    m_quickReplyLayout->setHorizontalSpacing(8);
-    m_quickReplyLayout->setVerticalSpacing(8);
+    m_quickReplyLayout->setSpacing(8);
+    m_quickReplyContainer->setWidget(scrollContent);
+
     bottomLayout->addWidget(m_quickReplyContainer);
 
     // 输入框容器（胶囊状）
@@ -605,7 +614,6 @@ void ChatWidget::addQuickReplyOptions(const QStringList &options)
         return;
     }
 
-    const int columnCount = 2;
     for (int i = 0; i < options.size(); ++i) {
         const QString option = options.at(i);
         auto *button = new QPushButton(option);
@@ -640,10 +648,9 @@ void ChatWidget::addQuickReplyOptions(const QStringList &options)
             emit messageSent(option);
         });
 
-        const int row = i / columnCount;
-        const int column = i % columnCount;
-        m_quickReplyLayout->addWidget(button, row, column);
+        m_quickReplyLayout->addWidget(button);
     }
+    m_quickReplyLayout->addStretch();
 
     m_quickReplyContainer->setVisible(true);
 }
