@@ -10,6 +10,9 @@
 #include <QApplication>
 #include <QFile>
 #include <QDebug>
+#include <QEvent>
+#include <QMouseEvent>
+#include <QStyle>
 
 const QString ChatWidget::USER_BUBBLE_COLOR = StyleConfig::PATRIOTIC_RED_DARK;
 const QString ChatWidget::AI_BUBBLE_COLOR = StyleConfig::BG_CARD;
@@ -23,9 +26,13 @@ ChatWidget::ChatWidget(QWidget *parent)
     , m_messageLayout(nullptr)
     , m_inputEdit(nullptr)
     , m_sendBtn(nullptr)
+    , m_inputContainer(nullptr)
     , m_quickReplyContainer(nullptr)
     , m_quickReplyLayout(nullptr)
     , m_typingIndicatorRow(nullptr)
+    , m_typingIndicatorLabel(nullptr)
+    , m_typingIndicatorTimer(new QTimer(this))
+    , m_typingIndicatorPhase(0)
     , m_lastAIMessageLabel(nullptr)
     , m_lastAIThinkingWidget(nullptr)
     , m_lastAIThinkingLabel(nullptr)
@@ -38,6 +45,8 @@ ChatWidget::ChatWidget(QWidget *parent)
 
     // 设置代码块主题
     m_markdownRenderer->setCodeTheme(QColor("#f6f8fa"), QColor("#d73a49"));
+    connect(m_typingIndicatorTimer, &QTimer::timeout,
+            this, &ChatWidget::updateTypingIndicator);
 
     setupUI();
     setupStyles();
@@ -104,9 +113,11 @@ void ChatWidget::setupUI()
     bottomLayout->addWidget(m_quickReplyContainer);
 
     // 输入框容器（胶囊状）
-    QFrame *inputContainer = new QFrame();
-    inputContainer->setObjectName("inputContainer");
-    inputContainer->setFixedHeight(56); // 增加高度以适应胶囊形状
+    m_inputContainer = new QFrame();
+    m_inputContainer->setObjectName("inputContainer");
+    m_inputContainer->setProperty("focused", false);
+    m_inputContainer->setFocusPolicy(Qt::ClickFocus);
+    m_inputContainer->setFixedHeight(56); // 增加高度以适应胶囊形状
     
     // 移除阴影效果，避免产生底部阴影长方形
     /*
@@ -117,7 +128,7 @@ void ChatWidget::setupUI()
     inputContainer->setGraphicsEffect(shadow);
     */
 
-    QHBoxLayout *containerLayout = new QHBoxLayout(inputContainer);
+    QHBoxLayout *containerLayout = new QHBoxLayout(m_inputContainer);
     containerLayout->setContentsMargins(12, 8, 12, 8);
     containerLayout->setSpacing(12);
 
@@ -132,6 +143,9 @@ void ChatWidget::setupUI()
     m_inputEdit->setObjectName("chatInputEdit");
     m_inputEdit->setPlaceholderText("向AI助手发送信息...");
     m_inputEdit->setFixedHeight(40);
+    m_inputContainer->setFocusProxy(m_inputEdit);
+    m_inputContainer->installEventFilter(this);
+    m_inputEdit->installEventFilter(this);
     
     // 发送按钮
     m_sendBtn = new QPushButton("↑"); // 使用向上箭头
@@ -148,7 +162,7 @@ void ChatWidget::setupUI()
     tipLabel->setObjectName("tipLabel");
     tipLabel->setAlignment(Qt::AlignCenter);
     
-    bottomLayout->addWidget(inputContainer);
+    bottomLayout->addWidget(m_inputContainer);
     bottomLayout->addWidget(tipLabel);
     
     mainLayout->addWidget(bottomWidget);
@@ -175,6 +189,38 @@ void ChatWidget::setupStyles()
             QWidget#messageContainer { background-color: #f5f5f5; }
         )");
     }
+}
+
+bool ChatWidget::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_inputContainer &&
+        event->type() == QEvent::MouseButtonPress) {
+        if (m_inputEdit && m_inputEdit->isEnabled()) {
+            m_inputEdit->setFocus(Qt::MouseFocusReason);
+        }
+    }
+
+    if (watched == m_inputEdit) {
+        if (event->type() == QEvent::FocusIn) {
+            updateInputFocusState(true);
+        } else if (event->type() == QEvent::FocusOut) {
+            updateInputFocusState(false);
+        }
+    }
+
+    return QWidget::eventFilter(watched, event);
+}
+
+void ChatWidget::updateInputFocusState(bool focused)
+{
+    if (!m_inputContainer) {
+        return;
+    }
+
+    m_inputContainer->setProperty("focused", focused);
+    m_inputContainer->style()->unpolish(m_inputContainer);
+    m_inputContainer->style()->polish(m_inputContainer);
+    m_inputContainer->update();
 }
 
 QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
@@ -572,9 +618,10 @@ void ChatWidget::showTypingIndicator()
     bubbleLayout->setContentsMargins(18, 14, 18, 14);
     bubbleLayout->setSpacing(0);
 
-    auto *typingLabel = new QLabel("AI 正在思考当前课标范围内的出题思路...");
-    typingLabel->setWordWrap(true);
-    typingLabel->setStyleSheet(
+    m_typingIndicatorPhase = 0;
+    m_typingIndicatorLabel = new QLabel();
+    m_typingIndicatorLabel->setWordWrap(true);
+    m_typingIndicatorLabel->setStyleSheet(
         "QLabel {"
         "   color: #6B7280;"
         "   font-size: 14px;"
@@ -582,7 +629,7 @@ void ChatWidget::showTypingIndicator()
         "   background: transparent;"
         "}"
     );
-    bubbleLayout->addWidget(typingLabel);
+    bubbleLayout->addWidget(m_typingIndicatorLabel);
 
     rowLayout->addWidget(avatarLabel);
     rowLayout->addWidget(bubble);
@@ -590,6 +637,8 @@ void ChatWidget::showTypingIndicator()
 
     m_messageLayout->addWidget(m_typingIndicatorRow);
     m_messageLayout->addStretch();
+    updateTypingIndicator();
+    m_typingIndicatorTimer->start(420);
     scrollToBottom();
 }
 
@@ -599,11 +648,29 @@ void ChatWidget::hideTypingIndicator()
         return;
     }
 
+    m_typingIndicatorTimer->stop();
+    m_typingIndicatorLabel = nullptr;
     m_messageLayout->removeWidget(m_typingIndicatorRow);
     m_typingIndicatorRow->deleteLater();
     m_typingIndicatorRow = nullptr;
 
     scrollToBottom();
+}
+
+void ChatWidget::updateTypingIndicator()
+{
+    if (!m_typingIndicatorLabel) {
+        return;
+    }
+
+    static const QStringList phases = {
+        "AI 正在思考",
+        "AI 正在思考.",
+        "AI 正在思考..",
+        "AI 正在思考..."
+    };
+    m_typingIndicatorLabel->setText(phases[m_typingIndicatorPhase]);
+    m_typingIndicatorPhase = (m_typingIndicatorPhase + 1) % phases.size();
 }
 
 void ChatWidget::addQuickReplyOptions(const QStringList &options)
@@ -690,6 +757,7 @@ void ChatWidget::setInputEnabled(bool enabled)
 {
     if (m_inputEdit) m_inputEdit->setEnabled(enabled);
     if (m_sendBtn) m_sendBtn->setEnabled(enabled);
+    if (!enabled) updateInputFocusState(false);
 }
 
 QString ChatWidget::inputText() const
@@ -704,7 +772,9 @@ void ChatWidget::clearInput()
 
 void ChatWidget::focusInput()
 {
-    if (m_inputEdit) m_inputEdit->setFocus();
+    if (m_inputEdit && m_inputEdit->isEnabled()) {
+        m_inputEdit->setFocus(Qt::OtherFocusReason);
+    }
 }
 
 void ChatWidget::onSendClicked()

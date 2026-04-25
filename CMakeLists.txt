@@ -85,6 +85,8 @@ set(PROJECT_SOURCES
     src/ui/NetworkImageTextBrowser.h
     src/ui/HotspotTrackingWidget.cpp
     src/ui/HotspotTrackingWidget.h
+    src/ui/HelpCenterWidget.cpp
+    src/ui/HelpCenterWidget.h
     src/services/HotspotService.cpp
     src/services/HotspotService.h
     src/hotspot/INewsProvider.h

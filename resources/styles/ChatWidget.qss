@@ -57,7 +57,7 @@ QFrame#inputContainer {
     border: 1px solid #e5e7eb;
 }
 
-QFrame#inputContainer:focus-within {
+QFrame#inputContainer[focused="true"] {
     border: 1.5px solid #E53935;
 }
 

@@ -49,6 +49,7 @@ class AttendanceWidget;  // 考勤管理组件
 class MyClassWidget;     // 学生我的班级
 class AdminDashboard;    // 管理员后台
 class LessonPlanEditor;
+class HelpCenterWidget;    // 帮助中心
 
 class ModernMainWindow : public QMainWindow
 {
@@ -178,6 +179,7 @@ private:
     AttendanceWidget *m_attendanceWidget = nullptr;
     MyClassWidget *m_myClassWidget = nullptr;
     AdminDashboard *m_adminDashboard = nullptr;
+    HelpCenterWidget *m_helpCenterWidget = nullptr;  // 帮助中心页面
 
     // 通知系统组件
     NotificationService *m_notificationService = nullptr;

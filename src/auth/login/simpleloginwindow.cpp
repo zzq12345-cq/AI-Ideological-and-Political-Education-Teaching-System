@@ -1,7 +1,6 @@
 #include "simpleloginwindow.h"
 #include "../supabase/supabaseconfig.h"
 #include "../../dashboard/modernmainwindow.h"
-#include "../../settings/UserSettingsManager.h"
 #include <QMessageBox>
 #include "../../shared/ModernDialogHelper.h"
 #include <QVBoxLayout>
@@ -648,13 +647,6 @@ void SimpleLoginWindow::onLoginSuccess(const QString &userId, const QString &ema
 
     // 设置全局 access token，供所有 Supabase REST API 请求使用
     SupabaseConfig::setAccessToken(m_supabaseClient->currentAccessToken());
-
-    // 同步 Supabase user_metadata.username 到本地设置
-    QString username = m_supabaseClient->currentUsername();
-    if (!username.isEmpty()) {
-        UserSettingsManager::instance()->setNickname(username);
-        qDebug() << "同步用户名到本地:" << username;
-    }
 
     loginButton->setEnabled(false);
     loginButton->setText("正在查询角色...");

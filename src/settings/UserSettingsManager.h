@@ -69,6 +69,9 @@ private:
     explicit UserSettingsManager(QObject *parent = nullptr);
     ~UserSettingsManager();
 
+    QString scopedKey(const QString &key) const;
+    void loadFromCurrentScope();
+
     static UserSettingsManager *s_instance;
     QSettings *m_settings;
 

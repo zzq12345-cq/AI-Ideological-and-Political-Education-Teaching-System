@@ -15,6 +15,8 @@
 
 // 前向声明
 class MarkdownRenderer;
+class QTimer;
+class QFrame;
 
 /**
  * @brief 现代化气泡对话风格的聊天组件
@@ -136,11 +138,16 @@ signals:
 private slots:
     void onSendClicked();
 
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
     void setupUI();
     void setupStyles();
     QWidget* createMessageBubble(const QString &text, bool isUser);
     void scrollToBottom();
+    void updateTypingIndicator();
+    void updateInputFocusState(bool focused);
 
     // Markdown渲染相关
     QString renderMessage(const QString &text, bool isUser);
@@ -151,9 +158,13 @@ private:
     QVBoxLayout *m_messageLayout;
     QLineEdit *m_inputEdit;
     QPushButton *m_sendBtn;
+    QFrame *m_inputContainer;
     QScrollArea *m_quickReplyContainer;
     QHBoxLayout *m_quickReplyLayout;
     QWidget *m_typingIndicatorRow;
+    QLabel *m_typingIndicatorLabel;
+    QTimer *m_typingIndicatorTimer;
+    int m_typingIndicatorPhase;
 
     // 用于流式更新的最后一条 AI 消息
     QLabel *m_lastAIMessageLabel;

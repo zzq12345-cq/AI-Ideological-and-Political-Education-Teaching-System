@@ -203,7 +203,10 @@ void SupabaseClient::fetchUserRole(const QString &email)
             UserSettingsManager *settings = UserSettingsManager::instance();
             settings->setEmail(m_currentEmail);
             settings->setRole(role);
-            if (!nickname.isEmpty()) {
+
+            const bool hasLocalNickname =
+                !settings->nickname().trimmed().isEmpty();
+            if (!nickname.isEmpty() && !hasLocalNickname) {
                 settings->setNickname(nickname);
             }
             settings->save();

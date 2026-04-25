@@ -1,6 +1,7 @@
 #include "UserSettingsManager.h"
 #include <QCoreApplication>
 #include <QDebug>
+#include <QUrl>
 
 UserSettingsManager* UserSettingsManager::s_instance = nullptr;
 
@@ -114,10 +115,21 @@ QString UserSettingsManager::email() const
 
 void UserSettingsManager::setEmail(const QString &email)
 {
-    if (m_email != email) {
-        m_email = email;
-        emit settingsChanged();
+    QString normalizedEmail = email.trimmed();
+    if (normalizedEmail.contains("@")) {
+        normalizedEmail = normalizedEmail.toLower();
     }
+    if (m_email == normalizedEmail) {
+        return;
+    }
+
+    if (!m_email.isEmpty()) {
+        save();
+    }
+
+    m_email = normalizedEmail;
+    loadFromCurrentScope();
+    emit settingsChanged();
 }
 
 QString UserSettingsManager::role() const
@@ -164,19 +176,30 @@ QString UserSettingsManager::aiUserTitle() const
 
 void UserSettingsManager::save()
 {
-    m_settings->setValue("user/nickname", m_nickname);
-    m_settings->setValue("user/department", m_department);
-    m_settings->setValue("user/title", m_title);
-    m_settings->setValue("user/honorific", m_honorific);
+    m_settings->setValue(scopedKey("user/nickname"), m_nickname);
+    m_settings->setValue(scopedKey("user/department"), m_department);
+    m_settings->setValue(scopedKey("user/title"), m_title);
+    m_settings->setValue(scopedKey("user/honorific"), m_honorific);
+    m_settings->setValue(scopedKey("user/email"), m_email);
+    m_settings->setValue(scopedKey("user/role"), m_role);
+    m_settings->setValue(scopedKey("ai/greetingTemplate"), m_aiGreetingTemplate);
+
     m_settings->setValue("user/email", m_email);
     m_settings->setValue("user/role", m_role);
-    m_settings->setValue("ai/greetingTemplate", m_aiGreetingTemplate);
     m_settings->sync();
     qDebug() << "[UserSettingsManager] Settings saved";
 }
 
 void UserSettingsManager::load()
 {
+    m_email = m_settings->value("user/email", "").toString();
+    if (!m_email.isEmpty()) {
+        loadFromCurrentScope();
+        qDebug() << "[UserSettingsManager] Settings loaded - nickname:" << m_nickname
+                 << "role:" << m_role << "department:" << m_department;
+        return;
+    }
+
     m_nickname = m_settings->value("user/nickname", "").toString();
     m_role = m_settings->value("user/role", "学生").toString();
     m_department = m_settings->value("user/department",
@@ -184,7 +207,6 @@ void UserSettingsManager::load()
     m_title = m_settings->value("user/title", "").toString();
     m_honorific = m_settings->value("user/honorific",
         m_role == "学生" ? "" : "老师").toString();
-    m_email = m_settings->value("user/email", "").toString();
     m_aiGreetingTemplate = m_settings->value(
         "ai/greetingTemplate",
         "{honorific}您好！我是智慧课堂助手，请问有什么可以帮您？"
@@ -192,6 +214,30 @@ void UserSettingsManager::load()
 
     qDebug() << "[UserSettingsManager] Settings loaded - nickname:" << m_nickname
              << "role:" << m_role << "department:" << m_department;
+}
+
+QString UserSettingsManager::scopedKey(const QString &key) const
+{
+    if (m_email.isEmpty()) {
+        return key;
+    }
+
+    const QString accountKey = QString::fromUtf8(QUrl::toPercentEncoding(m_email));
+    return QString("accounts/%1/%2").arg(accountKey, key);
+}
+
+void UserSettingsManager::loadFromCurrentScope()
+{
+    const QString role = m_settings->value(scopedKey("user/role"), "学生").toString();
+    m_role = role;
+    m_nickname = m_settings->value(scopedKey("user/nickname"), "").toString();
+    m_department = m_settings->value(scopedKey("user/department"),
+        m_role == "学生" ? "" : "思政教研组").toString();
+    m_title = m_settings->value(scopedKey("user/title"), "").toString();
+    m_honorific = m_settings->value(scopedKey("user/honorific"),
+        m_role == "学生" ? "" : "老师").toString();
+    m_aiGreetingTemplate = m_settings->value(scopedKey("ai/greetingTemplate"),
+        "{honorific}您好！我是智慧课堂助手，请问有什么可以帮您？").toString();
 }
 
 void UserSettingsManager::resetToDefaults()
