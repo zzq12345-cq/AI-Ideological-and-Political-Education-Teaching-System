@@ -65,6 +65,8 @@ set(PROJECT_SOURCES
     src/services/QuestionQualityService.h
     src/services/PPTXGenerator.cpp
     src/services/PPTXGenerator.h
+    src/services/ZhipuPPTAgentService.cpp
+    src/services/ZhipuPPTAgentService.h
     src/services/PaperService.cpp
     src/services/PaperService.h
     src/services/CurriculumService.cpp

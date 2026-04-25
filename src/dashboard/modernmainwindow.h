@@ -23,6 +23,8 @@
 #include <QQuickWidget>
 #include <QQmlContext>
 #include <QTextEdit>
+#include <QImage>
+#include <QVector>
 
 #include <QTabWidget>
 
@@ -50,6 +52,7 @@ class MyClassWidget;     // 学生我的班级
 class AdminDashboard;    // 管理员后台
 class LessonPlanEditor;
 class HelpCenterWidget;    // 帮助中心
+class ZhipuPPTAgentService; // PPT Agent（MiniMax）
 
 class ModernMainWindow : public QMainWindow
 {
@@ -225,8 +228,9 @@ private:
     bool m_streamUpdatePending = false;   // 是否有待处理的更新
     bool m_streamPlaceholderAdded = false; // 是否已创建 AI 占位气泡
     PPTXGenerator *m_pptxGenerator = nullptr;  // PPTX 生成器
+    ZhipuPPTAgentService *m_pptAgentService = nullptr; // PPT Agent 服务（MiniMax）
 
-    // PPT 模拟生成相关
+    // PPT 生成相关
     QTimer *m_pptSimulationTimer = nullptr;     // PPT 模拟思考定时器
     int m_pptSimulationStep = 0;          // 当前模拟步骤
     QString m_pendingPPTPath;         // 待提供的 PPT 文件路径
@@ -235,12 +239,20 @@ private:
     QTimer *m_pptTypingTimer = nullptr;         // 打字效果定时器
     QString m_pptTypingText;          // 待打字的完整文本
     int m_pptTypingIndex = 0;             // 当前打字位置
+    void startPPTGeneration(const QString &topic); // 启动真正的 PPT Agent 生成
     void startPPTSimulation(const QString &userMessage);  // 开始 PPT 模拟生成
     void onPPTSimulationStep();       // PPT 模拟步骤处理
     bool isPPTGenerationRequest(const QString &message);  // 检测是否是 PPT 生成请求
     void handlePPTConversation(const QString &message);   // 处理 PPT 问答对话
     void typeMessageWithEffect(const QString &text);      // 带打字效果的消息显示
     void onPPTTypingStep();           // 打字效果定时器回调
+    QString savePPTRecord(const QString &filePath, const QVector<QImage> &previews,
+                          int totalPages);
+    void updatePPTRecordFilePath(const QString &recordId, const QString &filePath);
+    void loadPPTRecordsIntoHistory();
+    bool restorePPTRecordToChat(const QString &recordId);
+    QString pptHistoryDir() const;
+    QString pptHistoryIndexPath() const;
 
     // 欢迎面板（首页显示，对话后隐藏）
     QWidget *m_welcomePanel = nullptr;

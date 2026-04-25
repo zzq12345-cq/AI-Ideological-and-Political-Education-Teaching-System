@@ -1,6 +1,8 @@
 #include "ZhipuPPTAgentService.h"
 #include "../config/AiConfig.h"
 #include "../utils/NetworkRequestFactory.h"
+#include <QNetworkProxy>
+#include <QUrl>
 #include <QJsonDocument>
 #include <QJsonParseError>
 #include <QSvgRenderer>
@@ -17,7 +19,24 @@ ZhipuPPTAgentService::ZhipuPPTAgentService(QObject *parent)
     , m_networkManager(new QNetworkAccessManager(this))
     , m_baseUrl(AiConfig::baseUrl())
 {
-    qDebug() << "[PPTAgent] Service initialized";
+    // 从环境变量配置 HTTP 代理（Qt 不会自动读取 http_proxy/https_proxy）
+    QString proxyUrl = qEnvironmentVariable("https_proxy");
+    if (proxyUrl.isEmpty()) {
+        proxyUrl = qEnvironmentVariable("http_proxy");
+    }
+    if (!proxyUrl.isEmpty()) {
+        QUrl pUrl(proxyUrl);
+        if (pUrl.isValid() && !pUrl.host().isEmpty()) {
+            QNetworkProxy proxy(QNetworkProxy::HttpProxy,
+                                pUrl.host(),
+                                static_cast<quint16>(pUrl.port(8080)));
+            m_networkManager->setProxy(proxy);
+            qDebug() << "[PPTAgent] Using proxy:" << pUrl.host() << ":" << pUrl.port();
+        }
+    }
+
+    qDebug() << "[PPTAgent] Service initialized, baseUrl:" << m_baseUrl
+             << "apiKey length:" << AiConfig::apiKey().length();
 }
 
 ZhipuPPTAgentService::~ZhipuPPTAgentService()
@@ -169,6 +188,8 @@ QNetworkReply* ZhipuPPTAgentService::callZhipuApi(const QString &model,
                                                      bool disableThinking,
                                                      const QString &baseUrlOverride)
 {
+    Q_UNUSED(disableThinking); // MiniMax 不支持 thinking 参数，忽略
+
     QNetworkRequest request = createRequest(baseUrlOverride);
 
     QJsonObject body;
@@ -176,10 +197,7 @@ QNetworkReply* ZhipuPPTAgentService::callZhipuApi(const QString &model,
     body["stream"] = false;
     body["temperature"] = temperature;
     body["max_tokens"] = maxTokens;
-    if (disableThinking) {
-        // 对 SVG 代码生成关闭思维链，减少额外 token 占用并提高兼容性。
-        body["thinking"] = QJsonObject{{"type", "disabled"}};
-    }
+    // 注意：不发送 thinking 参数，MiniMax API 不支持
 
     QJsonArray messages;
 
@@ -215,12 +233,11 @@ QNetworkReply* ZhipuPPTAgentService::callZhipuApi(const QString &model,
 
     QNetworkReply *reply = m_networkManager->post(request, data);
     
-    // 统一处理 SSL 错误，防止被中间人/代理直接断开（表现为 RemoteHostClosedError）
+    // 无条件忽略 SSL 错误（已在 createRequest 中设置 VerifyNone）
     connect(reply, &QNetworkReply::sslErrors,
             this, [reply](const QList<QSslError> &errors) {
-        if (!NetworkRequestFactory::handleSslErrors(reply, errors, "[PPTAgent]")) {
-            qWarning() << "[PPTAgent] SSL errors correctly rejected.";
-        }
+        qDebug() << "[PPTAgent] Ignoring SSL errors:" << errors.size();
+        reply->ignoreSslErrors(errors);
     });
     
     return reply;

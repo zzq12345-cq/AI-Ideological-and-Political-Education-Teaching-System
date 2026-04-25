@@ -13,6 +13,7 @@
 #include <QEvent>
 #include <QMouseEvent>
 #include <QStyle>
+#include <QFrame>
 
 const QString ChatWidget::USER_BUBBLE_COLOR = StyleConfig::PATRIOTIC_RED_DARK;
 const QString ChatWidget::AI_BUBBLE_COLOR = StyleConfig::BG_CARD;
@@ -34,6 +35,9 @@ ChatWidget::ChatWidget(QWidget *parent)
     , m_typingIndicatorTimer(new QTimer(this))
     , m_typingIndicatorPhase(0)
     , m_lastAIMessageLabel(nullptr)
+    , m_lastAIBubbleLayout(nullptr)
+    , m_lastPPTPreviewWidget(nullptr)
+    , m_lastPPTPreviewGrid(nullptr)
     , m_lastAIThinkingWidget(nullptr)
     , m_lastAIThinkingLabel(nullptr)
     , m_lastAIThinkingToggle(nullptr)
@@ -408,6 +412,11 @@ QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
         
         // 保存引用用于流式更新
         m_lastAIMessageLabel = textLabel;
+        m_lastAIBubbleLayout = bubbleLayout;
+        m_lastPPTPreviewWidget = nullptr;
+        m_lastPPTPreviewGrid = nullptr;
+        m_pptPreviewImageLabels.clear();
+        m_pptPreviewCaptionLabels.clear();
         qDebug() << "[ChatWidget] createMessageBubble: Set m_lastAIMessageLabel to" << (void*)textLabel << "for AI message";
     }
     
@@ -500,6 +509,126 @@ void ChatWidget::updateLastAIMessagePlain(const QString &text)
     scrollToBottom();
 }
 
+void ChatWidget::beginPPTPreviewProgress()
+{
+    if (!m_lastAIBubbleLayout || m_lastPPTPreviewWidget) {
+        return;
+    }
+
+    auto *panel = new QFrame();
+    panel->setObjectName("pptPreviewPanel");
+    panel->setStyleSheet(
+        "QFrame#pptPreviewPanel {"
+        "   background-color: #F9FAFB;"
+        "   border: 1px solid #E5E7EB;"
+        "   border-radius: 12px;"
+        "   margin-top: 10px;"
+        "}"
+    );
+
+    auto *panelLayout = new QVBoxLayout(panel);
+    panelLayout->setContentsMargins(12, 10, 12, 12);
+    panelLayout->setSpacing(10);
+
+    auto *title = new QLabel("PPT 页面预览");
+    title->setStyleSheet(
+        "QLabel { color: #374151; font-size: 13px; font-weight: 700; "
+        "background: transparent; }"
+    );
+    panelLayout->addWidget(title);
+
+    m_lastPPTPreviewGrid = new QGridLayout();
+    m_lastPPTPreviewGrid->setContentsMargins(0, 0, 0, 0);
+    m_lastPPTPreviewGrid->setHorizontalSpacing(10);
+    m_lastPPTPreviewGrid->setVerticalSpacing(10);
+    panelLayout->addLayout(m_lastPPTPreviewGrid);
+
+    m_lastPPTPreviewWidget = panel;
+    m_lastAIBubbleLayout->setSpacing(10);
+    m_lastAIBubbleLayout->addWidget(panel);
+    scrollToBottom();
+}
+
+QWidget* ChatWidget::createPPTPreviewCard(int slideIndex)
+{
+    auto *card = new QFrame();
+    card->setStyleSheet(
+        "QFrame { background-color: #FFFFFF; border: 1px solid #E5E7EB; "
+        "border-radius: 10px; }"
+    );
+
+    auto *cardLayout = new QVBoxLayout(card);
+    cardLayout->setContentsMargins(8, 8, 8, 8);
+    cardLayout->setSpacing(6);
+
+    auto *imageLabel = new QLabel("生成中");
+    imageLabel->setFixedSize(220, 124);
+    imageLabel->setAlignment(Qt::AlignCenter);
+    imageLabel->setStyleSheet(
+        "QLabel { background-color: #F3F4F6; border: 1px dashed #CBD5E1; "
+        "border-radius: 8px; color: #94A3B8; font-size: 12px; }"
+    );
+
+    auto *captionLabel = new QLabel(QString("第 %1 页").arg(slideIndex + 1));
+    captionLabel->setAlignment(Qt::AlignCenter);
+    captionLabel->setStyleSheet(
+        "QLabel { color: #4B5563; font-size: 12px; font-weight: 600; "
+        "background: transparent; border: none; }"
+    );
+
+    cardLayout->addWidget(imageLabel);
+    cardLayout->addWidget(captionLabel);
+    m_pptPreviewImageLabels.append(imageLabel);
+    m_pptPreviewCaptionLabels.append(captionLabel);
+    return card;
+}
+
+void ChatWidget::ensurePPTPreviewCard(int slideIndex)
+{
+    beginPPTPreviewProgress();
+    if (!m_lastPPTPreviewGrid || slideIndex < 0) {
+        return;
+    }
+
+    while (m_pptPreviewImageLabels.size() <= slideIndex) {
+        int index = m_pptPreviewImageLabels.size();
+        QWidget *card = createPPTPreviewCard(index);
+        m_lastPPTPreviewGrid->addWidget(card, index / 2, index % 2);
+    }
+}
+
+void ChatWidget::updatePPTPreviewProgress(int slideIndex, const QImage &preview)
+{
+    ensurePPTPreviewCard(slideIndex);
+    if (slideIndex < 0 || slideIndex >= m_pptPreviewImageLabels.size()) {
+        return;
+    }
+
+    QLabel *imageLabel = m_pptPreviewImageLabels.at(slideIndex);
+    QLabel *captionLabel = m_pptPreviewCaptionLabels.at(slideIndex);
+    if (!preview.isNull()) {
+        QPixmap pixmap = QPixmap::fromImage(preview).scaled(
+            imageLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        imageLabel->setPixmap(pixmap);
+    }
+    captionLabel->setText(QString("第 %1 页 已生成").arg(slideIndex + 1));
+    scrollToBottom();
+}
+
+void ChatWidget::finishPPTPreviewProgress()
+{
+    if (!m_lastPPTPreviewWidget) {
+        return;
+    }
+
+    for (QLabel *caption : m_pptPreviewCaptionLabels) {
+        if (caption && !caption->text().contains("已生成")) {
+            caption->setText(caption->text() + " 已完成");
+        }
+    }
+    scrollToBottom();
+}
+
 void ChatWidget::updateLastAIThinking(const QString &thought)
 {
     qDebug() << "[ChatWidget] updateLastAIThinking called with thought length:" << thought.length();
@@ -565,6 +694,11 @@ void ChatWidget::clearMessages()
     m_messageLayout->addStretch();
 
     m_lastAIMessageLabel = nullptr;
+    m_lastAIBubbleLayout = nullptr;
+    m_lastPPTPreviewWidget = nullptr;
+    m_lastPPTPreviewGrid = nullptr;
+    m_pptPreviewImageLabels.clear();
+    m_pptPreviewCaptionLabels.clear();
     m_lastAIThinkingWidget = nullptr;
     m_lastAIThinkingLabel = nullptr;
     m_lastAIThinkingToggle = nullptr;

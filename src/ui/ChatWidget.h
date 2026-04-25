@@ -11,6 +11,7 @@
 #include <QPushButton>
 #include <QPropertyAnimation>
 #include <QTextDocument>
+#include <QImage>
 #include <memory>
 
 // 前向声明
@@ -128,6 +129,21 @@ public:
      */
     void focusInput();
 
+    /**
+     * @brief 在最后一条 AI 消息下方显示 PPT 生成预览区
+     */
+    void beginPPTPreviewProgress();
+
+    /**
+     * @brief 更新指定页的 PPT 预览缩略图
+     */
+    void updatePPTPreviewProgress(int slideIndex, const QImage &preview);
+
+    /**
+     * @brief 标记 PPT 预览生成完成
+     */
+    void finishPPTPreviewProgress();
+
 signals:
     /**
      * @brief 用户发送消息时发出
@@ -148,6 +164,8 @@ private:
     void scrollToBottom();
     void updateTypingIndicator();
     void updateInputFocusState(bool focused);
+    QWidget* createPPTPreviewCard(int slideIndex);
+    void ensurePPTPreviewCard(int slideIndex);
 
     // Markdown渲染相关
     QString renderMessage(const QString &text, bool isUser);
@@ -168,6 +186,11 @@ private:
 
     // 用于流式更新的最后一条 AI 消息
     QLabel *m_lastAIMessageLabel;
+    QVBoxLayout *m_lastAIBubbleLayout;
+    QWidget *m_lastPPTPreviewWidget;
+    QGridLayout *m_lastPPTPreviewGrid;
+    QVector<QLabel*> m_pptPreviewImageLabels;
+    QVector<QLabel*> m_pptPreviewCaptionLabels;
     
     // 用于显示思考过程的组件
     QWidget *m_lastAIThinkingWidget;
