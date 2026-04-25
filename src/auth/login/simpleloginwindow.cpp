@@ -45,7 +45,6 @@ SimpleLoginWindow::SimpleLoginWindow(QWidget *parent, bool autoRestoreRemembered
         updateLoginButtonState();
     });
     updateLoginButtonState();
-    restoreRememberedLoginIfPossible();
 }
 
 SimpleLoginWindow::~SimpleLoginWindow()
@@ -524,43 +523,6 @@ void SimpleLoginWindow::onLoginClicked()
 
     qDebug() << "用户名:" << username;
 
-    if (rememberMeCheck->isChecked() && hasRememberedTestAccountForUser(username)) {
-        const QString role = m_settings->value("savedRole").toString();
-        qDebug() << "检测到已记住的测试账号，直接进入主页，角色:" << role;
-        loginButton->setEnabled(false);
-        loginButton->setText("正在进入工作台...");
-        openMainWindow(username, role);
-        return;
-    }
-
-    if (rememberMeCheck->isChecked() && hasRememberedSessionForUser(username)) {
-        const QString rememberedUserId = m_settings->value("savedUserId").toString();
-        if (isRememberedSessionStillValid(username) && !rememberedUserId.isEmpty()) {
-            qDebug() << "检测到有效本地会话，直接进入主页";
-            m_loginProcessed = true;
-            m_isRestoringSession = false;
-            SupabaseConfig::setAccessToken(m_settings->value("savedAccessToken").toString());
-            loginButton->setEnabled(false);
-            loginButton->setText("正在进入工作台...");
-            m_pendingLoginEmail = username;
-            m_pendingUserId = rememberedUserId;
-            saveRememberedCredentials();
-            fetchRoleWithFallback(username, rememberedUserId);
-            return;
-        }
-
-        if (canRefreshRememberedSession(username)) {
-            qDebug() << "本地会话已过期，尝试刷新会话";
-            m_isRestoringSession = true;
-            m_pendingLoginEmail = username;
-            m_pendingUserId = rememberedUserId;
-            loginButton->setEnabled(false);
-            loginButton->setText("正在恢复会话...");
-            m_supabaseClient->refreshSession(m_settings->value("savedRefreshToken").toString());
-            return;
-        }
-    }
-
     // 检查是否是测试账号
     if ((username == "teacher01" && password == "Teacher@2024") ||
         (username == "student01" && password == "Student@2024") ||
@@ -853,26 +815,18 @@ void SimpleLoginWindow::updateLoginButtonState()
         return;
     }
 
-    const QString username = usernameEdit ? usernameEdit->text().trimmed() : QString();
-    if (hasRememberedTestAccountForUser(username) || isRememberedSessionStillValid(username)) {
-        loginButton->setText("直接进入");
-        loginButton->setToolTip("已记住登录状态，点击后可直接进入主页");
-    } else if (canRefreshRememberedSession(username)) {
-        loginButton->setText("恢复登录");
-        loginButton->setToolTip("已记住登录状态，点击后将恢复会话并进入主页");
-    } else {
-        loginButton->setText("登 录");
-        loginButton->setToolTip(QString());
-    }
+    loginButton->setText("登 录");
+    loginButton->setToolTip(QString());
 }
 
 void SimpleLoginWindow::loadRememberedCredentials()
 {
     QString username = m_settings->value("savedUsername", "").toString();
+    QString password = m_settings->value("savedPassword", "").toString();
 
     if (!username.isEmpty()) {
         usernameEdit->setText(username);
-        passwordEdit->clear();
+        passwordEdit->setText(password);
         rememberMeCheck->setChecked(m_settings->value("rememberMe", false).toBool());
         qDebug() << "已加载记住的登录信息:" << username;
     }
@@ -941,7 +895,7 @@ void SimpleLoginWindow::saveRememberedCredentials()
 
         m_settings->setValue("rememberMe", true);
         m_settings->setValue("savedUsername", username);
-        m_settings->remove("savedPassword");
+        m_settings->setValue("savedPassword", passwordEdit->text());
 
         if (!testRole.isEmpty() && m_supabaseClient->currentUserId().isEmpty()) {
             m_settings->setValue("savedAuthType", "testAccount");
@@ -955,12 +909,9 @@ void SimpleLoginWindow::saveRememberedCredentials()
             m_settings->setValue("savedAuthType", "supabase");
             m_settings->setValue("savedUserId", m_supabaseClient->currentUserId());
             m_settings->setValue("savedEmail", m_supabaseClient->currentEmail());
-            m_settings->setValue("savedAccessToken", m_supabaseClient->currentAccessToken());
-            m_settings->setValue("savedRefreshToken", m_supabaseClient->currentRefreshToken());
-            m_settings->setValue("savedSessionExpiresAt", m_supabaseClient->currentExpiresAt());
-            m_settings->remove("savedRole");
-        } else if (hasRememberedSessionForUser(username)) {
-            m_settings->setValue("savedAuthType", "supabase");
+            m_settings->remove("savedAccessToken");
+            m_settings->remove("savedRefreshToken");
+            m_settings->remove("savedSessionExpiresAt");
             m_settings->remove("savedRole");
         }
 
