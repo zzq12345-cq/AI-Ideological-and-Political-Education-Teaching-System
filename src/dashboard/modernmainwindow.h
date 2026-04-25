@@ -107,6 +107,7 @@ private:
     void createRecentActivities();
     void applyPatrioticRedTheme();
     void applySidebarIcons();
+    void setActiveSidebarButton(QPushButton *activeButton);
     QIcon loadSidebarIcon(const QString &themeName, QStyle::StandardPixmap fallback) const;
     
     // 新版 UI 组件创建方法

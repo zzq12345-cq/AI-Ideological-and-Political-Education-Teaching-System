@@ -1021,16 +1021,8 @@ void ModernMainWindow::setupCentralWidget()
 
     applySidebarIcons();
 
-    // 设置侧边栏按钮样式 - 使用统一样式常量
-    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-    newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    myClassBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    // 设置侧边栏按钮样式 - 同一时间仅保留一个激活态
+    setActiveSidebarButton(teacherCenterBtn);
 
     // 连接信号
     connect(teacherCenterBtn, &QPushButton::clicked, this, [=]() { qDebug() << "教师中心按钮被点击"; onTeacherCenterClicked(); });
@@ -1158,8 +1150,7 @@ void ModernMainWindow::setupCentralWidget()
         myClassBtn->setVisible(true);
         // 默认选中时政新闻
         contentStack->setCurrentWidget(m_hotspotWidget);
-        newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-        teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+        setActiveSidebarButton(newsTrackingBtn);
     } else {
         myClassBtn->setVisible(true);  // 教师也能看到我的班级
     }
@@ -1178,11 +1169,7 @@ void ModernMainWindow::setupCentralWidget()
         }
 
         // 2. 更新侧边栏按钮状态
-        newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-        aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-        resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-        learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-        teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+        setActiveSidebarButton(aiPreparationBtn);
 
         // 3. 构建教学案例生成提示并直接发送（不显示问候语）
         QString prompt = QString(
@@ -1265,6 +1252,7 @@ void ModernMainWindow::applySidebarIcons()
     setIcon(resourceManagementBtn, "folder", QStyle::SP_DirIcon);
     setIcon(attendanceBtn, "x-office-calendar", QStyle::SP_FileDialogListView);
     setIcon(learningAnalysisBtn, "view-list-details", QStyle::SP_FileDialogDetailedView);
+    setIcon(myClassBtn, "system-users", QStyle::SP_DirHomeIcon);
     setIcon(settingsBtn, "settings-configure", QStyle::SP_FileDialogDetailedView);
     setIcon(helpBtn, "help-browser", QStyle::SP_MessageBoxQuestion);
 }
@@ -1978,16 +1966,36 @@ void ModernMainWindow::applyPatrioticRedTheme()
     this->update();
 }
 
+void ModernMainWindow::setActiveSidebarButton(QPushButton *activeButton)
+{
+    QPushButton *buttons[] = {
+        teacherCenterBtn,
+        newsTrackingBtn,
+        aiPreparationBtn,
+        resourceManagementBtn,
+        attendanceBtn,
+        learningAnalysisBtn,
+        myClassBtn,
+        settingsBtn,
+        helpBtn
+    };
+
+    for (QPushButton *button : buttons) {
+        if (!button) {
+            continue;
+        }
+
+        const bool isActive = (button == activeButton);
+        button->setStyleSheet(isActive
+            ? SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED)
+            : SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    }
+}
+
 // 槽函数实现
 void ModernMainWindow::onTeacherCenterClicked()
 {
-    // 重置所有按钮样式
-    newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+    setActiveSidebarButton(teacherCenterBtn);
 
     contentStack->setCurrentWidget(dashboardWidget);
     
@@ -2008,13 +2016,7 @@ void ModernMainWindow::onAIPreparationClicked()
 {
     qDebug() << "AI智能备课按钮被点击";
 
-    // 重置所有按钮样式
-    newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    setActiveSidebarButton(aiPreparationBtn);
 
     // 首先切换 contentStack 到 dashboardWidget（m_mainStack 在其中）
     if (contentStack && dashboardWidget) {
@@ -2034,13 +2036,7 @@ void ModernMainWindow::onResourceManagementClicked()
 {
     qDebug() << "试题库按钮被点击";
 
-    // 重置所有按钮样式
-    newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    setActiveSidebarButton(resourceManagementBtn);
 
     // 切换到试题库页面
     if (questionBankWindow) {
@@ -2061,16 +2057,7 @@ void ModernMainWindow::onAttendanceClicked()
 {
     qDebug() << "切换到考勤管理页面";
 
-    // 重置所有侧边栏按钮样式
-    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    attendanceBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    if (myClassBtn) myClassBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    setActiveSidebarButton(attendanceBtn);
 
     // 切换到考勤管理页面
     if (m_attendanceWidget) {
@@ -2092,16 +2079,7 @@ void ModernMainWindow::onMyClassClicked()
 {
     qDebug() << "切换到我的班级页面";
 
-    // 重置所有侧边栏按钮样式
-    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    myClassBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+    setActiveSidebarButton(myClassBtn);
 
     if (m_myClassWidget) {
         contentStack->setCurrentWidget(m_myClassWidget);
@@ -2113,15 +2091,7 @@ void ModernMainWindow::onLearningAnalysisClicked()
 {
     qDebug() << "切换到数据分析报告页面";
 
-    // 重置所有侧边栏按钮样式
-    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
-    settingsBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    helpBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
+    setActiveSidebarButton(learningAnalysisBtn);
 
     // 切换到数据分析报告页面
     if (m_dataAnalyticsWidget) {
@@ -2135,13 +2105,7 @@ void ModernMainWindow::onNewsTrackingClicked()
 {
     qDebug() << "切换到时政新闻页面";
 
-    // 重置所有侧边栏按钮样式
-    teacherCenterBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    aiPreparationBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    resourceManagementBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    attendanceBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    learningAnalysisBtn->setStyleSheet(SIDEBAR_BTN_NORMAL.arg(PRIMARY_TEXT, PATRIOTIC_RED_LIGHT));
-    newsTrackingBtn->setStyleSheet(SIDEBAR_BTN_ACTIVE.arg(PATRIOTIC_RED_LIGHT, PATRIOTIC_RED));
+    setActiveSidebarButton(newsTrackingBtn);
 
     // 切换到时政新闻页面
     if (contentStack && m_hotspotWidget) {
