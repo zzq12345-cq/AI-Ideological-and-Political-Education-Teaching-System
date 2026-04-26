@@ -17,7 +17,7 @@
 ZhipuPPTAgentService::ZhipuPPTAgentService(QObject *parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
-    , m_baseUrl(AiConfig::baseUrl())
+    , m_baseUrl(AiConfig::zhipuBaseUrl())
 {
     // 从环境变量配置 HTTP 代理（Qt 不会自动读取 http_proxy/https_proxy）
     QString proxyUrl = qEnvironmentVariable("https_proxy");
@@ -36,7 +36,7 @@ ZhipuPPTAgentService::ZhipuPPTAgentService(QObject *parent)
     }
 
     qDebug() << "[PPTAgent] Service initialized, baseUrl:" << m_baseUrl
-             << "apiKey length:" << AiConfig::apiKey().length();
+             << "apiKey length:" << AiConfig::zhipuApiKey().length();
 }
 
 ZhipuPPTAgentService::~ZhipuPPTAgentService()
@@ -61,7 +61,7 @@ void ZhipuPPTAgentService::setBaseUrl(const QString &baseUrl)
 void ZhipuPPTAgentService::generate(const QMap<QString, QString> &params)
 {
     if (m_apiKey.isEmpty()) {
-        emit errorOccurred("MiniMax API Key 未设置");
+        emit errorOccurred("BigModel API Key 未设置");
         return;
     }
 
@@ -188,8 +188,6 @@ QNetworkReply* ZhipuPPTAgentService::callZhipuApi(const QString &model,
                                                      bool disableThinking,
                                                      const QString &baseUrlOverride)
 {
-    Q_UNUSED(disableThinking); // MiniMax 不支持 thinking 参数，忽略
-
     QNetworkRequest request = createRequest(baseUrlOverride);
 
     QJsonObject body;
@@ -197,7 +195,9 @@ QNetworkReply* ZhipuPPTAgentService::callZhipuApi(const QString &model,
     body["stream"] = false;
     body["temperature"] = temperature;
     body["max_tokens"] = maxTokens;
-    // 注意：不发送 thinking 参数，MiniMax API 不支持
+    if (disableThinking) {
+        body["thinking"] = QJsonObject{{"type", "disabled"}};
+    }
 
     QJsonArray messages;
 
@@ -302,7 +302,8 @@ void ZhipuPPTAgentService::startOutlineGeneration(const QString &topic)
         if (!pace.isEmpty())  userMsg += QString("\n- 呈现节奏：%1").arg(pace);
     }
 
-    m_currentReply = callZhipuApi(MODEL_TEXT, outlineSystemPrompt(), userMsg, 0.7, 4096);
+    m_currentReply = callZhipuApi(MODEL_TEXT, outlineSystemPrompt(), userMsg, 0.7, 4096,
+                                  false, true);
     qDebug() << "[PPTAgent] 发起大纲生成请求，reply=" << m_currentReply;
     if (m_currentReply) {
         connect(m_currentReply, &QNetworkReply::finished,
@@ -496,7 +497,8 @@ void ZhipuPPTAgentService::startPlanGeneration()
         if (!pace.isEmpty())  userMsg += QString("\n- 呈现节奏：%1").arg(pace);
     }
 
-    m_currentReply = callZhipuApi(MODEL_TEXT, sysPrompt, userMsg, 0.6, 8192);
+    m_currentReply = callZhipuApi(MODEL_TEXT, sysPrompt, userMsg, 0.6, 8192,
+                                  false, true);
     if (m_currentReply) {
         connect(m_currentReply, &QNetworkReply::finished,
                 this, &ZhipuPPTAgentService::onPlanReplyFinished);
@@ -575,8 +577,8 @@ void ZhipuPPTAgentService::onPlanReplyFinished()
 
 void ZhipuPPTAgentService::startSvgGeneration()
 {
-    // 始终使用 MiniMax 逐页 AI 生成 SVG
-    qDebug() << "[PPTAgent] Using AI-driven SVG generation (MiniMax)";
+    // 始终使用 BigModel 逐页 AI 生成 SVG
+    qDebug() << "[PPTAgent] Using AI-driven SVG generation (BigModel)";
     generateNextSvg();
 }
 

@@ -52,7 +52,7 @@ class MyClassWidget;     // 学生我的班级
 class AdminDashboard;    // 管理员后台
 class LessonPlanEditor;
 class HelpCenterWidget;    // 帮助中心
-class ZhipuPPTAgentService; // PPT Agent（MiniMax）
+class ZhipuPPTAgentService; // PPT Agent（BigModel）
 
 class ModernMainWindow : public QMainWindow
 {
@@ -228,7 +228,7 @@ private:
     bool m_streamUpdatePending = false;   // 是否有待处理的更新
     bool m_streamPlaceholderAdded = false; // 是否已创建 AI 占位气泡
     PPTXGenerator *m_pptxGenerator = nullptr;  // PPTX 生成器
-    ZhipuPPTAgentService *m_pptAgentService = nullptr; // PPT Agent 服务（MiniMax）
+    ZhipuPPTAgentService *m_pptAgentService = nullptr; // PPT Agent 服务（BigModel）
 
     // PPT 生成相关
     QTimer *m_pptSimulationTimer = nullptr;     // PPT 模拟思考定时器

@@ -17,6 +17,10 @@ inline const char* DIFY_API_KEY = "";
 // 天行数据 API Key（时政新闻）
 inline const char* TIANXING_API_KEY = "";
 
+// 智谱 / BigModel PPT Agent 配置
+inline const char* ZHIPU_API_KEY = "";
+inline const char* ZHIPU_BASE_URL = "https://open.bigmodel.cn/api/coding/paas/v4";
+
 }  // namespace EmbeddedKeys
 
 #endif  // EMBEDDED_KEYS_H

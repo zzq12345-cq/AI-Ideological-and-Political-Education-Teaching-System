@@ -11,6 +11,7 @@ namespace AiConfig {
 
 inline constexpr const char* DEFAULT_BASE_URL = "https://api.zzqlovecq.online/v1";
 inline constexpr const char* DEFAULT_MODEL = "MiniMax-M2.7";
+inline constexpr const char* DEFAULT_ZHIPU_BASE_URL = "https://open.bigmodel.cn/api/coding/paas/v4";
 
 inline QString firstConfiguredValue(std::initializer_list<QString> keys,
                                     const QString &defaultValue = QString())
@@ -38,6 +39,17 @@ inline QString apiKey()
     return QString::fromUtf8(EmbeddedKeys::MINIMAX_API_KEY);
 }
 
+inline QString zhipuApiKey()
+{
+    const QString configured = firstConfiguredValue({
+        QStringLiteral("ZHIPU_API_KEY")
+    });
+    if (!configured.isEmpty()) {
+        return configured;
+    }
+    return QString::fromUtf8(EmbeddedKeys::ZHIPU_API_KEY);
+}
+
 inline QString baseUrl()
 {
     return firstConfiguredValue({
@@ -46,6 +58,14 @@ inline QString baseUrl()
         QStringLiteral("DIFY_API_BASE_URL"),
         QStringLiteral("ZHIPU_BASE_URL")
     }, QString::fromUtf8(EmbeddedKeys::MINIMAX_API_BASE_URL));
+}
+
+inline QString zhipuBaseUrl()
+{
+    const QString embeddedBaseUrl = QString::fromUtf8(EmbeddedKeys::ZHIPU_BASE_URL).trimmed();
+    return firstConfiguredValue({
+        QStringLiteral("ZHIPU_BASE_URL")
+    }, embeddedBaseUrl.isEmpty() ? QString::fromUtf8(DEFAULT_ZHIPU_BASE_URL) : embeddedBaseUrl);
 }
 
 inline QString model()

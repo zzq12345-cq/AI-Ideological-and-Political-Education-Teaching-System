@@ -825,10 +825,10 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
   // 初始化 PPTX 生成器
   m_pptxGenerator = new PPTXGenerator(this);
 
-  // 初始化 PPT Agent 服务（MiniMax）
+  // 初始化 PPT Agent 服务（BigModel）
   m_pptAgentService = new ZhipuPPTAgentService(this);
-  m_pptAgentService->setApiKey(AiConfig::apiKey());
-  m_pptAgentService->setBaseUrl(AiConfig::baseUrl());
+  m_pptAgentService->setApiKey(AiConfig::zhipuApiKey());
+  m_pptAgentService->setBaseUrl(AiConfig::zhipuBaseUrl());
 
   // 连接 PPT Agent 信号（只连接一次）
   connect(m_pptAgentService, &ZhipuPPTAgentService::progressUpdated,

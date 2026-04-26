@@ -153,7 +153,7 @@ TIANXING_API_KEY=${TIANXING_API_KEY:-}
 SUPABASE_URL=${SUPABASE_URL:-}
 SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
 ZHIPU_API_KEY=${ZHIPU_API_KEY:-}
-ZHIPU_BASE_URL=${ZHIPU_BASE_URL:-https://api.minimaxi.com/v1}
+ZHIPU_BASE_URL=${ZHIPU_BASE_URL:-https://open.bigmodel.cn/api/coding/paas/v4}
 EOF
 
     echo_info "已生成发布版 config.env"

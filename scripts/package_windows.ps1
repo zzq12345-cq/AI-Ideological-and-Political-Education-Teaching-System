@@ -129,7 +129,7 @@ TIANXING_API_KEY=$tianxingApiKey
 SUPABASE_URL=$supabaseUrl
 SUPABASE_ANON_KEY=$supabaseAnonKey
 ZHIPU_API_KEY=$zhipuApiKey
-ZHIPU_BASE_URL=$(if ([string]::IsNullOrWhiteSpace($zhipuBaseUrl)) { 'https://api.minimaxi.com/v1' } else { $zhipuBaseUrl })
+ZHIPU_BASE_URL=$(if ([string]::IsNullOrWhiteSpace($zhipuBaseUrl)) { 'https://open.bigmodel.cn/api/coding/paas/v4' } else { $zhipuBaseUrl })
 "@
 
     Set-Content -Path $configEnvPath -Value $content -Encoding UTF8

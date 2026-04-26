@@ -14,14 +14,14 @@
 #include <QJsonArray>
 
 /**
- * @brief PPT Agent 服务 — 基于 MiniMax 大模型的三阶段 PPT 生成流水线
+ * @brief PPT Agent 服务 — 基于 BigModel 大模型的三阶段 PPT 生成流水线
  *
  * 完整工作流：
- *   阶段1: 大纲生成（MiniMax-M2.7）— 根据主题生成 JSON 大纲
- *   阶段2: 布局指令（MiniMax-M2.7）— 为每页生成结构化 JSON 布局+内容
+ *   阶段1: 大纲生成（glm-5.1）— 根据主题生成 JSON 大纲
+ *   阶段2: 布局指令（glm-5.1）— 为每页生成结构化 JSON 布局+内容
  *   阶段3: SVG 渲染（本地 C++）   — 根据布局指令在本地拼装 SVG
  *
- * 阶段3 优先走本地布局拼装（零失败），解析失败时回退到 AI SVG 生成。
+ * 阶段3 逐页使用 glm-5v-turbo 生成 SVG。
  */
 class ZhipuPPTAgentService : public QObject
 {
@@ -45,7 +45,7 @@ public:
     /// 设置 API Key
     void setApiKey(const QString &apiKey);
 
-    /// 设置 API 基础 URL（默认 https://api.minimaxi.com/v1）
+    /// 设置 API 基础 URL（默认 https://open.bigmodel.cn/api/coding/paas/v4）
     void setBaseUrl(const QString &baseUrl);
 
     /**
@@ -161,9 +161,9 @@ private:
     bool m_cancelled = false;
 
     // 模型名称
-    static constexpr const char* MODEL_TEXT = "MiniMax-M2.7";   // 文本生成
-    static constexpr const char* MODEL_CODE = "MiniMax-M2.7";   // SVG 代码生成
-    static constexpr const char* STANDARD_PAASE_URL = "https://api.minimaxi.com/v1";
+    static constexpr const char* MODEL_TEXT = "glm-5.1";         // 文本生成
+    static constexpr const char* MODEL_CODE = "glm-5v-turbo";    // SVG 代码生成
+    static constexpr const char* STANDARD_PAASE_URL = "https://open.bigmodel.cn/api/coding/paas/v4";
 
     // 生成过程中的数据
     QString m_topic;               // 用户主题
