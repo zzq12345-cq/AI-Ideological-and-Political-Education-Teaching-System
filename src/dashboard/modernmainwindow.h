@@ -239,6 +239,8 @@ private:
     QTimer *m_pptTypingTimer = nullptr;         // 打字效果定时器
     QString m_pptTypingText;          // 待打字的完整文本
     int m_pptTypingIndex = 0;             // 当前打字位置
+    QString m_pptProcessLog;       // PPT Agent 可视化制作过程
+    QString m_pptCurrentStatus;    // PPT Agent 当前状态文本
     void startPPTGeneration(const QString &topic); // 启动真正的 PPT Agent 生成
     void startPPTSimulation(const QString &userMessage);  // 开始 PPT 模拟生成
     void onPPTSimulationStep();       // PPT 模拟步骤处理
@@ -246,6 +248,12 @@ private:
     void handlePPTConversation(const QString &message);   // 处理 PPT 问答对话
     void typeMessageWithEffect(const QString &text);      // 带打字效果的消息显示
     void onPPTTypingStep();           // 打字效果定时器回调
+    QString buildPPTProcessMessage(const QString &status) const;
+    QString formatPPTArtifactBlock(const QString &title, const QString &language,
+                                   const QString &content) const;
+    void appendPPTArtifact(const QString &title, const QString &language,
+                           const QString &content);
+    void updatePPTProcessMessage(const QString &status);
     QString savePPTRecord(const QString &filePath, const QVector<QImage> &previews,
                           int totalPages);
     void updatePPTRecordFilePath(const QString &recordId, const QString &filePath);

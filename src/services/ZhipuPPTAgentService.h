@@ -79,6 +79,9 @@ signals:
     /// 大纲生成完成
     void outlineGenerated(const QJsonObject &outline);
 
+    /// 生成过程产物（大纲 JSON、布局 JSON、页面策划、SVG 代码等）
+    void artifactGenerated(const QString &title, const QString &language, const QString &content);
+
     /// 发生错误
     void errorOccurred(const QString &error);
 
@@ -145,7 +148,8 @@ private:
     QString sanitizeSvg(const QString &svgCode) const;
 
     // SVG 渲染为 QImage
-    QImage renderSvgToImage(const QString &svgCode, int width = 1280, int height = 720) const;
+    QImage renderSvgToImage(const QString &svgCode, int width = 1280, int height = 720,
+                            bool *ok = nullptr) const;
 
     // 提取 SVG 代码（从 AI 回复中提取 <svg>...</svg>）
     QString extractSvgCode(const QString &response) const;
@@ -179,6 +183,7 @@ private:
     QPointer<QNetworkReply> m_currentReply;
     QString m_currentSvgPrompt;    // 当前页 SVG 请求全文
     bool m_svgRetriedWithStandardEndpoint = false; // 当前页是否已切标准端点重试
+    bool m_svgRetriedForRender = false; // 当前页是否已因渲染失败重试
 
     // Prompts
     static QString outlineSystemPrompt();

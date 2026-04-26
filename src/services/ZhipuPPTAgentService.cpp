@@ -391,6 +391,10 @@ void ZhipuPPTAgentService::onOutlineReplyFinished()
     }
 
     emit outlineGenerated(m_outline);
+    emit artifactGenerated(
+        "大纲 JSON",
+        "json",
+        QString::fromUtf8(QJsonDocument(m_outline).toJson(QJsonDocument::Indented)));
     qDebug() << "[PPTAgent] Outline generated successfully";
 
     // 计算总页数
@@ -544,10 +548,13 @@ void ZhipuPPTAgentService::onPlanReplyFinished()
     if (layoutPages.size() == m_totalPages) {
         m_pageLayouts = layoutPages;
         m_useLayoutDriven = true;
+        emit artifactGenerated("页面布局 JSON", "json",
+                               QString::fromUtf8(QJsonDocument(layoutObj).toJson(QJsonDocument::Indented)));
         qDebug() << "[PPTAgent] Layout-driven mode: parsed" << layoutPages.size() << "page layouts";
     } else {
         // 回退旧流程
         m_useLayoutDriven = false;
+        emit artifactGenerated("页面策划文本", "text", content);
         qWarning() << "[PPTAgent] JSON layout pages mismatch. expected="
                    << m_totalPages << "got=" << layoutPages.size() << ", falling back to text plan";
         m_pagePlans = splitPlanPages(content, m_totalPages);
@@ -599,9 +606,12 @@ void ZhipuPPTAgentService::generateNextSvg()
                          QString("正在设计第 %1/%2 页...").arg(m_currentSvgIndex + 1).arg(m_totalPages));
 
     m_svgRetriedWithStandardEndpoint = false;
+    m_svgRetriedForRender = false;
 
     // 构建当前页的内容源，并限制长度，避免将整份策划误塞进单页请求。
     const QString pageContent = clampSvgPromptContent(buildPageContent(m_currentSvgIndex));
+    emit artifactGenerated(QString("第 %1 页页面策划").arg(m_currentSvgIndex + 1),
+                           "text", pageContent);
 
     QString userMsg = QString(
         "请你根据以下中学《道德与法治》课堂PPT页面策划，生成一张完整的 SVG 页面代码。\n\n"
@@ -614,6 +624,12 @@ void ZhipuPPTAgentService::generateNextSvg()
         "- 正文和说明文字优先使用深灰色 #333333 / #555555，不要使用大面积白字压深色底\n"
         "- 采用便当网格(Bento Grid)卡片式布局\n"
         "- 文字使用中文，字体使用 Microsoft YaHei 或 SimHei\n"
+        "- 必须生成 Qt QSvgRenderer 可渲染的基础 SVG\n"
+        "- 只使用 svg、rect、text、tspan、line、circle、ellipse、path、polygon 标签\n"
+        "- 禁止 style、class、defs、filter、mask、clipPath、pattern、image、foreignObject\n"
+        "- 禁止 CSS、动画、渐变、阴影、HTML、外链资源和 url(#...) 引用\n"
+        "- 颜色使用十六进制色值；透明度用 opacity，不要使用 rgba()\n"
+        "- 样式必须写成 SVG 原生属性，例如 fill、stroke、font-size、font-family、opacity\n"
         "- 只输出 <svg>...</svg> 代码，不要输出其他内容"
     ).arg(pageContent);
 
@@ -684,6 +700,8 @@ void ZhipuPPTAgentService::onSvgReplyFinished()
             "<text x=\"640\" y=\"360\" text-anchor=\"middle\" fill=\"#C00000\" "
             "font-size=\"36\" font-family=\"SimHei\">第 %1 页生成失败</text></svg>"
         ).arg(m_currentSvgIndex + 1);
+        emit artifactGenerated(QString("第 %1 页错误占位 SVG").arg(m_currentSvgIndex + 1),
+                               "svg", fallbackSvg);
         m_svgCodes.append(fallbackSvg);
         m_previewImages.append(renderSvgToImage(fallbackSvg));
     } else {
@@ -702,8 +720,33 @@ void ZhipuPPTAgentService::onSvgReplyFinished()
             ).arg(m_currentSvgIndex + 1);
         }
 
+        emit artifactGenerated(QString("第 %1 页 SVG 代码").arg(m_currentSvgIndex + 1),
+                               "svg", svgCode);
+        bool renderOk = false;
+        QImage preview = renderSvgToImage(svgCode, 1280, 720, &renderOk);
+        if (!renderOk && !m_svgRetriedForRender) {
+            qWarning() << "[PPTAgent] SVG render failed for page" << m_currentSvgIndex
+                       << ", retrying with stricter Qt-safe prompt";
+            m_svgRetriedForRender = true;
+            emit progressUpdated(60 + (m_currentSvgIndex * 40 / m_totalPages),
+                                 "阶段3/3: SVG 设计生成",
+                                 QString("第 %1 页渲染失败，正在生成兼容版本...")
+                                     .arg(m_currentSvgIndex + 1));
+            emit artifactGenerated(QString("第 %1 页渲染重试说明").arg(m_currentSvgIndex + 1),
+                                   "text",
+                                   "上一版 SVG 无法被 Qt 渲染，正在要求模型输出更简单的兼容 SVG。");
+            m_currentSvgPrompt += QStringLiteral(
+                "\n\n重要修正：上一版 SVG 无法被 Qt QSvgRenderer 渲染。"
+                "请重新输出一版更简单的 Qt 兼容 SVG："
+                "禁止 style、class、defs、filter、mask、clipPath、pattern、image、foreignObject、"
+                "渐变、阴影、动画、CSS、HTML、外链资源和 url(#...) 引用；"
+                "只使用基础 SVG 标签和 fill/stroke/font-size/font-family/opacity 等原生属性；"
+                "只输出 <svg>...</svg>。");
+            requestCurrentSvgPage(m_svgRetriedWithStandardEndpoint);
+            return;
+        }
+
         m_svgCodes.append(svgCode);
-        QImage preview = renderSvgToImage(svgCode);
         m_previewImages.append(preview);
 
         emit slideGenerated(m_currentSvgIndex, svgCode, preview);
@@ -767,8 +810,36 @@ QString ZhipuPPTAgentService::sanitizeSvg(const QString &svgCode) const
         QRegularExpression::CaseInsensitiveOption);
     svg.remove(foreignRe);
 
-    // 5. 清理 <style> 块
-    static const QRegularExpression styleBlockRe(R"(<style[\s\S]*?</style>)");
+    // 5. 移除 Qt 渲染器容易失败的复杂 SVG 定义块。
+    const QStringList unsupportedBlocks = {
+        "defs", "filter", "mask", "clipPath", "pattern"
+    };
+    for (const QString &tag : unsupportedBlocks) {
+        const QRegularExpression blockRe(
+            QStringLiteral("<%1\\b[\\s\\S]*?</%1>").arg(tag),
+            QRegularExpression::CaseInsensitiveOption);
+        svg.remove(blockRe);
+    }
+
+    // 6. 移除 class 和 url(#...) 引用，避免引用已被清掉的样式或定义。
+    static const QRegularExpression classAttrRe(
+        R"(\sclass\s*=\s*(?:"[^"]*"|'[^']*'))",
+        QRegularExpression::CaseInsensitiveOption);
+    svg.remove(classAttrRe);
+
+    static const QRegularExpression urlAttrDoubleRe(
+        R"(\s[\w:-]+\s*=\s*"[^"]*url\(#.*?\)[^"]*")",
+        QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression urlAttrSingleRe(
+        R"(\s[\w:-]+\s*=\s*'[^']*url\(#.*?\)[^']*')",
+        QRegularExpression::CaseInsensitiveOption);
+    svg.remove(urlAttrDoubleRe);
+    svg.remove(urlAttrSingleRe);
+
+    // 7. 清理 <style> 块
+    static const QRegularExpression styleBlockRe(
+        R"(<style[\s\S]*?</style>)",
+        QRegularExpression::CaseInsensitiveOption);
     QRegularExpressionMatchIterator it = styleBlockRe.globalMatch(svg);
     // 收集替换对（从后向前替换，避免位移问题）
     QVector<QPair<int, QPair<int, QString>>> replacements;
@@ -777,25 +848,25 @@ QString ZhipuPPTAgentService::sanitizeSvg(const QString &svgCode) const
         QString styleBlock = match.captured(0);
         QString cleaned = styleBlock;
 
-        // 5a. 移除 @keyframes 块
+        // 7a. 移除 @keyframes 块
         static const QRegularExpression keyframesRe(
             R"(@keyframes\s+[\w-]+\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})",
             QRegularExpression::CaseInsensitiveOption);
         cleaned.remove(keyframesRe);
 
-        // 5b. 移除 @media 块
+        // 7b. 移除 @media 块
         static const QRegularExpression mediaRe(
             R"(@media\s+[^{]*\{[\s\S]*?\}\s*\})",
             QRegularExpression::CaseInsensitiveOption);
         cleaned.remove(mediaRe);
 
-        // 5c. 移除 @import
+        // 7c. 移除 @import
         static const QRegularExpression importRe(
             R"(@import\s+[^;]+;)",
             QRegularExpression::CaseInsensitiveOption);
         cleaned.remove(importRe);
 
-        // 5d. 移除 Qt SVG 不支持的 CSS 属性（保留 opacity，它是合法的）
+        // 7d. 移除 Qt SVG 不支持的 CSS 属性（保留 opacity，它是合法的）
         static const QRegularExpression unsupportedPropRe(
             R"([a-zA-Z-]+\s*:\s*[^;}]*(?:flex|grid|gap|pointer-events|cursor|backdrop-filter|box-shadow|text-shadow|overflow|clip-path|mask|animation|transition|transform-origin|object-fit|z-index|position\s*:\s*(?:absolute|relative|fixed))[^;}]*;?)",
             QRegularExpression::CaseInsensitiveOption);
@@ -811,7 +882,7 @@ QString ZhipuPPTAgentService::sanitizeSvg(const QString &svgCode) const
         svg.replace(replacements[i].first, replacements[i].second.first, replacements[i].second.second);
     }
 
-    // 6. 移除内联样式中的不支持属性（保留 opacity）
+    // 8. 移除内联样式中的不支持属性（保留 opacity）
     static const QRegularExpression inlineStyleRe("style=\\\"([^\\\"]*)\\\"");
     it = inlineStyleRe.globalMatch(svg);
     replacements.clear();
@@ -823,7 +894,7 @@ QString ZhipuPPTAgentService::sanitizeSvg(const QString &svgCode) const
             R"((?:flex|grid|gap|pointer-events|cursor|backdrop-filter|box-shadow|text-shadow|overflow|clip-path|mask|animation|transition|transform-origin|object-fit|z-index|position\s*:\s*(?:absolute|relative|fixed))[^;]*;?)",
             QRegularExpression::CaseInsensitiveOption);
         cleaned.remove(badInlinePropRe);
-        // 处理 filter 属性（但保留 SVG 原生的 url(#...) 引用）
+        // 处理 CSS filter 属性。
         static const QRegularExpression cssFilterRe(
             R"(filter\s*:\s*(?!url\()[^;]*;?)",
             QRegularExpression::CaseInsensitiveOption);
@@ -838,7 +909,7 @@ QString ZhipuPPTAgentService::sanitizeSvg(const QString &svgCode) const
         svg.replace(replacements[i].first, replacements[i].second.first, replacements[i].second.second);
     }
 
-    // 7. ç§»é¤ HTML å®ä½å¼ç¨
+    // 9. 移除 HTML 实体引用。
     svg.replace("&nbsp;", " ");
     svg.replace("&mdash;", QString(QChar(0x2014)));
     svg.replace("&ndash;", QString(QChar(0x2013)));
@@ -849,11 +920,39 @@ QString ZhipuPPTAgentService::sanitizeSvg(const QString &svgCode) const
     svg.replace("&hellip;", QString(QChar(0x2026)));
     svg.replace("&bull;", QString(QChar(0x2022)));
 
+    // 10. 将 rgba() 改成 Qt SVG 更稳定的十六进制颜色。
+    static const QRegularExpression rgbaRe(
+        R"(rgba\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(?:0|1|0?\.\d+)\s*\))",
+        QRegularExpression::CaseInsensitiveOption);
+    it = rgbaRe.globalMatch(svg);
+    replacements.clear();
+    while (it.hasNext()) {
+        auto match = it.next();
+        const int r = qBound(0, match.captured(1).toInt(), 255);
+        const int g = qBound(0, match.captured(2).toInt(), 255);
+        const int b = qBound(0, match.captured(3).toInt(), 255);
+        const QString hex = QString("#%1%2%3")
+                                .arg(r, 2, 16, QLatin1Char('0'))
+                                .arg(g, 2, 16, QLatin1Char('0'))
+                                .arg(b, 2, 16, QLatin1Char('0'))
+                                .toUpper();
+        replacements.append({static_cast<int>(match.capturedStart()),
+                             {static_cast<int>(match.capturedLength()), hex}});
+    }
+    for (int i = replacements.size() - 1; i >= 0; --i) {
+        svg.replace(replacements[i].first, replacements[i].second.first, replacements[i].second.second);
+    }
+
     return svg;
 }
 
-QImage ZhipuPPTAgentService::renderSvgToImage(const QString &svgCode, int width, int height) const
+QImage ZhipuPPTAgentService::renderSvgToImage(const QString &svgCode, int width, int height,
+                                              bool *ok) const
 {
+    if (ok) {
+        *ok = false;
+    }
+
     // 先尝试原始 SVG
     QString svg = sanitizeSvg(svgCode);
     QSvgRenderer renderer(svg.toUtf8());
@@ -880,6 +979,10 @@ QImage ZhipuPPTAgentService::renderSvgToImage(const QString &svgCode, int width,
         p.setFont(QFont("SimHei", 24));
         p.drawText(img.rect(), Qt::AlignCenter, "SVG 渲染失败");
         return img;
+    }
+
+    if (ok) {
+        *ok = true;
     }
 
     QImage image(width, height, QImage::Format_ARGB32);

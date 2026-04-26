@@ -834,21 +834,24 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
   connect(m_pptAgentService, &ZhipuPPTAgentService::progressUpdated,
           this, [this](int percent, const QString &stage, const QString &detail) {
     if (!m_bubbleChatWidget) return;
-    QString prefix = "正在使用 AI 为您生成 PPT...\n\n---\n\n";
     QString progress = QString("**阶段**: %1\n\n**进度**: %2%\n\n%3")
         .arg(stage).arg(percent).arg(detail);
-    m_bubbleChatWidget->updateLastAIMessage(prefix + progress);
+    updatePPTProcessMessage(progress);
+  });
+
+  connect(m_pptAgentService, &ZhipuPPTAgentService::artifactGenerated,
+          this, [this](const QString &title, const QString &language, const QString &content) {
+    appendPPTArtifact(title, language, content);
   });
 
   connect(m_pptAgentService, &ZhipuPPTAgentService::slideGenerated,
           this, [this](int index, const QString &svgCode, const QImage &preview) {
-    Q_UNUSED(svgCode);
     if (!m_bubbleChatWidget) return;
+    Q_UNUSED(svgCode);
     m_bubbleChatWidget->updatePPTPreviewProgress(index, preview);
-    QString msg = QString("正在使用 AI 为您生成 PPT...\n\n---\n\n"
-                          "**已完成第 %1 页**\n\n正在生成下一页...")
+    QString msg = QString("**已完成第 %1 页**\n\n正在生成下一页...")
         .arg(index + 1);
-    m_bubbleChatWidget->updateLastAIMessage(msg);
+    updatePPTProcessMessage(msg);
   });
 
   connect(m_pptAgentService, &ZhipuPPTAgentService::allSlidesGenerated,
@@ -860,7 +863,7 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
                               "共生成 %1 页幻灯片。\n\n"
                               "正在准备导出 PowerPoint 文件...")
         .arg(totalPages);
-    m_bubbleChatWidget->updateLastAIMessage(doneMsg);
+    updatePPTProcessMessage(doneMsg);
     m_bubbleChatWidget->finishPPTPreviewProgress();
 
     QString pptRecordId;
@@ -876,8 +879,7 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
     QTimer::singleShot(500, this, [this, previews, totalPages, pptRecordId]() {
       if (previews.isEmpty()) {
         if (m_bubbleChatWidget) {
-          m_bubbleChatWidget->updateLastAIMessage(
-              "**PPT 生成失败**\n\n幻灯片预览为空，无法导出 PowerPoint 文件。");
+          updatePPTProcessMessage("**PPT 生成失败**\n\n幻灯片预览为空，无法导出 PowerPoint 文件。");
         }
         return;
       }
@@ -889,7 +891,7 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
           "PowerPoint 文件 (*.pptx)");
       if (filePath.isEmpty()) {
         if (m_bubbleChatWidget) {
-          m_bubbleChatWidget->updateLastAIMessage(
+          updatePPTProcessMessage(
               QString("**PPT 生成完成!**\n\n共生成 %1 页幻灯片。\n\n您已取消保存文件，可在左侧历史记录中重新查看预览。")
                   .arg(totalPages));
         }
@@ -909,15 +911,14 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
             .arg(totalPages)
             .arg(filePath);
         if (m_bubbleChatWidget) {
-          m_bubbleChatWidget->updateLastAIMessage(successMsg);
+          updatePPTProcessMessage(successMsg);
         }
         ModernDialogHelper::info(this, "PPT 已保存",
                                  QString("文件位置：%1").arg(filePath));
       } else {
         const QString error = m_pptxGenerator->lastError();
         if (m_bubbleChatWidget) {
-          m_bubbleChatWidget->updateLastAIMessage(
-              QString("**PPT 生成失败**\n\n%1").arg(error));
+          updatePPTProcessMessage(QString("**PPT 生成失败**\n\n%1").arg(error));
         }
         ModernDialogHelper::warning(
             this, "生成失败",
@@ -931,7 +932,7 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
   connect(m_pptAgentService, &ZhipuPPTAgentService::errorOccurred,
           this, [this](const QString &error) {
     if (m_bubbleChatWidget) {
-      m_bubbleChatWidget->updateLastAIMessage(
+      updatePPTProcessMessage(
           "**PPT 生成失败**\n\n" + error + "\n\n请检查网络连接和 API 配置后重试。");
     }
     m_pptQuestionStep = 0;
@@ -3689,6 +3690,60 @@ void ModernMainWindow::onPPTTypingStep() {
   m_pptTypingIndex = endIndex;
 }
 
+QString ModernMainWindow::buildPPTProcessMessage(const QString &status) const {
+  QString message = "正在使用 AI 为您生成 PPT...\n\n---\n\n";
+  message += status.isEmpty() ? m_pptCurrentStatus : status;
+  message += "\n\n---\n\n";
+  message += "## AI 制作过程\n\n";
+  if (m_pptProcessLog.trimmed().isEmpty()) {
+    message += "等待模型返回大纲、布局和 SVG 代码...";
+  } else {
+    message += m_pptProcessLog;
+  }
+  return message;
+}
+
+QString ModernMainWindow::formatPPTArtifactBlock(const QString &title,
+                                                  const QString &language,
+                                                  const QString &content) const {
+  QString code = content.trimmed();
+  const int maxChars = 1200;
+  if (code.length() > maxChars) {
+    code = code.left(maxChars) + "\n\n... 内容较长，已截断显示 ...";
+  }
+  code.replace("```", "'''");
+
+  const QString safeTitle = title.trimmed().isEmpty() ? "生成产物" : title.trimmed();
+  const QString lang = language.trimmed().isEmpty() ? "text" : language.trimmed();
+  return QString("### %1\n\n```%2\n%3\n```\n\n").arg(safeTitle, lang, code);
+}
+
+void ModernMainWindow::appendPPTArtifact(const QString &title,
+                                          const QString &language,
+                                          const QString &content) {
+  if (content.trimmed().isEmpty()) {
+    return;
+  }
+
+  const int maxLogLength = 50000;
+  m_pptProcessLog += formatPPTArtifactBlock(title, language, content);
+  if (m_pptProcessLog.length() > maxLogLength) {
+    m_pptProcessLog = "### 早期生成记录\n\n部分早期内容已折叠，保留最近生成的关键代码。\n\n"
+        + m_pptProcessLog.right(maxLogLength);
+  }
+
+  updatePPTProcessMessage(m_pptCurrentStatus);
+}
+
+void ModernMainWindow::updatePPTProcessMessage(const QString &status) {
+  if (!status.isEmpty()) {
+    m_pptCurrentStatus = status;
+  }
+  if (m_bubbleChatWidget) {
+    m_bubbleChatWidget->updateLastAIMessage(buildPPTProcessMessage(m_pptCurrentStatus));
+  }
+}
+
 void ModernMainWindow::startPPTGeneration(const QString &topic) {
   if (!m_pptAgentService || !m_bubbleChatWidget) {
     qWarning() << "[PPT] Agent service or chat widget not available";
@@ -3710,8 +3765,11 @@ void ModernMainWindow::startPPTGeneration(const QString &topic) {
   qDebug() << "[PPT] Starting PPT Agent generation with topic:" << topic;
 
   // 添加一个 AI 消息占位
+  m_pptProcessLog.clear();
+  m_pptCurrentStatus = "**初始化**\n\n正在连接 PPT Agent，准备生成大纲、布局和 SVG 代码...";
   m_bubbleChatWidget->addMessage("正在使用 AI 为您生成 PPT...\n\n正在初始化...", false);
   m_bubbleChatWidget->beginPPTPreviewProgress();
+  updatePPTProcessMessage(m_pptCurrentStatus);
 
   // 启动生成（信号已在构造函数中连接）
   m_pptAgentService->generate(params);
