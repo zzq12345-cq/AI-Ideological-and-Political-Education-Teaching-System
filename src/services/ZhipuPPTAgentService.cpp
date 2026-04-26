@@ -800,7 +800,8 @@ QString ZhipuPPTAgentService::sanitizeSvg(const QString &svgCode) const
         cleaned.remove(unsupportedPropRe);
 
         if (cleaned != styleBlock) {
-            replacements.append({match.capturedStart(), {match.capturedLength(), cleaned}});
+            replacements.append({static_cast<int>(match.capturedStart()),
+                                 {static_cast<int>(match.capturedLength()), cleaned}});
         }
     }
     // 从后向前替换
@@ -826,7 +827,8 @@ QString ZhipuPPTAgentService::sanitizeSvg(const QString &svgCode) const
             QRegularExpression::CaseInsensitiveOption);
         cleaned.remove(cssFilterRe);
         if (cleaned != styleVal) {
-            replacements.append({match.capturedStart(), {match.capturedLength(),
+            replacements.append({static_cast<int>(match.capturedStart()),
+                                 {static_cast<int>(match.capturedLength()),
                                  QStringLiteral("style=\"%1\"").arg(cleaned)}});
         }
     }
