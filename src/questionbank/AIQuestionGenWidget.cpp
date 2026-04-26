@@ -252,7 +252,7 @@ void AIQuestionGenWidget::setupAiService()
     qDebug() << "[AIQuestionGen] MiniMax API 配置:"
              << "Key长度:" << m_apiKey.length()
              << "Base URL:" << m_baseUrl
-             << "Model:" << MODEL_NAME;
+             << "Model:" << AiConfig::model();
 
     // 初始化对话历史
     m_conversationHistory.clear();
@@ -736,7 +736,7 @@ void AIQuestionGenWidget::sendToMiniMax(const QString &userMessage)
     m_conversationHistory.append({QStringLiteral("user"), userMessage});
 
     // 构建请求
-    QUrl url(m_baseUrl + "/chat/completions");
+    QUrl url(AiConfig::chatCompletionsUrl());
     QNetworkRequest request(url);
     request.setRawHeader("Authorization", ("Bearer " + m_apiKey).toUtf8());
     request.setRawHeader("Content-Type", "application/json");
@@ -757,7 +757,7 @@ void AIQuestionGenWidget::sendToMiniMax(const QString &userMessage)
     }
 
     QJsonObject body;
-    body["model"] = MODEL_NAME;
+    body["model"] = AiConfig::model();
     body["messages"] = messages;
     body["stream"] = true;
     body["temperature"] = 0.7;

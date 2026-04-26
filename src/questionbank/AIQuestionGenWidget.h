@@ -128,8 +128,6 @@ private:
     QByteArray m_sseBuffer;         // SSE 数据缓冲区
     bool m_isUpdatingCurriculumUi = false;
 
-    // 常量
-    static constexpr const char* MODEL_NAME = "MiniMax-M2.7";
     static QString buildSystemPrompt(const QString &gradeSemester,
                                      const QString &chapter,
                                      const QStringList &knowledgePoints);
