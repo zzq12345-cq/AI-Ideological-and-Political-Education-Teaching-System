@@ -11,7 +11,40 @@ set(CMAKE_AUTORCC ON)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network QuickWidgets Svg SvgWidgets PrintSupport)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Charts QuickWidgets Svg SvgWidgets PrintSupport)
-find_package(ZLIB REQUIRED)
+find_package(ZLIB QUIET)
+if(ZLIB_FOUND)
+    set(AI_ZLIB_TARGET ZLIB::ZLIB)
+elseif(WIN32)
+    get_target_property(_qt_include_dir Qt${QT_VERSION_MAJOR}::Core INTERFACE_INCLUDE_DIRECTORIES)
+    list(GET _qt_include_dir 0 _qt_first_include)
+    get_filename_component(_qt_root "${_qt_first_include}" DIRECTORY)
+
+    foreach(_zlib_candidate
+        "${_qt_root}/include/QtZlib"
+        "${_qt_root}/QtZlib"
+        "${_qt_first_include}/QtZlib"
+    )
+        if(EXISTS "${_zlib_candidate}/zlib.h")
+            set(_qt_zlib_include "${_zlib_candidate}")
+            break()
+        endif()
+    endforeach()
+
+    if(NOT _qt_zlib_include)
+        message(FATAL_ERROR "Could NOT find ZLIB or Qt bundled zlib")
+    endif()
+
+    message(STATUS "Using Qt bundled zlib from: ${_qt_zlib_include}")
+    add_library(qt_bundled_zlib INTERFACE)
+    target_include_directories(qt_bundled_zlib INTERFACE "${_qt_zlib_include}")
+    find_library(QT_ZLIB_LIB NAMES zlib z PATHS "${_qt_root}/lib" NO_DEFAULT_PATH)
+    if(QT_ZLIB_LIB)
+        target_link_libraries(qt_bundled_zlib INTERFACE "${QT_ZLIB_LIB}")
+    endif()
+    set(AI_ZLIB_TARGET qt_bundled_zlib)
+else()
+    message(FATAL_ERROR "Could NOT find ZLIB")
+endif()
 
 set(PROJECT_SOURCES
     src/main/main.cpp
@@ -243,7 +276,7 @@ target_link_libraries(AILoginSystem PRIVATE
     Qt${QT_VERSION_MAJOR}::Svg
     Qt${QT_VERSION_MAJOR}::SvgWidgets
     Qt${QT_VERSION_MAJOR}::PrintSupport
-    ZLIB::ZLIB
+    ${AI_ZLIB_TARGET}
 )
 
 # 设置目标属性
