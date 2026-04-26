@@ -518,7 +518,7 @@ void ClassAnalyticsPage::createAIAdviceArea()
         "}"
         "QPushButton:hover { background-color: #F8FAFC; border-color: #A5B4FC; }"
         "QPushButton:pressed { background-color: #F1F5F9; }"
-        "QPushButton:disabled { background-color: #F1F5F9; color: #64748B; }"
+        "QPushButton:disabled { background-color: #F1F5F9; color: #94A3B8; }"
     ));
 
     titleRow->addWidget(iconBg);
@@ -656,7 +656,7 @@ void ClassAnalyticsPage::updateWeakPointsChart()
     QValueAxis *axisX = new QValueAxis();
     axisX->setRange(0, 100);
     axisX->setLabelFormat("%d%%");
-    axisX->setLabelsColor(QColor("#64748B"));
+    axisX->setLabelsColor(QColor("#94A3B8"));
     axisX->setGridLineColor(QColor("#F1F5F9"));
     chart->addAxis(axisX, Qt::AlignBottom);
     series->attachAxis(axisX);
@@ -774,7 +774,7 @@ void ClassAnalyticsPage::onExportClicked()
     yPos += 16;
 
     painter.setFont(smallFont);
-    painter.setPen(QColor("#64748B"));
+    painter.setPen(QColor("#94A3B8"));
     painter.drawText(QRect(margin, yPos, contentWidth, 20), Qt::AlignCenter,
                      "生成时间: " + QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss"));
     yPos += sectionGap;

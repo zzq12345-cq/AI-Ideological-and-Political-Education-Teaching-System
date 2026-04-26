@@ -4,7 +4,7 @@
 #include <QFile>
 #include <QDateTime>
 #include <QStandardPaths>
-#include "../shared/ModernDialogHelper.h"
+#include <QMessageBox>
 #include <QGridLayout>
 #include <QDir>
 #include <QGraphicsDropShadowEffect>
@@ -56,7 +56,7 @@ void HelpCenterWidget::setupUI() {
         "QScrollArea { background: #F8FAFC; border: none; }"
         "QScrollBar:vertical { width: 8px; background: transparent; }"
         "QScrollBar::handle:vertical { background: #CBD5E1; border-radius: 4px; min-height: 40px; }"
-        "QScrollBar::handle:vertical:hover { background: #64748B; }"
+        "QScrollBar::handle:vertical:hover { background: #94A3B8; }"
         "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }");
 
     m_contentWidget = new QWidget();
@@ -116,7 +116,7 @@ QWidget* HelpCenterWidget::createHeaderSection() {
     lay->addWidget(m_searchInput);
 
     m_searchResultLabel = new QLabel();
-    m_searchResultLabel->setStyleSheet("font-size: 14px; color: #64748B; font-weight: 500;");
+    m_searchResultLabel->setStyleSheet("font-size: 14px; color: #94A3B8; font-weight: 500;");
     m_searchResultLabel->hide();
     lay->addWidget(m_searchResultLabel);
 
@@ -521,7 +521,7 @@ void HelpCenterWidget::resetAllSections() {
 void HelpCenterWidget::onSubmitFeedback() {
     QString text = m_feedbackEdit->toPlainText().trimmed();
     if (text.isEmpty()) {
-        ModernDialogHelper::warning(this, "提示", "请输入反馈内容后再提交。");
+        QMessageBox::warning(this, "提示", "请输入反馈内容后再提交。");
         return;
     }
 
@@ -537,8 +537,8 @@ void HelpCenterWidget::onSubmitFeedback() {
         file.close();
 
         m_feedbackEdit->clear();
-        ModernDialogHelper::info(this, "感谢反馈", "您的反馈已保存，感谢您的建议！");
+        QMessageBox::information(this, "感谢反馈", "您的反馈已保存，感谢您的建议！");
     } else {
-        ModernDialogHelper::warning(this, "保存失败", "无法保存反馈内容，请稍后重试。");
+        QMessageBox::warning(this, "保存失败", "无法保存反馈内容，请稍后重试。");
     }
 }

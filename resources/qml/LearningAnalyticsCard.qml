@@ -147,7 +147,7 @@ Rectangle {
                                         anchors.centerIn: parent
                                         text: "计算公式：\n(课堂参与 92% + 专注度 88% + 测验 79% + 提问转化分 81%) ÷ 4 = 85%"
                                         color: "#FFFFFF"
-                                        font.pixelSize: 14
+                                        font.pixelSize: 13
                                         lineHeight: 1.2
                                         wrapMode: Text.Wrap
                                         horizontalAlignment: Text.AlignHCenter
@@ -243,7 +243,7 @@ Rectangle {
                                         Text {
                                             text: modelData.label
                                             color: "#6B7280"
-                                            font.pixelSize: 14
+                                            font.pixelSize: 12
                                             font.weight: Font.Medium
                                             Layout.fillWidth: true
                                         }

@@ -488,7 +488,7 @@ void AdminDashboard::showInviteCodeDialog(const QString &schoolId, const QString
     genBtn->setFixedHeight(32);
     genBtn->setStyleSheet(QString("QPushButton { background: %1; color: white; border: none; border-radius: 6px; padding: 0 16px; font-size: 12px; font-weight: 600; } QPushButton:hover { background: #C62828; }").arg(StyleConfig::PATRIOTIC_RED));
     connect(genBtn, &QPushButton::clicked, this, [this, schoolId, dialog]() {
-        bool ok; int count = ModernDialogHelper::getInt(dialog, "生成邀请码", "生成数量:", 1, 1, 50, 1, &ok);
+        bool ok; int count = QInputDialog::getInt(dialog, "生成邀请码", "生成数量:", 1, 1, 50, 1, &ok);
         if (!ok) return;
         connect(AdminManager::instance(), &AdminManager::inviteCodeGenerated, this,
             [this, schoolId](const QStringList &) { showInviteCodeDialog(schoolId, ""); }, Qt::SingleShotConnection);

@@ -40,7 +40,7 @@ QLabel#pageTitle {
 
 QLabel#pageSubtitle {
     font-size: 15px;
-    color: #616161;
+    color: #757575;
 }
 
 /* ==================== 侧边栏 ==================== */
@@ -85,7 +85,7 @@ QLabel#sidebarTitle {
 }
 
 QLabel[role="comboLabel"] {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: #424242;
 }
@@ -129,7 +129,7 @@ QPushButton[role="filterButton"] {
     color: #616161;
     border-radius: 15px;
     border: 1px solid #E0E0E0;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     padding: 0 12px;
     min-height: 30px;
@@ -162,10 +162,10 @@ QFrame#questionCard {
 QFrame#tagRow QLabel {
     padding: 0;
     border-radius: 0;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 500;
     background: transparent;
-    color: #616161;
+    color: #757575;
 }
 
 QLabel#questionStem {
@@ -189,7 +189,7 @@ QFrame#answerSection {
 }
 
 QLabel#answerTitle {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     color: #2E7D32;
     letter-spacing: 0.5px;
@@ -209,7 +209,7 @@ QFrame#analysisSection {
 }
 
 QLabel#analysisTitle {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     color: #616161;
     letter-spacing: 0.5px;
@@ -299,22 +299,4 @@ QScrollArea#contentScrollArea QScrollBar::add-page:vertical,
 QScrollArea#contentScrollArea QScrollBar::sub-page:vertical {
     height: 0;
     background: transparent;
-}
-
-/* ==================== 焦点指示器 ==================== */
-QPushButton#primaryActionButton:focus,
-QPushButton#secondaryButton:focus,
-QPushButton#ghostButton:focus {
-    outline: 2px solid #2E7D32;
-    outline-offset: 2px;
-}
-
-QPushButton[role="filterButton"]:focus {
-    outline: 2px solid #4CAF50;
-    outline-offset: 2px;
-}
-
-QComboBox[role="filterSelect"]:focus {
-    border-color: #2E7D32;
-    outline: none;
 }

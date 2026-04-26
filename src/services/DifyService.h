@@ -44,7 +44,7 @@ public:
 
     /**
      * @brief 设置要使用的模型
-     * @param model 模型名称（如 "glm-4", "gpt-4", "claude-3" 等）
+     * @param model 保留兼容；Dify 模型由 Dify 后台配置
      */
     void setModel(const QString &model);
 
@@ -62,6 +62,11 @@ public:
      * @brief 设置当前会话 ID（用于继续历史对话）
      */
     void setCurrentConversationId(const QString &conversationId);
+
+    /**
+     * @brief 设置 Dify user 命名空间，用于隔离不同功能的会话历史
+     */
+    void setUserScope(const QString &scope);
 
     /**
      * @brief 获取对话列表
@@ -151,6 +156,8 @@ private:
     void parseStreamResponse(const QByteArray &data);
     QString filterThinkTagsStreaming(const QString &text);
     void resetStreamFilters();
+    bool usesDifyApi() const;
+    QString extractOpenAiContent(const QJsonObject &obj) const;
 
     // 统一处理流式文本（消除 message/agent_message/text_chunk 重复逻辑）
     void handleStreamText(const QString &text);
@@ -164,6 +171,7 @@ private:
     QString m_baseUrl;
     QString m_model;
     QString m_conversationId;
+    QString m_baseUserId;
     QString m_userId;
     QString m_fullResponse;  // 累积完整响应
     QString m_streamBuffer;  // SSE 残留缓冲

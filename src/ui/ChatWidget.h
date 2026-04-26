@@ -5,15 +5,19 @@
 #include <QScrollArea>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QGridLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QPropertyAnimation>
 #include <QTextDocument>
+#include <QImage>
 #include <memory>
 
 // 前向声明
 class MarkdownRenderer;
+class QTimer;
+class QFrame;
 
 /**
  * @brief 现代化气泡对话风格的聊天组件
@@ -43,6 +47,12 @@ public:
     void updateLastAIMessage(const QString &text);
 
     /**
+     * @brief 以纯文本更新最后一条 AI 消息（用于流式打字阶段）
+     * @param text 新的消息内容
+     */
+    void updateLastAIMessagePlain(const QString &text);
+
+    /**
      * @brief 更新最后一条 AI 消息的思考过程
      * @param thought 思考内容
      */
@@ -62,6 +72,26 @@ public:
      * @brief 清空所有消息
      */
     void clearMessages();
+
+    /**
+     * @brief 显示 AI 正在思考提示
+     */
+    void showTypingIndicator();
+
+    /**
+     * @brief 隐藏 AI 正在思考提示
+     */
+    void hideTypingIndicator();
+
+    /**
+     * @brief 设置快捷建议按钮
+     */
+    void addQuickReplyOptions(const QStringList &options);
+
+    /**
+     * @brief 清空快捷建议按钮
+     */
+    void clearQuickReplyOptions();
 
     /**
      * @brief 设置输入框占位符文本
@@ -99,6 +129,21 @@ public:
      */
     void focusInput();
 
+    /**
+     * @brief 在最后一条 AI 消息下方显示 PPT 生成预览区
+     */
+    void beginPPTPreviewProgress();
+
+    /**
+     * @brief 更新指定页的 PPT 预览缩略图
+     */
+    void updatePPTPreviewProgress(int slideIndex, const QImage &preview);
+
+    /**
+     * @brief 标记 PPT 预览生成完成
+     */
+    void finishPPTPreviewProgress();
+
 signals:
     /**
      * @brief 用户发送消息时发出
@@ -109,11 +154,18 @@ signals:
 private slots:
     void onSendClicked();
 
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
     void setupUI();
     void setupStyles();
     QWidget* createMessageBubble(const QString &text, bool isUser);
     void scrollToBottom();
+    void updateTypingIndicator();
+    void updateInputFocusState(bool focused);
+    QWidget* createPPTPreviewCard(int slideIndex);
+    void ensurePPTPreviewCard(int slideIndex);
 
     // Markdown渲染相关
     QString renderMessage(const QString &text, bool isUser);
@@ -124,9 +176,21 @@ private:
     QVBoxLayout *m_messageLayout;
     QLineEdit *m_inputEdit;
     QPushButton *m_sendBtn;
+    QFrame *m_inputContainer;
+    QScrollArea *m_quickReplyContainer;
+    QHBoxLayout *m_quickReplyLayout;
+    QWidget *m_typingIndicatorRow;
+    QLabel *m_typingIndicatorLabel;
+    QTimer *m_typingIndicatorTimer;
+    int m_typingIndicatorPhase;
 
     // 用于流式更新的最后一条 AI 消息
     QLabel *m_lastAIMessageLabel;
+    QVBoxLayout *m_lastAIBubbleLayout;
+    QWidget *m_lastPPTPreviewWidget;
+    QGridLayout *m_lastPPTPreviewGrid;
+    QVector<QLabel*> m_pptPreviewImageLabels;
+    QVector<QLabel*> m_pptPreviewCaptionLabels;
     
     // 用于显示思考过程的组件
     QWidget *m_lastAIThinkingWidget;
