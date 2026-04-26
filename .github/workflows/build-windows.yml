@@ -67,6 +67,9 @@ jobs:
         shell: pwsh
         env:
           DIFY_API_KEY: ${{ secrets.DIFY_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          MINIMAX_API_BASE_URL: ${{ secrets.MINIMAX_API_BASE_URL }}
+          MINIMAX_MODEL: ${{ secrets.MINIMAX_MODEL }}
           TIANXING_API_KEY: ${{ secrets.TIANXING_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}

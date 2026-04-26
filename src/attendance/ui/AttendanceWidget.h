@@ -110,6 +110,7 @@ private:
     QStringList m_recordIds;       // Supabase record IDs
     QStringList m_studentEmails;   // 对应的邮箱
     QMap<QString, QString> m_emailToStudentNo; // email → 学号
+    QMap<QString, QString> m_emailToStudentName; // email → 姓名
     QList<Student> m_students;
 
     // 服务

@@ -84,19 +84,29 @@ AttendanceWidget::AttendanceWidget(QWidget *parent)
     connect(ClassManager::instance(), &ClassManager::membersLoaded, this,
             [this](const QString &classId, const QList<ClassManager::MemberInfo> &members) {
         if (classId != m_currentClassId) return;
-        // 构建 email → 学号映射
+        // 构建 email → 学号/姓名映射，考勤记录里的姓名可能是旧快照
         m_emailToStudentNo.clear();
+        m_emailToStudentName.clear();
         for (const auto &m : members) {
             if (!m.number.isEmpty()) {
                 m_emailToStudentNo[m.email] = m.number;
             }
+            if (!m.name.isEmpty()) {
+                m_emailToStudentName[m.email] = m.name;
+            }
         }
-        // 更新学生学号并重建列表
+        // 更新学生姓名和学号并重建列表
         bool changed = false;
         for (int i = 0; i < m_students.size() && i < m_studentEmails.size(); ++i) {
             QString no = m_emailToStudentNo.value(m_studentEmails[i], "无学号信息");
             if (m_students[i].studentNo() != no) {
                 m_students[i].setStudentNo(no);
+                changed = true;
+            }
+
+            QString name = m_emailToStudentName.value(m_studentEmails[i]);
+            if (!name.isEmpty() && m_students[i].name() != name) {
+                m_students[i].setName(name);
                 changed = true;
             }
         }
