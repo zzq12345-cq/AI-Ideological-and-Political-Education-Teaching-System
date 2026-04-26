@@ -17,6 +17,7 @@
 #include <QPainter>
 #include <QPixmap>
 #include <QInputDialog>
+#include "../../shared/ModernDialogHelper.h"
 
 // ============ 高级 UI 设计规范 ============
 static const QString COL_BG = "#F3F4F6";
@@ -374,7 +375,7 @@ void AttendanceWidget::createStudentListCard()
 
     auto createHLbl = [&](const QString &txt, int w = -1) {
         auto *l = new QLabel(txt);
-        l->setStyleSheet(QString("font-size: 12px; font-weight: 700; color: %1; text-transform: uppercase; letter-spacing: 0.5px;").arg(COL_TEXT_SUB));
+        l->setStyleSheet(QString("font-size: 14px; font-weight: 700; color: %1; text-transform: uppercase; letter-spacing: 0.5px;").arg(COL_TEXT_SUB));
         if(w > 0) l->setFixedWidth(w);
         return l;
     };
@@ -465,7 +466,7 @@ QWidget* AttendanceWidget::createStudentItem(int index, const QString &name, con
     auto *nameL = new QLabel(name);
     nameL->setStyleSheet(QString("font-size: 15px; font-weight: 700; color: %1; background: transparent; border: none;").arg(COL_TEXT_MAIN));
     auto *noL = new QLabel(studentNo);
-    noL->setStyleSheet(QString("font-size: 12px; color: %1; background: transparent; border: none;").arg(COL_TEXT_SUB));
+    noL->setStyleSheet(QString("font-size: 14px; color: %1; background: transparent; border: none;").arg(COL_TEXT_SUB));
     info->addWidget(nameL);
     info->addWidget(noL);
     auto *infoW = new QWidget(); infoW->setLayout(info); infoW->setFixedWidth(140);
@@ -681,14 +682,12 @@ void AttendanceWidget::onRemarkClicked(int studentIndex)
 {
     if (studentIndex < 0 || studentIndex >= m_records.size()) return;
 
-    bool ok;
     QString currentRemark = m_records[studentIndex].remark();
-    QString text = QInputDialog::getText(this,
+    QString text = ModernDialogHelper::input(this,
                                          "添加备注",
                                          QString("为学生 %1 添加考勤备注:").arg(m_students[studentIndex].name()),
-                                         QLineEdit::Normal,
-                                         currentRemark, &ok);
-    if (ok) {
+                                         currentRemark);
+    if (!text.isNull()) {
         m_records[studentIndex].setRemark(text);
     }
 }

@@ -16,7 +16,7 @@ inline const char* TIANXING_API_KEY = "";
 inline const char* SUPABASE_URL = "";
 inline const char* SUPABASE_ANON_KEY = "";
 inline const char* ZHIPU_API_KEY = "";
-inline const char* ZHIPU_BASE_URL = "https://api.minimaxi.com/v1";
+inline const char* ZHIPU_BASE_URL = "https://api.icerain.love/v1";
 
 }  // namespace EmbeddedKeys
 

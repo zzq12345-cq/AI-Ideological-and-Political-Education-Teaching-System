@@ -11,7 +11,6 @@ set(CMAKE_AUTORCC ON)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network QuickWidgets Svg SvgWidgets PrintSupport)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Charts QuickWidgets Svg SvgWidgets PrintSupport)
-find_package(ZLIB REQUIRED)
 
 set(PROJECT_SOURCES
     src/main/main.cpp
@@ -31,24 +30,14 @@ set(PROJECT_SOURCES
     src/dashboard/SidebarManager.h
     src/questionbank/questionbankwindow.cpp
     src/questionbank/questionbankwindow.h
-    src/questionbank/AIQuestionGenWidget.cpp
-    src/questionbank/AIQuestionGenWidget.h
-    src/questionbank/CurriculumData.h
     src/questionbank/QuestionRepository.cpp
     src/questionbank/QuestionRepository.h
     src/questionbank/QuestionBasket.cpp
     src/questionbank/QuestionBasket.h
     src/questionbank/QuestionBasketWidget.cpp
     src/questionbank/QuestionBasketWidget.h
-    src/questionbank/QualityCheckDialog.cpp
-    src/questionbank/QualityCheckDialog.h
     src/questionbank/PaperComposerDialog.cpp
     src/questionbank/PaperComposerDialog.h
-    src/smartpaper/SmartPaperConfig.h
-    src/smartpaper/SmartPaperService.cpp
-    src/smartpaper/SmartPaperService.h
-    src/smartpaper/SmartPaperWidget.cpp
-    src/smartpaper/SmartPaperWidget.h
     src/ui/aipreparationwidget.cpp
     src/ui/aipreparationwidget.h
     src/ui/moderncheckbox.cpp
@@ -59,14 +48,8 @@ set(PROJECT_SOURCES
     src/services/DocxGenerator.h
     src/services/DifyService.cpp
     src/services/DifyService.h
-    src/services/QuestionParserService.cpp
-    src/services/QuestionParserService.h
-    src/services/QuestionQualityService.cpp
-    src/services/QuestionQualityService.h
     src/services/PPTXGenerator.cpp
     src/services/PPTXGenerator.h
-    src/services/ZhipuPPTAgentService.cpp
-    src/services/ZhipuPPTAgentService.h
     src/services/PaperService.cpp
     src/services/PaperService.h
     src/services/CurriculumService.cpp
@@ -87,14 +70,10 @@ set(PROJECT_SOURCES
     src/ui/NetworkImageTextBrowser.h
     src/ui/HotspotTrackingWidget.cpp
     src/ui/HotspotTrackingWidget.h
-    src/ui/HelpCenterWidget.cpp
-    src/ui/HelpCenterWidget.h
     src/services/HotspotService.cpp
     src/services/HotspotService.h
     src/hotspot/INewsProvider.h
     src/hotspot/NewsItem.h
-    src/hotspot/NewsCategoryUtils.cpp
-    src/hotspot/NewsCategoryUtils.h
     src/hotspot/MockNewsProvider.cpp
     src/hotspot/MockNewsProvider.h
     src/hotspot/RealNewsProvider.cpp
@@ -133,10 +112,6 @@ set(PROJECT_SOURCES
     src/analytics/ui/ClassAnalyticsPage.h
     src/analytics/ui/RadarChartWidget.cpp
     src/analytics/ui/RadarChartWidget.h
-    src/analytics/ui/KnowledgeGraphWidget.cpp
-    src/analytics/ui/KnowledgeGraphWidget.h
-    src/analytics/models/KnowledgeGraph.cpp
-    src/analytics/models/KnowledgeGraph.h
     # 通知模块
     src/notifications/models/Notification.cpp
     src/notifications/models/Notification.h
@@ -154,85 +129,19 @@ set(PROJECT_SOURCES
     src/attendance/services/AttendanceService.h
     src/attendance/ui/AttendanceWidget.cpp
     src/attendance/ui/AttendanceWidget.h
-    src/student/MyClassWidget.cpp
-    src/student/MyClassWidget.h
-    src/student/JoinClassDialog.cpp
-    src/student/JoinClassDialog.h
-    src/student/ClassInfo.h
-    src/student/ClassManager.cpp
-    src/student/ClassManager.h
-    src/student/CreateClassDialog.cpp
-    src/student/CreateClassDialog.h
-    src/student/ClassDetailWidget.cpp
-    src/student/ClassDetailWidget.h
-    src/student/AttendanceManager.cpp
-    src/student/AttendanceManager.h
-    src/student/AttendanceActiveWidget.cpp
-    src/student/AttendanceActiveWidget.h
-    src/student/AttendanceResultWidget.cpp
-    src/student/AttendanceResultWidget.h
-    src/student/AttendanceSignInDialog.cpp
-    src/student/AttendanceSignInDialog.h
-    src/student/ClassSettingsWidget.cpp
-    src/student/ClassSettingsWidget.h
-    src/student/HomeworkManager.cpp
-    src/student/HomeworkManager.h
-    src/student/HomeworkListWidget.cpp
-    src/student/HomeworkListWidget.h
-    src/student/HomeworkCreateWidget.cpp
-    src/student/HomeworkCreateWidget.h
-    src/student/HomeworkSubmissionsWidget.cpp
-    src/student/HomeworkSubmissionsWidget.h
-    src/student/MaterialManager.cpp
-    src/student/MaterialManager.h
-    src/student/MaterialWidget.cpp
-    src/student/MaterialWidget.h
-    src/student/StudentClassDetailWidget.cpp
-    src/student/StudentClassDetailWidget.h
-    src/student/StudentMaterialWidget.cpp
-    src/student/StudentMaterialWidget.h
-    src/admin/AdminManager.cpp
-    src/admin/AdminManager.h
-    src/admin/AdminDashboard.cpp
-    src/admin/AdminDashboard.h
-    src/config/AppConfig.cpp
-    src/config/AppConfig.h
-    src/config/AiConfig.h
     src/config/embedded_keys.h
-    src/utils/FailedTaskTracker.cpp
-    src/utils/FailedTaskTracker.h
-    src/utils/NetworkRetryHelper.cpp
-    src/utils/NetworkRetryHelper.h
-    src/utils/SimpleZipWriter.cpp
-    src/utils/SimpleZipWriter.h
-    src/shared/ModernDialogHelper.cpp
-    src/shared/ModernDialogHelper.h
     resources.qrc
     resources/QtTheme/QtTheme.qrc
 )
-list(TRANSFORM PROJECT_SOURCES PREPEND "${CMAKE_SOURCE_DIR}/")
 
-if(APPLE)
-    # macOS 应用图标
-    set(MACOSX_BUNDLE_ICON_FILE AppIcon.icns)
-    set(APP_ICON_MACOSX ${CMAKE_SOURCE_DIR}/resources/AppIcon.icns)
-    set_source_files_properties(${APP_ICON_MACOSX} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
-endif()
-
-if(WIN32)
-    set(WINDOWS_ICON_FILE "${CMAKE_SOURCE_DIR}/resources/AppIcon_transparent.ico")
-    configure_file(
-        "${CMAKE_SOURCE_DIR}/resources/windows_app_icon.rc"
-        "${CMAKE_CURRENT_BINARY_DIR}/windows_app_icon.rc"
-        @ONLY
-    )
-    set(APP_ICON_WINDOWS "${CMAKE_CURRENT_BINARY_DIR}/windows_app_icon.rc")
-endif()
+# macOS 应用图标
+set(MACOSX_BUNDLE_ICON_FILE AppIcon.icns)
+set(APP_ICON_MACOSX ${CMAKE_SOURCE_DIR}/resources/AppIcon.icns)
+set_source_files_properties(${APP_ICON_MACOSX} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 
 qt_add_executable(AILoginSystem
     ${PROJECT_SOURCES}
     ${APP_ICON_MACOSX}
-    ${APP_ICON_WINDOWS}
 )
 
 target_link_libraries(AILoginSystem PRIVATE
@@ -243,7 +152,6 @@ target_link_libraries(AILoginSystem PRIVATE
     Qt${QT_VERSION_MAJOR}::Svg
     Qt${QT_VERSION_MAJOR}::SvgWidgets
     Qt${QT_VERSION_MAJOR}::PrintSupport
-    ZLIB::ZLIB
 )
 
 # 设置目标属性
@@ -268,16 +176,6 @@ if(APPLE)
     )
 endif()
 
-if(WIN32)
-    add_custom_command(TARGET AILoginSystem POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:AILoginSystem>/ppt"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_SOURCE_DIR}/resources/ppt/爱国主义精神传承.pptx"
-            "$<TARGET_FILE_DIR:AILoginSystem>/ppt/"
-        COMMENT "Copying PPT resources next to Windows executable"
-    )
-endif()
-
 # 安装规则
 include(GNUInstallDirs)
 install(TARGETS AILoginSystem
@@ -291,31 +189,19 @@ install(TARGETS AILoginSystem
 set(SHARED_SERVICES
     src/services/PaperService.cpp
     src/services/PaperService.h
-    src/services/DifyService.cpp
-    src/services/DifyService.h
     src/services/BulkImportService.cpp
     src/services/BulkImportService.h
     src/services/QuestionParserService.cpp
     src/services/QuestionParserService.h
-    src/services/QuestionQualityService.cpp
-    src/services/QuestionQualityService.h
     src/services/DocumentReaderService.cpp
     src/services/DocumentReaderService.h
     src/services/SupabaseStorageService.cpp
     src/services/SupabaseStorageService.h
     src/auth/supabase/supabaseconfig.cpp
     src/auth/supabase/supabaseconfig.h
-    src/config/AppConfig.cpp
-    src/config/AppConfig.h
-    src/config/AiConfig.h
-    src/utils/FailedTaskTracker.cpp
-    src/utils/FailedTaskTracker.h
     src/utils/NetworkRequestFactory.cpp
     src/utils/NetworkRequestFactory.h
-    src/utils/NetworkRetryHelper.cpp
-    src/utils/NetworkRetryHelper.h
 )
-list(TRANSFORM SHARED_SERVICES PREPEND "${CMAKE_SOURCE_DIR}/")
 
 qt_add_executable(ImportTool
     src/tools/import_tool.cpp

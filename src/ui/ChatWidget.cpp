@@ -10,10 +10,6 @@
 #include <QApplication>
 #include <QFile>
 #include <QDebug>
-#include <QEvent>
-#include <QMouseEvent>
-#include <QStyle>
-#include <QFrame>
 
 const QString ChatWidget::USER_BUBBLE_COLOR = StyleConfig::PATRIOTIC_RED_DARK;
 const QString ChatWidget::AI_BUBBLE_COLOR = StyleConfig::BG_CARD;
@@ -27,17 +23,7 @@ ChatWidget::ChatWidget(QWidget *parent)
     , m_messageLayout(nullptr)
     , m_inputEdit(nullptr)
     , m_sendBtn(nullptr)
-    , m_inputContainer(nullptr)
-    , m_quickReplyContainer(nullptr)
-    , m_quickReplyLayout(nullptr)
-    , m_typingIndicatorRow(nullptr)
-    , m_typingIndicatorLabel(nullptr)
-    , m_typingIndicatorTimer(new QTimer(this))
-    , m_typingIndicatorPhase(0)
     , m_lastAIMessageLabel(nullptr)
-    , m_lastAIBubbleLayout(nullptr)
-    , m_lastPPTPreviewWidget(nullptr)
-    , m_lastPPTPreviewGrid(nullptr)
     , m_lastAIThinkingWidget(nullptr)
     , m_lastAIThinkingLabel(nullptr)
     , m_lastAIThinkingToggle(nullptr)
@@ -49,8 +35,6 @@ ChatWidget::ChatWidget(QWidget *parent)
 
     // 设置代码块主题
     m_markdownRenderer->setCodeTheme(QColor("#f6f8fa"), QColor("#d73a49"));
-    connect(m_typingIndicatorTimer, &QTimer::timeout,
-            this, &ChatWidget::updateTypingIndicator);
 
     setupUI();
     setupStyles();
@@ -98,30 +82,10 @@ void ChatWidget::setupUI()
     bottomLayout->setContentsMargins(20, 10, 20, 5);
     bottomLayout->setSpacing(4);
 
-    m_quickReplyContainer = new QScrollArea();
-    m_quickReplyContainer->setObjectName("quickReplyContainer");
-    m_quickReplyContainer->setVisible(false);
-    m_quickReplyContainer->setWidgetResizable(true);
-    m_quickReplyContainer->setFixedHeight(46);
-    m_quickReplyContainer->setStyleSheet("QScrollArea { background: transparent; border: none; }");
-    m_quickReplyContainer->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_quickReplyContainer->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-
-    QWidget *scrollContent = new QWidget();
-    scrollContent->setStyleSheet("background: transparent;");
-    m_quickReplyLayout = new QHBoxLayout(scrollContent);
-    m_quickReplyLayout->setContentsMargins(0, 0, 0, 6);
-    m_quickReplyLayout->setSpacing(8);
-    m_quickReplyContainer->setWidget(scrollContent);
-
-    bottomLayout->addWidget(m_quickReplyContainer);
-
     // 输入框容器（胶囊状）
-    m_inputContainer = new QFrame();
-    m_inputContainer->setObjectName("inputContainer");
-    m_inputContainer->setProperty("focused", false);
-    m_inputContainer->setFocusPolicy(Qt::ClickFocus);
-    m_inputContainer->setFixedHeight(56); // 增加高度以适应胶囊形状
+    QFrame *inputContainer = new QFrame();
+    inputContainer->setObjectName("inputContainer");
+    inputContainer->setFixedHeight(56); // 增加高度以适应胶囊形状
     
     // 移除阴影效果，避免产生底部阴影长方形
     /*
@@ -132,7 +96,7 @@ void ChatWidget::setupUI()
     inputContainer->setGraphicsEffect(shadow);
     */
 
-    QHBoxLayout *containerLayout = new QHBoxLayout(m_inputContainer);
+    QHBoxLayout *containerLayout = new QHBoxLayout(inputContainer);
     containerLayout->setContentsMargins(12, 8, 12, 8);
     containerLayout->setSpacing(12);
 
@@ -147,9 +111,6 @@ void ChatWidget::setupUI()
     m_inputEdit->setObjectName("chatInputEdit");
     m_inputEdit->setPlaceholderText("向AI助手发送信息...");
     m_inputEdit->setFixedHeight(40);
-    m_inputContainer->setFocusProxy(m_inputEdit);
-    m_inputContainer->installEventFilter(this);
-    m_inputEdit->installEventFilter(this);
     
     // 发送按钮
     m_sendBtn = new QPushButton("↑"); // 使用向上箭头
@@ -166,7 +127,7 @@ void ChatWidget::setupUI()
     tipLabel->setObjectName("tipLabel");
     tipLabel->setAlignment(Qt::AlignCenter);
     
-    bottomLayout->addWidget(m_inputContainer);
+    bottomLayout->addWidget(inputContainer);
     bottomLayout->addWidget(tipLabel);
     
     mainLayout->addWidget(bottomWidget);
@@ -193,38 +154,6 @@ void ChatWidget::setupStyles()
             QWidget#messageContainer { background-color: #f5f5f5; }
         )");
     }
-}
-
-bool ChatWidget::eventFilter(QObject *watched, QEvent *event)
-{
-    if (watched == m_inputContainer &&
-        event->type() == QEvent::MouseButtonPress) {
-        if (m_inputEdit && m_inputEdit->isEnabled()) {
-            m_inputEdit->setFocus(Qt::MouseFocusReason);
-        }
-    }
-
-    if (watched == m_inputEdit) {
-        if (event->type() == QEvent::FocusIn) {
-            updateInputFocusState(true);
-        } else if (event->type() == QEvent::FocusOut) {
-            updateInputFocusState(false);
-        }
-    }
-
-    return QWidget::eventFilter(watched, event);
-}
-
-void ChatWidget::updateInputFocusState(bool focused)
-{
-    if (!m_inputContainer) {
-        return;
-    }
-
-    m_inputContainer->setProperty("focused", focused);
-    m_inputContainer->style()->unpolish(m_inputContainer);
-    m_inputContainer->style()->polish(m_inputContainer);
-    m_inputContainer->update();
 }
 
 QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
@@ -412,11 +341,6 @@ QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
         
         // 保存引用用于流式更新
         m_lastAIMessageLabel = textLabel;
-        m_lastAIBubbleLayout = bubbleLayout;
-        m_lastPPTPreviewWidget = nullptr;
-        m_lastPPTPreviewGrid = nullptr;
-        m_pptPreviewImageLabels.clear();
-        m_pptPreviewCaptionLabels.clear();
         qDebug() << "[ChatWidget] createMessageBubble: Set m_lastAIMessageLabel to" << (void*)textLabel << "for AI message";
     }
     
@@ -498,137 +422,6 @@ void ChatWidget::updateLastAIMessage(const QString &text)
     }
 }
 
-void ChatWidget::updateLastAIMessagePlain(const QString &text)
-{
-    if (!m_lastAIMessageLabel) {
-        return;
-    }
-
-    m_lastAIMessageLabel->setTextFormat(Qt::PlainText);
-    m_lastAIMessageLabel->setText(text);
-    scrollToBottom();
-}
-
-void ChatWidget::beginPPTPreviewProgress()
-{
-    if (!m_lastAIBubbleLayout || m_lastPPTPreviewWidget) {
-        return;
-    }
-
-    auto *panel = new QFrame();
-    panel->setObjectName("pptPreviewPanel");
-    panel->setStyleSheet(
-        "QFrame#pptPreviewPanel {"
-        "   background-color: #F9FAFB;"
-        "   border: 1px solid #E5E7EB;"
-        "   border-radius: 12px;"
-        "   margin-top: 10px;"
-        "}"
-    );
-
-    auto *panelLayout = new QVBoxLayout(panel);
-    panelLayout->setContentsMargins(12, 10, 12, 12);
-    panelLayout->setSpacing(10);
-
-    auto *title = new QLabel("PPT 页面预览");
-    title->setStyleSheet(
-        "QLabel { color: #374151; font-size: 13px; font-weight: 700; "
-        "background: transparent; }"
-    );
-    panelLayout->addWidget(title);
-
-    m_lastPPTPreviewGrid = new QGridLayout();
-    m_lastPPTPreviewGrid->setContentsMargins(0, 0, 0, 0);
-    m_lastPPTPreviewGrid->setHorizontalSpacing(10);
-    m_lastPPTPreviewGrid->setVerticalSpacing(10);
-    panelLayout->addLayout(m_lastPPTPreviewGrid);
-
-    m_lastPPTPreviewWidget = panel;
-    m_lastAIBubbleLayout->setSpacing(10);
-    m_lastAIBubbleLayout->addWidget(panel);
-    scrollToBottom();
-}
-
-QWidget* ChatWidget::createPPTPreviewCard(int slideIndex)
-{
-    auto *card = new QFrame();
-    card->setStyleSheet(
-        "QFrame { background-color: #FFFFFF; border: 1px solid #E5E7EB; "
-        "border-radius: 10px; }"
-    );
-
-    auto *cardLayout = new QVBoxLayout(card);
-    cardLayout->setContentsMargins(8, 8, 8, 8);
-    cardLayout->setSpacing(6);
-
-    auto *imageLabel = new QLabel("生成中");
-    imageLabel->setFixedSize(220, 124);
-    imageLabel->setAlignment(Qt::AlignCenter);
-    imageLabel->setStyleSheet(
-        "QLabel { background-color: #F3F4F6; border: 1px dashed #CBD5E1; "
-        "border-radius: 8px; color: #94A3B8; font-size: 12px; }"
-    );
-
-    auto *captionLabel = new QLabel(QString("第 %1 页").arg(slideIndex + 1));
-    captionLabel->setAlignment(Qt::AlignCenter);
-    captionLabel->setStyleSheet(
-        "QLabel { color: #4B5563; font-size: 12px; font-weight: 600; "
-        "background: transparent; border: none; }"
-    );
-
-    cardLayout->addWidget(imageLabel);
-    cardLayout->addWidget(captionLabel);
-    m_pptPreviewImageLabels.append(imageLabel);
-    m_pptPreviewCaptionLabels.append(captionLabel);
-    return card;
-}
-
-void ChatWidget::ensurePPTPreviewCard(int slideIndex)
-{
-    beginPPTPreviewProgress();
-    if (!m_lastPPTPreviewGrid || slideIndex < 0) {
-        return;
-    }
-
-    while (m_pptPreviewImageLabels.size() <= slideIndex) {
-        int index = m_pptPreviewImageLabels.size();
-        QWidget *card = createPPTPreviewCard(index);
-        m_lastPPTPreviewGrid->addWidget(card, index / 2, index % 2);
-    }
-}
-
-void ChatWidget::updatePPTPreviewProgress(int slideIndex, const QImage &preview)
-{
-    ensurePPTPreviewCard(slideIndex);
-    if (slideIndex < 0 || slideIndex >= m_pptPreviewImageLabels.size()) {
-        return;
-    }
-
-    QLabel *imageLabel = m_pptPreviewImageLabels.at(slideIndex);
-    QLabel *captionLabel = m_pptPreviewCaptionLabels.at(slideIndex);
-    if (!preview.isNull()) {
-        QPixmap pixmap = QPixmap::fromImage(preview).scaled(
-            imageLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
-        imageLabel->setPixmap(pixmap);
-    }
-    captionLabel->setText(QString("第 %1 页 已生成").arg(slideIndex + 1));
-    scrollToBottom();
-}
-
-void ChatWidget::finishPPTPreviewProgress()
-{
-    if (!m_lastPPTPreviewWidget) {
-        return;
-    }
-
-    for (QLabel *caption : m_pptPreviewCaptionLabels) {
-        if (caption && !caption->text().contains("已生成")) {
-            caption->setText(caption->text() + " 已完成");
-        }
-    }
-    scrollToBottom();
-}
-
 void ChatWidget::updateLastAIThinking(const QString &thought)
 {
     qDebug() << "[ChatWidget] updateLastAIThinking called with thought length:" << thought.length();
@@ -692,185 +485,11 @@ void ChatWidget::clearMessages()
     
     // 重新添加弹簧
     m_messageLayout->addStretch();
-
+    
     m_lastAIMessageLabel = nullptr;
-    m_lastAIBubbleLayout = nullptr;
-    m_lastPPTPreviewWidget = nullptr;
-    m_lastPPTPreviewGrid = nullptr;
-    m_pptPreviewImageLabels.clear();
-    m_pptPreviewCaptionLabels.clear();
     m_lastAIThinkingWidget = nullptr;
     m_lastAIThinkingLabel = nullptr;
     m_lastAIThinkingToggle = nullptr;
-    m_typingIndicatorRow = nullptr;
-}
-
-void ChatWidget::showTypingIndicator()
-{
-    if (!m_messageLayout || m_typingIndicatorRow) {
-        return;
-    }
-
-    if (m_messageLayout->count() > 0) {
-        QLayoutItem *stretch = m_messageLayout->takeAt(m_messageLayout->count() - 1);
-        delete stretch;
-    }
-
-    m_typingIndicatorRow = new QWidget();
-    m_typingIndicatorRow->setAttribute(Qt::WA_TranslucentBackground);
-
-    auto *rowLayout = new QHBoxLayout(m_typingIndicatorRow);
-    rowLayout->setContentsMargins(0, 4, 0, 4);
-    rowLayout->setSpacing(14);
-
-    auto *avatarLabel = new QLabel();
-    avatarLabel->setFixedSize(44, 44);
-    avatarLabel->setAlignment(Qt::AlignCenter);
-    avatarLabel->setText("AI");
-    avatarLabel->setStyleSheet(
-        "QLabel {"
-        "   background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #D4A017, stop:1 #B8860B);"
-        "   border-radius: 22px;"
-        "   color: #ffffff;"
-        "   font-size: 13px;"
-        "   font-weight: 700;"
-        "   border: 2px solid rgba(255, 255, 255, 0.3);"
-        "}"
-    );
-
-    auto *bubble = new QWidget();
-    bubble->setStyleSheet(
-        "QWidget {"
-        "   background-color: #FFFFFF;"
-        "   border: 1px solid #E5E7EB;"
-        "   border-radius: 18px;"
-        "   border-top-left-radius: 6px;"
-        "}"
-    );
-
-    auto *bubbleLayout = new QVBoxLayout(bubble);
-    bubbleLayout->setContentsMargins(18, 14, 18, 14);
-    bubbleLayout->setSpacing(0);
-
-    m_typingIndicatorPhase = 0;
-    m_typingIndicatorLabel = new QLabel();
-    m_typingIndicatorLabel->setWordWrap(true);
-    m_typingIndicatorLabel->setStyleSheet(
-        "QLabel {"
-        "   color: #6B7280;"
-        "   font-size: 14px;"
-        "   line-height: 1.5;"
-        "   background: transparent;"
-        "}"
-    );
-    bubbleLayout->addWidget(m_typingIndicatorLabel);
-
-    rowLayout->addWidget(avatarLabel);
-    rowLayout->addWidget(bubble);
-    rowLayout->addStretch();
-
-    m_messageLayout->addWidget(m_typingIndicatorRow);
-    m_messageLayout->addStretch();
-    updateTypingIndicator();
-    m_typingIndicatorTimer->start(420);
-    scrollToBottom();
-}
-
-void ChatWidget::hideTypingIndicator()
-{
-    if (!m_messageLayout || !m_typingIndicatorRow) {
-        return;
-    }
-
-    m_typingIndicatorTimer->stop();
-    m_typingIndicatorLabel = nullptr;
-    m_messageLayout->removeWidget(m_typingIndicatorRow);
-    m_typingIndicatorRow->deleteLater();
-    m_typingIndicatorRow = nullptr;
-
-    scrollToBottom();
-}
-
-void ChatWidget::updateTypingIndicator()
-{
-    if (!m_typingIndicatorLabel) {
-        return;
-    }
-
-    static const QStringList phases = {
-        "AI 正在思考",
-        "AI 正在思考.",
-        "AI 正在思考..",
-        "AI 正在思考..."
-    };
-    m_typingIndicatorLabel->setText(phases[m_typingIndicatorPhase]);
-    m_typingIndicatorPhase = (m_typingIndicatorPhase + 1) % phases.size();
-}
-
-void ChatWidget::addQuickReplyOptions(const QStringList &options)
-{
-    clearQuickReplyOptions();
-
-    if (!m_quickReplyContainer || !m_quickReplyLayout || options.isEmpty()) {
-        return;
-    }
-
-    for (int i = 0; i < options.size(); ++i) {
-        const QString option = options.at(i);
-        auto *button = new QPushButton(option);
-        button->setCursor(Qt::PointingHandCursor);
-        button->setMinimumHeight(36);
-        button->setStyleSheet(
-            "QPushButton {"
-            "   background-color: #FFFFFF;"
-            "   color: #2E7D32;"
-            "   border: 1px solid #C8E6C9;"
-            "   border-radius: 18px;"
-            "   padding: 8px 14px;"
-            "   font-size: 12px;"
-            "   font-weight: 600;"
-            "   text-align: left;"
-            "}"
-            "QPushButton:hover {"
-            "   background-color: #F1F8E9;"
-            "   border-color: #81C784;"
-            "}"
-            "QPushButton:disabled {"
-            "   color: #9CA3AF;"
-            "   border-color: #E5E7EB;"
-            "}"
-        );
-
-        connect(button, &QPushButton::clicked, this, [this, option]() {
-            if (option.trimmed().isEmpty() || !m_inputEdit || !m_inputEdit->isEnabled()) {
-                return;
-            }
-            m_inputEdit->clear();
-            emit messageSent(option);
-        });
-
-        m_quickReplyLayout->addWidget(button);
-    }
-    m_quickReplyLayout->addStretch();
-
-    m_quickReplyContainer->setVisible(true);
-}
-
-void ChatWidget::clearQuickReplyOptions()
-{
-    if (!m_quickReplyLayout || !m_quickReplyContainer) {
-        return;
-    }
-
-    while (m_quickReplyLayout->count() > 0) {
-        QLayoutItem *item = m_quickReplyLayout->takeAt(0);
-        if (item->widget()) {
-            delete item->widget();
-        }
-        delete item;
-    }
-
-    m_quickReplyContainer->setVisible(false);
 }
 
 void ChatWidget::setPlaceholderText(const QString &text)
@@ -891,7 +510,6 @@ void ChatWidget::setInputEnabled(bool enabled)
 {
     if (m_inputEdit) m_inputEdit->setEnabled(enabled);
     if (m_sendBtn) m_sendBtn->setEnabled(enabled);
-    if (!enabled) updateInputFocusState(false);
 }
 
 QString ChatWidget::inputText() const
@@ -906,9 +524,7 @@ void ChatWidget::clearInput()
 
 void ChatWidget::focusInput()
 {
-    if (m_inputEdit && m_inputEdit->isEnabled()) {
-        m_inputEdit->setFocus(Qt::OtherFocusReason);
-    }
+    if (m_inputEdit) m_inputEdit->setFocus();
 }
 
 void ChatWidget::onSendClicked()

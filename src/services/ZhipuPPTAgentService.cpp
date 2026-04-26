@@ -7,8 +7,11 @@
 #include <QJsonParseError>
 #include <QSvgRenderer>
 #include <QPainter>
+#include <QFontMetrics>
 #include <QRegularExpression>
 #include <QDebug>
+#include <QTextDocument>
+#include <initializer_list>
 
 // ============================================================================
 // 构造 / 析构
@@ -61,7 +64,7 @@ void ZhipuPPTAgentService::setBaseUrl(const QString &baseUrl)
 void ZhipuPPTAgentService::generate(const QMap<QString, QString> &params)
 {
     if (m_apiKey.isEmpty()) {
-        emit errorOccurred("MiniMax API Key 未设置");
+        emit errorOccurred("AI API Key 未设置");
         return;
     }
 
@@ -109,24 +112,53 @@ void ZhipuPPTAgentService::cancel()
 
 QString ZhipuPPTAgentService::buildTopicDescription(const QMap<QString, QString> &params) const
 {
-    QString topic;
-    const QString textbook = params.value("textbook", "人教版");
-    const QString grade = params.value("grade", "八年级");
-    const QString chapter = params.value("chapter", "");
-    const QString duration = params.value("duration", "45分钟标准课时");
-    const QString focus = params.value("contentFocus", "");
+    auto firstNonEmpty = [&params](std::initializer_list<const char*> keys) {
+        for (const char *key : keys) {
+            const QString value = params.value(QString::fromLatin1(key)).trimmed();
+            if (!value.isEmpty()) {
+                return value;
+            }
+        }
+        return QString();
+    };
 
-    topic = QString("%1 %2 中学《道德与法治》课 %3").arg(textbook, grade, chapter);
+    QString topic = firstNonEmpty({"topic", "userRequest", "chapter"});
+    const QString textbook = params.value("textbook").trimmed();
+    const QString grade = firstNonEmpty({"grade", "pref_scene"});
+    const QString chapter = params.value("chapter").trimmed();
+    const QString duration = firstNonEmpty({"duration", "pref_pace"});
+    const QString focus = firstNonEmpty({"contentFocus", "pref_focus"});
+    const QString userRequest = params.value("userRequest").trimmed();
+
+    if (topic.isEmpty()) {
+        topic = QStringLiteral("思政课堂");
+    }
+
+    QStringList contextLines;
+    if (!textbook.isEmpty()) {
+        contextLines << QStringLiteral("教材版本：%1").arg(textbook);
+    }
+    if (!grade.isEmpty()) {
+        contextLines << QStringLiteral("目标年级：%1").arg(grade);
+    }
+    if (!chapter.isEmpty() && chapter != topic) {
+        contextLines << QStringLiteral("教材章节：%1").arg(chapter);
+    }
+
+    topic = QStringLiteral("用户明确要求的 PPT 主题/任务：%1").arg(topic);
+    if (!contextLines.isEmpty()) {
+        topic += QStringLiteral("\n\n课程上下文：\n- %1").arg(contextLines.join("\n- "));
+    }
 
     if (!focus.isEmpty()) {
         topic += QString("\n\n内容侧重要求：%1").arg(focus);
     }
-    topic += QString("\n课时长度：%1").arg(duration);
+    if (!duration.isEmpty()) {
+        topic += QString("\n课时长度：%1").arg(duration);
+    }
 
-    // 附加用户原始请求，保留页数等细节要求
-    const QString userRequest = params.value("userRequest");
     if (!userRequest.isEmpty()) {
-        topic += QString("\n\n用户原始需求：%1").arg(userRequest);
+        topic += QString("\n\n用户原始完整需求（必须优先服从）：%1").arg(userRequest);
     }
 
     return topic;
@@ -186,18 +218,19 @@ QNetworkReply* ZhipuPPTAgentService::callZhipuApi(const QString &model,
                                                      int maxTokens,
                                                      bool useStructuredUserContent,
                                                      bool disableThinking,
-                                                     const QString &baseUrlOverride)
+                                                     const QString &baseUrlOverride,
+                                                     bool stream)
 {
-    Q_UNUSED(disableThinking); // MiniMax 不支持 thinking 参数，忽略
+    Q_UNUSED(disableThinking); // 兼容不同 OpenAI-compatible 渠道，默认不发送 thinking 参数。
 
     QNetworkRequest request = createRequest(baseUrlOverride);
 
     QJsonObject body;
     body["model"] = model;
-    body["stream"] = false;
+    body["stream"] = stream;
     body["temperature"] = temperature;
     body["max_tokens"] = maxTokens;
-    // 注意：不发送 thinking 参数，MiniMax API 不支持
+    // 注意：不发送 thinking 参数，避免不同渠道兼容性问题。
 
     QJsonArray messages;
 
@@ -226,6 +259,9 @@ QNetworkReply* ZhipuPPTAgentService::callZhipuApi(const QString &model,
 
     QJsonDocument doc(body);
     QByteArray data = doc.toJson();
+    if (stream) {
+        request.setRawHeader("Accept", "text/event-stream");
+    }
 
     qDebug() << "[PPTAgent] API call to model:" << model
              << "url:" << request.url().toString()
@@ -245,6 +281,40 @@ QNetworkReply* ZhipuPPTAgentService::callZhipuApi(const QString &model,
 
 QString ZhipuPPTAgentService::extractContent(const QByteArray &responseData) const
 {
+    if (responseData.contains("data:")) {
+        QString content;
+        const QList<QByteArray> lines = responseData.split('\n');
+        for (QByteArray line : lines) {
+            line = line.trimmed();
+            if (!line.startsWith("data:")) {
+                continue;
+            }
+
+            QByteArray payload = line.mid(5).trimmed();
+            if (payload == "[DONE]" || payload.isEmpty()) {
+                continue;
+            }
+
+            QJsonParseError streamError;
+            const QJsonDocument chunkDoc = QJsonDocument::fromJson(payload, &streamError);
+            if (streamError.error != QJsonParseError::NoError || !chunkDoc.isObject()) {
+                continue;
+            }
+
+            const QJsonArray choices = chunkDoc.object()["choices"].toArray();
+            if (choices.isEmpty()) {
+                continue;
+            }
+
+            const QJsonObject choice = choices.first().toObject();
+            const QJsonObject delta = choice["delta"].toObject();
+            const QJsonObject message = choice["message"].toObject();
+            content += delta["content"].toString();
+            content += message["content"].toString();
+        }
+        return content;
+    }
+
     QJsonParseError parseError;
     QJsonDocument doc = QJsonDocument::fromJson(responseData, &parseError);
     if (parseError.error != QJsonParseError::NoError) {
@@ -302,7 +372,8 @@ void ZhipuPPTAgentService::startOutlineGeneration(const QString &topic)
         if (!pace.isEmpty())  userMsg += QString("\n- 呈现节奏：%1").arg(pace);
     }
 
-    m_currentReply = callZhipuApi(MODEL_TEXT, outlineSystemPrompt(), userMsg, 0.7, 4096);
+    m_currentReply = callZhipuApi(MODEL_TEXT, outlineSystemPrompt(), userMsg, 0.7, 4096,
+                                  false, false, QString(), true);
     qDebug() << "[PPTAgent] 发起大纲生成请求，reply=" << m_currentReply;
     if (m_currentReply) {
         connect(m_currentReply, &QNetworkReply::finished,
@@ -337,6 +408,9 @@ void ZhipuPPTAgentService::onOutlineReplyFinished()
         QString errDetail = (reply->error() == QNetworkReply::OperationCanceledError)
             ? "请求被中止（可能是 SSL 证书问题或网络不稳定）"
             : reply->errorString();
+        if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 499) {
+            errDetail = "AI 渠道上游响应超时，请稍后重试或减少页数";
+        }
         QString err = QString("大纲生成失败: %1 (错误码: %2)").arg(errDetail).arg(reply->error());
         qWarning() << "[PPTAgent]" << err;
         setState(State::Failed);
@@ -496,7 +570,8 @@ void ZhipuPPTAgentService::startPlanGeneration()
         if (!pace.isEmpty())  userMsg += QString("\n- 呈现节奏：%1").arg(pace);
     }
 
-    m_currentReply = callZhipuApi(MODEL_TEXT, sysPrompt, userMsg, 0.6, 8192);
+    m_currentReply = callZhipuApi(MODEL_TEXT, sysPrompt, userMsg, 0.6, 8192,
+                                  false, false, QString(), true);
     if (m_currentReply) {
         connect(m_currentReply, &QNetworkReply::finished,
                 this, &ZhipuPPTAgentService::onPlanReplyFinished);
@@ -575,9 +650,36 @@ void ZhipuPPTAgentService::onPlanReplyFinished()
 
 void ZhipuPPTAgentService::startSvgGeneration()
 {
-    // 始终使用 MiniMax 逐页 AI 生成 SVG
-    qDebug() << "[PPTAgent] Using AI-driven SVG generation (MiniMax)";
+    // 使用 GLM 视觉模型逐页生成 SVG，不走 HTML/本地绘制路径。
+    qDebug() << "[PPTAgent] Using AI-driven SVG generation with model:" << MODEL_CODE;
     generateNextSvg();
+}
+
+void ZhipuPPTAgentService::generateHtmlSlidesFromLayouts()
+{
+    m_svgCodes.clear();
+    m_previewImages.clear();
+
+    for (int i = 0; i < m_pageLayouts.size(); ++i) {
+        if (m_cancelled) {
+            return;
+        }
+
+        const int progress = 60 + (i * 40 / qMax(1, m_pageLayouts.size()));
+        emit progressUpdated(progress, "阶段3/3: HTML 页面渲染",
+                             QString("正在排版第 %1/%2 页...").arg(i + 1).arg(m_pageLayouts.size()));
+
+        const QJsonObject layout = m_pageLayouts.at(i).toObject();
+        const QString html = buildHtmlFromLayout(layout, i);
+        const QImage preview = renderLayoutToImage(layout, i);
+        m_svgCodes.append(html);
+        m_previewImages.append(preview);
+        emit slideGenerated(i, html, preview);
+    }
+
+    setState(State::Finished);
+    emit progressUpdated(100, "生成完成", QString("共生成 %1 页PPT").arg(m_previewImages.size()));
+    emit allSlidesGenerated(m_svgCodes, m_previewImages);
 }
 
 void ZhipuPPTAgentService::generateNextSvg()
@@ -634,7 +736,8 @@ void ZhipuPPTAgentService::requestCurrentSvgPage(bool useStandardEndpoint)
         8192,
         true,
         true,
-        overrideBaseUrl);
+        overrideBaseUrl,
+        true);
 
     if (m_currentReply) {
         connect(m_currentReply, &QNetworkReply::finished,
@@ -887,6 +990,200 @@ QImage ZhipuPPTAgentService::renderSvgToImage(const QString &svgCode, int width,
     return image;
 }
 
+QImage ZhipuPPTAgentService::renderHtmlToImage(const QString &html, int width, int height) const
+{
+    QImage image(width, height, QImage::Format_ARGB32);
+    image.fill(QColor("#F4F5F7"));
+
+    QTextDocument doc;
+    doc.setDefaultFont(QFont("Microsoft YaHei", 14));
+    doc.setPageSize(QSizeF(width, height));
+    doc.setHtml(html);
+
+    QPainter painter(&image);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setRenderHint(QPainter::TextAntialiasing);
+    doc.drawContents(&painter, QRectF(0, 0, width, height));
+    return image;
+}
+
+void ZhipuPPTAgentService::drawWrappedText(QPainter &painter, const QRect &rect,
+                                           const QString &text, const QFont &font,
+                                           const QColor &color, int lineSpacing) const
+{
+    painter.save();
+    painter.setFont(font);
+    painter.setPen(color);
+
+    QFontMetrics metrics(font);
+    const QStringList paragraphs = text.split('\n', Qt::SkipEmptyParts);
+    int y = rect.top();
+    for (const QString &paragraph : paragraphs) {
+        QString line;
+        for (const QChar &ch : paragraph) {
+            const QString candidate = line + ch;
+            if (!line.isEmpty() && metrics.horizontalAdvance(candidate) > rect.width()) {
+                painter.drawText(rect.left(), y + metrics.ascent(), line);
+                y += metrics.height() + lineSpacing;
+                line = ch;
+                if (y + metrics.height() > rect.bottom()) {
+                    painter.restore();
+                    return;
+                }
+            } else {
+                line = candidate;
+            }
+        }
+        if (!line.isEmpty()) {
+            painter.drawText(rect.left(), y + metrics.ascent(), line);
+            y += metrics.height() + lineSpacing;
+        }
+        y += lineSpacing;
+        if (y + metrics.height() > rect.bottom()) {
+            break;
+        }
+    }
+    painter.restore();
+}
+
+QImage ZhipuPPTAgentService::renderLayoutToImage(const QJsonObject &layout,
+                                                 int pageIndex, int width,
+                                                 int height) const
+{
+    QImage image(width, height, QImage::Format_ARGB32);
+    image.fill(QColor("#F3F4F6"));
+
+    QPainter p(&image);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setRenderHint(QPainter::TextAntialiasing);
+
+    const QColor red("#B91C1C");
+    const QColor redDark("#7F1D1D");
+    const QColor text("#111827");
+    const QColor muted("#667085");
+    const QColor border("#D9DEE7");
+    const QString type = layout["type"].toString("content");
+
+    auto font = [](int size, int weight = QFont::Normal) {
+        QFont f("Microsoft YaHei");
+        f.setPixelSize(size);
+        f.setWeight(static_cast<QFont::Weight>(weight));
+        return f;
+    };
+
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor("#FFFFFF"));
+    p.drawRoundedRect(QRect(38, 30, 1204, 660), 28, 28);
+    p.setPen(QPen(border, 1));
+    p.setBrush(Qt::NoBrush);
+    p.drawRoundedRect(QRect(38, 30, 1204, 660), 28, 28);
+
+    if (type == "cover") {
+        p.setPen(Qt::NoPen);
+        p.setBrush(red);
+        p.drawRoundedRect(QRect(38, 30, 330, 660), 28, 28);
+        p.drawRect(QRect(330, 30, 38, 660));
+        p.setPen(QColor("#FFFFFF"));
+        p.setFont(font(24, QFont::Bold));
+        p.drawText(QRect(84, 86, 230, 40), Qt::AlignLeft | Qt::AlignVCenter, "道德与法治");
+        p.setFont(font(15, QFont::Medium));
+        p.drawText(QRect(84, 610, 230, 28), Qt::AlignLeft, "中学思政课堂");
+
+        p.setPen(text);
+        p.setFont(font(60, QFont::Black));
+        drawWrappedText(p, QRect(440, 190, 680, 170),
+                        layout["title"].toString("思政课堂"), font(60, QFont::Black), text, 12);
+        p.setFont(font(24, QFont::Medium));
+        p.setPen(muted);
+        p.drawText(QRect(444, 390, 660, 40), Qt::AlignLeft, layout["subtitle"].toString("中学道德与法治"));
+        p.setPen(Qt::NoPen);
+        p.setBrush(red);
+        p.drawRoundedRect(QRect(444, 476, 260, 7), 4, 4);
+        return image;
+    }
+
+    if (type == "end") {
+        p.setPen(Qt::NoPen);
+        p.setBrush(red);
+        p.drawRoundedRect(QRect(920, 30, 322, 660), 28, 28);
+        p.drawRect(QRect(920, 30, 40, 660));
+        p.setPen(text);
+        p.setFont(font(62, QFont::Black));
+        p.drawText(QRect(130, 255, 700, 90), Qt::AlignCenter, layout["title"].toString("感谢聆听"));
+        p.setPen(muted);
+        p.setFont(font(24, QFont::Medium));
+        p.drawText(QRect(130, 365, 700, 44), Qt::AlignCenter, layout["subtitle"].toString("共同进步，一起成长"));
+        p.setPen(Qt::NoPen);
+        p.setBrush(red);
+        p.drawRoundedRect(QRect(350, 446, 260, 7), 4, 4);
+        return image;
+    }
+
+    const QString title = layout["title"].toString(type == "toc" ? "目录" : "课堂内容");
+    p.setPen(text);
+    p.setFont(font(42, QFont::Black));
+    p.drawText(QRect(86, 66, 850, 62), Qt::AlignLeft | Qt::AlignVCenter, title);
+    p.setPen(muted);
+    p.setFont(font(16, QFont::Medium));
+    p.drawText(QRect(1040, 78, 145, 32), Qt::AlignRight, QString("%1 / %2").arg(pageIndex + 1).arg(m_totalPages));
+    p.setPen(Qt::NoPen);
+    p.setBrush(red);
+    p.drawRoundedRect(QRect(86, 132, 180, 6), 3, 3);
+
+    if (type == "toc") {
+        const QJsonArray items = layout["items"].toArray();
+        for (int i = 0; i < qMin(items.size(), 6); ++i) {
+            const QRect rowRect(118, 172 + i * 78, 1044, 58);
+            p.setPen(Qt::NoPen);
+            p.setBrush(i % 2 == 0 ? QColor("#FFF7F7") : QColor("#FFFFFF"));
+            p.drawRoundedRect(rowRect, 14, 14);
+            p.setBrush(red);
+            p.drawRoundedRect(QRect(rowRect.left(), rowRect.top(), 70, rowRect.height()), 14, 14);
+            p.setPen(QColor("#FFFFFF"));
+            p.setFont(font(24, QFont::Bold));
+            p.drawText(QRect(rowRect.left(), rowRect.top(), 70, rowRect.height()), Qt::AlignCenter, QString::number(i + 1));
+            p.setPen(text);
+            p.setFont(font(25, QFont::Bold));
+            p.drawText(QRect(rowRect.left() + 98, rowRect.top(), 880, rowRect.height()), Qt::AlignVCenter, items.at(i).toString());
+        }
+        return image;
+    }
+
+    const QJsonArray cards = layout["cards"].toArray();
+    const int count = qMax(1, qMin(cards.size(), 5));
+    QVector<QRect> rects;
+    if (count == 1) {
+        rects << QRect(118, 178, 1044, 420);
+    } else if (count == 2) {
+        rects << QRect(92, 178, 530, 430) << QRect(658, 178, 530, 430);
+    } else if (count == 3) {
+        rects << QRect(92, 178, 530, 430) << QRect(658, 178, 530, 198) << QRect(658, 410, 530, 198);
+    } else {
+        rects << QRect(92, 176, 530, 196) << QRect(658, 176, 530, 196)
+              << QRect(92, 408, 530, 196) << QRect(658, 408, 530, 196);
+    }
+
+    for (int i = 0; i < count && i < rects.size(); ++i) {
+        const QJsonObject card = cards.at(i).toObject();
+        const QRect cardRect = rects.at(i);
+        p.setPen(QPen(border, 1));
+        p.setBrush(i == 0 && count >= 3 ? QColor("#FFF7F7") : QColor("#FFFFFF"));
+        p.drawRoundedRect(cardRect, 18, 18);
+        p.setPen(Qt::NoPen);
+        p.setBrush(i == 0 ? red : QColor("#E11D48"));
+        p.drawRoundedRect(QRect(cardRect.left(), cardRect.top(), 8, cardRect.height()), 4, 4);
+        p.setPen(redDark);
+        p.setFont(font(i == 0 && count >= 3 ? 28 : 24, QFont::Bold));
+        p.drawText(QRect(cardRect.left() + 32, cardRect.top() + 26, cardRect.width() - 64, 36),
+                   Qt::AlignLeft | Qt::AlignVCenter, card["title"].toString());
+        drawWrappedText(p, QRect(cardRect.left() + 32, cardRect.top() + 82,
+                                 cardRect.width() - 64, cardRect.height() - 104),
+                        card["content"].toString(), font(i == 0 && count >= 3 ? 22 : 20, QFont::Medium),
+                        QColor("#374151"), 8);
+    }
+    return image;
+}
+
 // ============================================================================
 // 布局驱动的 SVG 生成
 // ============================================================================
@@ -926,6 +1223,112 @@ QJsonObject ZhipuPPTAgentService::parseLayoutJson(const QString &response) const
         return QJsonObject();
     }
     return doc.object();
+}
+
+QString ZhipuPPTAgentService::buildHtmlFromLayout(const QJsonObject &pageLayout, int pageIndex) const
+{
+    const QString type = pageLayout["type"].toString("content");
+    if (type == "cover") return buildCoverHtml(pageLayout);
+    if (type == "toc") return buildTocHtml(pageLayout);
+    if (type == "end") return buildEndHtml(pageLayout);
+    return buildContentHtml(pageLayout, pageIndex);
+}
+
+QString ZhipuPPTAgentService::buildCoverHtml(const QJsonObject &layout) const
+{
+    const QString title = layout["title"].toString("思政课堂").toHtmlEscaped();
+    const QString subtitle = layout["subtitle"].toString("中学道德与法治").toHtmlEscaped();
+    return QStringLiteral(
+        "<html><body style='margin:0;background:#f4f5f7;font-family:Microsoft YaHei,SimHei,sans-serif;'>"
+        "<table width='1280' height='720' cellspacing='0' cellpadding='0' style='background:#f4f5f7;'>"
+        "<tr><td style='padding:54px;'>"
+        "<table width='1172' height='612' cellspacing='0' cellpadding='0' style='background:#fff;border:1px solid #d8dde6;border-radius:18px;'>"
+        "<tr><td width='330' style='background:#b91c1c;padding:44px;color:#fff;'>"
+        "<div style='font-size:24px;font-weight:700;'>道德与法治</div>"
+        "<div style='font-size:15px;margin-top:360px;color:#fee2e2;'>中学思政课堂</div>"
+        "</td><td style='padding:80px 86px;color:#111827;'>"
+        "<div style='font-size:22px;color:#991b1b;font-weight:700;'>课堂课件</div>"
+        "<div style='font-size:58px;font-weight:800;line-height:1.18;margin-top:34px;'>%1</div>"
+        "<div style='font-size:24px;color:#667085;margin-top:28px;'>%2</div>"
+        "<div style='height:5px;background:#dc2626;width:260px;margin-top:52px;'></div>"
+        "</td></tr></table></td></tr></table></body></html>"
+    ).arg(title, subtitle);
+}
+
+QString ZhipuPPTAgentService::buildTocHtml(const QJsonObject &layout) const
+{
+    const QString title = layout["title"].toString("目录").toHtmlEscaped();
+    const QJsonArray items = layout["items"].toArray();
+    QString rows;
+    for (int i = 0; i < qMin(items.size(), 6); ++i) {
+        rows += QStringLiteral(
+            "<tr><td style='padding:10px 0;'>"
+            "<table width='100%%' cellspacing='0' cellpadding='0' style='background:#fff;border:1px solid #e1e5eb;'>"
+            "<tr><td width='78' align='center' style='background:#b91c1c;color:#fff;font-size:28px;font-weight:800;padding:20px;'>%1</td>"
+            "<td style='font-size:28px;font-weight:700;color:#1f2937;padding:20px 28px;'>%2</td></tr></table>"
+            "</td></tr>").arg(i + 1).arg(items.at(i).toString().toHtmlEscaped());
+    }
+    return QStringLiteral(
+        "<html><body style='margin:0;background:#f4f5f7;font-family:Microsoft YaHei,SimHei,sans-serif;'>"
+        "<table width='1280' height='720' cellspacing='0' cellpadding='0'><tr><td style='padding:48px 76px;'>"
+        "<div style='font-size:46px;font-weight:800;color:#111827;'>%1</div>"
+        "<div style='width:130px;height:5px;background:#b91c1c;margin:18px 0 28px 0;'></div>"
+        "<table width='100%%' cellspacing='0' cellpadding='0'>%2</table>"
+        "</td></tr></table></body></html>").arg(title, rows);
+}
+
+QString ZhipuPPTAgentService::buildContentHtml(const QJsonObject &layout, int pageIndex) const
+{
+    const QString title = layout["title"].toString("课堂内容").toHtmlEscaped();
+    const QJsonArray cards = layout["cards"].toArray();
+    const int columns = cards.size() <= 2 ? cards.size() : 2;
+    QString rows;
+    for (int i = 0; i < cards.size(); i += qMax(1, columns)) {
+        rows += "<tr>";
+        for (int j = 0; j < columns; ++j) {
+            const int idx = i + j;
+            if (idx >= cards.size()) {
+                rows += "<td></td>";
+                continue;
+            }
+            const QJsonObject card = cards.at(idx).toObject();
+            rows += QStringLiteral(
+                "<td width='%1%%' valign='top' style='padding:10px;'>"
+                "<table width='100%%' height='190' cellspacing='0' cellpadding='0' style='background:#fff;border:1px solid #dde3ea;'>"
+                "<tr><td style='padding:24px 28px;'>"
+                "<div style='font-size:25px;font-weight:800;color:#991b1b;'>%2</div>"
+                "<div style='font-size:21px;line-height:1.55;color:#374151;margin-top:18px;'>%3</div>"
+                "</td></tr></table></td>")
+                .arg(100 / qMax(1, columns))
+                .arg(card["title"].toString().toHtmlEscaped(),
+                     card["content"].toString().toHtmlEscaped());
+        }
+        rows += "</tr>";
+    }
+    return QStringLiteral(
+        "<html><body style='margin:0;background:#f4f5f7;font-family:Microsoft YaHei,SimHei,sans-serif;'>"
+        "<table width='1280' height='720' cellspacing='0' cellpadding='0'><tr><td style='padding:38px 58px;'>"
+        "<table width='100%%' cellspacing='0' cellpadding='0'><tr>"
+        "<td style='font-size:40px;font-weight:800;color:#111827;'>%1</td>"
+        "<td align='right' style='font-size:16px;color:#64748B;'>%2 / %3</td></tr></table>"
+        "<div style='height:4px;background:#b91c1c;width:160px;margin:16px 0 24px 0;'></div>"
+        "<table width='100%%' cellspacing='0' cellpadding='0'>%4</table>"
+        "</td></tr></table></body></html>").arg(title).arg(pageIndex + 1).arg(m_totalPages).arg(rows);
+}
+
+QString ZhipuPPTAgentService::buildEndHtml(const QJsonObject &layout) const
+{
+    const QString title = layout["title"].toString("感谢聆听").toHtmlEscaped();
+    const QString subtitle = layout["subtitle"].toString("共同进步，一起成长").toHtmlEscaped();
+    return QStringLiteral(
+        "<html><body style='margin:0;background:#f4f5f7;font-family:Microsoft YaHei,SimHei,sans-serif;'>"
+        "<table width='1280' height='720' cellspacing='0' cellpadding='0'><tr><td align='center' valign='middle'>"
+        "<table width='1040' height='440' cellspacing='0' cellpadding='0' style='background:#fff;border:1px solid #d8dde6;'>"
+        "<tr><td align='center' style='padding:80px;'>"
+        "<div style='font-size:58px;font-weight:800;color:#111827;'>%1</div>"
+        "<div style='font-size:25px;color:#667085;margin-top:28px;'>%2</div>"
+        "<div style='width:260px;height:5px;background:#b91c1c;margin-top:52px;'></div>"
+        "</td></tr></table></td></tr></table></body></html>").arg(title, subtitle);
 }
 
 QString ZhipuPPTAgentService::escapeXml(const QString &text) const

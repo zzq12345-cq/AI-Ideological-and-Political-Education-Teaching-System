@@ -1,5 +1,4 @@
 #include "DifyService.h"
-#include "../config/AppConfig.h"
 #include "../utils/NetworkRequestFactory.h"
 #include <QNetworkRequest>
 #include <QJsonArray>
@@ -14,21 +13,19 @@ DifyService::DifyService(QObject *parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
     , m_currentReply(nullptr)
-    , m_baseUrl(AppConfig::get(QStringLiteral("DIFY_API_BASE_URL"),
-                               QStringLiteral("https://api.dify.ai/v1")))
+    , m_baseUrl("https://api.dify.ai/v1")
 {
     // 从 QSettings 读取持久化的用户 ID，如果不存在则生成新的并保存
     QSettings settings(QCoreApplication::organizationName(), QCoreApplication::applicationName());
-    m_baseUserId = settings.value("dify/userId").toString();
+    m_userId = settings.value("dify/userId").toString();
 
-    if (m_baseUserId.isEmpty()) {
-        m_baseUserId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-        settings.setValue("dify/userId", m_baseUserId);
-        qDebug() << "[DifyService] Created new persistent userId:" << m_baseUserId;
+    if (m_userId.isEmpty()) {
+        m_userId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        settings.setValue("dify/userId", m_userId);
+        qDebug() << "[DifyService] Created new persistent userId:" << m_userId;
     } else {
-        qDebug() << "[DifyService] Loaded existing userId:" << m_baseUserId;
+        qDebug() << "[DifyService] Loaded existing userId:" << m_userId;
     }
-    m_userId = m_baseUserId;
 }
 
 DifyService::~DifyService()
@@ -46,10 +43,7 @@ void DifyService::setApiKey(const QString &apiKey)
 
 void DifyService::setBaseUrl(const QString &baseUrl)
 {
-    m_baseUrl = baseUrl.trimmed();
-    while (m_baseUrl.endsWith('/')) {
-        m_baseUrl.chop(1);
-    }
+    m_baseUrl = baseUrl;
 }
 
 void DifyService::setModel(const QString &model)
@@ -70,16 +64,6 @@ void DifyService::clearConversation()
 void DifyService::setCurrentConversationId(const QString &conversationId)
 {
     m_conversationId = conversationId;
-}
-
-void DifyService::setUserScope(const QString &scope)
-{
-    const QString normalizedScope = scope.trimmed();
-    m_userId = normalizedScope.isEmpty()
-        ? m_baseUserId
-        : QString("%1_%2").arg(m_baseUserId, normalizedScope);
-    m_conversationId.clear();
-    qDebug() << "[DifyService] User scope set:" << normalizedScope << "User:" << m_userId;
 }
 
 void DifyService::sendMessage(const QString &message, const QString &conversationId)
@@ -108,19 +92,26 @@ void DifyService::sendMessage(const QString &message, const QString &conversatio
     m_sseDataLines.clear();
     resetStreamFilters();
 
-    // 构建 Dify 请求 URL
+    // 构建请求 URL
     QUrl url(m_baseUrl + "/chat-messages");
     QNetworkRequest request = createConfiguredRequest(url, 120000);
 
-    // Dify 对话应用使用 streaming 模式；模型由 Dify 后台配置。
+    // 构建请求体 - Agent 应用使用 streaming 模式
     QJsonObject body;
     body["query"] = message;
     body["response_mode"] = "streaming";
     body["user"] = m_userId;
-    body["inputs"] = QJsonObject();
-
+    body["inputs"] = QJsonObject();  // Agent 应用的 inputs 可以是空对象
+    
     const bool useStreaming = true;  // Agent 应用强制使用 streaming 模式
 
+    // 暂时移除模型参数，让 Dify 使用默认配置
+    // if (!m_model.isEmpty()) {
+    //     body["model"] = m_model;
+    //     qDebug() << "[DifyService] Using model:" << m_model;
+    // }
+
+    // 如果有会话 ID，添加到请求中
     QString convId = conversationId.isEmpty() ? m_conversationId : conversationId;
     if (!convId.isEmpty()) {
         body["conversation_id"] = convId;
@@ -168,30 +159,14 @@ void DifyService::onReplyFinished()
 
     // 对于流式响应，RemoteHostClosedError 是正常的（服务器完成发送后关闭连接）
     QNetworkReply::NetworkError error = m_currentReply->error();
-    QByteArray responseData = m_currentReply->readAll();
-    const int httpStatus = m_currentReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-    const bool hasStreamData = !m_fullResponse.isEmpty()
-        || !m_streamBuffer.isEmpty()
-        || !m_sseEvent.isEmpty()
-        || !m_sseDataLines.isEmpty();
-    const bool emptyRemoteClose = error == QNetworkReply::RemoteHostClosedError
-        && responseData.isEmpty()
-        && !hasStreamData;
-
-    qDebug() << "[DifyService] Network error code:" << error
-             << "HTTP status:" << httpStatus
-             << "Response data length:" << responseData.length();
-
-    if ((error != QNetworkReply::NoError && error != QNetworkReply::RemoteHostClosedError)
-        || emptyRemoteClose) {
+    if (error != QNetworkReply::NoError && error != QNetworkReply::RemoteHostClosedError) {
         if (!m_streamBuffer.isEmpty() || !m_sseEvent.isEmpty() || !m_sseDataLines.isEmpty()) {
             qDebug() << "[DifyService] Flush pending stream on error";
             parseStreamResponse(QByteArray());
         }
         QString errorMsg = m_currentReply->errorString();
-        if (emptyRemoteClose) {
-            errorMsg = QStringLiteral("连接被服务器或代理提前关闭，未收到模型响应");
-        }
+        int httpStatus = m_currentReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        QByteArray responseData = m_currentReply->readAll();
 
         qDebug() << "[DifyService] HTTP Error:" << httpStatus << "Error:" << errorMsg;
         qDebug() << "[DifyService] Network error code:" << m_currentReply->error();
@@ -214,6 +189,7 @@ void DifyService::onReplyFinished()
         emit errorOccurred(errorMsg);
     } else {
         // 发送完整响应
+        QByteArray responseData = m_currentReply->readAll();
         qDebug() << "[DifyService] Request successful, response data length:" << responseData.length();
 
         if (!m_streamBuffer.isEmpty() || !m_sseEvent.isEmpty() || !m_sseDataLines.isEmpty()) {
@@ -251,9 +227,6 @@ void DifyService::onReplyFinished()
             }
         } else {
             qDebug() << "[DifyService] Warning: Response data is empty!";
-            if (m_fullResponse.isEmpty()) {
-                emit errorOccurred(QStringLiteral("Dify 返回空响应，请检查 Dify 地址、密钥或网络代理"));
-            }
         }
     }
 
@@ -294,28 +267,6 @@ void DifyService::resetStreamFilters()
 QNetworkRequest DifyService::createConfiguredRequest(const QUrl &url, int timeout)
 {
     return NetworkRequestFactory::createDifyRequest(url, m_apiKey, timeout);
-}
-
-bool DifyService::usesDifyApi() const
-{
-    return m_baseUrl.contains(QStringLiteral("dify"), Qt::CaseInsensitive);
-}
-
-QString DifyService::extractOpenAiContent(const QJsonObject &obj) const
-{
-    const QJsonArray choices = obj["choices"].toArray();
-    if (choices.isEmpty()) {
-        return QString();
-    }
-
-    const QJsonObject firstChoice = choices.first().toObject();
-    const QJsonObject message = firstChoice["message"].toObject();
-    if (message.contains("content")) {
-        return message["content"].toString();
-    }
-
-    const QJsonObject delta = firstChoice["delta"].toObject();
-    return delta["content"].toString();
 }
 
 // 统一处理流式文本，消除 message/agent_message/text_chunk 重复逻辑
@@ -475,10 +426,6 @@ void DifyService::parseStreamResponse(const QByteArray &data)
             QString answer = obj["answer"].toString();
             handleStreamText(answer);
 
-        } else if (obj.contains("choices")) {
-            const QString chunk = extractOpenAiContent(obj);
-            handleStreamText(chunk);
-
         } else if (event == "message_end") {
             // 消息结束
             QString convId = obj["conversation_id"].toString();
@@ -511,36 +458,7 @@ void DifyService::parseStreamResponse(const QByteArray &data)
             }
             handleStreamText(text);
 
-        } else if (event == "workflow_finished") {
-            QJsonObject dataObj = obj["data"].toObject();
-            QJsonObject outputs = dataObj["outputs"].toObject();
-            QString result = outputs["answer"].toString();
-            if (result.isEmpty()) {
-                result = outputs["result"].toString();
-            }
-            if (result.isEmpty()) {
-                result = outputs["text"].toString();
-            }
-            if (result.isEmpty()) {
-                result = outputs["output"].toString();
-            }
-            if (result.isEmpty()) {
-                for (const QString &key : outputs.keys()) {
-                    const QJsonValue value = outputs[key];
-                    if (value.isString() && !value.toString().isEmpty()) {
-                        result = value.toString();
-                        qDebug() << "[DifyService] workflow_finished using output key:" << key;
-                        break;
-                    }
-                }
-            }
-            if (!result.isEmpty() && m_fullResponse.isEmpty()) {
-                handleStreamText(result);
-            } else if (!result.isEmpty()) {
-                qDebug() << "[DifyService] workflow_finished output skipped because message stream already emitted";
-            }
-
-        } else if (event == "workflow_started" || event == "node_started" || event == "node_finished") {
+        } else if (event == "workflow_started" || event == "node_started" || event == "node_finished" || event == "workflow_finished") {
             return;
         }
     };
@@ -599,12 +517,6 @@ void DifyService::parseStreamResponse(const QByteArray &data)
 
 void DifyService::fetchConversations(int limit)
 {
-    if (!usesDifyApi()) {
-        Q_UNUSED(limit);
-        emit conversationsReceived(QJsonArray());
-        return;
-    }
-
     if (m_apiKey.isEmpty()) {
         emit errorOccurred("API Key 未设置");
         return;
@@ -649,12 +561,6 @@ void DifyService::fetchConversations(int limit)
 
 void DifyService::fetchMessages(const QString &conversationId, int limit)
 {
-    if (!usesDifyApi()) {
-        Q_UNUSED(limit);
-        emit messagesReceived(QJsonArray(), conversationId);
-        return;
-    }
-
     if (m_apiKey.isEmpty()) {
         emit errorOccurred("API Key 未设置");
         return;
@@ -705,11 +611,6 @@ void DifyService::fetchMessages(const QString &conversationId, int limit)
 
 void DifyService::fetchAppInfo()
 {
-    if (!usesDifyApi()) {
-        emit appInfoReceived(QStringLiteral("MiniMax"), QString());
-        return;
-    }
-
     if (m_apiKey.isEmpty()) {
         emit errorOccurred("API Key 未设置");
         return;

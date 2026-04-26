@@ -684,7 +684,7 @@ void HotspotTrackingWidget::createCategoryFilter()
     // 右侧数据来源标识
     QLabel *sourceLabel = new QLabel("数据来源：人民网 · BBC中文 · 网易新闻 · 天行数据");
     sourceLabel->setStyleSheet(QString(
-        "color: %1; font-size: 11px; background: transparent;"
+        "color: %1; font-size: 14px; background: transparent;"
     ).arg(StyleConfig::TEXT_LIGHT));
     categoryLayout->addWidget(sourceLabel);
 
@@ -786,7 +786,7 @@ QWidget* HotspotTrackingWidget::createHeadlineCard(const NewsItem &news)
 
     QLabel *liveTag = new QLabel("● LIVE");
     liveTag->setStyleSheet(
-        "color: #FF6B6B; font-size: 11px; font-weight: 700; "
+        "color: #FF6B6B; font-size: 14px; font-weight: 700; "
         "background: transparent; letter-spacing: 1px;"
     );
 
@@ -986,13 +986,13 @@ QWidget* HotspotTrackingWidget::createNewsCard(const NewsItem &news)
     bottomRow->setSpacing(6);
 
     QLabel *sourceLabel = new QLabel(news.source);
-    sourceLabel->setStyleSheet(QString("color: %1; font-size: 12px; background: transparent;").arg(StyleConfig::TEXT_LIGHT));
+    sourceLabel->setStyleSheet(QString("color: %1; font-size: 14px; background: transparent;").arg(StyleConfig::TEXT_LIGHT));
 
     QLabel *dotLabel = new QLabel("·");
-    dotLabel->setStyleSheet(QString("color: %1; font-size: 12px; background: transparent;").arg(StyleConfig::TEXT_LIGHT));
+    dotLabel->setStyleSheet(QString("color: %1; font-size: 14px; background: transparent;").arg(StyleConfig::TEXT_LIGHT));
 
     QLabel *timeLabel = new QLabel(formatTimeAgo(news.publishTime));
-    timeLabel->setStyleSheet(QString("color: %1; font-size: 12px; background: transparent;").arg(StyleConfig::TEXT_LIGHT));
+    timeLabel->setStyleSheet(QString("color: %1; font-size: 14px; background: transparent;").arg(StyleConfig::TEXT_LIGHT));
 
     // 生成案例按钮
     QPushButton *generateBtn = new QPushButton("生成案例");
@@ -1004,7 +1004,7 @@ QWidget* HotspotTrackingWidget::createNewsCard(const NewsItem &news)
         "    color: %1;"
         "    border: 1.5px solid %2;"
         "    padding: 5px 14px;"
-        "    font-size: 12px;"
+        "    font-size: 14px;"
         "    font-weight: 600;"
         "    border-radius: 13px;"
         "}"

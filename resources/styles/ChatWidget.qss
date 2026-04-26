@@ -89,7 +89,7 @@ QLineEdit#chatInputEdit {
 }
 
 QLineEdit#chatInputEdit::placeholder {
-    color: #a0aec0;
+    color: #64748B;
 }
 
 /* ========== 发送按钮 - 思政红 ========== */
@@ -112,12 +112,23 @@ QPushButton#chatSendBtn:pressed {
 
 QPushButton#chatSendBtn:disabled {
     background-color: #e5e7eb;
-    color: #a0aec0;
+    color: #64748B;
 }
 
 /* ========== 提示文字 ========== */
 QLabel#tipLabel {
-    color: #a0aec0;
-    font-size: 12px;
+    color: #64748B;
+    font-size: 14px;
     background: transparent;
+}
+
+/* ===== 焦点指示器 ===== */
+QPushButton#plusBtn:focus,
+QPushButton#chatSendBtn:focus {
+    outline: 2px solid #E53935;
+    outline-offset: 2px;
+}
+
+QLineEdit#chatInputEdit:focus {
+    background-color: transparent;
 }

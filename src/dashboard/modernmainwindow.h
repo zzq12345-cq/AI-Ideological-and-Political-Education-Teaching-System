@@ -23,8 +23,6 @@
 #include <QQuickWidget>
 #include <QQmlContext>
 #include <QTextEdit>
-#include <QImage>
-#include <QVector>
 
 #include <QTabWidget>
 
@@ -48,25 +46,15 @@ class NotificationService;
 class NotificationWidget;
 class NotificationBadge;
 class AttendanceWidget;  // 考勤管理组件
-class MyClassWidget;     // 学生我的班级
-class AdminDashboard;    // 管理员后台
 class LessonPlanEditor;
-class HelpCenterWidget;    // 帮助中心
-class ZhipuPPTAgentService; // PPT Agent（MiniMax）
 
 class ModernMainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    ModernMainWindow(const QString &userRole = "教师",
-                     const QString &username = "王老师",
-                     const QString &userId = QString(),
-                     QWidget *parent = nullptr);
+    ModernMainWindow(const QString &userRole = "教师", const QString &username = "王老师", QWidget *parent = nullptr);
     ~ModernMainWindow();
-
-    // 跳转到考勤管理并加载指定 session
-    void switchToAttendanceWithSession(const QString &sessionId, const QString &classId);
 
 private slots:
     void onTeacherCenterClicked();
@@ -75,10 +63,8 @@ private slots:
     void onResourceManagementClicked();
     void onLearningAnalysisClicked();
     void onAttendanceClicked();       // 考勤管理
-    void onMyClassClicked();          // 我的班级
     void onSettingsClicked();
     void onHelpClicked();
-    void logoutToLogin();
     void onQuickPreparationClicked();
     void onStartClassClicked();
     void onEnterClassClicked();
@@ -112,7 +98,6 @@ private:
     void createRecentActivities();
     void applyPatrioticRedTheme();
     void applySidebarIcons();
-    void setActiveSidebarButton(QPushButton *activeButton);
     QIcon loadSidebarIcon(const QString &themeName, QStyle::StandardPixmap fallback) const;
     
     // 新版 UI 组件创建方法
@@ -120,9 +105,6 @@ private:
     void createQuickAccessCard();   // 快捷入口卡片
     void createAIChatWidget();      // AI 对话组件
     void appendChatMessage(const QString &sender, const QString &message, bool isUser);
-    QString sanitizeAIResponseText(const QString &text) const;
-    QString formatAIStreamDisplay(const QString &text) const;
-    void flushAIStreamBuffer(bool flushAll = false);
     void swapToHistorySidebar();    // 切换到历史记录侧边栏
     void swapToNavSidebar();        // 切换回导航侧边栏
 
@@ -153,12 +135,10 @@ private:
     QPushButton *resourceManagementBtn = nullptr; // 资源库管理
     QPushButton *learningAnalysisBtn = nullptr;   // 学情与教评
     QPushButton *attendanceBtn = nullptr;         // 考勤管理
-    QPushButton *myClassBtn = nullptr;            // 我的班级（学生端）
     QPushButton *dataAnalysisBtn = nullptr;       // 数据分析报告 (新)
 
     // 底部菜单
     QPushButton *settingsBtn = nullptr;           // 系统设置
-    QPushButton *logoutBtn = nullptr;             // 退出登录
     QPushButton *helpBtn = nullptr;               // 帮助中心
 
     // 主内容区域
@@ -180,9 +160,6 @@ private:
 
     // 考勤管理组件
     AttendanceWidget *m_attendanceWidget = nullptr;
-    MyClassWidget *m_myClassWidget = nullptr;
-    AdminDashboard *m_adminDashboard = nullptr;
-    HelpCenterWidget *m_helpCenterWidget = nullptr;  // 帮助中心页面
 
     // 通知系统组件
     NotificationService *m_notificationService = nullptr;
@@ -209,11 +186,9 @@ private:
 
     // AI 对话组件
     DifyService *m_difyService = nullptr;
-    DifyService *m_lessonDifyService = nullptr;
     AIChatDialog *m_chatDialog = nullptr;  // AI 对话框（备用）
     class ChatWidget *m_bubbleChatWidget = nullptr;  // 气泡样式聊天组件（主面板用）
-    ChatHistoryWidget *m_chatHistoryWidget = nullptr;  // AI对话历史记录侧边栏
-    ChatHistoryWidget *m_lessonHistoryWidget = nullptr; // 教案编辑历史记录侧边栏
+    ChatHistoryWidget *m_chatHistoryWidget = nullptr;  // 历史记录侧边栏
     QTabWidget *m_aiTabWidget = nullptr;           // AI智能备课标签页容器
     LessonPlanEditor *m_lessonPlanEditor = nullptr; // 教案编辑器
     QWidget *m_chatContainer = nullptr;  // 聊天容器
@@ -222,15 +197,11 @@ private:
     QLineEdit *m_chatInput = nullptr;
     QPushButton *m_sendBtn = nullptr;
     QString m_currentAIResponse;  // 累积流式响应
-    QString m_streamPendingText;   // 等待平滑显示的流式文本
-    QString m_streamDisplayedResponse; // 已显示的流式文本
     QTimer *m_streamUpdateTimer = nullptr;  // 流式更新节流定时器
     bool m_streamUpdatePending = false;   // 是否有待处理的更新
-    bool m_streamPlaceholderAdded = false; // 是否已创建 AI 占位气泡
     PPTXGenerator *m_pptxGenerator = nullptr;  // PPTX 生成器
-    ZhipuPPTAgentService *m_pptAgentService = nullptr; // PPT Agent 服务（MiniMax）
 
-    // PPT 生成相关
+    // PPT 模拟生成相关
     QTimer *m_pptSimulationTimer = nullptr;     // PPT 模拟思考定时器
     int m_pptSimulationStep = 0;          // 当前模拟步骤
     QString m_pendingPPTPath;         // 待提供的 PPT 文件路径
@@ -239,20 +210,12 @@ private:
     QTimer *m_pptTypingTimer = nullptr;         // 打字效果定时器
     QString m_pptTypingText;          // 待打字的完整文本
     int m_pptTypingIndex = 0;             // 当前打字位置
-    void startPPTGeneration(const QString &topic); // 启动真正的 PPT Agent 生成
     void startPPTSimulation(const QString &userMessage);  // 开始 PPT 模拟生成
     void onPPTSimulationStep();       // PPT 模拟步骤处理
     bool isPPTGenerationRequest(const QString &message);  // 检测是否是 PPT 生成请求
     void handlePPTConversation(const QString &message);   // 处理 PPT 问答对话
     void typeMessageWithEffect(const QString &text);      // 带打字效果的消息显示
     void onPPTTypingStep();           // 打字效果定时器回调
-    QString savePPTRecord(const QString &filePath, const QVector<QImage> &previews,
-                          int totalPages);
-    void updatePPTRecordFilePath(const QString &recordId, const QString &filePath);
-    void loadPPTRecordsIntoHistory();
-    bool restorePPTRecordToChat(const QString &recordId);
-    QString pptHistoryDir() const;
-    QString pptHistoryIndexPath() const;
 
     // 欢迎面板（首页显示，对话后隐藏）
     QWidget *m_welcomePanel = nullptr;
@@ -263,7 +226,6 @@ private:
     // 数据
     QString currentUserRole;
     QString currentUsername;
-    QString currentUserId;
 
     // 菜单动作
     QAction *profileAction = nullptr;

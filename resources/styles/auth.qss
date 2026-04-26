@@ -43,7 +43,7 @@ QLabel#heroDescription {
 }
 
 QLabel#heroFootnote {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 500;
     color: rgba(255, 255, 255, 0.8);
 }
@@ -75,20 +75,20 @@ QLabel#formSubtitle {
 }
 
 QLabel#formTagline {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
     color: #475467;
 }
 
 QLabel#formDescription {
-    font-size: 12.5px;
+    font-size: 14px;
     color: #5F6B7A;
     margin-bottom: 12px;
 }
 
 QLabel[role="fieldLabel"] {
     color: #1F2937;
-    font-size: 13.5px;
+    font-size: 14px;
     font-weight: 600;
     margin-bottom: 4px;
 }
@@ -116,13 +116,13 @@ QLineEdit[role="inputField"]:focus {
 }
 
 QLineEdit[role="inputField"]::placeholder {
-    color: #94A3B8;
+    color: #64748B;
 }
 
 QPushButton#passwordToggle {
     border: none;
     background: transparent;
-    color: #94A3B8;
+    color: #64748B;
     font-size: 18px;
 }
 
@@ -155,13 +155,13 @@ QPushButton#primaryButton:disabled {
 }
 
 QLabel#helperText {
-    color: #94A3B8;
-    font-size: 13px;
+    color: #64748B;
+    font-size: 14px;
 }
 
 QPushButton#linkButton {
     color: #4A90E2;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     border: none;
     background: transparent;
@@ -171,4 +171,23 @@ QPushButton#linkButton {
 
 QPushButton#linkButton:hover {
     color: #C92B2B;
+}
+
+/* ===== 焦点指示器 ===== */
+QPushButton:focus,
+QPushButton#primaryButton:focus,
+QPushButton#linkButton:focus,
+QPushButton#passwordToggle:focus {
+    outline: 2px solid #4A90E2;
+    outline-offset: 2px;
+}
+
+QLineEdit[role="inputField"]:focus {
+    border: none;
+    color: #0B1220;
+}
+
+QFrame[role="inputGroup"]:focus-within {
+    border-color: #4A90E2;
+    border-width: 2px;
 }

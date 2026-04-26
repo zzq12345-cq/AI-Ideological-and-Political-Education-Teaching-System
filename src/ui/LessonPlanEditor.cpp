@@ -1817,7 +1817,7 @@ QString LessonPlanEditor::buildStructuredHtml(const QString &title, const Lesson
                 border: 1px solid #ccc;
                 border-radius: 3px;
                 padding: 1px 6px;
-                font-size: 12px;
+                font-size: 14px;
                 font-weight: 500;
                 color: #555;
                 margin-left: 4px;
@@ -1844,7 +1844,7 @@ QString LessonPlanEditor::buildStructuredHtml(const QString &title, const Lesson
             }
             .page-footer {
                 text-align: center;
-                font-size: 11px;
+                font-size: 14px;
                 color: #999;
                 margin-top: 12px;
                 border-top: 1px solid #ddd;

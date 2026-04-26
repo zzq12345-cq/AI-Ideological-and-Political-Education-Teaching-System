@@ -123,7 +123,7 @@ QWidget* ClassDetailWidget::createCodeSection()
 
     QLabel *titleLabel = new QLabel("加课码");
     titleLabel->setStyleSheet(
-        "font-size: 11px; color: #94A3B8; font-weight: 600;"
+        "font-size: 14px; color: #64748B; font-weight: 600;"
         "text-transform: uppercase; letter-spacing: 1px; background: transparent;");
 
     m_codeLabel = new QLabel(m_classInfo.code);
@@ -147,7 +147,7 @@ QWidget* ClassDetailWidget::createCodeSection()
     infoCol->setSpacing(6);
     QLabel *infoTitle = new QLabel("学生人数");
     infoTitle->setStyleSheet(
-        "font-size: 11px; color: #94A3B8; font-weight: 600;"
+        "font-size: 14px; color: #64748B; font-weight: 600;"
         "text-transform: uppercase; letter-spacing: 1px; background: transparent;");
     m_codeCountLabel = new QLabel("加载中...");
     m_codeCountLabel->setStyleSheet(
@@ -181,8 +181,8 @@ QWidget* ClassDetailWidget::createCodeSection()
     refreshBtn->setCursor(Qt::PointingHandCursor);
     refreshBtn->setStyleSheet(
         "QPushButton { padding: 7px 20px; border: none;"
-        "  border-radius: 10px; background: transparent; color: #94A3B8;"
-        "  font-size: 13px; font-weight: 500; }"
+        "  border-radius: 10px; background: transparent; color: #64748B;"
+        "  font-size: 14px; font-weight: 500; }"
         "QPushButton:hover { background: #F8FAFC; color: #475569; }"
     );
     connect(refreshBtn, &QPushButton::clicked, this, [this]() {
@@ -550,7 +550,7 @@ QWidget* ClassDetailWidget::createMemberList()
 
     m_memberCountLabel = new QLabel("加载中...");
     m_memberCountLabel->setStyleSheet(
-        "font-size: 12px; color: #94A3B8; font-weight: 500; background: transparent;");
+        "font-size: 14px; color: #64748B; font-weight: 500; background: transparent;");
 
     headerRow->addWidget(titleLabel);
     headerRow->addStretch();
@@ -577,7 +577,7 @@ QWidget* ClassDetailWidget::createMemberList()
     QLabel *placeholder = new QLabel("加载中...");
     placeholder->setAlignment(Qt::AlignCenter);
     placeholder->setStyleSheet(
-        "font-size: 13px; color: #94A3B8; padding: 40px; background: transparent;");
+        "font-size: 14px; color: #64748B; padding: 40px; background: transparent;");
     m_memberLayout->addWidget(placeholder);
     m_memberLayout->addStretch();
 
@@ -643,7 +643,7 @@ void ClassDetailWidget::renderCurrentPage()
     if (m_cachedMembers.isEmpty()) {
         QLabel *emptyLabel = new QLabel("暂无学生加入\n将加课码分享给学生即可邀请加入");
         emptyLabel->setAlignment(Qt::AlignCenter);
-        emptyLabel->setStyleSheet("font-size: 13px; color: #94A3B8; padding: 40px;"
+        emptyLabel->setStyleSheet("font-size: 14px; color: #64748B; padding: 40px;"
                                   "background: transparent; line-height: 1.6;");
         m_memberLayout->addWidget(emptyLabel);
 
