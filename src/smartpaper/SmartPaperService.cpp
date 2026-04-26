@@ -12,8 +12,28 @@ namespace {
             {"single_choice", "选择题"}, {"multi_choice", "多选题"},
             {"true_false", "判断题"}, {"short_answer", "简答题"},
             {"essay", "论述题"}, {"material_analysis", "材料分析题"},
+            {"material_essay", "材料分析题"}, {"analysis", "材料分析题"},
+            {"discussion", "论述题"}, {"comprehensive", "综合题"},
         };
         return m.value(type, type);
+    }
+
+    QString canonicalQuestionType(const QString &type) {
+        const QString t = type.trimmed().toLower();
+        static const QMap<QString, QString> aliases = {
+            {"选择题", "single_choice"}, {"单选题", "single_choice"},
+            {"多选题", "multi_choice"}, {"判断题", "true_false"},
+            {"判断说理题", "true_false"}, {"简答题", "short_answer"},
+            {"论述题", "essay"}, {"discussion", "essay"},
+            {"材料分析题", "material_analysis"}, {"材料论述题", "material_analysis"},
+            {"material_essay", "material_analysis"}, {"analysis", "material_analysis"},
+            {"comprehensive", "material_analysis"},
+        };
+        return aliases.value(t, t);
+    }
+
+    bool questionTypeMatches(const QString &actualType, const QString &targetType) {
+        return canonicalQuestionType(actualType) == canonicalQuestionType(targetType);
     }
     QString diffNameCN(const QString &d) {
         if (d == "easy") return "简单";
@@ -89,15 +109,10 @@ void SmartPaperService::startNextSearch()
     emit progressUpdated(progress,
         QString("正在搜索 %1 题目...").arg(m_currentSearchType));
 
-    // 构造搜索条件：只限定学科、年级、题型，让本地算法在更大候选池中优选
+    // 当前题库只完成题型分类，先拉取宽松候选池，再在本地按题型匹配。
     QuestionSearchCriteria criteria;
-    criteria.subject = m_config.subject;
-    criteria.grade = m_config.grade;
-    criteria.questionType = m_currentSearchType;
-    criteria.visibility = "public";  // 从公共题库选题
-    if (m_config.chapters.size() == 1) {
-        criteria.chapter = m_config.chapters.first();
-    }
+    criteria.visibility = "all";
+    criteria.limit = 1000;
 
     m_paperService->searchQuestions(criteria);
 }
@@ -119,6 +134,10 @@ void SmartPaperService::onSearchCompleted(const QList<PaperQuestion> &results)
     }
     for (const auto &q : results) {
         if (m_config.excludeQuestionIds.contains(q.id)) {
+            continue;
+        }
+
+        if (!questionTypeMatches(q.questionType, m_currentSearchType)) {
             continue;
         }
 
