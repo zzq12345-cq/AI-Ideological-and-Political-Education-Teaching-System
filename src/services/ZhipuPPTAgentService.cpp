@@ -109,27 +109,37 @@ void ZhipuPPTAgentService::cancel()
 
 QString ZhipuPPTAgentService::buildTopicDescription(const QMap<QString, QString> &params) const
 {
-    QString topic;
-    const QString textbook = params.value("textbook", "人教版");
-    const QString grade = params.value("grade", "八年级");
-    const QString chapter = params.value("chapter", "");
-    const QString duration = params.value("duration", "45分钟标准课时");
-    const QString focus = params.value("contentFocus", "");
+    const QString explicitTopic = params.value("topic").trimmed();
+    const QString userRequest = params.value("userRequest").trimmed();
+    const QString textbook = params.value("textbook").trimmed();
+    const QString grade = params.value("pref_scene", params.value("grade")).trimmed();
+    const QString chapter = params.value("chapter").trimmed();
+    const QString duration = params.value("pref_pace", params.value("duration")).trimmed();
+    const QString focus = params.value("pref_focus", params.value("contentFocus")).trimmed();
 
-    topic = QString("%1 %2 中学《道德与法治》课 %3").arg(textbook, grade, chapter);
-
+    QStringList lines;
+    lines << QString("PPT核心主题：%1").arg(explicitTopic.isEmpty() ? "思政课堂" : explicitTopic);
+    if (!textbook.isEmpty()) {
+        lines << QString("教材版本：%1").arg(textbook);
+    }
+    if (!grade.isEmpty()) {
+        lines << QString("目标年级/对象：%1").arg(grade);
+    }
+    if (!chapter.isEmpty()) {
+        lines << QString("教材章节：%1").arg(chapter);
+    }
+    if (!duration.isEmpty()) {
+        lines << QString("课时长度：%1").arg(duration);
+    }
     if (!focus.isEmpty()) {
-        topic += QString("\n\n内容侧重要求：%1").arg(focus);
+        lines << QString("内容侧重/特殊要求：%1").arg(focus);
     }
-    topic += QString("\n课时长度：%1").arg(duration);
-
-    // 附加用户原始请求，保留页数等细节要求
-    const QString userRequest = params.value("userRequest");
     if (!userRequest.isEmpty()) {
-        topic += QString("\n\n用户原始需求：%1").arg(userRequest);
+        lines << QString("用户完整需求：%1").arg(userRequest);
     }
+    lines << "硬性要求：后续大纲、版面策划和 SVG 页面文字必须严格围绕上述核心主题与用户完整需求，不得改成其他主题。";
 
-    return topic;
+    return lines.join("\n");
 }
 
 int ZhipuPPTAgentService::extractRequestedPageCount(const QString &request) const
@@ -484,9 +494,10 @@ void ZhipuPPTAgentService::startPlanGeneration()
     QString sysPrompt = planSystemPrompt().arg(m_totalPages);
 
     QString userMsg = QString(
-        "以下是一份中学《道德与法治》课堂PPT的大纲 JSON（共 %1 页）：\n\n%2\n\n"
+        "用户完整需求如下，布局规划必须保持同一主题，不得另起题目：\n%1\n\n"
+        "以下是一份中学《道德与法治》课堂PPT的大纲 JSON（共 %2 页）：\n\n%3\n\n"
         "请严格按照上述格式输出布局指令 JSON。"
-    ).arg(m_totalPages).arg(outlineText);
+    ).arg(m_topic, QString::number(m_totalPages), outlineText);
 
     // 注入用户偏好（如果有）
     const QString scene = m_params.value("pref_scene");
@@ -615,14 +626,19 @@ void ZhipuPPTAgentService::generateNextSvg()
 
     QString userMsg = QString(
         "请你根据以下中学《道德与法治》课堂PPT页面策划，生成一张完整的 SVG 页面代码。\n\n"
-        "页面策划内容：\n%1\n\n"
+        "全局生成需求（必须遵守，不得偏题）：\n%1\n\n"
+        "页面策划内容：\n%2\n\n"
         "要求：\n"
         "- SVG viewBox 必须是 0 0 1280 720\n"
         "- 面向中学《道德与法治》课堂，整体气质要端正、清爽、适合课堂教学与公开课展示\n"
         "- 主色调使用党政红 #C00000，背景和大色块以白色、米白、浅红、浅金、浅灰等淡色为主\n"
         "- 禁止黑色、深灰、深蓝等大面积深色背景，不要做暗黑、科技黑、商务黑金风格\n"
         "- 正文和说明文字优先使用深灰色 #333333 / #555555，不要使用大面积白字压深色底\n"
-        "- 采用便当网格(Bento Grid)卡片式布局\n"
+        "- 不要每页都做成相同的卡片网格；必须根据页面策划选择差异化构图\n"
+        "- 可使用海报封面、路标目录、时间轴、流程图、左右辩论、中心辐射、故事场景、问题探究、课堂活动板等布局\n"
+        "- 相邻页面的标题位置、主视觉位置、内容分区方式必须明显不同\n"
+        "- 可以用基础 SVG 形状模拟插画、人物剪影、地图、旗帜、书本、对话气泡、路径、阶梯、光束等课堂视觉元素\n"
+        "- 保持留白和层级，不要把内容机械塞进等宽矩形卡片\n"
         "- 文字使用中文，字体使用 Microsoft YaHei 或 SimHei\n"
         "- 必须生成 Qt QSvgRenderer 可渲染的基础 SVG\n"
         "- 只使用 svg、rect、text、tspan、line、circle、ellipse、path、polygon 标签\n"
@@ -630,8 +646,9 @@ void ZhipuPPTAgentService::generateNextSvg()
         "- 禁止 CSS、动画、渐变、阴影、HTML、外链资源和 url(#...) 引用\n"
         "- 颜色使用十六进制色值；透明度用 opacity，不要使用 rgba()\n"
         "- 样式必须写成 SVG 原生属性，例如 fill、stroke、font-size、font-family、opacity\n"
+        "- 可以用半透明浅色图形叠加模拟层次和柔和阴影，但不要使用 filter\n"
         "- 只输出 <svg>...</svg> 代码，不要输出其他内容"
-    ).arg(pageContent);
+    ).arg(m_topic, pageContent);
 
     // 将系统约束与页面内容合并为单条 text-part user 消息。
     m_currentSvgPrompt = svgSystemPrompt() + "\n\n任务输入：\n" + userMsg;
@@ -1391,9 +1408,16 @@ QString ZhipuPPTAgentService::buildPageContent(int pageIndex) const
 {
     QString result;
 
+    if (pageIndex < m_pageLayouts.size()) {
+        const QJsonObject layout = m_pageLayouts.at(pageIndex).toObject();
+        const QString layoutText = QString::fromUtf8(
+            QJsonDocument(layout).toJson(QJsonDocument::Indented));
+        result += QString("结构化页面布局指令 JSON：\n%1\n\n").arg(layoutText);
+    }
+
     // 使用策划稿内容
     if (pageIndex < m_pagePlans.size()) {
-        result = m_pagePlans[pageIndex];
+        result += m_pagePlans[pageIndex];
     }
 
     // 如果策划稿不够详细，补充大纲信息
@@ -1529,6 +1553,8 @@ QString ZhipuPPTAgentService::outlineSystemPrompt()
         "\n"
         "## Goals\n"
         "基于用户提供的思政课堂教学主题，设计一份逻辑严密、层次清晰的PPT大纲。\n"
+        "用户给出的核心主题、年级、课时、内容侧重和特殊要求具有最高优先级，"
+        "不得改写为其他主题或套用默认课题。\n"
         "\n"
         "## Core Methodology: 金字塔原理\n"
         "1. 结论先行：每个部分以核心观点开篇\n"
@@ -1584,7 +1610,8 @@ QString ZhipuPPTAgentService::planSystemPrompt()
         "# Role: 中学《道德与法治》PPT 布局规划师\n"
         "\n"
         "## 任务\n"
-        "根据 PPT 大纲，为每一页生成结构化 JSON 布局指令。每页指定页面类型、布局方式和卡片内容。\n"
+        "根据 PPT 大纲，为每一页生成结构化 JSON 布局指令。每页不仅要指定内容，"
+        "还要指定明显不同的构图方式、主视觉隐喻和课堂活动表达。\n"
         "\n"
         "## 输出格式\n"
         "严格输出以下 JSON，用 [PPT_LAYOUT] 和 [/PPT_LAYOUT] 包裹：\n"
@@ -1604,6 +1631,9 @@ QString ZhipuPPTAgentService::planSystemPrompt()
         "    {\n"
         "      \"type\": \"content\",\n"
         "      \"title\": \"页面标题\",\n"
+        "      \"layout_style\": \"timeline / debate / radial / story / activity / comparison / quote / roadmap\",\n"
+        "      \"visual_metaphor\": \"本页主视觉隐喻，例如路标、阶梯、对话、书本、旗帜、地图、光束\",\n"
+        "      \"composition\": \"描述标题、主视觉、正文分区的位置关系，避免套模板\",\n"
         "      \"cards\": [\n"
         "        {\"title\": \"要点1标题\", \"content\": \"要点1的具体阐述文字\"},\n"
         "        {\"title\": \"要点2标题\", \"content\": \"要点2的具体阐述文字\"},\n"
@@ -1622,12 +1652,15 @@ QString ZhipuPPTAgentService::planSystemPrompt()
         "## 页面类型\n"
         "- cover: 封面页，只需 title + subtitle\n"
         "- toc: 目录页，需要 items 数组列出各部分标题\n"
-        "- content: 内容页，需要 cards 数组（2-5 个卡片）\n"
+        "- content: 内容页，需要 layout_style、visual_metaphor、composition 和 cards 数组（2-5 个内容块）\n"
         "- end: 结束页，只需 title + subtitle\n"
         "\n"
         "## 约束\n"
         "- pages 数量必须与大纲一致（共 %1 页）\n"
+        "- 每一页都必须延续用户完整需求中的核心主题，不得替换成其他课题\n"
         "- 第1页必须是 cover，最后一页必须是 end\n"
+        "- 连续页面的 layout_style 不得重复，不能全部使用 Bento 卡片网格\n"
+        "- 每页必须给出 visual_metaphor 和 composition，让 SVG 阶段能做出不同画面\n"
         "- 每个 card.title 不超过 15 字\n"
         "- 每个 card.content 不超过 80 字\n"
         "- 内容必须贴合中学《道德与法治》课堂，体现思政教育特点\n"
@@ -1640,29 +1673,23 @@ QString ZhipuPPTAgentService::svgSystemPrompt()
     return QStringLiteral(
         "作为精通信息架构与 SVG 编码的专家，你的任务是将完整的文字内容转化为一张高质量、"
         "结构化、适用于中学《道德与法治》课堂的 SVG 演示文稿页面。\n\n"
+        "全局要求：必须严格围绕输入中的核心主题、用户完整需求和页面策划生成，"
+        "不得擅自改成其他课程主题。\n\n"
         "要求如下：\n"
         "1. 画布: SVG viewBox 必须是 0 0 1280 720。\n"
-        "2. 内容页的便当网格 (Bento Grid) 布局\n"
-        "   这是一种灵活的网格系统，其布局应由内容本身的需求驱动，而非僵硬的模板。\n"
-        "   通过组合不同尺寸的卡片，创造出动态且视觉有趣的布局。\n"
-        "   - 核心原则:\n"
-        "     - 灵活性: 卡片数量不固定。可以是 1, 2, 3, 4, 5 或更多个。\n"
-        "     - 层级感: 使用卡片尺寸建立视觉层级。最重要的信息放在最大的卡片上。\n"
-        "     - 留白: 在所有卡片之间保持至少 20px 的间距。\n"
-        "   - 布局组合示例:\n"
-        "     - 单一焦点: 一张大卡片覆盖大部分区域 (w=1200, h=580)。\n"
-        "     - 两栏布局: 50/50 对称或非对称（2/3 + 1/3）。\n"
-        "     - 三栏布局: 三张等宽的卡片，适合并列比较。\n"
-        "     - 顶部英雄式: 顶部一张宽幅卡片，下方是2-4个较小卡片网格。\n"
-        "     - 混合网格: 自由混合各种尺寸的卡片。\n\n"
+        "2. 页面构图必须服从输入里的 layout_style、visual_metaphor 和 composition。\n"
+        "   不要每页都做成标题栏 + 三四个矩形卡片。\n"
+        "   可选择：海报封面、路标目录、时间轴、流程图、左右辩论、中心辐射、故事场景、问题探究、课堂活动板等。\n"
+        "   相邻页面必须在主视觉位置、标题位置、分区方式上有明显差异。\n\n"
         "3. 视觉风格:\n"
         "   - 适合中学《道德与法治》课堂，整体端正、清爽、温和，兼顾思政课堂气质\n"
         "   - 可采用淡色课堂风格或思政风格，但必须保持明亮，不得做暗黑风格\n"
         "   - 禁止黑色、深灰、深蓝等大面积深色背景，禁止赛博风、科技暗黑风、商务黑金风\n\n"
         "4. 颜色主题:\n"
         "   - 主色: #C00000（党政红），用于标题、重点信息、分割线、少量装饰\n"
-        "   - 背景色: #FFFFFF、#FFF9F2、#F8F4EF、#F7F3EA 等淡色\n"
-        "   - 卡片背景: #FFFFFF、#FFF7F7、#F9F6F1、#F5F5F5\n"
+        "   - 辅助色可使用浅金 #F2C94C、浅蓝 #E8F3FF、浅绿 #EAF7EF、浅紫 #F3EDFF，但只能小面积点缀\n"
+        "   - 背景色: #FFFFFF、#FFF9F2、#F8F4EF、#F7F3EA、#F7FAFF 等淡色\n"
+        "   - 内容块背景可用 #FFFFFF、#FFF7F7、#F9F6F1、#F5F5F5、#F8FBFF\n"
         "   - 文字颜色: #333333、#555555，避免大面积白字压深底\n\n"
         "5. 字体: font-family 使用 \"Microsoft YaHei\", \"SimHei\", sans-serif\n"
         "6. 只输出 <svg>...</svg> 代码，不要包含 ```svg 标记或其他说明文字。\n"

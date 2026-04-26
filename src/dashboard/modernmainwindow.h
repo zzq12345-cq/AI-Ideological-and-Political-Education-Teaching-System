@@ -25,6 +25,7 @@
 #include <QTextEdit>
 #include <QImage>
 #include <QVector>
+#include <QMap>
 
 #include <QTabWidget>
 
@@ -236,6 +237,9 @@ private:
     QString m_pendingPPTPath;         // 待提供的 PPT 文件路径
     int m_pptQuestionStep = 0;            // PPT 问答阶段（0=未开始，1-3=问问题，4=生成中）
     QStringList m_pptUserAnswers;     // 用户的回答记录
+    QString m_pptOriginalRequest;     // 用户最初的 PPT 生成请求
+    QStringList m_pptPendingQuestionKeys; // 当前还需要追问的需求项
+    QMap<QString, QString> m_pptRequirementAnswers; // 已确认的 PPT 需求
     QTimer *m_pptTypingTimer = nullptr;         // 打字效果定时器
     QString m_pptTypingText;          // 待打字的完整文本
     int m_pptTypingIndex = 0;             // 当前打字位置
@@ -246,6 +250,12 @@ private:
     void onPPTSimulationStep();       // PPT 模拟步骤处理
     bool isPPTGenerationRequest(const QString &message);  // 检测是否是 PPT 生成请求
     void handlePPTConversation(const QString &message);   // 处理 PPT 问答对话
+    void preparePPTQuestionFlow(const QString &message);
+    QString inferPPTRequirement(const QString &message, const QString &key) const;
+    QString cleanPPTTopicFromRequest(const QString &message) const;
+    QString buildPPTQuestion(const QString &key) const;
+    QStringList buildPPTQuestionOptions(const QString &key) const;
+    QString buildPPTRequirementSummary() const;
     void typeMessageWithEffect(const QString &text);      // 带打字效果的消息显示
     void onPPTTypingStep();           // 打字效果定时器回调
     QString buildPPTProcessMessage(const QString &status) const;

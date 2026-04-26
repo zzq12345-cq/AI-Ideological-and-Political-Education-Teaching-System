@@ -926,6 +926,9 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
       }
       m_pptQuestionStep = 0;
       m_pptUserAnswers.clear();
+      m_pptPendingQuestionKeys.clear();
+      m_pptRequirementAnswers.clear();
+      m_pptOriginalRequest.clear();
     });
   });
 
@@ -937,6 +940,9 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
     }
     m_pptQuestionStep = 0;
     m_pptUserAnswers.clear();
+    m_pptPendingQuestionKeys.clear();
+    m_pptRequirementAnswers.clear();
+    m_pptOriginalRequest.clear();
   });
 
   // 初始化 PPT 模拟生成定时器
@@ -3138,6 +3144,7 @@ void ModernMainWindow::createAIChatWidget() {
             [this](const QString &message) {
               if (message.trimmed().isEmpty())
                 return;
+              m_bubbleChatWidget->clearQuickReplyOptions();
 
               // 首次发送消息时，切换到聊天界面并切换侧边栏
               if (m_mainStack &&
@@ -3169,6 +3176,7 @@ void ModernMainWindow::createAIChatWidget() {
                 // 开始问答流程
                 m_pptQuestionStep = 1;
                 m_pptUserAnswers.clear();
+                preparePPTQuestionFlow(message);
                 handlePPTConversation(message);
                 return;
               }
@@ -3572,6 +3580,185 @@ bool ModernMainWindow::isPPTGenerationRequest(const QString &message) {
   return hasPPTKeyword && hasGenerateKeyword;
 }
 
+void ModernMainWindow::preparePPTQuestionFlow(const QString &message) {
+  m_pptOriginalRequest = message.trimmed();
+  m_pptPendingQuestionKeys.clear();
+  m_pptRequirementAnswers.clear();
+
+  const QString topic = cleanPPTTopicFromRequest(message);
+  if (!topic.isEmpty()) {
+    m_pptRequirementAnswers["topic"] = topic;
+  } else {
+    m_pptPendingQuestionKeys.append("topic");
+  }
+
+  const QString grade = inferPPTRequirement(message, "target_grade");
+  if (!grade.isEmpty()) {
+    m_pptRequirementAnswers["target_grade"] = grade;
+  } else {
+    m_pptPendingQuestionKeys.append("target_grade");
+  }
+
+  const QString duration = inferPPTRequirement(message, "duration");
+  if (!duration.isEmpty()) {
+    m_pptRequirementAnswers["duration"] = duration;
+  } else {
+    m_pptPendingQuestionKeys.append("duration");
+  }
+
+  const QString focus = inferPPTRequirement(message, "focus");
+  if (!focus.isEmpty()) {
+    m_pptRequirementAnswers["focus"] = focus;
+  } else {
+    m_pptPendingQuestionKeys.append("focus");
+  }
+}
+
+QString ModernMainWindow::inferPPTRequirement(const QString &message,
+                                               const QString &key) const {
+  const QString text = message.trimmed();
+  if (text.isEmpty()) {
+    return {};
+  }
+
+  if (key == "target_grade") {
+    static const QRegularExpression gradeRe(
+        R"((小学|初中|高中|七年级|八年级|九年级|初一|初二|初三|高一|高二|高三|[一二三四五六七八九十]年级))");
+    const auto match = gradeRe.match(text);
+    return match.hasMatch() ? match.captured(1) : QString();
+  }
+
+  if (key == "duration") {
+    static const QRegularExpression durationRe(
+        R"((\d+\s*(?:分钟|课时|节课)|一课时|两课时|三课时|半课时))");
+    const auto match = durationRe.match(text);
+    return match.hasMatch() ? match.captured(1).remove(' ') : QString();
+  }
+
+  if (key == "focus") {
+    const QStringList focusWords = {
+        "侧重", "重点", "案例", "故事", "互动", "活动", "讨论",
+        "复习", "考试", "概念", "理论", "实践", "导入"
+    };
+    for (const QString &word : focusWords) {
+      if (text.contains(word)) {
+        return text;
+      }
+    }
+  }
+
+  return {};
+}
+
+QString ModernMainWindow::cleanPPTTopicFromRequest(const QString &message) const {
+  static const QRegularExpression explicitTopicRe(
+      R"((?:关于|围绕|以)\s*([^，。,；;]+?)(?:为主题|为题|的|来|$))");
+  const auto topicMatch = explicitTopicRe.match(message.trimmed());
+  if (topicMatch.hasMatch()) {
+    QString explicitTopic = topicMatch.captured(1).trimmed();
+    explicitTopic.remove(QRegularExpression(R"((PPT|ppt|幻灯片|演示文稿|课件))"));
+    if (explicitTopic.length() >= 2) {
+      return explicitTopic;
+    }
+  }
+
+  QString topic = message.trimmed();
+  topic.remove(QRegularExpression(R"((请|帮我|给我|麻烦|可以|能不能|能否))"));
+  topic.remove(QRegularExpression(R"((生成|制作|创建|做一个|做一份|做套|输出))"));
+  topic.remove(QRegularExpression(R"((PPT|ppt|幻灯片|演示文稿|课件))"));
+  topic.remove(QRegularExpression(R"((谢谢|一下|一个|一份|一套))"));
+  topic.remove(QRegularExpression(R"((小学|初中|高中|七年级|八年级|九年级|初一|初二|初三|高一|高二|高三|[一二三四五六七八九十]年级))"));
+  topic.remove(QRegularExpression(R"((\d+\s*(?:分钟|课时|节课)|一课时|两课时|三课时|半课时))"));
+  topic.remove(QRegularExpression(R"((侧重|重点|突出).*)"));
+  topic.replace(QRegularExpression(R"(\s+)"), " ");
+  topic.replace(QRegularExpression(R"([，,；;。]+$)"), "");
+  topic = topic.trimmed();
+  return topic.length() >= 2 ? topic : QString();
+}
+
+QString ModernMainWindow::buildPPTQuestion(const QString &key) const {
+  const QString topic = m_pptRequirementAnswers.value("topic", "这节课");
+
+  if (key == "topic") {
+    return "好的，我来帮您制作PPT！\n\n"
+           "**请先告诉我这份 PPT 的具体课题或主题是什么？**\n"
+           "可以直接点击下方选项，也可以在输入框里写自己的主题。";
+  }
+
+  if (key == "target_grade") {
+    return QString("我已记录主题：**%1**。\n\n"
+                   "**这个 PPT 主要面向哪个年级或班级？**\n"
+                   "可以点击下方选项，或输入具体班级和学情。").arg(topic);
+  }
+
+  if (key == "duration") {
+    return QString("明白，后面会严格围绕 **%1** 来做。\n\n"
+                   "**这节课准备讲多久？**\n"
+                   "请选择一个课时，也可以直接输入。").arg(topic);
+  }
+
+  return QString("最后确认一下，**这份《%1》PPT 最想突出什么？**\n"
+                 "请选择一个侧重点，也可以直接写您的特殊要求。").arg(topic);
+}
+
+QStringList ModernMainWindow::buildPPTQuestionOptions(const QString &key) const {
+  if (key == "topic") {
+    return {
+        "青春的情绪",
+        "坚持宪法至上",
+        "网络生活新空间",
+        "友谊与成长",
+        "责任与担当"
+    };
+  }
+
+  if (key == "target_grade") {
+    return {
+        "七年级",
+        "八年级",
+        "九年级",
+        "高一",
+        "高中"
+    };
+  }
+
+  if (key == "duration") {
+    return {
+        "20分钟微课",
+        "一课时40分钟",
+        "两课时",
+        "10分钟展示",
+        "45分钟标准课"
+    };
+  }
+
+  if (key == "focus") {
+    return {
+        "案例讨论",
+        "课堂互动",
+        "概念讲解",
+        "活动设计",
+        "考试复习",
+        "综合呈现"
+    };
+  }
+
+  return {};
+}
+
+QString ModernMainWindow::buildPPTRequirementSummary() const {
+  const QString topic = m_pptRequirementAnswers.value("topic", cleanPPTTopicFromRequest(m_pptOriginalRequest));
+  QString summary = QString("**核心主题**：%1\n").arg(topic.isEmpty() ? "思政课堂" : topic);
+  summary += QString("**原始要求**：%1\n").arg(m_pptOriginalRequest);
+  summary += QString("**目标年级/对象**：%1\n")
+                 .arg(m_pptRequirementAnswers.value("target_grade", "未指定"));
+  summary += QString("**课时安排**：%1\n")
+                 .arg(m_pptRequirementAnswers.value("duration", "未指定"));
+  summary += QString("**内容侧重/特殊要求**：%1")
+                 .arg(m_pptRequirementAnswers.value("focus", "综合呈现"));
+  return summary;
+}
+
 void ModernMainWindow::handlePPTConversation(const QString &message) {
   if (!m_bubbleChatWidget)
     return;
@@ -3579,6 +3766,28 @@ void ModernMainWindow::handlePPTConversation(const QString &message) {
   // 记录用户回答（除了第一次触发）
   if (m_pptQuestionStep > 1) {
     m_pptUserAnswers.append(message);
+    const int answeredIndex = m_pptQuestionStep - 2;
+    if (answeredIndex >= 0 && answeredIndex < m_pptPendingQuestionKeys.size()) {
+      const QString key = m_pptPendingQuestionKeys.at(answeredIndex);
+      const QString inferred = inferPPTRequirement(message, key);
+      m_pptRequirementAnswers[key] = inferred.isEmpty() ? message.trimmed() : inferred;
+
+      const QStringList extraKeys = {"target_grade", "duration", "focus"};
+      for (const QString &extraKey : extraKeys) {
+        if (m_pptRequirementAnswers.contains(extraKey)) {
+          continue;
+        }
+        const QString extraValue = inferPPTRequirement(message, extraKey);
+        if (extraValue.isEmpty()) {
+          continue;
+        }
+        m_pptRequirementAnswers[extraKey] = extraValue;
+        const int pendingIndex = m_pptPendingQuestionKeys.indexOf(extraKey);
+        if (pendingIndex > answeredIndex) {
+          m_pptPendingQuestionKeys.removeAt(pendingIndex);
+        }
+      }
+    }
   }
 
   // 模拟 AI 思考延迟
@@ -3587,52 +3796,15 @@ void ModernMainWindow::handlePPTConversation(const QString &message) {
       return;
 
     QString response;
-    switch (m_pptQuestionStep) {
-    case 1: {
-      // 第一个问题：确认主题
-      response = "好的，我来帮您制作PPT！\n\n"
-                 "为了更好地满足您的教学需求，请问：\n\n"
-                 "**1. 这个PPT主要面向哪个年级的学生？**\n"
-                 "（例如：七年级、八年级、九年级）";
-      m_pptQuestionStep = 2;
-      break;
-    }
-    case 2: {
-      // 第二个问题：课时长度
-      response = "明白了！\n\n"
-                 "**2. 您计划这节课的时长是多少？**\n"
-                 "（例如：一课时40分钟、两课时等）";
-      m_pptQuestionStep = 3;
-      break;
-    }
-    case 3: {
-      // 第三个问题：内容侧重
-      response = "好的！\n\n"
-                 "**3. 您希望PPT的内容侧重于哪个方面？**\n"
-                 "- A. 历史故事与人物事迹\n"
-                 "- B. 理论知识与概念讲解\n"
-                 "- C. 实践活动与课堂互动\n"
-                 "- D. 综合呈现";
-      m_pptQuestionStep = 4;
-      break;
-    }
-    case 4: {
-      // 问答结束，开始生成
-      response =
-          "非常感谢您的回答！我已经了解您的需求：\n\n"
-          "**目标年级**：" +
-          (m_pptUserAnswers.size() > 0 ? m_pptUserAnswers[0] : "初中") +
-          "\n"
-          "**课时安排**：" +
-          (m_pptUserAnswers.size() > 1 ? m_pptUserAnswers[1] : "一课时") +
-          "\n"
-          "**内容侧重**：" +
-          (m_pptUserAnswers.size() > 2 ? m_pptUserAnswers[2] : "综合呈现") +
-          "\n\n"
-          "正在调用 AI 为您生成 PPT，请稍候...";
+    const int questionIndex = m_pptQuestionStep - 1;
+    if (questionIndex >= 0 && questionIndex < m_pptPendingQuestionKeys.size()) {
+      response = buildPPTQuestion(m_pptPendingQuestionKeys.at(questionIndex));
+      m_pptQuestionStep++;
+    } else {
+      response = "非常感谢您的回答！我已经了解您的需求：\n\n" +
+                 buildPPTRequirementSummary() +
+                 "\n\n正在调用 AI 为您生成 PPT，请稍候...";
       m_pptQuestionStep = 5; // 标记为生成阶段，防止再次进入问答
-      break;
-    }
     }
 
     // 使用打字效果显示回复
@@ -3646,6 +3818,7 @@ void ModernMainWindow::typeMessageWithEffect(const QString &text) {
 
   // 停止之前的打字效果
   m_pptTypingTimer->stop();
+  m_bubbleChatWidget->clearQuickReplyOptions();
 
   // 设置待打字文本
   m_pptTypingText = text;
@@ -3662,15 +3835,21 @@ void ModernMainWindow::onPPTTypingStep() {
   if (!m_bubbleChatWidget || m_pptTypingIndex >= m_pptTypingText.length()) {
     m_pptTypingTimer->stop();
 
+    if (m_pptQuestionStep > 1 && m_pptQuestionStep < 5) {
+      const int questionKeyIndex = m_pptQuestionStep - 2;
+      if (questionKeyIndex >= 0 && questionKeyIndex < m_pptPendingQuestionKeys.size()) {
+        const QString key = m_pptPendingQuestionKeys.at(questionKeyIndex);
+        m_bubbleChatWidget->addQuickReplyOptions(buildPPTQuestionOptions(key));
+      }
+    } else {
+      m_bubbleChatWidget->clearQuickReplyOptions();
+    }
+
     // 如果是问答结束阶段，延迟后开始真正的 AI 生成
     if (m_pptQuestionStep == 5) {
       QTimer::singleShot(800, this, [this]() {
-        // 构建主题描述
-        QString topic;
-        // 尝试从第一次触发消息中提取主题
-        if (!m_pptUserAnswers.isEmpty()) {
-          topic = m_pptUserAnswers.first();
-        }
+        QString topic = m_pptRequirementAnswers.value(
+            "topic", cleanPPTTopicFromRequest(m_pptOriginalRequest));
         if (topic.isEmpty()) {
           topic = "思政教育";
         }
@@ -3748,21 +3927,23 @@ void ModernMainWindow::startPPTGeneration(const QString &topic) {
   if (!m_pptAgentService || !m_bubbleChatWidget) {
     qWarning() << "[PPT] Agent service or chat widget not available";
     m_pptQuestionStep = 0;
+    m_pptPendingQuestionKeys.clear();
     return;
   }
 
   // 构建生成参数
   QMap<QString, QString> params;
   params["topic"] = topic;
-  params["userRequest"] = topic;
-  if (m_pptUserAnswers.size() > 0)
-    params["pref_scene"] = m_pptUserAnswers[0]; // 目标年级
-  if (m_pptUserAnswers.size() > 1)
-    params["pref_pace"] = m_pptUserAnswers[1];  // 课时安排
-  if (m_pptUserAnswers.size() > 2)
-    params["pref_focus"] = m_pptUserAnswers[2]; // 内容侧重
+  params["userRequest"] = buildPPTRequirementSummary();
+  if (m_pptRequirementAnswers.contains("target_grade"))
+    params["pref_scene"] = m_pptRequirementAnswers.value("target_grade");
+  if (m_pptRequirementAnswers.contains("duration"))
+    params["pref_pace"] = m_pptRequirementAnswers.value("duration");
+  if (m_pptRequirementAnswers.contains("focus"))
+    params["pref_focus"] = m_pptRequirementAnswers.value("focus");
 
-  qDebug() << "[PPT] Starting PPT Agent generation with topic:" << topic;
+  qDebug() << "[PPT] Starting PPT Agent generation with topic:" << topic
+           << "request:" << params.value("userRequest").left(200);
 
   // 添加一个 AI 消息占位
   m_pptProcessLog.clear();
