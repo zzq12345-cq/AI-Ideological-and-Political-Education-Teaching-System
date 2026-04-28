@@ -29,6 +29,7 @@
 #include "../ui/ChatWidget.h"
 #include "../ui/HotspotTrackingWidget.h"
 #include "../ui/HelpCenterWidget.h"
+#include "../ui/InAppPPTPreviewPage.h"
 #include "../ui/LessonPlanEditor.h"
 #include "../ui/aipreparationwidget.h"
 #include "../utils/NetworkRequestFactory.h"
@@ -834,9 +835,10 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
   connect(m_pptAgentService, &ZhipuPPTAgentService::progressUpdated,
           this, [this](int percent, const QString &stage, const QString &detail) {
     if (!m_bubbleChatWidget) return;
-    QString progress = QString("**阶段**: %1\n\n**进度**: %2%\n\n%3")
-        .arg(stage).arg(percent).arg(detail);
-    updatePPTProcessMessage(progress);
+    const int thinkingToken = ++m_pptThinkingToken;
+    updatePPTProcessMessage(buildPPTMainMessage(stage, percent));
+    m_bubbleChatWidget->setLastAIThinking(
+        buildPPTThinkingSummary(stage, detail), thinkingToken);
   });
 
   connect(m_pptAgentService, &ZhipuPPTAgentService::artifactGenerated,
@@ -849,9 +851,13 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
     if (!m_bubbleChatWidget) return;
     Q_UNUSED(svgCode);
     m_bubbleChatWidget->updatePPTPreviewProgress(index, preview);
-    QString msg = QString("**已完成第 %1 页**\n\n正在生成下一页...")
-        .arg(index + 1);
-    updatePPTProcessMessage(msg);
+    updatePPTProcessMessage(QString("第 %1 页已完成，正在继续生成后续页面。").arg(index + 1));
+    const int thinkingToken = ++m_pptThinkingToken;
+    m_bubbleChatWidget->setLastAIThinking(
+        QString("已完成第 %1 页预览，正在准备下一页内容。")
+            .arg(index + 1),
+        thinkingToken);
+    m_bubbleChatWidget->scheduleThinkingCollapse(1000, thinkingToken);
   });
 
   connect(m_pptAgentService, &ZhipuPPTAgentService::allSlidesGenerated,
@@ -859,84 +865,50 @@ ModernMainWindow::ModernMainWindow(const QString &userRole,
     if (!m_bubbleChatWidget) return;
 
     const int totalPages = previews.isEmpty() ? svgCodes.size() : previews.size();
-    QString doneMsg = QString("**PPT 生成完成!**\n\n"
-                              "共生成 %1 页幻灯片。\n\n"
-                              "正在准备导出 PowerPoint 文件...")
-        .arg(totalPages);
-    updatePPTProcessMessage(doneMsg);
+    updatePPTProcessMessage(QString("PPT 已生成完成，共生成 %1 页幻灯片。您可以先预览，再保存到桌面。")
+        .arg(totalPages));
+    const int thinkingToken = ++m_pptThinkingToken;
+    m_bubbleChatWidget->setLastAIThinking(
+        "正在整理最终课件：\n"
+        "1. 检查页面预览是否完整\n"
+        "2. 保存生成记录，便于后续查看\n"
+        "3. 等待您预览或主动保存到桌面",
+        thinkingToken);
+    m_bubbleChatWidget->scheduleThinkingCollapse(1200, thinkingToken);
     m_bubbleChatWidget->finishPPTPreviewProgress();
 
-    QString pptRecordId;
+    m_currentPPTPreviews = previews;
+    m_currentPPTTotalPages = totalPages;
+    m_currentPPTFilePath.clear();
+    m_currentPPTRecordId.clear();
     if (!previews.isEmpty()) {
-      pptRecordId = savePPTRecord(QString(), previews, totalPages);
-      if (m_chatHistoryWidget && !pptRecordId.isEmpty()) {
+      m_currentPPTRecordId = savePPTRecord(QString(), previews, totalPages);
+      if (m_chatHistoryWidget && !m_currentPPTRecordId.isEmpty()) {
         QString timeStr = QDateTime::currentDateTime().toString("MM-dd HH:mm");
         m_chatHistoryWidget->insertHistoryItem(
-            0, pptRecordId, QString("PPT 生成：%1 页").arg(totalPages), timeStr);
+            0, m_currentPPTRecordId, QString("PPT 生成：%1 页").arg(totalPages), timeStr);
       }
     }
-
-    QTimer::singleShot(500, this, [this, previews, totalPages, pptRecordId]() {
-      if (previews.isEmpty()) {
-        if (m_bubbleChatWidget) {
-          updatePPTProcessMessage("**PPT 生成失败**\n\n幻灯片预览为空，无法导出 PowerPoint 文件。");
-        }
-        return;
-      }
-
-      QString filePath = QFileDialog::getSaveFileName(
-          this, "保存 PPT 文件",
-          QStandardPaths::writableLocation(QStandardPaths::DesktopLocation) +
-              "/思政课堂PPT.pptx",
-          "PowerPoint 文件 (*.pptx)");
-      if (filePath.isEmpty()) {
-        if (m_bubbleChatWidget) {
-          updatePPTProcessMessage(
-              QString("**PPT 生成完成!**\n\n共生成 %1 页幻灯片。\n\n您已取消保存文件，可在左侧历史记录中重新查看预览。")
-                  .arg(totalPages));
-        }
-        return;
-      }
-
-      if (!filePath.endsWith(".pptx", Qt::CaseInsensitive)) {
-        filePath += ".pptx";
-      }
-
-      if (m_pptxGenerator->generateFromImages("思政课堂PPT", previews, filePath)) {
-        if (!pptRecordId.isEmpty()) {
-          updatePPTRecordFilePath(pptRecordId, filePath);
-        }
-        QString successMsg = QString("**PPT 生成完成!**\n\n"
-                                     "共 %1 页幻灯片已保存为 PowerPoint 文件：\n`%2`")
-            .arg(totalPages)
-            .arg(filePath);
-        if (m_bubbleChatWidget) {
-          updatePPTProcessMessage(successMsg);
-        }
-        ModernDialogHelper::info(this, "PPT 已保存",
-                                 QString("文件位置：%1").arg(filePath));
-      } else {
-        const QString error = m_pptxGenerator->lastError();
-        if (m_bubbleChatWidget) {
-          updatePPTProcessMessage(QString("**PPT 生成失败**\n\n%1").arg(error));
-        }
-        ModernDialogHelper::warning(
-            this, "生成失败",
-            QString("PPT 文件保存失败：%1").arg(error));
-      }
-      m_pptQuestionStep = 0;
-      m_pptUserAnswers.clear();
-      m_pptPendingQuestionKeys.clear();
-      m_pptRequirementAnswers.clear();
-      m_pptOriginalRequest.clear();
-    });
+    m_bubbleChatWidget->showPPTActions(!m_currentPPTPreviews.isEmpty(),
+                                       !m_currentPPTPreviews.isEmpty(),
+                                       m_currentPPTRecordId);
+    m_pptQuestionStep = 0;
+    m_pptUserAnswers.clear();
+    m_pptPendingQuestionKeys.clear();
+    m_pptRequirementAnswers.clear();
+    m_pptOriginalRequest.clear();
   });
 
   connect(m_pptAgentService, &ZhipuPPTAgentService::errorOccurred,
           this, [this](const QString &error) {
     if (m_bubbleChatWidget) {
-      updatePPTProcessMessage(
-          "**PPT 生成失败**\n\n" + error + "\n\n请检查网络连接和 API 配置后重试。");
+      updatePPTProcessMessage("PPT 生成失败：" + error + "。请检查网络连接和 API 配置后重试。");
+      const int thinkingToken = ++m_pptThinkingToken;
+      m_bubbleChatWidget->setLastAIThinking(
+          "最后执行到当前生成阶段，但模型或网络请求未能完成。\n"
+          "已保留可用的阶段信息，请修正配置后重试。",
+          thinkingToken);
+      m_bubbleChatWidget->scheduleThinkingCollapse(2000, thinkingToken);
     }
     m_pptQuestionStep = 0;
     m_pptUserAnswers.clear();
@@ -1999,6 +1971,13 @@ void ModernMainWindow::createDashboard() {
                                    QSizePolicy::Expanding);
     m_mainStack->addWidget(m_chatContainer);
 
+    m_inAppPPTPreviewPage = new InAppPPTPreviewPage();
+    connect(m_inAppPPTPreviewPage, &InAppPPTPreviewPage::exitRequested,
+            this, &ModernMainWindow::exitCurrentPPTPreview);
+    connect(m_inAppPPTPreviewPage, &InAppPPTPreviewPage::saveRequested,
+            this, [this]() { saveCurrentPPTToDesktop(); });
+    m_mainStack->addWidget(m_inAppPPTPreviewPage);
+
     // 监听消息发送，开始对话后切换到聊天页面
     connect(m_bubbleChatWidget, &ChatWidget::messageSent, this,
             [this](const QString &message) {
@@ -2782,6 +2761,7 @@ void ModernMainWindow::createAIChatWidget() {
   // 中创建）
   connect(m_chatHistoryWidget, &ChatHistoryWidget::newChatRequested, this,
           [this]() {
+            resetCurrentPPTState();
             // 步骤 1: 如果当前有对话，先刷新历史列表（Dify 云端已自动保存）
             if (m_isConversationStarted && m_difyService) {
               // 请求刷新对话列表，让刚才的对话出现在历史记录中
@@ -2851,6 +2831,7 @@ void ModernMainWindow::createAIChatWidget() {
             if (!m_chatHistoryWidget)
               return;
 
+            resetCurrentPPTState();
             m_chatHistoryWidget->clearHistory();
 
             for (const QJsonValue &val : conversations) {
@@ -3140,11 +3121,16 @@ void ModernMainWindow::createAIChatWidget() {
 
   // 连接消息发送信号到 Dify 服务
   if (m_bubbleChatWidget) {
+    connect(m_bubbleChatWidget, &ChatWidget::pptPreviewRequested, this,
+            [this](const QString &recordId) { openCurrentPPTPreview(recordId); });
+    connect(m_bubbleChatWidget, &ChatWidget::pptSaveRequested, this,
+            [this](const QString &recordId) { saveCurrentPPTToDesktop(recordId); });
     connect(m_bubbleChatWidget, &ChatWidget::messageSent, this,
             [this](const QString &message) {
               if (message.trimmed().isEmpty())
                 return;
               m_bubbleChatWidget->clearQuickReplyOptions();
+              m_bubbleChatWidget->hidePPTActions();
 
               // 首次发送消息时，切换到聊天界面并切换侧边栏
               if (m_mainStack &&
@@ -3520,6 +3506,148 @@ void ModernMainWindow::updatePPTRecordFilePath(const QString &recordId,
   }
 }
 
+void ModernMainWindow::resetCurrentPPTState() {
+  m_currentPPTRecordId.clear();
+  m_currentPPTFilePath.clear();
+  m_currentPPTPreviews.clear();
+  m_currentPPTTotalPages = 0;
+  m_beforePPTPreviewStackIndex = -1;
+  if (m_inAppPPTPreviewPage) {
+    m_inAppPPTPreviewPage->setSlides(QStringLiteral("PPT 预览"), QVector<QImage>());
+    m_inAppPPTPreviewPage->setFilePath(QString());
+  }
+}
+
+bool ModernMainWindow::loadPPTRecordState(const QString &recordId) {
+  if (recordId.isEmpty() || recordId == m_currentPPTRecordId) {
+    return !m_currentPPTPreviews.isEmpty();
+  }
+
+  const QJsonArray records = readJsonArrayFile(pptHistoryIndexPath());
+  for (const QJsonValue &value : records) {
+    const QJsonObject record = value.toObject();
+    if (record["id"].toString() != recordId) {
+      continue;
+    }
+
+    QVector<QImage> previews;
+    const QJsonArray paths = record["previewPaths"].toArray();
+    for (const QJsonValue &pathValue : paths) {
+      QImage preview(pathValue.toString());
+      if (!preview.isNull()) {
+        previews.append(preview);
+      }
+    }
+    if (previews.isEmpty()) {
+      return false;
+    }
+    m_currentPPTRecordId = recordId;
+    m_currentPPTFilePath = record["filePath"].toString();
+    m_currentPPTTotalPages = record["totalPages"].toInt(previews.size());
+    m_currentPPTPreviews = previews;
+    return true;
+  }
+  return false;
+}
+
+void ModernMainWindow::openCurrentPPTPreview(const QString &recordId) {
+  if (!recordId.isEmpty() && !loadPPTRecordState(recordId)) {
+    ModernDialogHelper::warning(this, "暂无可预览内容",
+                                "所选 PPT 记录没有可用的页面预览。");
+    return;
+  }
+  if (!m_mainStack || !m_inAppPPTPreviewPage) {
+    return;
+  }
+  if (m_currentPPTPreviews.isEmpty()) {
+    ModernDialogHelper::warning(this, "暂无可预览内容",
+                                "当前 PPT 没有可用的页面预览。");
+    return;
+  }
+
+  const QString title = m_currentPPTTotalPages > 0
+      ? QStringLiteral("PPT 预览：%1 页").arg(m_currentPPTTotalPages)
+      : QStringLiteral("PPT 预览");
+  m_beforePPTPreviewStackIndex = m_mainStack->currentIndex();
+  m_inAppPPTPreviewPage->setSlides(title, m_currentPPTPreviews);
+  m_inAppPPTPreviewPage->setFilePath(m_currentPPTFilePath);
+  m_mainStack->setCurrentWidget(m_inAppPPTPreviewPage);
+  m_inAppPPTPreviewPage->setFocus(Qt::OtherFocusReason);
+  if (m_welcomeInputWidget) {
+    m_welcomeInputWidget->hide();
+  }
+}
+
+void ModernMainWindow::exitCurrentPPTPreview() {
+  if (!m_mainStack) {
+    return;
+  }
+
+  if (m_beforePPTPreviewStackIndex >= 0 &&
+      m_beforePPTPreviewStackIndex < m_mainStack->count()) {
+    m_mainStack->setCurrentIndex(m_beforePPTPreviewStackIndex);
+  } else if (m_chatContainer) {
+    m_mainStack->setCurrentWidget(m_chatContainer);
+  }
+  m_beforePPTPreviewStackIndex = -1;
+}
+
+void ModernMainWindow::saveCurrentPPTToDesktop(const QString &recordId) {
+  if (!recordId.isEmpty() && !loadPPTRecordState(recordId)) {
+    ModernDialogHelper::warning(this, "无法保存",
+                                "所选 PPT 记录没有可导出的页面预览。");
+    return;
+  }
+  if (m_currentPPTPreviews.isEmpty()) {
+    ModernDialogHelper::warning(this, "无法保存",
+                                "当前没有可导出的 PPT 页面预览。");
+    return;
+  }
+  if (!m_pptxGenerator) {
+    ModernDialogHelper::warning(this, "无法保存", "PPT 导出服务未初始化。");
+    return;
+  }
+
+  QString filePath = QFileDialog::getSaveFileName(
+      this, "保存 PPT 文件",
+      QStandardPaths::writableLocation(QStandardPaths::DesktopLocation) +
+          "/思政课堂PPT.pptx",
+      "PowerPoint 文件 (*.pptx)");
+  if (filePath.isEmpty()) {
+    return;
+  }
+  if (!filePath.endsWith(".pptx", Qt::CaseInsensitive)) {
+    filePath += ".pptx";
+  }
+
+  if (!m_pptxGenerator->generateFromImages("思政课堂PPT", m_currentPPTPreviews, filePath)) {
+    const QString error = m_pptxGenerator->lastError();
+    updatePPTProcessMessage(QString("PPT 文件保存失败：%1").arg(error));
+    ModernDialogHelper::warning(this, "生成失败",
+                                QString("PPT 文件保存失败：%1").arg(error));
+    return;
+  }
+
+  m_currentPPTFilePath = filePath;
+  if (!m_currentPPTRecordId.isEmpty()) {
+    updatePPTRecordFilePath(m_currentPPTRecordId, filePath);
+  }
+  if (m_inAppPPTPreviewPage) {
+    m_inAppPPTPreviewPage->setFilePath(filePath);
+  }
+  const int totalPages = m_currentPPTTotalPages > 0
+      ? m_currentPPTTotalPages
+      : m_currentPPTPreviews.size();
+  updatePPTProcessMessage(QString("PPT 已生成完成，共 %1 页幻灯片已保存为 PowerPoint 文件：\n`%2`")
+      .arg(totalPages)
+      .arg(filePath));
+  if (m_bubbleChatWidget) {
+    m_bubbleChatWidget->showPPTActions(true, true, m_currentPPTRecordId);
+  }
+  ModernDialogHelper::info(this, "PPT 已保存",
+                           QString("文件位置：%1").arg(filePath));
+}
+
 void ModernMainWindow::loadPPTRecordsIntoHistory() {
   if (!m_chatHistoryWidget) {
     return;
@@ -3548,7 +3676,7 @@ bool ModernMainWindow::restorePPTRecordToChat(const QString &recordId) {
 
     const int totalPages = record["totalPages"].toInt();
     const QString filePath = record["filePath"].toString();
-    QString message = QStringLiteral("**PPT 生成完成!**\n\n共 %1 页幻灯片。").arg(totalPages);
+    QString message = QStringLiteral("**PPT 生成完成!**\n\n共 %1 页幻灯片。\n\n可直接预览，或保存到桌面。").arg(totalPages);
     if (!filePath.isEmpty()) {
       message += QStringLiteral("\n\n文件位置：\n`%1`").arg(filePath);
     }
@@ -3556,11 +3684,22 @@ bool ModernMainWindow::restorePPTRecordToChat(const QString &recordId) {
     m_bubbleChatWidget->addMessage(message, false);
     m_bubbleChatWidget->beginPPTPreviewProgress();
 
+    m_currentPPTRecordId = recordId;
+    m_currentPPTFilePath = filePath;
+    m_currentPPTTotalPages = totalPages;
+    m_currentPPTPreviews.clear();
     const QJsonArray paths = record["previewPaths"].toArray();
     for (int i = 0; i < paths.size(); ++i) {
-      m_bubbleChatWidget->updatePPTPreviewProgress(i, QImage(paths.at(i).toString()));
+      QImage preview(paths.at(i).toString());
+      if (!preview.isNull()) {
+        m_currentPPTPreviews.append(preview);
+      }
+      m_bubbleChatWidget->updatePPTPreviewProgress(i, preview);
     }
     m_bubbleChatWidget->finishPPTPreviewProgress();
+    m_bubbleChatWidget->showPPTActions(!m_currentPPTPreviews.isEmpty(),
+                                       !m_currentPPTPreviews.isEmpty(),
+                                       m_currentPPTRecordId);
     return true;
   }
   return false;
@@ -3870,16 +4009,71 @@ void ModernMainWindow::onPPTTypingStep() {
 }
 
 QString ModernMainWindow::buildPPTProcessMessage(const QString &status) const {
-  QString message = "正在使用 AI 为您生成 PPT...\n\n---\n\n";
-  message += status.isEmpty() ? m_pptCurrentStatus : status;
-  message += "\n\n---\n\n";
-  message += "## AI 制作过程\n\n";
-  if (m_pptProcessLog.trimmed().isEmpty()) {
-    message += "等待模型返回大纲、布局和 SVG 代码...";
-  } else {
-    message += m_pptProcessLog;
+  const QString current = status.isEmpty() ? m_pptCurrentStatus : status;
+  return current.trimmed().isEmpty()
+      ? QStringLiteral("我正在为您生成 PPT，请稍候。")
+      : current;
+}
+
+QString ModernMainWindow::buildPPTMainMessage(const QString &stage, int percent) const {
+  if (stage.contains("大纲")) {
+    return stage.contains("完成")
+        ? QString("PPT 大纲已经完成，正在进入页面版式规划。当前进度 %1%。")
+              .arg(percent)
+        : QString("正在生成 PPT 大纲，确定课程结构和页面顺序。当前进度 %1%。")
+              .arg(percent);
   }
-  return message;
+  if (stage.contains("策划") || stage.contains("布局")) {
+    return stage.contains("完成")
+        ? QString("页面版式规划已经完成，正在准备逐页绘制 PPT。当前进度 %1%。")
+              .arg(percent)
+        : QString("大纲已经确定，正在为每一页规划版式和内容层级。当前进度 %1%。")
+              .arg(percent);
+  }
+  if (stage.contains("SVG") || stage.contains("设计")) {
+    return QString("页面版式已经准备好，正在逐页绘制 PPT 预览。当前进度 %1%。")
+        .arg(percent);
+  }
+  if (stage.contains("完成")) {
+    return QStringLiteral("PPT 页面已经生成完成，正在整理最终课件。");
+  }
+  return QString("正在使用 AI 为您生成 PPT。当前进度 %1%。").arg(percent);
+}
+
+QString ModernMainWindow::buildPPTThinkingSummary(const QString &stage,
+                                                   const QString &detail) const {
+  QStringList lines;
+  if (stage.contains("大纲")) {
+    lines << "正在组织 PPT 大纲："
+          << "1. 提炼教学主题和课堂主线"
+          << "2. 安排封面、导入、讲解、互动与总结结构"
+          << "3. 估算页面数量并准备进入版式规划";
+  } else if (stage.contains("策划") || stage.contains("布局")) {
+    lines << "正在匹配页面版式："
+          << "1. 为每页确定标题层级和内容模块"
+          << "2. 匹配适合思政课堂的页面结构"
+          << "3. 准备逐页生成可预览的幻灯片";
+  } else if (stage.contains("SVG") || stage.contains("设计")) {
+    lines << "正在绘制 PPT 页面："
+          << "1. 根据页面策划生成视觉稿"
+          << "2. 渲染为可预览的幻灯片缩略图"
+          << "3. 检查 SVG 是否兼容本地预览";
+  } else if (stage.contains("完成")) {
+    lines << "正在收尾生成结果："
+          << "1. 汇总已生成页面"
+          << "2. 准备导出 PowerPoint 文件"
+          << "3. 保存预览记录供后续查看";
+  } else {
+    lines << "正在处理 PPT 生成任务："
+          << "1. 同步当前阶段状态"
+          << "2. 等待模型返回下一步结果";
+  }
+
+  const QString cleanDetail = detail.trimmed();
+  if (!cleanDetail.isEmpty()) {
+    lines << QString("当前状态：%1").arg(cleanDetail);
+  }
+  return lines.join("\n");
 }
 
 QString ModernMainWindow::formatPPTArtifactBlock(const QString &title,
@@ -3911,7 +4105,6 @@ void ModernMainWindow::appendPPTArtifact(const QString &title,
         + m_pptProcessLog.right(maxLogLength);
   }
 
-  updatePPTProcessMessage(m_pptCurrentStatus);
 }
 
 void ModernMainWindow::updatePPTProcessMessage(const QString &status) {
@@ -3947,10 +4140,17 @@ void ModernMainWindow::startPPTGeneration(const QString &topic) {
 
   // 添加一个 AI 消息占位
   m_pptProcessLog.clear();
-  m_pptCurrentStatus = "**初始化**\n\n正在连接 PPT Agent，准备生成大纲、布局和 SVG 代码...";
-  m_bubbleChatWidget->addMessage("正在使用 AI 为您生成 PPT...\n\n正在初始化...", false);
+  m_pptThinkingToken = 0;
+  m_pptCurrentStatus = "我将帮你生成这份 PPT。首先，我会分析教学需求，并确定整体设计方向。";
+  m_bubbleChatWidget->addMessage(m_pptCurrentStatus, false);
+  const int thinkingToken = ++m_pptThinkingToken;
+  m_bubbleChatWidget->setLastAIThinking(
+      "正在解析用户需求：\n"
+      "1. 识别 PPT 主题和教学目标\n"
+      "2. 整理授课对象、课时和内容侧重点\n"
+      "3. 准备生成教学大纲与页面结构",
+      thinkingToken);
   m_bubbleChatWidget->beginPPTPreviewProgress();
-  updatePPTProcessMessage(m_pptCurrentStatus);
 
   // 启动生成（信号已在构造函数中连接）
   m_pptAgentService->generate(params);

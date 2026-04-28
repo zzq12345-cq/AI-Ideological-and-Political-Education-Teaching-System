@@ -38,9 +38,15 @@ ChatWidget::ChatWidget(QWidget *parent)
     , m_lastAIBubbleLayout(nullptr)
     , m_lastPPTPreviewWidget(nullptr)
     , m_lastPPTPreviewGrid(nullptr)
+    , m_lastPPTActionsWidget(nullptr)
+    , m_lastPPTPreviewButton(nullptr)
+    , m_lastPPTSaveButton(nullptr)
     , m_lastAIThinkingWidget(nullptr)
     , m_lastAIThinkingLabel(nullptr)
     , m_lastAIThinkingToggle(nullptr)
+    , m_thinkingCollapseTimer(new QTimer(this))
+    , m_thinkingContentToken(0)
+    , m_pendingThinkingCollapseToken(0)
     , m_markdownRenderer(nullptr)
     , m_markdownEnabled(true)  // 默认启用Markdown
 {
@@ -51,6 +57,12 @@ ChatWidget::ChatWidget(QWidget *parent)
     m_markdownRenderer->setCodeTheme(QColor("#f6f8fa"), QColor("#d73a49"));
     connect(m_typingIndicatorTimer, &QTimer::timeout,
             this, &ChatWidget::updateTypingIndicator);
+    m_thinkingCollapseTimer->setSingleShot(true);
+    connect(m_thinkingCollapseTimer, &QTimer::timeout, this, [this]() {
+        if (m_pendingThinkingCollapseToken == m_thinkingContentToken) {
+            collapseThinking();
+        }
+    });
 
     setupUI();
     setupStyles();
@@ -404,17 +416,25 @@ QWidget* ChatWidget::createMessageBubble(const QString &text, bool isUser)
         bubbleLayout->addWidget(m_lastAIThinkingWidget);
         
         // 连接折叠按钮点击事件
-        connect(m_lastAIThinkingToggle, &QPushButton::clicked, [this]() {
-            bool isVisible = m_lastAIThinkingLabel->isVisible();
-            m_lastAIThinkingLabel->setVisible(!isVisible);
-            m_lastAIThinkingToggle->setText(isVisible ? ">" : "v");
+        QLabel *thinkingLabel = m_lastAIThinkingLabel;
+        QPushButton *thinkingToggle = m_lastAIThinkingToggle;
+        connect(thinkingToggle, &QPushButton::clicked, this, [thinkingLabel, thinkingToggle]() {
+            if (!thinkingLabel || !thinkingToggle) {
+                return;
+            }
+            bool isVisible = thinkingLabel->isVisible();
+            thinkingLabel->setVisible(!isVisible);
+            thinkingToggle->setText(isVisible ? ">" : "v");
         });
-        
+
         // 保存引用用于流式更新
         m_lastAIMessageLabel = textLabel;
         m_lastAIBubbleLayout = bubbleLayout;
         m_lastPPTPreviewWidget = nullptr;
         m_lastPPTPreviewGrid = nullptr;
+        m_lastPPTActionsWidget = nullptr;
+        m_lastPPTPreviewButton = nullptr;
+        m_lastPPTSaveButton = nullptr;
         m_pptPreviewImageLabels.clear();
         m_pptPreviewCaptionLabels.clear();
         qDebug() << "[ChatWidget] createMessageBubble: Set m_lastAIMessageLabel to" << (void*)textLabel << "for AI message";
@@ -629,6 +649,59 @@ void ChatWidget::finishPPTPreviewProgress()
     scrollToBottom();
 }
 
+QPushButton* ChatWidget::createPPTActionButton(const QString &text, bool primary)
+{
+    auto *button = new QPushButton(text);
+    button->setCursor(Qt::PointingHandCursor);
+    button->setMinimumHeight(44);
+    button->setFocusPolicy(Qt::StrongFocus);
+    button->setStyleSheet(primary
+        ? "QPushButton { background-color: #C62828; color: #FFFFFF; border: 1px solid #C62828; border-radius: 12px; padding: 10px 18px; font-size: 14px; font-weight: 700; } QPushButton:hover, QPushButton:focus { background-color: #A61F1F; border-color: #A61F1F; } QPushButton:disabled { background-color: #F3F4F6; color: #9CA3AF; border-color: #E5E7EB; }"
+        : "QPushButton { background-color: #FFFFFF; color: #334155; border: 1px solid #CBD5E1; border-radius: 12px; padding: 10px 18px; font-size: 14px; font-weight: 700; } QPushButton:hover, QPushButton:focus { background-color: #F8FAFC; color: #C62828; border-color: #C62828; } QPushButton:disabled { color: #9CA3AF; border-color: #E5E7EB; }");
+    return button;
+}
+
+void ChatWidget::showPPTActions(bool canPreview, bool canSave,
+                                const QString &recordId)
+{
+    if (!m_lastAIBubbleLayout) {
+        return;
+    }
+
+    if (!m_lastPPTActionsWidget) {
+        m_lastPPTActionsWidget = new QWidget();
+        auto *layout = new QHBoxLayout(m_lastPPTActionsWidget);
+        layout->setContentsMargins(0, 2, 0, 0);
+        layout->setSpacing(10);
+        m_lastPPTPreviewButton = createPPTActionButton("预览PPT", true);
+        m_lastPPTSaveButton = createPPTActionButton("保存到桌面", false);
+        connect(m_lastPPTPreviewButton, &QPushButton::clicked, this, [this]() {
+            emit pptPreviewRequested(m_lastPPTPreviewButton->property("recordId").toString());
+        });
+        connect(m_lastPPTSaveButton, &QPushButton::clicked, this, [this]() {
+            emit pptSaveRequested(m_lastPPTSaveButton->property("recordId").toString());
+        });
+        layout->addWidget(m_lastPPTPreviewButton);
+        layout->addWidget(m_lastPPTSaveButton);
+        layout->addStretch();
+        m_lastAIBubbleLayout->addWidget(m_lastPPTActionsWidget);
+    }
+
+    m_lastPPTPreviewButton->setProperty("recordId", recordId);
+    m_lastPPTSaveButton->setProperty("recordId", recordId);
+    m_lastPPTPreviewButton->setEnabled(canPreview);
+    m_lastPPTSaveButton->setEnabled(canSave);
+    m_lastPPTActionsWidget->setVisible(canPreview || canSave);
+    scrollToBottom();
+}
+
+void ChatWidget::hidePPTActions()
+{
+    if (m_lastPPTActionsWidget) {
+        m_lastPPTActionsWidget->setVisible(false);
+    }
+}
+
 void ChatWidget::updateLastAIThinking(const QString &thought)
 {
     qDebug() << "[ChatWidget] updateLastAIThinking called with thought length:" << thought.length();
@@ -657,6 +730,42 @@ void ChatWidget::updateLastAIThinking(const QString &thought)
     } else {
         qDebug() << "[ChatWidget] Error: Thinking widgets are null, cannot update!";
     }
+}
+
+void ChatWidget::setLastAIThinking(const QString &text, int token)
+{
+    if (!m_lastAIThinkingLabel || !m_lastAIThinkingWidget) {
+        qDebug() << "[ChatWidget] Error: Thinking widgets are null, cannot set thinking!";
+        return;
+    }
+
+    if (token >= 0) {
+        m_thinkingContentToken = token;
+    }
+    if (m_thinkingCollapseTimer) {
+        m_thinkingCollapseTimer->stop();
+    }
+
+    const QString cleanText = text.trimmed();
+    const bool hasText = !cleanText.isEmpty();
+    m_lastAIThinkingWidget->setVisible(hasText);
+    m_lastAIThinkingLabel->setVisible(hasText);
+    m_lastAIThinkingLabel->setText(cleanText);
+    if (m_lastAIThinkingToggle) {
+        m_lastAIThinkingToggle->setText(hasText ? "v" : ">");
+    }
+    scrollToBottom();
+}
+
+void ChatWidget::scheduleThinkingCollapse(int delayMs, int token)
+{
+    if (!m_thinkingCollapseTimer) {
+        return;
+    }
+
+    m_pendingThinkingCollapseToken = token;
+    m_thinkingCollapseTimer->stop();
+    m_thinkingCollapseTimer->start(delayMs);
 }
 
 void ChatWidget::collapseThinking()
@@ -697,11 +806,19 @@ void ChatWidget::clearMessages()
     m_lastAIBubbleLayout = nullptr;
     m_lastPPTPreviewWidget = nullptr;
     m_lastPPTPreviewGrid = nullptr;
+    m_lastPPTActionsWidget = nullptr;
+    m_lastPPTPreviewButton = nullptr;
+    m_lastPPTSaveButton = nullptr;
     m_pptPreviewImageLabels.clear();
     m_pptPreviewCaptionLabels.clear();
     m_lastAIThinkingWidget = nullptr;
     m_lastAIThinkingLabel = nullptr;
     m_lastAIThinkingToggle = nullptr;
+    if (m_thinkingCollapseTimer) {
+        m_thinkingCollapseTimer->stop();
+    }
+    m_thinkingContentToken = 0;
+    m_pendingThinkingCollapseToken = 0;
     m_typingIndicatorRow = nullptr;
 }
 

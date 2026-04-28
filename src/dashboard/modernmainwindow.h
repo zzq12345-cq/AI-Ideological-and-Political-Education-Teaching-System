@@ -53,6 +53,7 @@ class MyClassWidget;     // 学生我的班级
 class AdminDashboard;    // 管理员后台
 class LessonPlanEditor;
 class HelpCenterWidget;    // 帮助中心
+class InAppPPTPreviewPage; // 应用内 PPT 图片预览页
 class ZhipuPPTAgentService; // PPT Agent（BigModel）
 
 class ModernMainWindow : public QMainWindow
@@ -243,8 +244,15 @@ private:
     QTimer *m_pptTypingTimer = nullptr;         // 打字效果定时器
     QString m_pptTypingText;          // 待打字的完整文本
     int m_pptTypingIndex = 0;             // 当前打字位置
-    QString m_pptProcessLog;       // PPT Agent 可视化制作过程
+    QString m_pptProcessLog;       // PPT Agent 调试产物日志
     QString m_pptCurrentStatus;    // PPT Agent 当前状态文本
+    int m_pptThinkingToken = 0;    // PPT 思考区防竞态标记
+    QString m_currentPPTRecordId;  // 当前可预览 PPT 记录
+    QString m_currentPPTFilePath;  // 当前 PPTX 保存路径
+    QVector<QImage> m_currentPPTPreviews; // 当前 PPT 预览图片
+    int m_currentPPTTotalPages = 0;
+    int m_beforePPTPreviewStackIndex = -1;
+    InAppPPTPreviewPage *m_inAppPPTPreviewPage = nullptr;
     void startPPTGeneration(const QString &topic); // 启动真正的 PPT Agent 生成
     void startPPTSimulation(const QString &userMessage);  // 开始 PPT 模拟生成
     void onPPTSimulationStep();       // PPT 模拟步骤处理
@@ -259,11 +267,18 @@ private:
     void typeMessageWithEffect(const QString &text);      // 带打字效果的消息显示
     void onPPTTypingStep();           // 打字效果定时器回调
     QString buildPPTProcessMessage(const QString &status) const;
+    QString buildPPTMainMessage(const QString &stage, int percent) const;
+    QString buildPPTThinkingSummary(const QString &stage, const QString &detail) const;
     QString formatPPTArtifactBlock(const QString &title, const QString &language,
                                    const QString &content) const;
     void appendPPTArtifact(const QString &title, const QString &language,
                            const QString &content);
     void updatePPTProcessMessage(const QString &status);
+    void openCurrentPPTPreview(const QString &recordId = QString());
+    void exitCurrentPPTPreview();
+    void saveCurrentPPTToDesktop(const QString &recordId = QString());
+    bool loadPPTRecordState(const QString &recordId);
+    void resetCurrentPPTState();
     QString savePPTRecord(const QString &filePath, const QVector<QImage> &previews,
                           int totalPages);
     void updatePPTRecordFilePath(const QString &recordId, const QString &filePath);

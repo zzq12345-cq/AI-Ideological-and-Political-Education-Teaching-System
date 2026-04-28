@@ -59,6 +59,16 @@ public:
     void updateLastAIThinking(const QString &thought);
 
     /**
+     * @brief 替换最后一条 AI 消息的思考摘要
+     */
+    void setLastAIThinking(const QString &text, int token = -1);
+
+    /**
+     * @brief 延迟折叠思考过程区域
+     */
+    void scheduleThinkingCollapse(int delayMs, int token);
+
+    /**
      * @brief 折叠思考过程区域
      */
     void collapseThinking();
@@ -144,12 +154,26 @@ public:
      */
     void finishPPTPreviewProgress();
 
+    /**
+     * @brief 显示 PPT 完成后的操作按钮
+     */
+    void showPPTActions(bool canPreview, bool canSave,
+                        const QString &recordId = QString());
+
+    /**
+     * @brief 隐藏 PPT 操作按钮
+     */
+    void hidePPTActions();
+
 signals:
     /**
      * @brief 用户发送消息时发出
      * @param message 消息内容
      */
     void messageSent(const QString &message);
+
+    void pptPreviewRequested(const QString &recordId);
+    void pptSaveRequested(const QString &recordId);
 
 private slots:
     void onSendClicked();
@@ -166,6 +190,7 @@ private:
     void updateInputFocusState(bool focused);
     QWidget* createPPTPreviewCard(int slideIndex);
     void ensurePPTPreviewCard(int slideIndex);
+    QPushButton* createPPTActionButton(const QString &text, bool primary);
 
     // Markdown渲染相关
     QString renderMessage(const QString &text, bool isUser);
@@ -191,11 +216,17 @@ private:
     QGridLayout *m_lastPPTPreviewGrid;
     QVector<QLabel*> m_pptPreviewImageLabels;
     QVector<QLabel*> m_pptPreviewCaptionLabels;
-    
+    QWidget *m_lastPPTActionsWidget;
+    QPushButton *m_lastPPTPreviewButton;
+    QPushButton *m_lastPPTSaveButton;
+
     // 用于显示思考过程的组件
     QWidget *m_lastAIThinkingWidget;
     QLabel *m_lastAIThinkingLabel;
     QPushButton *m_lastAIThinkingToggle;
+    QTimer *m_thinkingCollapseTimer;
+    int m_thinkingContentToken;
+    int m_pendingThinkingCollapseToken;
 
     // Markdown渲染器
     std::unique_ptr<MarkdownRenderer> m_markdownRenderer;

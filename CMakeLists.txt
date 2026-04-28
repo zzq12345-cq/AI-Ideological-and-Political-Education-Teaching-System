@@ -106,6 +106,8 @@ set(PROJECT_SOURCES
     src/services/CurriculumService.h
     src/ui/ChatWidget.cpp
     src/ui/ChatWidget.h
+    src/ui/InAppPPTPreviewPage.cpp
+    src/ui/InAppPPTPreviewPage.h
     src/ui/LessonPlanEditor.cpp
     src/ui/LessonPlanEditor.h
     src/ui/AIChatDialog.cpp
